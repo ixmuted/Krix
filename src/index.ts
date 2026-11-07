@@ -832,6 +832,17 @@ app.get("/", async (req, res) => {
 
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
     @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) {
+      body { padding: 16px 12px; }
+      header { flex-direction: column; align-items: flex-start; gap: 14px; }
+      .brand { width: 100%; }
+      .user-nav { width: 100%; justify-content: space-between; }
+      .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+      .card { padding: 18px 14px; }
+      .endpoint-row { flex-direction: column; }
+      .key-disp { flex-direction: column; }
+      footer { flex-direction: column; gap: 8px; text-align: center; }
+    }
 
     .card {
       background: var(--card);
@@ -851,6 +862,36 @@ app.get("/", async (req, res) => {
     }
     p.card-desc { font-size: 13px; color: var(--dim); margin-bottom: 16px; line-height: 1.5; }
 
+    .endpoint-box {
+      background: var(--card-sub);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .endpoint-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--dim);
+      margin-bottom: 6px;
+    }
+    .endpoint-row {
+      display: flex;
+      gap: 8px;
+    }
+    .endpoint-row input {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--code-bg);
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 12.5px;
+    }
+
     .tree-box {
       background: var(--code-bg);
       border: 1px solid var(--line);
@@ -861,6 +902,7 @@ app.get("/", async (req, res) => {
       color: #9cdcfe;
       line-height: 1.7;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .tree-item { display: flex; align-items: center; gap: 8px; }
     .tree-folder { color: #e5c07b; font-weight: 600; }
@@ -877,6 +919,7 @@ app.get("/", async (req, res) => {
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
+      white-space: nowrap;
     }
     .tab.active { background: #21262d; color: var(--hi); border-color: var(--dim); }
     .code-view {
@@ -890,6 +933,7 @@ app.get("/", async (req, res) => {
       color: #79c0ff;
       white-space: pre;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .copy-btn {
       position: absolute;
@@ -1022,12 +1066,21 @@ app.get("/", async (req, res) => {
           <span>MCP Client Setup</span>
           <span class="badge live">OAuth 2.1</span>
         </div>
-        <p class="card-desc">Connect Claude Desktop, Cursor, Antigravity, or any agent using native OAuth 2.1 or a Gateway API key.</p>
+        <p class="card-desc">Connect Claude Desktop, Cursor, Antigravity, ChatGPT, or any agent using native OAuth 2.1 or a Gateway API key.</p>
+
+        <div class="endpoint-box">
+          <div class="endpoint-label">Streamable HTTP MCP Endpoint URL</div>
+          <div class="endpoint-row">
+            <input type="text" id="mcpUrlInput" value="${base}/mcp" readonly>
+            <button class="btn" onclick="copyMcpUrl()" id="copyUrlBtn">Copy URL</button>
+          </div>
+        </div>
 
         <div class="tab-bar">
           <button class="tab active" onclick="showTab('claude')">Claude Desktop</button>
           <button class="tab" onclick="showTab('cursor')">Cursor</button>
           <button class="tab" onclick="showTab('antigravity')">Antigravity</button>
+          <button class="tab" onclick="showTab('chatgpt')">ChatGPT</button>
           <button class="tab" onclick="showTab('oauth')">OAuth 2.1</button>
         </div>
 
@@ -1078,52 +1131,81 @@ app.get("/", async (req, res) => {
 
   <script>
     const baseUrl = '${base}';
-    const snippets = {
-      claude: JSON.stringify({
-        mcpServers: {
-          krix: {
-            url: baseUrl + "/mcp",
-            headers: {
-              "x-api-key": "$MCP_API_KEY"
+    let activeKey = '${dynamicKeys.length > 0 ? dynamicKeys[0].id : "$MCP_API_KEY"}';
+
+    function getSnippets() {
+      const keyDisp = activeKey || '$MCP_API_KEY';
+      return {
+        claude: JSON.stringify({
+          mcpServers: {
+            krix: {
+              url: baseUrl + "/mcp",
+              headers: {
+                "Authorization": "Bearer " + keyDisp
+              }
             }
           }
-        }
-      }, null, 2),
-      cursor: JSON.stringify({
-        mcpServers: {
-          krix: {
-            url: baseUrl + "/mcp",
-            headers: {
-              "x-api-key": "$MCP_API_KEY"
+        }, null, 2),
+        cursor: JSON.stringify({
+          mcpServers: {
+            krix: {
+              url: baseUrl + "/mcp",
+              headers: {
+                "Authorization": "Bearer " + keyDisp
+              }
             }
           }
-        }
-      }, null, 2),
-      antigravity: JSON.stringify({
-        krix: {
-          url: baseUrl + "/mcp"
-        }
-      }, null, 2),
-      oauth: "// Modern MCP Clients automatically discover OAuth 2.1:\\n" +
-        "// Authorization Server: " + baseUrl + "/oauth/authorize\\n" +
-        "// Protected Resource:   " + baseUrl + "/.well-known/oauth-protected-resource\\n" +
-        "// Token Endpoint:       " + baseUrl + "/oauth/token\\n" +
-        "// Dynamic Registration: " + baseUrl + "/oauth/register"
-    };
+        }, null, 2),
+        antigravity: JSON.stringify({
+          mcpServers: {
+            krix: {
+              url: baseUrl + "/mcp",
+              headers: {
+                "Authorization": "Bearer " + keyDisp
+              }
+            }
+          }
+        }, null, 2),
+        chatgpt: "// ChatGPT Custom GPT -> Configure -> Add Actions -> Authentication:\\n" +
+          "// 1. Auth Type: Bearer\\n" +
+          "//    Token:     " + keyDisp + "\\n" +
+          "// OR select OAuth:\\n" +
+          "//    Auth URL:  " + baseUrl + "/oauth/authorize\\n" +
+          "//    Token URL: " + baseUrl + "/oauth/token\\n" +
+          "//    Scope:     mcp:tools",
+        oauth: "// Modern MCP Clients auto-discover OAuth 2.1 via RFC 9728 & RFC 8414:\\n" +
+          "// Endpoint:            " + baseUrl + "/mcp\\n" +
+          "// Protected Resource:   " + baseUrl + "/.well-known/oauth-protected-resource\\n" +
+          "// Authorization Server: " + baseUrl + "/oauth/authorize\\n" +
+          "// Token Endpoint:       " + baseUrl + "/oauth/token\\n" +
+          "// Dynamic Client Reg:   " + baseUrl + "/oauth/register"
+      };
+    }
 
     let curTab = 'claude';
     function showTab(name) {
       curTab = name;
-      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().includes(name)));
-      document.getElementById('snippet').textContent = snippets[name];
+      document.querySelectorAll('.tab').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('onclick').includes("'" + name + "'"));
+      });
+      document.getElementById('snippet').textContent = getSnippets()[name];
     }
     showTab('claude');
 
     function copySnippet() {
-      navigator.clipboard.writeText(snippets[curTab]);
+      navigator.clipboard.writeText(getSnippets()[curTab]);
       const btn = document.querySelector('.copy-btn');
       btn.textContent = 'Copied!';
       setTimeout(() => btn.textContent = 'Copy', 1500);
+    }
+
+    function copyMcpUrl() {
+      const el = document.getElementById('mcpUrlInput');
+      el.select();
+      navigator.clipboard.writeText(el.value);
+      const btn = document.getElementById('copyUrlBtn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy URL', 1500);
     }
 
     async function generateKey() {
@@ -1134,12 +1216,14 @@ app.get("/", async (req, res) => {
         const res = await fetch('/auth/keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: 'Web Generated Key' })
+          body: JSON.stringify({ label: 'Client Key ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) })
         });
         const data = await res.json();
         if (data.key) {
+          activeKey = data.key;
           document.getElementById('keyDisp').style.display = 'flex';
           document.getElementById('newKeyVal').value = data.key;
+          showTab(curTab);
         }
       } catch (e) {
         alert('Failed to generate key: ' + e.message);
@@ -1153,7 +1237,7 @@ app.get("/", async (req, res) => {
       const el = document.getElementById('newKeyVal');
       el.select();
       navigator.clipboard.writeText(el.value);
-      alert('Gateway API Key copied to clipboard!');
+      alert('Gateway API Key copied to clipboard! The code snippets above have also been updated with this key.');
     }
   </script>
 </body>

@@ -660,6 +660,13 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
   [hidden] { display:none !important; }
   .links { margin-top:20px; font-size:13px; text-align:center; color:var(--dim); }
   .links a { color:var(--accent); text-decoration:none; }
+  @media (max-width: 640px) {
+    body { padding:16px 12px; }
+    .card { padding:20px 16px; border-radius:12px; }
+    header { flex-direction:column; align-items:flex-start; gap:12px; }
+    .owner-pill { width:100%; justify-content:space-between; }
+    .row { flex-direction:column; }
+  }
 </style>
 </head>
 <body>
