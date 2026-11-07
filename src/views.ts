@@ -685,6 +685,7 @@ export function renderHomePage(params: {
 
         <div class="tab-bar">
           <button class="tab active" onclick="showTab('claude')">Claude Desktop</button>
+          <button class="tab" onclick="showTab('gemini')">Gemini</button>
           <button class="tab" onclick="showTab('cursor')">Cursor</button>
           <button class="tab" onclick="showTab('antigravity')">Antigravity</button>
           <button class="tab" onclick="showTab('chatgpt')">ChatGPT</button>
@@ -732,6 +733,7 @@ export function renderHomePage(params: {
             }
           }
         }, null, 2),
+        gemini: "// Google Gemini MCP Connection\\n// 1. Settings -> Connected Apps -> Connect to an MCP server\\n// 2. Server URL: " + baseUrl + "/mcp\\n// 3. Click 'Next' and approve with your Google owner account\\n// Note: Redirect URI & Additional settings are handled automatically",
         cursor: JSON.stringify({
           name: "krix",
           type: "streamable-http",
@@ -751,7 +753,7 @@ export function renderHomePage(params: {
           }
         }, null, 2),
         chatgpt: "// ChatGPT Developer Actions Configuration\\n// MCP Endpoint: " + baseUrl + "/mcp\\n// Auth: Bearer Token (" + keyDisp + ")",
-        oauth: "// Connect directly using OAuth discovery\\n// Resource URL: " + baseUrl + "/mcp\\n// Metadata: " + baseUrl + "/.well-known/oauth-protected-resource"
+        oauth: "// Universal OAuth 2.1 Discovery (RFC 9728 & RFC 8414)\\n// Endpoint: " + baseUrl + "/mcp\\n// Authorize: " + baseUrl + "/oauth/authorize\\n// Token: " + baseUrl + "/oauth/token"
       };
     }
 
@@ -948,6 +950,34 @@ export function renderApiKeysPage(params: {
               }
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Security & MCP Integration Guide -->
+      <div class="card" style="margin-top:24px;">
+        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:6px;">Unified Authentication &amp; MCP Integration</h2>
+        <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
+          All generated keys share the same isolated sandbox and 300 MB quota with owner privileges.
+        </p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+          <div style="background:var(--card-sub); border:1px solid var(--border); border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">Google Gemini MCP</div>
+            <div style="font-size:12px; color:var(--accents-5); line-height:1.6;">
+              Connect via OAuth 2.1 PKCE by entering your MCP endpoint URL. Redirect URI and Additional settings are handled automatically. If using Client Secret, you may use any active key above.
+            </div>
+          </div>
+          <div style="background:var(--card-sub); border:1px solid var(--border); border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">Claude Desktop &amp; Cursor</div>
+            <div style="font-size:12px; color:var(--accents-5); line-height:1.6;">
+              Supply your active key in HTTP headers using <code>Authorization: Bearer &lt;key&gt;</code> or <code>x-api-key: &lt;key&gt;</code>. Query parameter keys are disabled for maximum logging security.
+            </div>
+          </div>
+          <div style="background:var(--card-sub); border:1px solid var(--border); border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">Cryptographic Storage</div>
+            <div style="font-size:12px; color:var(--accents-5); line-height:1.6;">
+              Keys are stored hashed in MongoDB and verified in constant time. Key deletion immediately invalidates access across all MCP connections.
+            </div>
+          </div>
         </div>
       </div>
     `

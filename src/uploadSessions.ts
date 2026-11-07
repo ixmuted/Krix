@@ -860,8 +860,10 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
     <ul id="list" style="margin-top:14px;"></ul>
     <div class="err" id="upErr" role="alert"></div>
     <p class="note">Files are saved in your sandbox at <code>${info.folder}/&lt;filename&gt;</code>. They are automatically accessible to your AI from both the sandbox root and cloned repository directories.</p>
-    <div class="row">
-      <button id="end" type="button">End upload session</button>
+    <div style="margin-top:16px;">
+      <a href="/home" style="text-decoration:none; display:block;">
+        <button type="button" class="btn" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">Go to Workspace Explorer &rarr;</button>
+      </a>
     </div>
   </section>
 </main>
@@ -1091,7 +1093,7 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
 
-  $('end').addEventListener('click', async () => {
+  $('end')?.addEventListener('click', async () => {
     const t = token;
     token = null;
     $('sessionStatus').textContent = 'Session Closed';

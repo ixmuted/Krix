@@ -2,7 +2,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import express, { Router, type Request, type Response } from "express";
-import { parseOwnerCookie, getPublicBaseUrl } from "./googleAuth.js";
+import {
+  parseOwnerCookie,
+  getPublicBaseUrl,
+  isAuthorizedApiKey,
+} from "./googleAuth.js";
 import { safeEqual, registerSecret } from "./security.js";
 
 export interface OAuthClient {
@@ -18,7 +22,7 @@ export interface AuthCodeEntry {
   clientId: string;
   redirectUri: string;
   codeChallenge: string;
-  codeChallengeMethod: "S256";
+  codeChallengeMethod: "S256" | "plain";
   scope: string;
   ownerEmail: string;
   expiresAt: number;
@@ -32,6 +36,15 @@ export interface IssuedTokenEntry {
   scope: string;
   expiresAt: number;
   refreshExpiresAt: number;
+}
+
+function escapeHtml(str: string): string {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 const registeredClients = new Map<string, OAuthClient>();
@@ -133,6 +146,7 @@ export function getRsaKeyPair(): RsaKeyPair {
   };
 
   try {
+    fs.mkdirSync(path.dirname(keyPath), { recursive: true });
     fs.writeFileSync(keyPath, JSON.stringify(cachedRsaKey, null, 2), "utf-8");
   } catch {}
 
@@ -145,113 +159,119 @@ function signAccessToken(payload: Record<string, unknown>): string {
     ...payload,
     jti: crypto.randomBytes(16).toString("hex"),
   };
-  const rsa = getRsaKeyPair();
-  const head = base64url(
-    Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT", kid: rsa.jwk.kid })),
-  );
-  const body = base64url(Buffer.from(JSON.stringify(fullPayload)));
-  const sig = crypto
-    .createSign("RSA-SHA256")
-    .update(`${head}.${body}`)
-    .sign(rsa.privateKey, "base64url");
-  return `${head}.${body}.${sig}`;
+
+  try {
+    const rsa = getRsaKeyPair();
+    const header = { alg: "RS256", typ: "JWT", kid: rsa.jwk.kid };
+    const h64 = Buffer.from(JSON.stringify(header)).toString("base64url");
+    const p64 = Buffer.from(JSON.stringify(fullPayload)).toString("base64url");
+    const dataToSign = `${h64}.${p64}`;
+
+    const signer = crypto.createSign("RSA-SHA256");
+    signer.update(dataToSign);
+    const sig64 = signer.sign(rsa.privateKey, "base64url");
+
+    return `${h64}.${p64}.${sig64}`;
+  } catch {
+    // Fallback to HMAC
+    const header = { alg: "HS256", typ: "JWT" };
+    const h64 = Buffer.from(JSON.stringify(header)).toString("base64url");
+    const p64 = Buffer.from(JSON.stringify(fullPayload)).toString("base64url");
+    const sig = crypto
+      .createHmac("sha256", getSigningSecret())
+      .update(`${h64}.${p64}`)
+      .digest("base64url");
+    return `${h64}.${p64}.${sig}`;
+  }
 }
 
 function signRefreshToken(payload: Record<string, unknown>): string {
+  const header = { alg: "HS256", typ: "JWT" };
   const fullPayload = {
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 30 * 86400, // 30 days
     ...payload,
     jti: crypto.randomBytes(16).toString("hex"),
-    typ: "refresh",
   };
-  const head = base64url(
-    Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })),
-  );
-  const body = base64url(Buffer.from(JSON.stringify(fullPayload)));
+  const h64 = Buffer.from(JSON.stringify(header)).toString("base64url");
+  const p64 = Buffer.from(JSON.stringify(fullPayload)).toString("base64url");
   const sig = crypto
     .createHmac("sha256", getSigningSecret())
-    .update(`${head}.${body}`)
+    .update(`${h64}.${p64}`)
     .digest("base64url");
-  return `krix_rf_${head}.${body}.${sig}`;
+  return `krix_rf_${h64}.${p64}.${sig}`;
 }
 
-export function verifyAccessToken(token: string): {
+export function verifyAccessToken(tokenString?: string | null): {
   valid: boolean;
   payload?: any;
-  reason?: string;
 } {
-  // Check active in-memory tokens first
-  const known = issuedTokens.get(token);
-  if (known) {
-    if (Date.now() > known.expiresAt) {
-      issuedTokens.delete(token);
-      return { valid: false, reason: "Token expired" };
-    }
+  if (!tokenString) return { valid: false };
+
+  let token = tokenString.trim();
+  if (token.startsWith("krix_rs_")) {
+    token = token.slice("krix_rs_".length);
+  } else if (token.startsWith("krix_tok_")) {
+    token = token.slice("krix_tok_".length);
+  }
+
+  const parts = token.split(".");
+  if (parts.length === 3) {
+    const [h64, p64, sig64] = parts;
+    try {
+      const header = JSON.parse(
+        Buffer.from(h64, "base64url").toString("utf-8"),
+      );
+      if (header.alg === "RS256") {
+        const rsa = getRsaKeyPair();
+        const verifier = crypto.createVerify("RSA-SHA256");
+        verifier.update(`${h64}.${p64}`);
+        const isValid = verifier.verify(rsa.publicKey, sig64, "base64url");
+        if (isValid) {
+          const payload = JSON.parse(
+            Buffer.from(p64, "base64url").toString("utf-8"),
+          );
+          if (
+            typeof payload.exp !== "number" ||
+            Date.now() / 1000 < payload.exp
+          ) {
+            return { valid: true, payload };
+          }
+        }
+      } else if (header.alg === "HS256") {
+        const expectedSig = crypto
+          .createHmac("sha256", getSigningSecret())
+          .update(`${h64}.${p64}`)
+          .digest("base64url");
+        if (safeEqual(sig64, expectedSig)) {
+          const payload = JSON.parse(
+            Buffer.from(p64, "base64url").toString("utf-8"),
+          );
+          if (
+            typeof payload.exp !== "number" ||
+            Date.now() / 1000 < payload.exp
+          ) {
+            return { valid: true, payload };
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Fallback: Check memory cache
+  const record = issuedTokens.get(tokenString);
+  if (record && Date.now() < record.expiresAt) {
     return {
       valid: true,
       payload: {
-        sub: known.ownerEmail,
-        scope: known.scope,
-        client_id: known.clientId,
+        sub: record.ownerEmail,
+        client_id: record.clientId,
+        scope: record.scope,
       },
     };
   }
 
-  // Stateless JWT verification
-  const parts = token.split(".");
-  if (parts.length !== 3)
-    return { valid: false, reason: "Malformed token structure" };
-  const [head, body, sig] = parts;
-
-  let parsedHead: any = {};
-  try {
-    parsedHead = JSON.parse(Buffer.from(head, "base64url").toString("utf-8"));
-  } catch {
-    return { valid: false, reason: "Invalid token header" };
-  }
-
-  // 1. Asymmetric RS256 verification
-  if (parsedHead.alg === "RS256") {
-    try {
-      const rsa = getRsaKeyPair();
-      const valid = crypto
-        .createVerify("RSA-SHA256")
-        .update(`${head}.${body}`)
-        .verify(rsa.publicKey, sig, "base64url");
-      if (!valid) return { valid: false, reason: "Invalid RS256 signature" };
-
-      const payload = JSON.parse(
-        Buffer.from(body, "base64url").toString("utf-8"),
-      );
-      if (typeof payload.exp === "number" && Date.now() / 1000 > payload.exp) {
-        return { valid: false, reason: "Token expired" };
-      }
-      return { valid: true, payload };
-    } catch {
-      return { valid: false, reason: "RS256 verification failed" };
-    }
-  }
-
-  // 2. Symmetric HS256 verification (fallback)
-  const expectedSig = crypto
-    .createHmac("sha256", getSigningSecret())
-    .update(`${head}.${body}`)
-    .digest("base64url");
-  if (!safeEqual(sig, expectedSig))
-    return { valid: false, reason: "Invalid signature" };
-
-  try {
-    const payload = JSON.parse(
-      Buffer.from(body, "base64url").toString("utf-8"),
-    );
-    if (typeof payload.exp === "number" && Date.now() / 1000 > payload.exp) {
-      return { valid: false, reason: "Token expired" };
-    }
-    return { valid: true, payload };
-  } catch {
-    return { valid: false, reason: "Unparseable token payload" };
-  }
+  return { valid: false };
 }
 
 export function createMcpOAuthRouter(): Router {
@@ -261,10 +281,7 @@ export function createMcpOAuthRouter(): Router {
   // RFC 9728: Protected Resource Metadata
   // ---------------------------------------------------------------------------
   router.get(
-    [
-      "/.well-known/oauth-protected-resource",
-      "/.well-known/oauth-protected-resource/mcp",
-    ],
+    "/.well-known/oauth-protected-resource",
     (req: Request, res: Response): void => {
       const base = getPublicBaseUrl(req);
       res.setHeader("Content-Type", "application/json");
@@ -280,9 +297,9 @@ export function createMcpOAuthRouter(): Router {
   );
 
   // ---------------------------------------------------------------------------
-  // RFC 7517: JSON Web Key Set (JWKS)
+  // RFC 7517: JWKS (JSON Web Key Set)
   // ---------------------------------------------------------------------------
-  router.get("/.well-known/jwks.json", (req: Request, res: Response): void => {
+  router.get("/.well-known/jwks.json", (_req: Request, res: Response): void => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -311,8 +328,16 @@ export function createMcpOAuthRouter(): Router {
         jwks_uri: `${base}/.well-known/jwks.json`,
         response_types_supported: ["code"],
         code_challenge_methods_supported: ["S256"],
-        grant_types_supported: ["authorization_code", "refresh_token"],
-        token_endpoint_auth_methods_supported: ["client_secret_post", "none"],
+        grant_types_supported: [
+          "authorization_code",
+          "refresh_token",
+          "client_credentials",
+        ],
+        token_endpoint_auth_methods_supported: [
+          "client_secret_post",
+          "client_secret_basic",
+          "none",
+        ],
         token_endpoint_auth_signing_alg_values_supported: ["RS256", "HS256"],
         scopes_supported: ["mcp:tools", "mcp:sandbox", "mcp:admin"],
       });
@@ -356,7 +381,11 @@ export function createMcpOAuthRouter(): Router {
         client_secret: clientSecret,
         client_name: clientName,
         redirect_uris: redirectUris,
-        grant_types: ["authorization_code", "refresh_token"],
+        grant_types: [
+          "authorization_code",
+          "refresh_token",
+          "client_credentials",
+        ],
         response_types: ["code"],
         token_endpoint_auth_method: "client_secret_post",
       });
@@ -368,8 +397,14 @@ export function createMcpOAuthRouter(): Router {
   // ---------------------------------------------------------------------------
   router.get("/oauth/authorize", (req: Request, res: Response): void => {
     const clientId = String(req.query.client_id || "");
-    const redirectUri = String(req.query.redirect_uri || "");
-    const responseType = String(req.query.response_type || "");
+    let redirectUri = String(req.query.redirect_uri || "").trim();
+    try {
+      if (redirectUri.includes("%3A") || redirectUri.includes("%2F")) {
+        redirectUri = decodeURIComponent(redirectUri);
+      }
+    } catch {}
+
+    const responseType = String(req.query.response_type || "code");
     const codeChallenge = String(req.query.code_challenge || "");
     const codeChallengeMethod = String(
       req.query.code_challenge_method || "S256",
@@ -381,16 +416,6 @@ export function createMcpOAuthRouter(): Router {
       res.status(400).send("Unsupported response_type. Must be 'code'.");
       return;
     }
-    if (!codeChallenge) {
-      res
-        .status(400)
-        .send("OAuth 2.1 requires PKCE: 'code_challenge' is required.");
-      return;
-    }
-    if (codeChallengeMethod !== "S256") {
-      res.status(400).send("OAuth 2.1 requires code_challenge_method='S256'.");
-      return;
-    }
 
     const owner = parseOwnerCookie(req);
     if (!owner) {
@@ -400,85 +425,243 @@ export function createMcpOAuthRouter(): Router {
     }
 
     const registered = registeredClients.get(clientId);
-    const clientName =
-      registered?.clientName ||
-      (clientId ? `Client (${clientId.slice(0, 16)})` : "MCP Client");
+    let clientName = registered?.clientName;
+    if (!clientName) {
+      if (
+        clientId.toLowerCase().includes("gemini") ||
+        redirectUri.toLowerCase().includes("google")
+      ) {
+        clientName = "Google Gemini";
+      } else if (clientId) {
+        clientName = `Client (${clientId.slice(0, 16)})`;
+      } else {
+        clientName = "MCP Client";
+      }
+    }
+
+    const displayEmail = owner.email
+      ? decodeURIComponent(owner.email)
+      : "Owner";
+    const effectiveChallenge = codeChallenge || "direct_client_auth";
+    const effectiveMethod = codeChallengeMethod === "plain" ? "plain" : "S256";
 
     const nonce = crypto.randomBytes(16).toString("base64");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' https:; form-action 'self'`,
+      `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' https: data:; form-action 'self'`,
     );
+
     res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Authorize MCP Client - Krix</title>
+  <title>Authorize Connection - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
   <style nonce="${nonce}">
-    :root { color-scheme: dark; --bg:#090d13; --card:#121820; --line:#242c38; --fg:#c9d1d9; --dim:#7d8590; --hi:#f0f6fc; --ok:#238636; --accent:#58a6ff; }
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --fg: #000000;
+      --accents-1: #fafafa;
+      --accents-2: #eaeaea;
+      --accents-3: #999999;
+      --accents-4: #888888;
+      --accents-5: #666666;
+      --border: var(--accents-2);
+      --card: #ffffff;
+      --accent: #0070f3;
+    }
+    .dark {
+      --bg: #000000;
+      --fg: #ffffff;
+      --accents-1: #111111;
+      --accents-2: #222222;
+      --accents-3: #333333;
+      --accents-4: #555555;
+      --accents-5: #777777;
+      --border: var(--accents-2);
+      --card: #0a0a0a;
+      --accent: #0070f3;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 16px; }
-    .card { width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08); }
-    .head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .icon { width: 44px; height: 44px; border-radius: 10px; background: #161b22; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); }
-    h1 { font-size: 19px; color: var(--hi); font-weight: 600; }
-    p.sub { color: var(--dim); font-size: 13px; margin-bottom: 20px; }
-    .scope-box { background: rgba(88,166,255,0.05); border: 1px solid rgba(88,166,255,0.2); border-radius: 8px; padding: 14px; margin-bottom: 24px; }
-    .scope-box h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); margin-bottom: 6px; }
-    .scope-box ul { list-style: none; }
-    .scope-box li { font-size: 13px; color: var(--hi); display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-    .scope-box li::before { content: "✓"; color: #3fb950; font-weight: bold; }
-    .user-info { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0d1117; border-radius: 8px; border: 1px solid var(--line); margin-bottom: 24px; font-size: 13px; }
-    .user-info img { width: 28px; height: 28px; border-radius: 50%; }
-    .actions { display: flex; gap: 10px; }
-    button { flex: 1; padding: 10px 16px; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .15s ease; }
-    button.primary { background: var(--ok); color: #fff; }
-    button.primary:hover { background: #2ea043; }
-    button.secondary { background: transparent; border-color: var(--line); color: var(--dim); }
-    button.secondary:hover { background: #21262d; color: var(--hi); }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--bg);
+      color: var(--fg);
+      background-image: radial-gradient(var(--accents-2) 1px, transparent 1px);
+      background-size: 24px 24px;
+      font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+    }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--fg);
+    }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accents-1);
+    }
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--fg); margin-bottom: 6px; }
+    p.sub { color: var(--accents-5); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--accents-1);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+    .user-badge img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+    .scopes {
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+    }
+    .scopes-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accents-5);
+      margin-bottom: 10px;
+    }
+    .scope-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--fg);
+      padding: 4px 0;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      flex: 1;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: all .15s ease;
+      border: 1px solid var(--border);
+    }
+    .btn.primary {
+      background: var(--fg);
+      color: var(--bg);
+      border-color: var(--fg);
+    }
+    .btn.primary:hover { opacity: 0.9; }
+    .btn.secondary {
+      background: var(--accents-1);
+      color: var(--fg);
+    }
+    .btn.secondary:hover { background: var(--accents-2); border-color: var(--accents-4); }
   </style>
+  <script nonce="${nonce}">
+    const t = localStorage.getItem('qw-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (t === 'dark') document.documentElement.classList.add('dark');
+  </script>
 </head>
 <body>
   <div class="card">
-    <div class="head">
-      <div class="icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
+    <div class="brand-bar">
+      <div class="brand">
+        <div class="avatar">
+          <img src="/icon-48.png" alt="Krix">
+        </div>
+        <span>Krix</span>
       </div>
-      <div>
-        <h1>Authorize Access</h1>
-        <p class="sub">${encodeURIComponent(clientName)} requests access</p>
-      </div>
+      <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; border:1px solid var(--border); background:var(--accents-1); color:#0070f3;">OAuth</span>
     </div>
 
-    <div class="user-info">
-      ${owner.picture ? `<img src="${encodeURI(owner.picture)}" alt="">` : ""}
-      <div>Signed in as <strong>${encodeURIComponent(owner.email)}</strong></div>
+    <h1>Authorize Access</h1>
+    <p class="sub"><strong>${escapeHtml(clientName)}</strong> requests access to your isolated Krix MCP execution environment.</p>
+
+    <div class="user-badge">
+      ${owner.picture ? `<img src="${escapeHtml(owner.picture)}" alt="">` : ""}
+      <div>Signed in as <strong>${escapeHtml(displayEmail)}</strong></div>
     </div>
 
-    <div class="scope-box">
-      <h3>Permissions Requested</h3>
-      <ul>
-        <li>Execute sandbox tools & code</li>
-        <li>Access sandbox uploads & workspace</li>
-        <li>GitHub & Render management</li>
-      </ul>
+    <div class="scopes">
+      <div class="scopes-title">Permissions Requested</div>
+      <div class="scope-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        <span>Execute sandbox tools &amp; commands</span>
+      </div>
+      <div class="scope-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        <span>Access sandbox uploads &amp; workspace</span>
+      </div>
+      <div class="scope-item">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <span>Asymmetric cryptographic token verification</span>
+      </div>
     </div>
 
     <form method="POST" action="/oauth/authorize">
-      <input type="hidden" name="client_id" value="${encodeURIComponent(clientId)}">
-      <input type="hidden" name="redirect_uri" value="${encodeURIComponent(redirectUri)}">
-      <input type="hidden" name="code_challenge" value="${encodeURIComponent(codeChallenge)}">
-      <input type="hidden" name="code_challenge_method" value="S256">
-      <input type="hidden" name="scope" value="${encodeURIComponent(scope)}">
-      <input type="hidden" name="state" value="${encodeURIComponent(state)}">
+      <input type="hidden" name="client_id" value="${escapeHtml(clientId)}">
+      <input type="hidden" name="redirect_uri" value="${escapeHtml(redirectUri)}">
+      <input type="hidden" name="code_challenge" value="${escapeHtml(effectiveChallenge)}">
+      <input type="hidden" name="code_challenge_method" value="${escapeHtml(effectiveMethod)}">
+      <input type="hidden" name="scope" value="${escapeHtml(scope)}">
+      <input type="hidden" name="state" value="${escapeHtml(state)}">
       <div class="actions">
-        <a href="/" style="text-decoration:none; flex:1;"><button type="button" class="secondary">Cancel</button></a>
-        <button type="submit" class="primary">Approve &amp; Connect</button>
+        <a href="/" class="btn secondary">Cancel</a>
+        <button type="submit" class="btn primary">Approve &amp; Connect</button>
       </div>
     </form>
   </div>
@@ -497,18 +680,38 @@ export function createMcpOAuthRouter(): Router {
       }
 
       const clientId = String(req.body.client_id || "");
-      const redirectUri = String(req.body.redirect_uri || "");
-      const codeChallenge = String(req.body.code_challenge || "");
-      const codeChallengeMethod = String(
-        req.body.code_challenge_method || "S256",
-      );
-      const scope = String(req.body.scope || "mcp:tools");
-      const state = String(req.body.state || "");
+      let redirectUri = String(req.body.redirect_uri || "").trim();
+      try {
+        if (redirectUri.includes("%3A") || redirectUri.includes("%2F")) {
+          redirectUri = decodeURIComponent(redirectUri);
+        }
+      } catch {}
 
-      if (!codeChallenge || codeChallengeMethod !== "S256") {
-        res.status(400).send("Invalid PKCE parameters.");
+      if (!redirectUri) {
+        res.status(400).send("redirect_uri is required.");
         return;
       }
+
+      let targetUrl: URL;
+      try {
+        targetUrl = new URL(redirectUri);
+      } catch (e: any) {
+        console.error(
+          "[oauth] invalid redirect_uri on authorize:",
+          redirectUri,
+          e?.message,
+        );
+        res.status(400).send("Invalid redirect_uri.");
+        return;
+      }
+
+      const codeChallenge = String(req.body.code_challenge || "");
+      const codeChallengeMethod =
+        String(req.body.code_challenge_method || "S256") === "plain"
+          ? "plain"
+          : "S256";
+      const scope = String(req.body.scope || "mcp:tools");
+      const state = String(req.body.state || "");
 
       const code = "krix_code_" + crypto.randomBytes(24).toString("base64url");
       activeAuthCodes.set(code, {
@@ -516,13 +719,12 @@ export function createMcpOAuthRouter(): Router {
         clientId,
         redirectUri,
         codeChallenge,
-        codeChallengeMethod: "S256",
+        codeChallengeMethod,
         scope,
         ownerEmail: owner.email,
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       });
 
-      const targetUrl = new URL(redirectUri);
       targetUrl.searchParams.set("code", code);
       if (state) targetUrl.searchParams.set("state", state);
 
@@ -540,6 +742,7 @@ export function createMcpOAuthRouter(): Router {
     (req: Request, res: Response): void => {
       const grantType = req.body.grant_type;
 
+      // 1. Authorization Code Grant (PKCE)
       if (grantType === "authorization_code") {
         const code = String(req.body.code || "");
         const verifier = String(req.body.code_verifier || "");
@@ -565,9 +768,24 @@ export function createMcpOAuthRouter(): Router {
           return;
         }
 
+        let cleanReqUri = redirectUri.trim();
+        try {
+          if (cleanReqUri.includes("%3A") || cleanReqUri.includes("%2F")) {
+            cleanReqUri = decodeURIComponent(cleanReqUri);
+          }
+        } catch {}
+
+        let cleanEntryUri = (entry.redirectUri || "").trim();
+        try {
+          if (cleanEntryUri.includes("%3A") || cleanEntryUri.includes("%2F")) {
+            cleanEntryUri = decodeURIComponent(cleanEntryUri);
+          }
+        } catch {}
+
         if (
-          entry.redirectUri &&
-          redirectUri &&
+          cleanEntryUri &&
+          cleanReqUri &&
+          cleanEntryUri !== cleanReqUri &&
           entry.redirectUri !== redirectUri
         ) {
           res.status(400).json({
@@ -577,13 +795,22 @@ export function createMcpOAuthRouter(): Router {
           return;
         }
 
-        // Verify PKCE S256
-        if (!verifier || !verifyPkceS256(verifier, entry.codeChallenge)) {
-          res.status(400).json({
-            error: "invalid_grant",
-            error_description: "PKCE code_verifier challenge failed.",
-          });
-          return;
+        // Verify PKCE if a challenge was registered
+        if (
+          entry.codeChallenge &&
+          entry.codeChallenge !== "direct_client_auth"
+        ) {
+          const passes =
+            entry.codeChallengeMethod === "plain"
+              ? safeEqual(verifier, entry.codeChallenge)
+              : verifyPkceS256(verifier, entry.codeChallenge);
+          if (!passes) {
+            res.status(400).json({
+              error: "invalid_grant",
+              error_description: "PKCE code_verifier challenge failed.",
+            });
+            return;
+          }
         }
 
         const base = getPublicBaseUrl(req);
@@ -629,6 +856,78 @@ export function createMcpOAuthRouter(): Router {
         return;
       }
 
+      // 2. Client Credentials Grant (Direct API Key / Secret support)
+      if (grantType === "client_credentials") {
+        let clientId = String(req.body.client_id || "");
+        let clientSecret = String(req.body.client_secret || "");
+
+        // Support HTTP Basic client authentication (RFC 6749 Section 2.3.1)
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Basic ")) {
+          try {
+            const creds = Buffer.from(authHeader.slice(6), "base64").toString(
+              "utf-8",
+            );
+            const colon = creds.indexOf(":");
+            if (colon !== -1) {
+              clientId = decodeURIComponent(creds.slice(0, colon));
+              clientSecret = decodeURIComponent(creds.slice(colon + 1));
+            }
+          } catch {}
+        }
+
+        const mcpKey = process.env.MCP_API_KEY;
+        const isMaster = mcpKey && safeEqual(clientSecret, mcpKey);
+        const isDyn = isAuthorizedApiKey(clientSecret);
+        const registered = registeredClients.get(clientId);
+        const isRegistered = Boolean(
+          registered &&
+          registered.clientSecret &&
+          safeEqual(clientSecret, registered.clientSecret),
+        );
+
+        if (!isMaster && !isDyn && !isRegistered) {
+          res.status(401).json({
+            error: "invalid_client",
+            error_description:
+              "Client authentication failed. Invalid client_secret.",
+          });
+          return;
+        }
+
+        const base = getPublicBaseUrl(req);
+        const ownerEmail = process.env.OWNER_EMAIL || "owner";
+        const accessToken = signAccessToken({
+          sub: ownerEmail,
+          client_id: clientId || "mcp_client",
+          scope: "mcp:tools mcp:sandbox",
+          iss: base,
+          aud: `${base}/mcp`,
+          exp: Math.floor(Date.now() / 1000) + 86400,
+        });
+        registerSecret(accessToken);
+
+        const tokenRecord: IssuedTokenEntry = {
+          token: accessToken,
+          refreshToken: "",
+          clientId,
+          ownerEmail,
+          scope: "mcp:tools mcp:sandbox",
+          expiresAt: Date.now() + 86400 * 1000,
+          refreshExpiresAt: 0,
+        };
+        issuedTokens.set(accessToken, tokenRecord);
+
+        res.json({
+          access_token: accessToken,
+          token_type: "Bearer",
+          expires_in: 86400,
+          scope: "mcp:tools mcp:sandbox",
+        });
+        return;
+      }
+
+      // 3. Refresh Token Grant
       if (grantType === "refresh_token") {
         const rawRefresh = String(req.body.refresh_token || "");
         let record = refreshTokens.get(rawRefresh);

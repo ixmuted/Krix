@@ -352,4 +352,93 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
       .verify(pubKey, parts[2], "base64url");
     assert.equal(verified, true);
   });
+
+  test("Gemini OAuth flow: renders Geist consent screen and authorizes callback without 500", async () => {
+    const ownerEmail = "owner@example.com";
+    const sessionPayload = Buffer.from(
+      JSON.stringify({
+        email: ownerEmail,
+        name: "Ankit",
+        picture: "https://example.com/avatar.png",
+        verified_email: true,
+        expiresAt: Date.now() + 86400000,
+      }),
+    ).toString("base64url");
+    const sessionSig = crypto
+      .createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(sessionPayload)
+      .digest("base64url");
+    const sessionCookie = `krix_session=${sessionPayload}.${sessionSig}`;
+
+    const geminiCallback =
+      "https://oauth.googleusercontent.com/v1/auth/callback";
+
+    // 1. GET consent page
+    const getRes = await fetch(
+      `${base}/oauth/authorize?client_id=gemini&redirect_uri=${encodeURIComponent(
+        geminiCallback,
+      )}&response_type=code&scope=mcp:tools&state=gemini_state_xyz`,
+      {
+        headers: { Cookie: sessionCookie },
+      },
+    );
+    assert.equal(getRes.status, 200);
+    const html = await getRes.text();
+    assert.ok(
+      html.includes("Authorize Access"),
+      "Must contain Authorize Access",
+    );
+    assert.ok(html.includes(ownerEmail), "Must show unescaped email");
+    assert.ok(
+      !html.includes("%40"),
+      "Must not contain percent-encoded %40 in email",
+    );
+    assert.ok(html.includes("/icon-48.png"), "Must display anime avatar icon");
+    assert.ok(!html.includes("..."), "Must not contain ellipsis in microcopy");
+
+    // 2. POST approval (simulating user clicking Approve & Connect)
+    const postRes = await fetch(`${base}/oauth/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: sessionCookie,
+      },
+      redirect: "manual",
+      body: new URLSearchParams({
+        client_id: "gemini",
+        redirect_uri: geminiCallback,
+        code_challenge: "gemini_challenge",
+        code_challenge_method: "S256",
+        scope: "mcp:tools",
+        state: "gemini_state_xyz",
+      }).toString(),
+    });
+
+    assert.equal(postRes.status, 302);
+    const location = postRes.headers.get("location");
+    assert.ok(location, "Must return redirect location header");
+    const redirectUrl = new URL(location!);
+    assert.equal(redirectUrl.origin, "https://oauth.googleusercontent.com");
+    assert.equal(redirectUrl.pathname, "/v1/auth/callback");
+    assert.equal(redirectUrl.searchParams.get("state"), "gemini_state_xyz");
+    assert.ok(redirectUrl.searchParams.get("code")?.startsWith("krix_code_"));
+  });
+
+  test("Client credentials grant: exchanges API key for access token", async () => {
+    const res = await fetch(`${base}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: "gemini_client",
+        client_secret: process.env.MCP_API_KEY!,
+      }).toString(),
+    });
+
+    assert.equal(res.status, 200);
+    const data = (await res.json()) as any;
+    assert.ok(data.access_token, "Must return access_token");
+    assert.equal(data.token_type, "Bearer");
+    assert.equal(typeof data.expires_in, "number");
+  });
 });

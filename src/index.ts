@@ -95,12 +95,7 @@ if (MCP_API_KEY.length < 24) {
 registerSecret(DEFAULT_GITHUB_PAT);
 registerSecret(DEFAULT_RENDER_API_KEY);
 
-const ALLOW_QUERY_API_KEY = process.env.ALLOW_QUERY_API_KEY !== "false";
-if (ALLOW_QUERY_API_KEY) {
-  console.warn(
-    "⚠️  ?api_key= query authentication is enabled (ALLOW_QUERY_API_KEY). URLs end up in proxy logs and browser history; prefer the x-api-key or Authorization header and set ALLOW_QUERY_API_KEY=false when your client supports it.",
-  );
-}
+const ALLOW_QUERY_API_KEY = process.env.ALLOW_QUERY_API_KEY === "true";
 
 const MAX_SESSIONS = Math.max(1, Number(process.env.MAX_SESSIONS) || 50);
 const MAX_BODY_MB = Math.min(
