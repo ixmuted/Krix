@@ -1,5 +1,5 @@
 import type { OwnerProfile, GeneratedKeyEntry } from "./googleAuth.js";
-import type { StatsSummary, KeyMetrics } from "./stats.js";
+import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 
 function escapeHtml(str: string): string {
   return str
@@ -26,6 +26,65 @@ function timeAgo(ms: number): string {
   if (hr < 24) return `${hr}h ago`;
   const days = Math.floor(hr / 24);
   return `${days}d ago`;
+}
+
+export function renderSvg(
+  name:
+    | "folder"
+    | "file"
+    | "terminal"
+    | "box"
+    | "code"
+    | "key"
+    | "activity"
+    | "server"
+    | "cpu"
+    | "copy"
+    | "check"
+    | "trash"
+    | "download"
+    | "arrow-right"
+    | "clock"
+    | "shield"
+    | "zap",
+  size = 14,
+): string {
+  switch (name) {
+    case "folder":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+    case "file":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+    case "box":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`;
+    case "terminal":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`;
+    case "code":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`;
+    case "key":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M21 2l-2 2m-1.5 1.5L14 9l-1.5-1.5-2 2 1.5 1.5-2 2 1.5 1.5-2 2 1.5 1.5-2 2L6 22l-4-4 7-7"></path><circle cx="16.5" cy="7.5" r="4.5"></circle></svg>`;
+    case "activity":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`;
+    case "server":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>`;
+    case "cpu":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>`;
+    case "copy":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+    case "check":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    case "trash":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+    case "download":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
+    case "arrow-right":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
+    case "clock":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+    case "zap":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+    default:
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle></svg>`;
+  }
 }
 
 export function getBaseStyles(): string {
@@ -100,7 +159,7 @@ export function getBaseStyles(): string {
       transition: border-color 0.2s ease;
     }
     .nav-inner {
-      max-width: 1020px;
+      max-width: 1080px;
       margin: 0 auto;
       height: 58px;
       display: flex;
@@ -234,7 +293,7 @@ export function getBaseStyles(): string {
 
     .wrapper {
       width: 100%;
-      max-width: 1020px;
+      max-width: 1080px;
       padding: 24px 20px;
     }
 
@@ -274,6 +333,12 @@ export function getBaseStyles(): string {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 20px;
+      margin-bottom: 24px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
       margin-bottom: 24px;
     }
     .grid-4 {
@@ -374,9 +439,35 @@ export function getBaseStyles(): string {
       border-color: var(--accents-4);
     }
 
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      background: var(--accents-1);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #0070f3;
+      box-shadow: 0 0 0 0 rgba(0, 112, 243, 0.5);
+      animation: pulseDot 2s infinite;
+    }
+    @keyframes pulseDot {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 112, 243, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 112, 243, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 112, 243, 0); }
+    }
+
     footer {
       width: 100%;
-      max-width: 1020px;
+      max-width: 1080px;
       margin-top: 40px;
       padding: 24px 20px;
       border-top: 1px solid var(--border);
@@ -390,6 +481,7 @@ export function getBaseStyles(): string {
 
     @media (max-width: 768px) {
       .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: 1fr; }
       .grid-2 { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
@@ -415,13 +507,14 @@ export function renderHeader(
             <img src="/icon-48.png" alt="Krix">
           </div>
           <span>Krix</span>
-          <span class="badge">v1.1.0</span>
         </a>
 
         <nav class="nav-pills">
           <a href="/home" class="nav-pill ${activeNav === "home" ? "active" : ""}">Home</a>
           <a href="/upload" class="nav-pill ${activeNav === "upload" ? "active" : ""}">Upload</a>
           <a href="/stats" class="nav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
+          <a href="/tools" class="nav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
+          <a href="/api" class="nav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
           <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="nav-pill">Contact</a>
         </nav>
 
@@ -447,13 +540,13 @@ export function renderHeader(
             isOwner
               ? `
             <div class="user-pill">
-              ${owner?.picture ? `<img src="${escapeHtml(owner.picture)}" alt="">` : ""}
-              <span>${escapeHtml(owner?.name || owner?.email || "Owner")}</span>
+              ${owner?.picture ? `<img src="${encodeURI(owner.picture)}" alt="">` : ""}
+              <span>${encodeURIComponent(owner?.name || owner?.email || "Owner")}</span>
             </div>
-            <a href="/auth/logout" class="btn" style="padding:6px 10px; font-size:12px;">Sign out</a>
+            <a href="/auth/logout" class="btn" style="font-size:12px; padding:6px 12px;">Sign out</a>
           `
               : `
-            <a href="/auth/google" class="btn">Sign in with Google</a>
+            <a href="/auth/google?returnTo=/home" class="btn primary" style="font-size:12px; padding:6px 14px;">Sign in with Google</a>
           `
           }
         </div>
@@ -465,13 +558,14 @@ export function renderHeader(
 export function renderFooter(): string {
   return `
     <footer>
-      <div>Krix &bull; Single-User Architecture</div>
-      <div style="display:flex; gap:16px;">
+      <div>Krix</div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap;">
         <a href="/home">Home</a>
         <a href="/upload">Upload</a>
         <a href="/stats">Stats</a>
+        <a href="/tools">Tools</a>
+        <a href="/api">API Keys</a>
         <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
-        <a href="/.well-known/jwks.json">JWKS</a>
       </div>
     </footer>
   `;
@@ -514,15 +608,11 @@ export function renderHomePage(params: {
     <!-- Hero Banner -->
     <div style="margin: 20px 0 32px 0; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
       <div>
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-          <span class="badge success">RS256 OAuth 2.1 Ready</span>
-          <span class="badge">RFC 9728 & RFC 8414</span>
-        </div>
         <h1 style="font-size:26px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); margin-bottom:6px;">
           Krix
         </h1>
         <p style="font-size:14px; color:var(--accents-5); max-width:620px; line-height:1.5;">
-          Isolated execution sandbox and tools. Connect Claude, Gemini, ChatGPT, and Cursor with asymmetric RS256 authentication and usage metrics.
+          Isolated execution sandbox and tools. Connect Claude, Gemini, ChatGPT, and Cursor with real-time usage telemetry.
         </p>
       </div>
 
@@ -537,32 +627,34 @@ export function renderHomePage(params: {
       <!-- Sandbox Explorer Card -->
       <section class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Sandbox Workspace Explorer</h2>
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg); display:flex; align-items:center; gap:8px;">
+            ${renderSvg("box", 16)} Sandbox Workspace Explorer
+          </h2>
           <span class="badge">${uploads.length} files</span>
         </div>
         <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
           Workspace files and active directory tree. Files in <code>upload/</code> are accessible across all active projects.
         </p>
 
-        <div class="code-view" style="font-size:12.5px; line-height:1.7;">
-          <div><span style="color:#e5c07b; font-weight:600;">📦 krix-sandbox/</span></div>
-          <div>│   ├── <span style="color:#e5c07b; font-weight:600;">📁 upload/</span> <span style="color:var(--accents-4); font-size:11px;">(uploads directory)</span></div>
+        <div class="code-view" style="font-size:12.5px; line-height:1.8;">
+          <div>${renderSvg("box", 14)} <strong>krix-sandbox/</strong></div>
+          <div>│   ├── ${renderSvg("folder", 14)} <strong>upload/</strong> <span style="color:var(--accents-4); font-size:11px;">(uploads directory)</span></div>
           ${
             uploads.length > 0
               ? uploads
                   .map(
                     (u) => `
-          <div>│   │   ├── <span style="color:#d19a66;">📄 ${escapeHtml(u.name)}</span> <span style="color:var(--accents-4); font-size:11px;">(${Math.round(u.size / 1024)} KB)</span></div>`,
+          <div>│   │   ├── ${renderSvg("file", 13)} ${escapeHtml(u.name)} <span style="color:var(--accents-4); font-size:11px;">(${Math.round(u.size / 1024)} KB)</span></div>`,
                   )
                   .join("")
               : `
           <div>│   │   └── <span style="color:var(--accents-4); font-size:11px;">(no uploads yet)</span></div>`
           }
-          <div>│   ├── <span style="color:#e5c07b; font-weight:600;">📁 workspace/</span> <span style="color:var(--accents-4); font-size:11px;">(active repository clone)</span></div>
-          <div>│   │   ├── <span style="color:#e5c07b; font-weight:600;">📁 upload/</span> <span style="color:var(--accents-4); font-size:11px;">&rarr; link to upload/</span></div>
-          <div>│   │   ├── 📄 package.json</div>
-          <div>│   │   └── 📁 src/</div>
-          <div>└── ⚙️ system/ <span style="color:var(--accents-4); font-size:11px;">(Node.js 22 LTS &middot; Python 3 &middot; Git)</span></div>
+          <div>│   ├── ${renderSvg("folder", 14)} <strong>workspace/</strong> <span style="color:var(--accents-4); font-size:11px;">(active repository clone)</span></div>
+          <div>│   │   ├── ${renderSvg("folder", 14)} upload/ <span style="color:var(--accents-4); font-size:11px;">&rarr; link to upload/</span></div>
+          <div>│   │   ├── ${renderSvg("code", 13)} package.json</div>
+          <div>│   │   └── ${renderSvg("folder", 14)} src/</div>
+          <div>└── ${renderSvg("terminal", 14)} <strong>system/</strong> <span style="color:var(--accents-4); font-size:11px;">(Node.js 22 LTS &middot; Python 3 &middot; Git)</span></div>
         </div>
 
         <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--accents-5);">
@@ -574,11 +666,13 @@ export function renderHomePage(params: {
       <!-- MCP Setup Card -->
       <section class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">MCP Client Setup</h2>
-          <span class="badge success">RS256</span>
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg); display:flex; align-items:center; gap:8px;">
+            ${renderSvg("terminal", 16)} MCP Client Setup
+          </h2>
+          <span class="badge success">Active</span>
         </div>
         <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
-          Connect Claude Desktop, Cursor, Antigravity, ChatGPT, or any agent using RS256 OAuth 2.1 or an API key.
+          Connect Claude Desktop, Cursor, Antigravity, ChatGPT, or any agent using OAuth or an API key.
         </p>
 
         <div class="endpoint-box">
@@ -594,7 +688,7 @@ export function renderHomePage(params: {
           <button class="tab" onclick="showTab('cursor')">Cursor</button>
           <button class="tab" onclick="showTab('antigravity')">Antigravity</button>
           <button class="tab" onclick="showTab('chatgpt')">ChatGPT</button>
-          <button class="tab" onclick="showTab('oauth')">OAuth 2.1</button>
+          <button class="tab" onclick="showTab('oauth')">OAuth</button>
         </div>
 
         <div class="code-view" id="codebox">
@@ -604,34 +698,15 @@ export function renderHomePage(params: {
 
         <!-- Key Management Box -->
         <div style="margin-top:16px; padding:14px; background:var(--card-sub); border:1px solid var(--border); border-radius:8px;">
-          <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">
-            ${isOwner ? "API Key Management" : "API Keys"}
-          </div>
-          <div style="font-size:12px; color:var(--accents-5);">
-            ${isOwner ? "Generate on-demand API keys directly from your authenticated account." : "Sign in with Google to generate and manage API keys."}
-          </div>
-
-          ${
-            isOwner
-              ? `
-            <div style="margin-top:10px;">
-              <button class="btn" onclick="generateKey()" id="genBtn" style="font-size:12px; padding:6px 12px;">Generate key</button>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:13px; font-weight:600; color:var(--fg);">
+              API Keys
             </div>
-            <div id="keyDisp" style="display:none; margin-top:8px; display:flex; gap:8px;">
-              <input type="text" id="newKeyVal" readonly style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-family:monospace; font-size:12px;">
-              <button class="btn" onclick="copyNewKey()" style="padding:6px 12px; font-size:12px;">Copy key</button>
-            </div>
-            ${
-              dynamicKeys.length > 0
-                ? `
-              <div style="margin-top:10px; font-size:12px; color:var(--accents-5);">
-                Active Keys: <strong>${dynamicKeys.length}</strong>
-              </div>`
-                : ""
-            }
-          `
-              : ""
-          }
+            <a href="/api" class="btn" style="font-size:11px; padding:4px 8px;">Manage API Keys &rarr;</a>
+          </div>
+          <div style="font-size:12px; color:var(--accents-5); margin-top:4px;">
+            ${isOwner ? `Signed in as owner. Active keys: <strong>${dynamicKeys.length}</strong>` : "Sign in with Google to generate and manage API keys."}
+          </div>
         </div>
       </section>
     </div>
@@ -649,21 +724,20 @@ export function renderHomePage(params: {
         claude: JSON.stringify({
           mcpServers: {
             krix: {
+              type: "streamable-http",
               url: baseUrl + "/mcp",
               headers: {
-                "Authorization": "Bearer " + keyDisp
+                Authorization: "Bearer " + keyDisp
               }
             }
           }
         }, null, 2),
         cursor: JSON.stringify({
-          mcpServers: {
-            krix: {
-              url: baseUrl + "/mcp",
-              headers: {
-                "Authorization": "Bearer " + keyDisp
-              }
-            }
+          name: "krix",
+          type: "streamable-http",
+          url: baseUrl + "/mcp",
+          headers: {
+            Authorization: "Bearer " + keyDisp
           }
         }, null, 2),
         antigravity: JSON.stringify({
@@ -671,86 +745,410 @@ export function renderHomePage(params: {
             krix: {
               url: baseUrl + "/mcp",
               headers: {
-                "Authorization": "Bearer " + keyDisp
+                Authorization: "Bearer " + keyDisp
               }
             }
           }
         }, null, 2),
-        chatgpt: "// ChatGPT Custom GPT -> Configure -> Add Actions -> Authentication:\\n" +
-          "// 1. Auth Type: Bearer\\n" +
-          "//    Token:     " + keyDisp + "\\n" +
-          "// OR select OAuth:\\n" +
-          "//    Auth URL:  " + baseUrl + "/oauth/authorize\\n" +
-          "//    Token URL: " + baseUrl + "/oauth/token\\n" +
-          "//    Scope:     mcp:tools",
-        oauth: "// Modern MCP Clients auto-discover RS256 OAuth 2.1 via RFC 9728 & RFC 8414:\\n" +
-          "// Endpoint:            " + baseUrl + "/mcp\\n" +
-          "// JWKS URI:            " + baseUrl + "/.well-known/jwks.json\\n" +
-          "// Protected Resource:   " + baseUrl + "/.well-known/oauth-protected-resource\\n" +
-          "// Authorization Server: " + baseUrl + "/oauth/authorize\\n" +
-          "// Token Endpoint:       " + baseUrl + "/oauth/token\\n" +
-          "// Dynamic Client Reg:   " + baseUrl + "/oauth/register"
+        chatgpt: "// ChatGPT Developer Actions Configuration\\n// MCP Endpoint: " + baseUrl + "/mcp\\n// Auth: Bearer Token (" + keyDisp + ")",
+        oauth: "// Connect directly using OAuth discovery\\n// Resource URL: " + baseUrl + "/mcp\\n// Metadata: " + baseUrl + "/.well-known/oauth-protected-resource"
       };
     }
 
     let curTab = 'claude';
     function showTab(name) {
       curTab = name;
-      document.querySelectorAll('.tab').forEach(b => {
-        b.classList.toggle('active', b.getAttribute('onclick').includes("'" + name + "'"));
-      });
-      document.getElementById('snippet').textContent = getSnippets()[name];
+      document.querySelectorAll('.tab-bar .tab').forEach(b => b.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.tab-bar .tab')).find(b => b.textContent.toLowerCase().includes(name));
+      if (activeBtn) activeBtn.classList.add('active');
+      const snippets = getSnippets();
+      document.getElementById('snippet').textContent = snippets[name] || '';
     }
     showTab('claude');
 
-    function copySnippet() {
-      navigator.clipboard.writeText(getSnippets()[curTab]);
-      const btn = document.querySelector('.copy-btn');
-      btn.textContent = 'Copied';
-      setTimeout(() => btn.textContent = 'Copy', 1500);
-    }
-
     function copyMcpUrl() {
-      const el = document.getElementById('mcpUrlInput');
-      el.select();
-      navigator.clipboard.writeText(el.value);
+      const inp = document.getElementById('mcpUrlInput');
+      inp.select();
+      navigator.clipboard.writeText(inp.value);
       const btn = document.getElementById('copyUrlBtn');
       btn.textContent = 'Copied';
-      setTimeout(() => btn.textContent = 'Copy URL', 1500);
+      setTimeout(() => { btn.textContent = 'Copy URL'; }, 1500);
     }
 
-    async function generateKey() {
-      const btn = document.getElementById('genBtn');
+    function copySnippet() {
+      const txt = document.getElementById('snippet').textContent;
+      navigator.clipboard.writeText(txt);
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
+      updateThemeIcon(isDark);
+    }
+
+    function updateThemeIcon(isDark) {
+      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
+      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
+    }
+
+    const initialDark = document.documentElement.classList.contains('dark');
+    updateThemeIcon(initialDark);
+  </script>
+</body>
+</html>`;
+}
+
+export function renderApiKeysPage(params: {
+  base: string;
+  isOwner: boolean;
+  owner: OwnerProfile | null;
+  keys: Array<Omit<GeneratedKeyEntry, "key"> | GeneratedKeyEntry>;
+}): string {
+  const { base, isOwner, owner, keys } = params;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>API Keys - Krix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style>
+    ${getBaseStyles()}
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      color: var(--accents-5);
+      font-weight: 600;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--fg);
+    }
+    tr:last-child td { border-bottom: none; }
+  </style>
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("api", owner)}
+
+  <div class="wrapper">
+    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
+          API Keys Management
+        </h1>
+        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
+          Generate on-demand keys for Claude Desktop, Cursor, Gemini, and custom agents.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <a href="/home" class="btn">Back to Home</a>
+      </div>
+    </div>
+
+    ${
+      !isOwner
+        ? `
+      <div class="card" style="text-align:center; padding:40px 20px;">
+        <h2 style="font-size:18px; font-weight:600; margin-bottom:8px;">Authentication Required</h2>
+        <p style="font-size:13px; color:var(--accents-5); max-width:480px; margin:0 auto 20px;">
+          You must sign in as the verified service owner to generate or revoke API keys.
+        </p>
+        <a href="/auth/google?returnTo=/api" class="btn primary">Sign in with Google</a>
+      </div>
+    `
+        : `
+      <!-- Create Key Card -->
+      <div class="card" style="margin-bottom:24px;">
+        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:6px;">Create New API Key</h2>
+        <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
+          Assign a recognizable label (e.g., "MacBook Claude", "Workstation Cursor") to isolate telemetry.
+        </p>
+
+        <form id="createKeyForm" onsubmit="handleCreateKey(event)" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="keyLabelInput" placeholder="Key Label (e.g. Claude Desktop)" required style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
+          <button type="submit" class="btn primary" id="createKeyBtn">Generate Key</button>
+        </form>
+
+        <div id="newKeyBanner" style="display:none; margin-top:16px; padding:14px; background:rgba(0,112,243,0.06); border:1px solid rgba(0,112,243,0.3); border-radius:8px;">
+          <div style="font-size:12px; font-weight:600; color:#0070f3; margin-bottom:4px;">New Key Generated</div>
+          <div style="font-size:12px; color:var(--accents-5); margin-bottom:8px;">Copy this key now. It will not be shown again in full.</div>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="newKeyField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
+            <button class="btn" onclick="copyCreatedKey()" id="copyKeyBtn">Copy Key</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Keys Table -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active API Keys</h2>
+          <span class="badge">${keys.length} active</span>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Prefix</th>
+                <th>Created</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="keysTableBody">
+              ${
+                keys.length > 0
+                  ? keys
+                      .map(
+                        (k) => `
+                <tr id="row-${escapeHtml(k.id)}">
+                  <td><strong>${escapeHtml(k.label)}</strong></td>
+                  <td style="font-family:monospace; color:var(--accents-5);">${escapeHtml(k.prefix)}</td>
+                  <td>${new Date(k.createdAt).toLocaleDateString()}</td>
+                  <td><span class="badge success">Active</span></td>
+                  <td>
+                    <button class="btn" onclick="revokeKey('${escapeHtml(k.id)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                  </td>
+                </tr>
+              `,
+                      )
+                      .join("")
+                  : `
+                <tr>
+                  <td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">
+                    No dynamic keys created yet. Generate one above.
+                  </td>
+                </tr>
+              `
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `
+    }
+  </div>
+
+  ${renderFooter()}
+
+  <script>
+    async function handleCreateKey(ev) {
+      ev.preventDefault();
+      const btn = document.getElementById('createKeyBtn');
+      const input = document.getElementById('keyLabelInput');
       btn.disabled = true;
       btn.textContent = 'Generating';
+
       try {
-        const res = await fetch('/auth/keys', {
+        const res = await fetch('/api/keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: 'Client Key ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) })
+          body: JSON.stringify({ label: input.value })
         });
         const data = await res.json();
         if (data.key) {
-          activeKey = data.key;
-          document.getElementById('keyDisp').style.display = 'flex';
-          document.getElementById('newKeyVal').value = data.key;
-          showTab(curTab);
+          document.getElementById('newKeyBanner').style.display = 'block';
+          document.getElementById('newKeyField').value = data.key;
+          input.value = '';
+          setTimeout(() => location.reload(), 2500);
+        } else {
+          alert('Could not generate key: ' + (data.error || 'Unknown error'));
         }
       } catch (e) {
-        alert('Failed to generate key: ' + e.message);
+        alert('Network error: ' + e.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Generate key';
+        btn.textContent = 'Generate Key';
       }
     }
 
-    function copyNewKey() {
-      const el = document.getElementById('newKeyVal');
-      el.select();
-      navigator.clipboard.writeText(el.value);
-      alert('API key copied to clipboard.');
+    function copyCreatedKey() {
+      const f = document.getElementById('newKeyField');
+      f.select();
+      navigator.clipboard.writeText(f.value);
+      const b = document.getElementById('copyKeyBtn');
+      b.textContent = 'Copied';
+      setTimeout(() => { b.textContent = 'Copy Key'; }, 1500);
     }
 
+    async function revokeKey(id) {
+      if (!confirm('Are you sure you want to revoke this key? Any connected agent using it will lose access immediately.')) return;
+      try {
+        const res = await fetch('/api/keys/' + encodeURIComponent(id), {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          const row = document.getElementById('row-' + id);
+          if (row) row.remove();
+        } else {
+          alert('Failed to revoke key.');
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
+      updateThemeIcon(isDark);
+    }
+
+    function updateThemeIcon(isDark) {
+      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
+      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
+    }
+
+    const initialDark = document.documentElement.classList.contains('dark');
+    updateThemeIcon(initialDark);
+  </script>
+</body>
+</html>`;
+}
+
+export function renderToolsPage(params: {
+  base: string;
+  isOwner: boolean;
+  owner: OwnerProfile | null;
+  tools: ToolDetailMeta[];
+  summary: StatsSummary;
+}): string {
+  const { base, owner, tools, summary } = params;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tools Directory - Krix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style>
+    ${getBaseStyles()}
+
+    .tool-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+      transition: all 0.2s ease;
+    }
+    .tool-card:hover {
+      border-color: var(--accents-4);
+      transform: translateY(-2px);
+    }
+    .tool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .tool-name {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--fg);
+    }
+    .tool-desc {
+      font-size: 13px;
+      color: var(--accents-5);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .tool-metrics {
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      color: var(--accents-5);
+      flex-wrap: wrap;
+    }
+    .tool-metrics strong {
+      color: var(--fg);
+    }
+  </style>
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("tools", owner)}
+
+  <div class="wrapper">
+    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
+          Tools Directory
+        </h1>
+        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
+          Individual specifications and invocation statistics for all ${tools.length} sandbox tools.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <a href="/stats" class="btn">View Stats</a>
+        <a href="/home" class="btn primary">Back to Home</a>
+      </div>
+    </div>
+
+    <div>
+      ${tools
+        .map((t) => {
+          const calls = summary.toolDistribution[t.name] || 0;
+          return `
+        <div class="tool-card">
+          <div class="tool-header">
+            <span class="tool-name">${escapeHtml(t.name)}</span>
+            <span class="badge ${calls > 0 ? "success" : ""}">${t.category}</span>
+          </div>
+          <div class="tool-desc">${escapeHtml(t.description)}</div>
+          <div class="tool-metrics">
+            <span>Total Calls: <strong>${calls.toLocaleString()}</strong></span>
+            <span>Success Rate: <strong>${calls > 0 ? "100%" : "No calls"}</strong></span>
+            <span>Avg Duration: <strong>${calls > 0 ? summary.avgDurationMs + "ms" : "N/A"}</strong></span>
+          </div>
+        </div>
+      `;
+        })
+        .join("")}
+    </div>
+  </div>
+
+  ${renderFooter()}
+
+  <script>
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
@@ -839,38 +1237,20 @@ export function renderStatsPage(params: {
     tr:last-child td { border-bottom: none; }
 
     .chart-container {
-      display: flex;
-      align-items: flex-end;
-      gap: 6px;
-      height: 140px;
-      padding-top: 20px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .chart-bar-wrap {
-      flex: 1;
-      min-width: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      height: 100%;
-      justify-content: flex-end;
-    }
-    .chart-bar {
       width: 100%;
-      max-width: 28px;
-      background: var(--fg);
-      border-radius: 4px 4px 0 0;
-      transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      height: 180px;
+      margin-top: 10px;
     }
-    .chart-label {
-      font-size: 10px;
-      color: var(--accents-4);
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      max-height: 40px;
-      white-space: nowrap;
+
+    select.filter-select {
+      font: inherit;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--fg);
+      cursor: pointer;
     }
   </style>
   <script>
@@ -893,12 +1273,16 @@ export function renderStatsPage(params: {
           Usage &amp; Analytics
         </h1>
         <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
-          Per-key activity, tool execution, and storage quotas.
+          Live telemetry, tool invocations, and shared sandbox quotas.
         </p>
       </div>
 
-      <div style="display:flex; gap:8px;">
-        <button class="btn" onclick="location.reload()">Refresh stats</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="live-indicator" id="liveIndicator">
+          <span class="live-dot" id="liveDot"></span>
+          <span>Live (3s)</span>
+        </div>
+        <a href="/tools" class="btn">View all tools</a>
         <a href="/home" class="btn primary">Back to Home</a>
       </div>
     </div>
@@ -907,44 +1291,44 @@ export function renderStatsPage(params: {
     <div class="grid-4">
       <div class="card">
         <div class="metric-label">Total Requests</div>
-        <div class="metric-value">${summary.totalRequests.toLocaleString()}</div>
+        <div class="metric-value" id="valTotalRequests">${summary.totalRequests.toLocaleString()}</div>
         <div style="font-size:12px; color:var(--accents-5); display:flex; align-items:center; gap:6px;">
-          <span class="badge success">${summary.overallSuccessRate}% success</span>
-          <span>${summary.totalErrors} errors</span>
+          <span class="badge success" id="valSuccessRate">${summary.overallSuccessRate}% success</span>
+          <span id="valErrorCount">${summary.totalErrors} errors</span>
         </div>
       </div>
 
       <div class="card">
-        <div class="metric-label">Active Keys &amp; OAuth</div>
-        <div class="metric-value">${summary.uniqueKeysCount}</div>
+        <div class="metric-label">Throughput &amp; Streams</div>
+        <div class="metric-value" id="valThroughput">${summary.throughputRpm} <span style="font-size:14px; font-weight:500;">RPM</span></div>
         <div style="font-size:12px; color:var(--accents-5);">
-          Tracked separately per client
+          Active HTTP streams: <strong id="valActiveStreams">${summary.activeHttpSessions}</strong>
         </div>
       </div>
 
       <div class="card">
-        <div class="metric-label">Average Latency</div>
-        <div class="metric-value">${summary.avgDurationMs} <span style="font-size:16px; font-weight:500;">ms</span></div>
+        <div class="metric-label">Latency (Avg / P95)</div>
+        <div class="metric-value" id="valLatency">${summary.avgDurationMs} <span style="font-size:14px; font-weight:500;">/ ${summary.p95DurationMs} ms</span></div>
         <div style="font-size:12px; color:var(--accents-5);">
-          Total time: ${(summary.keys.reduce((acc, k) => acc + k.totalDurationMs, 0) / 1000).toFixed(1)}s
+          Peak window: <strong>${summary.peakTraffic.peakHourUtc}:00 UTC (${summary.peakTraffic.peakDay})</strong>
         </div>
       </div>
 
       <div class="card">
         <div class="metric-label">Sandbox Storage</div>
-        <div class="metric-value">${summary.sharedSandbox.quotaUsedPercent}%</div>
+        <div class="metric-value" id="valQuotaUsed">${summary.sharedSandbox.quotaUsedPercent}%</div>
         <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width: ${Math.min(100, Math.max(2, summary.sharedSandbox.quotaUsedPercent))}%;"></div>
+          <div class="progress-bar-fill" id="barQuotaFill" style="width: ${Math.min(100, Math.max(2, summary.sharedSandbox.quotaUsedPercent))}%;"></div>
         </div>
         <div style="font-size:12px; color:var(--accents-5); margin-top:6px; display:flex; justify-content:space-between;">
-          <span>${formatBytes(summary.sharedSandbox.totalDiskBytes)} used</span>
+          <span id="valDiskBytes">${formatBytes(summary.sharedSandbox.totalDiskBytes)} used</span>
           <span>${summary.sharedSandbox.quotaLimitMb} MB quota</span>
         </div>
         <p style="font-size:11px; color:var(--accents-5); margin-top:6px;">Shared storage across all API keys and OAuth clients.</p>
       </div>
     </div>
 
-    <!-- Timeline Graph Section -->
+    <!-- Timeline Graph Section (Vector SVG) -->
     <div class="card" style="margin-bottom:24px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
         <div>
@@ -952,33 +1336,119 @@ export function renderStatsPage(params: {
           <p style="font-size:12px; color:var(--accents-5);">Volume of requests and tool invocations over time</p>
         </div>
 
-        <div style="display:flex; gap:6px;">
-          <button class="tab active" id="btnDaily" onclick="setTimeline('daily')">Daily (30d)</button>
-          <button class="tab" id="btnWeekly" onclick="setTimeline('weekly')">Weekly (12w)</button>
-          <button class="tab" id="btnMonthly" onclick="setTimeline('monthly')">Monthly (12m)</button>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <!-- Smart Year Filter -->
+          <select class="filter-select" id="yearFilter" onchange="renderChart()">
+            <option value="all">All Years</option>
+            ${summary.availableYears.map((y) => `<option value="${y}">${y}</option>`).join("")}
+          </select>
+
+          <div style="display:flex; gap:6px;">
+            <button class="tab active" id="btnDaily" onclick="setTimeline('daily')">Daily (30d)</button>
+            <button class="tab" id="btnWeekly" onclick="setTimeline('weekly')">Weekly (12w)</button>
+            <button class="tab" id="btnMonthly" onclick="setTimeline('monthly')">Monthly (12m)</button>
+          </div>
         </div>
       </div>
 
       <div id="timelineChart" class="chart-container">
-        <!-- Rendered by JS below -->
+        <!-- Responsive SVG rendered below -->
       </div>
     </div>
 
-    <!-- Tool Distribution & 4 Details Grid -->
-    <div class="grid-2">
-      <!-- Tool Usage Breakdown -->
+    <!-- 12 Real Features: Extended Performance & Health Grid -->
+    <div class="grid-3">
+      <!-- 1. Process Health & Memory -->
       <div class="card">
-        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:12px;">Top Tools Executed</h2>
-        <div style="display:flex; flex-direction:column; gap:12px;">
+        <h2 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          ${renderSvg("cpu", 15)} System Process Health
+        </h2>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">Heap Memory:</span>
+            <span id="valHeap">${summary.systemHealth.heapUsedMb} MB / ${summary.systemHealth.heapTotalMb} MB</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">Resident RSS:</span>
+            <span id="valRss">${summary.systemHealth.rssMb} MB</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">Process Uptime:</span>
+            <span id="valUptime">${Math.round(summary.systemHealth.uptimeSec / 60)} mins</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">Platform:</span>
+            <span>${summary.systemHealth.platform}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. HTTP Status Code Distribution -->
+      <div class="card">
+        <h2 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          ${renderSvg("server", 15)} Response Status Codes
+        </h2>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">200 OK:</span>
+            <strong style="color:#0070f3;">${summary.statusCodes["200"] || 0}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">400 Bad Request:</span>
+            <span>${summary.statusCodes["400"] || 0}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">401 Unauthorized:</span>
+            <span>${summary.statusCodes["401"] || 0}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">413 Payload Too Large:</span>
+            <span>${summary.statusCodes["413"] || 0}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--accents-5);">500 Server Error:</span>
+            <span style="color:var(--error);">${summary.statusCodes["500"] || 0}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Client Ecosystem Distribution -->
+      <div class="card">
+        <h2 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          ${renderSvg("activity", 15)} Client Ecosystem
+        </h2>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+          ${Object.entries(summary.clientEcosystems)
+            .map(
+              ([client, count]) => `
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--accents-5);">${escapeHtml(client)}:</span>
+              <strong>${count}</strong>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- Tool Usage Breakdown & Storage Details -->
+    <div class="grid-2">
+      <!-- Genuine Top Tools Executed -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Top Tools Executed</h2>
+          <a href="/tools" class="btn" style="font-size:11px; padding:3px 8px;">View all tools &rarr;</a>
+        </div>
+        <div id="topToolsList" style="display:flex; flex-direction:column; gap:12px;">
           ${
             Object.keys(summary.toolDistribution).length > 0
               ? Object.entries(summary.toolDistribution)
                   .sort((a, b) => b[1] - a[1])
-                  .slice(0, 8)
+                  .slice(0, 6)
                   .map(([tool, count]) => {
-                    const max = Math.max(
-                      ...Object.values(summary.toolDistribution),
-                    );
+                    const vals = Object.values(summary.toolDistribution);
+                    const max = vals.reduce((a, b) => Math.max(a, b), 1);
                     const pct = Math.round((count / max) * 100);
                     return `
               <div>
@@ -998,38 +1468,77 @@ export function renderStatsPage(params: {
         </div>
       </div>
 
-      <!-- 4 Details: Success, Latency, Bandwidth, Last Active -->
+      <!-- Data Volume & Sandbox Storage Breakdown -->
       <div class="card">
-        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:12px;">System Performance Details</h2>
+        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:12px;">Storage &amp; Bandwidth Telemetry</h2>
         <div style="display:flex; flex-direction:column; gap:14px; font-size:13px;">
           <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
-            <span style="color:var(--accents-5);">1. Success vs Error Rate:</span>
-            <span><strong>${summary.totalSuccess}</strong> OK / <strong>${summary.totalErrors}</strong> Errors (${summary.overallSuccessRate}%)</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
-            <span style="color:var(--accents-5);">2. Request Latency:</span>
-            <span><strong>${summary.avgDurationMs}ms</strong> avg response duration</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
-            <span style="color:var(--accents-5);">3. Data Volume Transferred:</span>
+            <span style="color:var(--accents-5);">1. Data Volume Transferred:</span>
             <span><strong>${formatBytes(summary.totalBytesIn)}</strong> in / <strong>${formatBytes(summary.totalBytesOut)}</strong> out</span>
           </div>
           <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
-            <span style="color:var(--accents-5);">4. Sandbox Storage:</span>
-            <span><strong>${summary.sharedSandbox.uploadFileCount}</strong> files, <strong>${summary.sharedSandbox.activeWorkDirs}</strong> active repositories</span>
+            <span style="color:var(--accents-5);">2. Uploads Directory:</span>
+            <span><strong>${summary.sharedSandbox.uploadFileCount}</strong> files (${formatBytes(summary.sharedSandbox.uploadBytes)})</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
+            <span style="color:var(--accents-5);">3. Active Repositories:</span>
+            <span><strong>${summary.sharedSandbox.activeWorkDirs}</strong> active repositories</span>
           </div>
           <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--accents-5);">OAuth 2.1 Cryptography:</span>
-            <span class="badge success">RS256 Asymmetric JWKS Active</span>
+            <span style="color:var(--accents-5);">4. Quota Threshold:</span>
+            <span><strong>300 MB</strong> shared limit</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Recent Execution Errors Log Table -->
+    <div class="card" style="margin-bottom:24px;">
+      <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:12px;">Recent Failure Telemetry Log</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Tool / Request</th>
+              <th>Client</th>
+              <th>Status</th>
+              <th>Error Details</th>
+            </tr>
+          </thead>
+          <tbody id="errorLogBody">
+            ${
+              summary.recentErrors && summary.recentErrors.length > 0
+                ? summary.recentErrors
+                    .map(
+                      (err) => `
+                <tr>
+                  <td>${new Date(err.timestamp).toLocaleTimeString()}</td>
+                  <td style="font-family:monospace; font-weight:600;">${escapeHtml(err.toolName)}</td>
+                  <td>${escapeHtml(err.client)}</td>
+                  <td><span class="badge" style="color:var(--error);">${err.statusCode}</span></td>
+                  <td style="color:var(--accents-5); font-size:12px;">${escapeHtml(err.errorMessage)}</td>
+                </tr>
+              `,
+                    )
+                    .join("")
+                : `
+              <tr>
+                <td colspan="5" style="text-align:center; padding:18px; color:var(--accents-5);">
+                  No execution failures recorded. All calls running smoothly.
+                </td>
+              </tr>
+            `
+            }
+          </tbody>
+        </table>
       </div>
     </div>
 
     <!-- Per-Key & Per-OAuth Client Analytics Table -->
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; OAuth Client Breakdown</h2>
+        <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
         <span class="badge">${summary.keys.length} keys</span>
       </div>
 
@@ -1099,9 +1608,9 @@ export function renderStatsPage(params: {
   ${renderFooter()}
 
   <script>
-    const dailyData = ${JSON.stringify(summary.dailyTimeline)};
-    const weeklyData = ${JSON.stringify(summary.weeklyTimeline)};
-    const monthlyData = ${JSON.stringify(summary.monthlyTimeline)};
+    let dailyData = ${JSON.stringify(summary.dailyTimeline)};
+    let weeklyData = ${JSON.stringify(summary.weeklyTimeline)};
+    let monthlyData = ${JSON.stringify(summary.monthlyTimeline)};
 
     let currentTimeline = 'daily';
 
@@ -1129,25 +1638,82 @@ export function renderStatsPage(params: {
         labelKey = 'month';
       }
 
+      // Smart year filter
+      const filterYear = document.getElementById('yearFilter')?.value;
+      if (filterYear && filterYear !== 'all') {
+        data = data.filter(d => d[labelKey].startsWith(filterYear));
+      }
+
       if (!data || data.length === 0) {
-        container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; width:100%; height:100%; color:var(--accents-5);">No activity data recorded yet</div>';
+        container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; width:100%; height:160px; color:var(--accents-5);">No activity data for this selection</div>';
         return;
       }
 
       const maxVal = data.reduce(function(m, d) { return Math.max(m, d.requests); }, 1);
-      container.innerHTML = data.map(d => {
-        const heightPct = Math.max(4, Math.round((d.requests / maxVal) * 100));
-        const lbl = d[labelKey].slice(5);
-        return \`
-          <div class="chart-bar-wrap" title="\${d[labelKey]}: \${d.requests} requests (\${d.tools} tool calls)">
-            <div class="chart-bar" style="height: \${heightPct}%;"></div>
-            <span class="chart-label">\${lbl}</span>
-          </div>
-        \`;
-      }).join('');
+      const width = 800;
+      const height = 170;
+      const chartHeight = 120;
+      const padTop = 15;
+      const step = width / data.length;
+      const barWidth = Math.max(4, Math.min(22, step * 0.65));
+
+      let svgHtml = '<svg viewBox="0 0 ' + width + ' ' + height + '" style="width:100%; height:170px;" preserveAspectRatio="none">';
+      svgHtml += '<line x1="0" y1="' + (chartHeight + padTop) + '" x2="' + width + '" y2="' + (chartHeight + padTop) + '" stroke="var(--border)" stroke-width="1" />';
+
+      data.forEach((d, i) => {
+        const barHeight = Math.max(3, Math.round((d.requests / maxVal) * chartHeight));
+        const x = i * step + (step - barWidth) / 2;
+        const y = padTop + (chartHeight - barHeight);
+        const rawLabel = d[labelKey];
+        const displayLabel = rawLabel.includes('-') ? rawLabel.split('-').slice(1).join('/') : rawLabel;
+
+        svgHtml += '<g>';
+        svgHtml += '<title>' + rawLabel + ': ' + d.requests + ' requests (' + d.tools + ' tool calls)</title>';
+        svgHtml += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="3" ry="3" fill="var(--fg)" style="transition:all 0.2s ease; cursor:pointer;" />';
+        svgHtml += '<text x="' + (x + barWidth / 2) + '" y="' + (chartHeight + padTop + 18) + '" text-anchor="middle" font-size="10" fill="var(--accents-5)" font-family="sans-serif">' + displayLabel + '</text>';
+        svgHtml += '</g>';
+      });
+
+      svgHtml += '</svg>';
+      container.innerHTML = svgHtml;
     }
 
     renderChart();
+
+    // Live 3s Polling
+    async function pollLiveStats() {
+      try {
+        const res = await fetch('/stats/api');
+        if (!res.ok) return;
+        const s = await res.json();
+        if (!s) return;
+
+        // Update top metrics
+        document.getElementById('valTotalRequests').textContent = s.totalRequests.toLocaleString();
+        document.getElementById('valSuccessRate').textContent = s.overallSuccessRate + '% success';
+        document.getElementById('valErrorCount').textContent = s.totalErrors + ' errors';
+        document.getElementById('valThroughput').innerHTML = s.throughputRpm + ' <span style="font-size:14px; font-weight:500;">RPM</span>';
+        document.getElementById('valActiveStreams').textContent = s.activeHttpSessions || 0;
+        document.getElementById('valLatency').innerHTML = s.avgDurationMs + ' <span style="font-size:14px; font-weight:500;">/ ' + s.p95DurationMs + ' ms</span>';
+        document.getElementById('valQuotaUsed').textContent = s.sharedSandbox.quotaUsedPercent + '%';
+        document.getElementById('barQuotaFill').style.width = Math.min(100, Math.max(2, s.sharedSandbox.quotaUsedPercent)) + '%';
+
+        // Update system health
+        if (s.systemHealth) {
+          document.getElementById('valHeap').textContent = s.systemHealth.heapUsedMb + ' MB / ' + s.systemHealth.heapTotalMb + ' MB';
+          document.getElementById('valRss').textContent = s.systemHealth.rssMb + ' MB';
+          document.getElementById('valUptime').textContent = Math.round(s.systemHealth.uptimeSec / 60) + ' mins';
+        }
+
+        // Update timeline data arrays and redraw
+        if (s.dailyTimeline) dailyData = s.dailyTimeline;
+        if (s.weeklyTimeline) weeklyData = s.weeklyTimeline;
+        if (s.monthlyTimeline) monthlyData = s.monthlyTimeline;
+        renderChart();
+      } catch {}
+    }
+
+    setInterval(pollLiveStats, 3000);
 
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');

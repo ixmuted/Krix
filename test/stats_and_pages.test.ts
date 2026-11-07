@@ -115,7 +115,7 @@ test("StatsTracker records requests, computes timeline graphs, and tracks 4 metr
   assert.ok(summary.sharedSandbox);
   assert.equal(summary.sharedSandbox.uploadFileCount, 2);
   assert.equal(summary.sharedSandbox.uploadBytes, 1035);
-  assert.equal(summary.sharedSandbox.quotaLimitMb, 1000);
+  assert.equal(summary.sharedSandbox.quotaLimitMb, 300);
 
   // Assert persistence to disk
   tracker.flush();
@@ -162,13 +162,18 @@ test("Home and Stats pages adhere to Geist Minimalist Design, Zero-Neon, and Zer
       totalErrors: 1,
       overallSuccessRate: 90,
       avgDurationMs: 42,
+      p95DurationMs: 45,
+      throughputRpm: 2.5,
+      activeHttpSessions: 1,
       totalBytesIn: 2048,
       totalBytesOut: 8192,
       uniqueKeysCount: 1,
       toolDistribution: { sandbox_exec: 8, sandbox_file: 2 },
+      protocolDistribution: {},
       dailyTimeline: [{ date: "2026-11-07", requests: 10, tools: 10 }],
       weeklyTimeline: [{ week: "2026-W45", requests: 10, tools: 10 }],
       monthlyTimeline: [{ month: "2026-11", requests: 10, tools: 10 }],
+      availableYears: [2026],
       keys: [
         {
           keyId: "master-env-key",
@@ -196,9 +201,26 @@ test("Home and Stats pages adhere to Geist Minimalist Design, Zero-Neon, and Zer
         uploadFiles: [{ name: "test.py", size: 1024, mtime: Date.now() }],
         activeWorkDirs: 0,
         totalDiskBytes: 1024,
-        quotaLimitMb: 1000,
+        quotaLimitMb: 300,
         quotaUsedPercent: 0.1,
       },
+      systemHealth: {
+        heapUsedMb: 35.2,
+        heapTotalMb: 60.5,
+        rssMb: 75.1,
+        uptimeSec: 120,
+        nodeVersion: "v22.0.0",
+        platform: "linux (x64)",
+      },
+      statusCodes: { "200": 9, "500": 1 },
+      clientEcosystems: { "Claude Desktop": 10 },
+      recentErrors: [],
+      peakTraffic: {
+        peakHourUtc: 14,
+        peakDay: "Friday",
+      },
+      toolsCatalog: [],
+      lastUpdated: Date.now(),
     },
   });
 
@@ -252,11 +274,57 @@ test("Home and Stats pages adhere to Geist Minimalist Design, Zero-Neon, and Zer
     statsHtml.includes("document.documentElement.classList.toggle('dark')"),
   );
 
-  // 4. Contact and Discovery Links
+  // 4. Contact and Security Hardening Audit
+  // Verified contact link is displayed
   assert.ok(homeHtml.includes("https://quickwitty.onrender.com"));
   assert.ok(statsHtml.includes("https://quickwitty.onrender.com"));
-  assert.ok(homeHtml.includes("/.well-known/jwks.json"));
-  assert.ok(statsHtml.includes("/.well-known/jwks.json"));
+  // Verified security leaks are stripped from public HTML
+  assert.equal(
+    homeHtml.includes("/.well-known/jwks.json"),
+    false,
+    "JWKS must not be linked in public UI",
+  );
+  assert.equal(
+    statsHtml.includes("/.well-known/jwks.json"),
+    false,
+    "JWKS must not be linked in public UI",
+  );
+  assert.equal(
+    homeHtml.includes("v1.1.0"),
+    false,
+    "Version tag must not be visible",
+  );
+  assert.equal(
+    statsHtml.includes("v1.1.0"),
+    false,
+    "Version tag must not be visible",
+  );
+  assert.equal(
+    homeHtml.includes("RS256"),
+    false,
+    "RSA algorithm must not be advertised",
+  );
+  assert.equal(
+    statsHtml.includes("RS256"),
+    false,
+    "RSA algorithm must not be advertised",
+  );
+  assert.equal(
+    homeHtml.includes("Single-User Architecture"),
+    false,
+    "Must be just Krix",
+  );
+  assert.equal(
+    statsHtml.includes("Single-User Architecture"),
+    false,
+    "Must be just Krix",
+  );
+
+  // Verified navigation contains Tools and API Keys
+  assert.ok(homeHtml.includes("/tools"));
+  assert.ok(statsHtml.includes("/tools"));
+  assert.ok(homeHtml.includes("/api"));
+  assert.ok(statsHtml.includes("/api"));
 
   // 5. Shared sandbox storage cleanly highlighted with concise professional terms
   assert.ok(statsHtml.includes("Sandbox Storage"));

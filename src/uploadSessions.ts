@@ -502,6 +502,11 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
             status: 413,
           });
 
+        const isPerm =
+          String(req.headers["x-permanent"] || "").toLowerCase() === "true" ||
+          req.query.permanent === "true" ||
+          req.query.permanent === "1";
+
         const dir = path.join(s.root, UPLOAD_DIR);
         await sbxMkdirp(s.root, dir);
         const { name, abs } = await uniqueTarget(s.root, dir, wanted);
@@ -510,14 +515,21 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         s.files.push({ name, size: data.length, abs });
         s.bytes += data.length;
 
-        // Schedule for automatic retention cleanup
-        retentionTracker.push({
-          root: s.root,
-          abs,
-          deleteAt: Date.now() + uploadConfig.retentionMs,
-        });
+        // Schedule for automatic retention cleanup only if not permanent
+        if (!isPerm) {
+          retentionTracker.push({
+            root: s.root,
+            abs,
+            deleteAt: Date.now() + uploadConfig.retentionMs,
+          });
+        }
 
-        return { name, size: data.length, path: `${UPLOAD_DIR}/${name}` };
+        return {
+          name,
+          size: data.length,
+          path: `${UPLOAD_DIR}/${name}`,
+          permanent: isPerm,
+        };
       });
       s.lock = result.catch(() => {});
 
@@ -537,6 +549,55 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       }
     },
   );
+
+  // File download endpoint
+  api.get("/download", requireSession, async (req: Request, res: Response) => {
+    const s = res.locals.session as UploadSession;
+    const name = safeFileName(String(req.query.name || ""));
+    if (!name) {
+      json(res, 400, { error: "Filename is required." });
+      return;
+    }
+    const abs = path.join(s.root, UPLOAD_DIR, name);
+    try {
+      await assertInsideRealRoot(s.root, abs);
+      if (!fs.existsSync(abs)) {
+        json(res, 404, { error: "File not found." });
+        return;
+      }
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${encodeURIComponent(name)}"`,
+      );
+      res.setHeader("Content-Type", "application/octet-stream");
+      fs.createReadStream(abs).pipe(res);
+    } catch {
+      json(res, 500, { error: "Could not read file." });
+    }
+  });
+
+  // File delete endpoint
+  api.delete("/file", requireSession, async (req: Request, res: Response) => {
+    const s = res.locals.session as UploadSession;
+    const name = safeFileName(String(req.query.name || ""));
+    if (!name) {
+      json(res, 400, { error: "Filename is required." });
+      return;
+    }
+    const abs = path.join(s.root, UPLOAD_DIR, name);
+    try {
+      await assertInsideRealRoot(s.root, abs);
+      if (fs.existsSync(abs)) {
+        await sbxRemoveFile(s.root, abs);
+        s.files = s.files.filter((f) => f.name !== name);
+        json(res, 200, { success: true, removed: name });
+        return;
+      }
+      json(res, 404, { error: "File not found." });
+    } catch {
+      json(res, 500, { error: "Could not delete file." });
+    }
+  });
 
   // Explicit end (button) and tab-close beacon: ends the upload session without wiping files
   api.post(
@@ -701,12 +762,25 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
   .links { margin-top:20px; font-size:13px; text-align:center; color:var(--dim); }
   .links a { color:var(--dim); text-decoration:none; }
   .links a:hover { color:var(--hi); }
+  .file-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line); font-size:13px; }
+  .file-info { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+  .file-name { font-weight:500; color:var(--hi); overflow-wrap:anywhere; }
+  .file-meta { font-size:11px; color:var(--dim); display:flex; align-items:center; gap:6px; }
+  .file-badge { font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; text-transform:uppercase; }
+  .file-badge.perm { background:rgba(0,112,243,0.12); color:var(--accent); }
+  .file-badge.temp { background:var(--accents-2); color:var(--dim); }
+  .file-actions { display:flex; align-items:center; gap:6px; }
+  .file-btn { font-size:11px; padding:4px 8px; border-radius:6px; border:1px solid var(--line); background:var(--accents-1); color:var(--hi); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
+  .file-btn:hover { border-color:var(--accents-4); background:var(--accents-2); }
+  .file-btn.del:hover { border-color:var(--bad); color:var(--bad); }
   @media (max-width: 640px) {
     body { padding:16px 12px; }
     .card { padding:20px 16px; border-radius:12px; }
     header { flex-direction:column; align-items:flex-start; gap:12px; }
     .owner-pill { width:100%; justify-content:space-between; }
     .row { flex-direction:column; }
+    .file-item { flex-direction:column; align-items:flex-start; }
+    .file-actions { width:100%; justify-content:flex-end; }
   }
 </style>
 <script nonce="${nonce}">
@@ -763,17 +837,29 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
 
   <section id="session" ${isOwner ? "" : "hidden"}>
     <div class="bar">
-      <span>Upload window: <span class="timer" id="timer">--:--</span></span>
+      <span id="sessionStatus" style="font-weight:600; color:var(--hi);">Active Sandbox Upload Session</span>
       <span id="usage" class="note" style="margin:0;"></span>
     </div>
+    <span id="timer" style="display:none;"></span>
+
+    <div style="margin: 10px 0 16px 0;">
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--hi); cursor:pointer;">
+        <input type="checkbox" id="permSave" style="cursor:pointer; width:16px; height:16px;">
+        <span>Keep files permanently (exempt from auto-cleanup)</span>
+      </label>
+    </div>
+
     <div class="drop" id="drop" tabindex="0" role="button" aria-label="Drop files to upload">
       <div style="font-weight:600; color:var(--hi); margin-bottom:4px;">Drag &amp; drop files here, or click to browse</div>
       <small>Up to ${info.maxFiles} files &middot; ${info.maxFileMb} MB each &middot; ${info.maxTotalMb} MB total</small>
     </div>
     <input id="picker" type="file" multiple hidden>
-    <ul id="list"></ul>
+
+    <input id="fileFilter" type="text" placeholder="Filter files" style="width:100%; margin-top:14px; padding:8px 12px; border-radius:6px; border:1px solid var(--line); background:var(--accents-1); color:var(--hi); font-size:12px; display:none;">
+
+    <ul id="list" style="margin-top:14px;"></ul>
     <div class="err" id="upErr" role="alert"></div>
-    <p class="note">Files are saved in your sandbox at <code>${info.folder}/&lt;filename&gt;</code>. They are automatically accessible to your AI from both the sandbox root and cloned repository directories, and will be retained for ${info.retentionMinutes} minutes.</p>
+    <p class="note">Files are saved in your sandbox at <code>${info.folder}/&lt;filename&gt;</code>. They are automatically accessible to your AI from both the sandbox root and cloned repository directories.</p>
     <div class="row">
       <button id="end" type="button">End upload session</button>
     </div>
@@ -781,7 +867,7 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
 </main>
 
 <div class="links">
-  <a href="/home">Home</a> &bull; <a href="/stats">Stats</a> &bull; <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
+  <a href="/home">Home</a> &bull; <a href="/upload">Upload</a> &bull; <a href="/stats">Stats</a> &bull; <a href="/tools">Tools</a> &bull; <a href="/api">API Keys</a> &bull; <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
 </div>
 
 <script nonce="${nonce}">
@@ -789,7 +875,8 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const isOwner = ${isOwner};
-  let token = null, endsAt = 0, tick = null, limits = null;
+  let token = null, limits = null;
+  const uploadedFileList = [];
 
   const fmt = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
 
@@ -799,28 +886,10 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
   }
 
   function reset(msg) {
-    token = null; clearInterval(tick); tick = null;
+    token = null;
     $('list').textContent = ''; $('upErr').textContent = ''; $('usage').textContent = '';
     show(false);
     $('loginErr').textContent = msg || '';
-  }
-
-  function startTimer(remainingMs) {
-    endsAt = performance.now() + remainingMs;
-    clearInterval(tick);
-    const render = () => {
-      const left = Math.max(0, endsAt - performance.now());
-      const s = Math.ceil(left / 1000);
-      const el = $('timer');
-      el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-      if (left <= 0) {
-        token = null;
-        $('timer').textContent = 'Closed';
-        $('upErr').textContent = 'Upload session closed. Uploaded files remain active in your sandbox.';
-      }
-    };
-    render();
-    tick = setInterval(render, 500);
   }
 
   async function api(path, opts) {
@@ -839,7 +908,6 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
     });
     token = data.token; limits = data.limits;
     show(true);
-    startTimer(data.remainingMs);
   }
 
   if (isOwner) {
@@ -863,35 +931,134 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
     }
   });
 
-  function addRow(name) {
-    const li = document.createElement('li');
-    const n = document.createElement('span'); n.className = 'n'; n.textContent = name;
-    const m = document.createElement('span'); m.className = 'm'; m.textContent = 'uploading…';
-    li.append(n, m);
-    $('list').prepend(li);
-    return { li, n, m };
+  function renderFileList() {
+    const filter = ($('fileFilter').value || '').toLowerCase();
+    const container = $('list');
+    container.innerHTML = '';
+    const visible = uploadedFileList.filter(f => f.name.toLowerCase().includes(filter));
+    if (uploadedFileList.length > 3) {
+      $('fileFilter').style.display = 'block';
+    }
+
+    visible.forEach(f => {
+      const li = document.createElement('li');
+      li.className = 'file-item' + (f.failed ? ' fail' : '');
+
+      const info = document.createElement('div');
+      info.className = 'file-info';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'file-name';
+      nameEl.textContent = f.path || f.name;
+
+      const metaEl = document.createElement('div');
+      metaEl.className = 'file-meta';
+      metaEl.innerHTML = '<span>' + (f.statusText || fmt(f.size)) + '</span>';
+      if (f.permanent) {
+        metaEl.innerHTML += '<span class="file-badge perm">Permanent</span>';
+      } else if (!f.failed && f.path) {
+        metaEl.innerHTML += '<span class="file-badge temp">60m TTL</span>';
+      }
+      info.append(nameEl, metaEl);
+
+      const actions = document.createElement('div');
+      actions.className = 'file-actions';
+
+      if (!f.failed && f.path) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'file-btn';
+        copyBtn.type = 'button';
+        copyBtn.textContent = 'Copy Path';
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(f.path);
+          copyBtn.textContent = 'Copied';
+          setTimeout(() => { copyBtn.textContent = 'Copy Path'; }, 1500);
+        };
+
+        const dlLink = document.createElement('a');
+        dlLink.className = 'file-btn';
+        dlLink.href = '/upload/api/download?name=' + encodeURIComponent(f.name);
+        dlLink.textContent = 'Download';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'file-btn del';
+        delBtn.type = 'button';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = async () => {
+          if (!confirm('Delete ' + f.name + '?')) return;
+          try {
+            await api('/file?name=' + encodeURIComponent(f.name), {
+              method: 'DELETE',
+              headers: { 'x-upload-token': token }
+            });
+            const idx = uploadedFileList.indexOf(f);
+            if (idx >= 0) uploadedFileList.splice(idx, 1);
+            renderFileList();
+          } catch (e) {
+            alert('Could not delete: ' + e.message);
+          }
+        };
+
+        actions.append(copyBtn, dlLink, delBtn);
+      }
+
+      li.append(info, actions);
+      container.appendChild(li);
+    });
   }
 
-  function sendOne(file, row) {
+  $('fileFilter')?.addEventListener('input', renderFileList);
+
+  function sendOne(file) {
+    const isPermanent = Boolean($('permSave')?.checked);
+    const item = {
+      name: file.name,
+      size: file.size,
+      statusText: 'uploading',
+      permanent: isPermanent,
+      failed: false
+    };
+    uploadedFileList.unshift(item);
+    renderFileList();
+
     return new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/upload/api/files');
       xhr.setRequestHeader('x-upload-token', token);
       xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
       xhr.setRequestHeader('content-type', 'application/octet-stream');
-      xhr.upload.onprogress = (e) => { if (e.lengthComputable) row.m.textContent = Math.round(e.loaded / e.total * 100) + '%'; };
+      if (isPermanent) {
+        xhr.setRequestHeader('x-permanent', 'true');
+      }
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          item.statusText = Math.round(e.loaded / e.total * 100) + '%';
+          renderFileList();
+        }
+      };
       xhr.onload = () => {
         let d = {}; try { d = JSON.parse(xhr.responseText); } catch (_) {}
         if (xhr.status === 201) {
-          row.n.textContent = d.file.path; row.m.textContent = fmt(d.file.size);
+          item.path = d.file.path;
+          item.name = d.file.name;
+          item.size = d.file.size;
+          item.permanent = Boolean(d.file.permanent);
+          item.statusText = fmt(d.file.size);
           $('usage').textContent = d.files.length + ' file(s), ' + fmt(d.bytes);
         } else {
-          row.li.className = 'fail'; row.m.textContent = d.error || 'failed';
+          item.failed = true;
+          item.statusText = d.error || 'failed';
           if (xhr.status === 401) reset('Upload session closed. Uploaded files remain active in your sandbox.');
         }
+        renderFileList();
         resolve();
       };
-      xhr.onerror = () => { row.li.className = 'fail'; row.m.textContent = 'network error'; resolve(); };
+      xhr.onerror = () => {
+        item.failed = true;
+        item.statusText = 'network error';
+        renderFileList();
+        resolve();
+      };
       xhr.send(file);
     });
   }
@@ -900,10 +1067,17 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
     $('upErr').textContent = '';
     for (const f of files) {
       if (!token) return;
-      const row = addRow(f.name);
-      if (f.size === 0) { row.li.className = 'fail'; row.m.textContent = 'empty file'; continue; }
-      if (limits && f.size > limits.maxFileBytes) { row.li.className = 'fail'; row.m.textContent = 'too large'; continue; }
-      await sendOne(f, row);
+      if (f.size === 0) {
+        uploadedFileList.unshift({ name: f.name, size: 0, statusText: 'empty file', failed: true });
+        renderFileList();
+        continue;
+      }
+      if (limits && f.size > limits.maxFileBytes) {
+        uploadedFileList.unshift({ name: f.name, size: f.size, statusText: 'too large', failed: true });
+        renderFileList();
+        continue;
+      }
+      await sendOne(f);
     }
   }
 
@@ -920,7 +1094,7 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
   $('end').addEventListener('click', async () => {
     const t = token;
     token = null;
-    $('timer').textContent = 'Closed';
+    $('sessionStatus').textContent = 'Session Closed';
     $('upErr').textContent = 'Upload session ended. Uploaded files remain active in your sandbox.';
     if (t) { try { await api('/end', { method: 'POST', headers: { 'x-upload-token': t, 'content-type': 'application/json' }, body: '{}' }); } catch (_) {} }
   });

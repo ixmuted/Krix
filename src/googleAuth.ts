@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import express, {
   Router,
   type Request,
@@ -27,13 +29,55 @@ export interface GeneratedKeyEntry {
 const dynamicApiKeys = new Map<string, GeneratedKeyEntry>();
 const revokedKeyIds = new Set<string>();
 
+const KEYS_FILE = path.resolve(process.cwd(), "data", ".krix_keys.json");
+const SECRET_FILE = path.resolve(process.cwd(), "data", ".krix_session_secret");
+
+function saveKeysToDisk(): void {
+  try {
+    fs.mkdirSync(path.dirname(KEYS_FILE), { recursive: true });
+    const payload = {
+      keys: Array.from(dynamicApiKeys.entries()),
+      revoked: Array.from(revokedKeyIds),
+    };
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(payload, null, 2), "utf-8");
+  } catch {}
+}
+
+function loadKeysFromDisk(): void {
+  try {
+    if (fs.existsSync(KEYS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(KEYS_FILE, "utf-8"));
+      if (Array.isArray(data.keys)) {
+        for (const [id, entry] of data.keys) {
+          dynamicApiKeys.set(id, entry);
+          if (entry.key) registerSecret(entry.key);
+        }
+      }
+      if (Array.isArray(data.revoked)) {
+        for (const r of data.revoked) revokedKeyIds.add(r);
+      }
+    }
+  } catch {}
+}
+loadKeysFromDisk();
+
 function getSessionSecret(): string {
-  const secret =
-    process.env.SESSION_SECRET ||
-    process.env.AUTH_SECRET ||
-    process.env.MCP_API_KEY ||
-    "krix-default-session-secret-change-in-prod";
-  return secret;
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
+  if (process.env.MCP_API_KEY) return process.env.MCP_API_KEY;
+
+  try {
+    if (fs.existsSync(SECRET_FILE)) {
+      const stored = fs.readFileSync(SECRET_FILE, "utf-8").trim();
+      if (stored) return stored;
+    }
+    const gen = crypto.randomBytes(32).toString("hex");
+    fs.mkdirSync(path.dirname(SECRET_FILE), { recursive: true });
+    fs.writeFileSync(SECRET_FILE, gen, "utf-8");
+    return gen;
+  } catch {
+    return "krix-default-session-secret-change-in-prod";
+  }
 }
 
 function signCookiePayload(payload: string): string {
@@ -165,6 +209,7 @@ export function createDynamicKey(
     createdAt: Date.now(),
   };
   dynamicApiKeys.set(id, entry);
+  saveKeysToDisk();
   return entry;
 }
 
@@ -174,7 +219,9 @@ export function listDynamicKeys(): Omit<GeneratedKeyEntry, "key">[] {
 
 export function revokeDynamicKey(id: string): boolean {
   revokedKeyIds.add(id);
-  return dynamicApiKeys.delete(id);
+  const deleted = dynamicApiKeys.delete(id);
+  saveKeysToDisk();
+  return deleted;
 }
 
 export function getPublicBaseUrl(req: Request): string {
@@ -402,11 +449,12 @@ export function createGoogleAuthRouter(): Router {
           return;
         }
 
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
         const profile: OwnerProfile = {
           email,
           name: userData.name || email.split("@")[0],
           picture: userData.picture,
-          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+          expiresAt: Date.now() + thirtyDaysMs,
         };
 
         const payloadStr = Buffer.from(JSON.stringify(profile)).toString(
@@ -418,7 +466,8 @@ export function createGoogleAuthRouter(): Router {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
-          maxAge: 7 * 24 * 60 * 60 * 1000,
+          maxAge: thirtyDaysMs,
+          expires: new Date(Date.now() + thirtyDaysMs),
           path: "/",
         });
 

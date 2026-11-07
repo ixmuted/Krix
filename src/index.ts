@@ -49,10 +49,17 @@ import {
   isAuthorizedApiKey,
   parseOwnerCookie,
   listDynamicKeys,
+  createDynamicKey,
+  revokeDynamicKey,
 } from "./googleAuth.js";
 import { createMcpOAuthRouter, verifyAccessToken } from "./mcpOAuth.js";
 import { statsTracker } from "./stats.js";
-import { renderHomePage, renderStatsPage } from "./views.js";
+import {
+  renderHomePage,
+  renderStatsPage,
+  renderApiKeysPage,
+  renderToolsPage,
+} from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
 import { createLimiter, rateLimitMiddleware, clientIp } from "./rateLimit.js";
 import {
@@ -457,12 +464,15 @@ app.all(
       if (recorded) return;
       recorded = true;
       let toolName = "mcp_request";
+      let isActualTool = false;
       if (body) {
         const item = Array.isArray(body) ? body[0] : body;
         if (item?.method === "tools/call" && item?.params?.name) {
           toolName = String(item.params.name);
+          isActualTool = true;
         } else if (item?.method) {
           toolName = String(item.method);
+          isActualTool = false;
         }
       }
       const clientAuth = (req as any).clientAuth || {
@@ -476,15 +486,18 @@ app.all(
           : clientAuth.type === "oauth"
             ? "oauth"
             : "api_key";
+      statsTracker.setActiveSessions(transports.size);
       statsTracker.recordRequest({
         keyId: clientAuth.keyId,
         label: clientAuth.label,
         type: authType,
         toolName,
+        isActualTool,
         durationMs: Date.now() - startTime,
         bytesIn,
         bytesOut,
         isError: res.statusCode >= 400,
+        statusCode: res.statusCode,
         ip: clientIp(req),
         userAgent: (req.headers["user-agent"] as string) || "",
       });
@@ -816,6 +829,72 @@ app.get(["/", "/home"], async (req, res) => {
   );
 });
 
+app.get(["/api", "/keys"], async (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  const isOwner = Boolean(owner);
+  const dynamicKeys = listDynamicKeys();
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderApiKeysPage({
+      base,
+      isOwner,
+      owner,
+      keys: dynamicKeys,
+    }),
+  );
+});
+
+app.post("/api/keys", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res
+      .status(401)
+      .json({ error: "Unauthorized. Sign in as owner to create keys." });
+    return;
+  }
+  const label =
+    typeof req.body?.label === "string" && req.body.label.trim()
+      ? req.body.label.trim()
+      : "Client Key";
+  const entry = createDynamicKey(label);
+  res.status(201).json(entry);
+});
+
+app.delete("/api/keys/:id", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id;
+  const revoked = revokeDynamicKey(id);
+  res.json({ success: revoked });
+});
+
+app.get("/tools", async (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  const authKey = computeAuthKey(
+    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+  );
+  const root = sandboxRootForAuthKey(authKey);
+  statsTracker.setActiveSessions(transports.size);
+  const summary = statsTracker.getSummary(root);
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderToolsPage({
+      base,
+      isOwner: Boolean(owner),
+      owner,
+      tools: summary.toolsCatalog,
+      summary,
+    }),
+  );
+});
+
 app.get("/stats/api", async (req, res) => {
   const owner = parseOwnerCookie(req);
   const clientKey = extractClientKey(req);
@@ -837,6 +916,7 @@ app.get("/stats/api", async (req, res) => {
     DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
   );
   const root = sandboxRootForAuthKey(authKey);
+  statsTracker.setActiveSessions(transports.size);
   const summary = statsTracker.getSummary(root);
   res.setHeader("Cache-Control", "no-store");
   res.json(summary);
@@ -856,6 +936,7 @@ app.get("/stats", async (req, res) => {
     DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
   );
   const root = sandboxRootForAuthKey(authKey);
+  statsTracker.setActiveSessions(transports.size);
   const summary = statsTracker.getSummary(root);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
