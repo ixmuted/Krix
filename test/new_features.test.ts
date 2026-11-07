@@ -647,7 +647,7 @@ test("OAuth token persistence and recovery from disk and Mongo sync", async () =
 
 test("Store permanent file toggle, revert retention, and dynamic live counters", async () => {
   const { renderStorePage, renderApiKeysPage } =
-    await import("../src/views.js");
+    await import("../dist/views.js");
   const owner = {
     sub: "12345",
     email: "owner@quickwitty.com",
@@ -1118,7 +1118,12 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
 
 test("Exact page titles, 10-day slider, error/working graph, store privacy, and unguessable token", async () => {
   const { fileShareRegistry } = await import("../src/fileShareRegistry.js");
-  const { renderToolsPage, renderStatsPage, renderNotFoundPage, renderUploadPage } = await import("../src/views.js");
+  const {
+    renderToolsPage,
+    renderStatsPage,
+    renderNotFoundPage,
+    renderUploadPage,
+  } = await import("../src/views.js");
 
   // 1. Verify exact page titles
   const toolsHtml = renderToolsPage({
@@ -1128,7 +1133,10 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
     tools: [],
     summary: { toolsCatalog: [] } as any,
   });
-  assert.ok(toolsHtml.includes("<title>Tools</title>"), "Tools title must be exact");
+  assert.ok(
+    toolsHtml.includes("<title>Tools</title>"),
+    "Tools title must be exact",
+  );
 
   const statsHtml = renderStatsPage({
     base: "https://krix.onrender.com",
@@ -1142,12 +1150,24 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
       activeHttpSessions: 1,
       avgDurationMs: 12,
       p95DurationMs: 25,
-      systemHealth: { uptimeSec: 100, heapUsedMb: 50, heapTotalMb: 100, rssMb: 70, platform: "linux" },
+      systemHealth: {
+        uptimeSec: 100,
+        heapUsedMb: 50,
+        heapTotalMb: 100,
+        rssMb: 70,
+        platform: "linux",
+      },
       peakTraffic: { peakHourUtc: null, peakDay: null },
       statusCodes: { "200": 9, "500": 1 },
       clientEcosystems: {},
       toolDistribution: {},
-      sharedSandbox: { totalDiskBytes: 1024, quotaUsedPercent: 1, uploadFileCount: 1, uploadBytes: 1024, activeWorkDirs: 1 },
+      sharedSandbox: {
+        totalDiskBytes: 1024,
+        quotaUsedPercent: 1,
+        uploadFileCount: 1,
+        uploadBytes: 1024,
+        activeWorkDirs: 1,
+      },
       dailyTimeline: [
         { date: "2026-11-06", requests: 5, tools: 2, errors: 0, success: 5 },
         { date: "2026-11-07", requests: 5, tools: 2, errors: 1, success: 4 },
@@ -1159,11 +1179,26 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
       toolsCatalog: [],
     } as any,
   });
-  assert.ok(statsHtml.includes("<title>Stats</title>"), "Stats title must be exact");
-  assert.ok(statsHtml.includes("statsKeySearchInput"), "Stats must render Per-Key breakdown search input");
-  assert.ok(statsHtml.includes("dailyChunkNav"), "Stats must render 10-day desktop chunk navigation");
-  assert.ok(statsHtml.includes("btnPrevDailyChunk"), "Stats must render Prev 10d button");
-  assert.ok(statsHtml.includes("btnNextDailyChunk"), "Stats must render Next 10d button");
+  assert.ok(
+    statsHtml.includes("<title>Stats</title>"),
+    "Stats title must be exact",
+  );
+  assert.ok(
+    statsHtml.includes("statsKeySearchInput"),
+    "Stats must render Per-Key breakdown search input",
+  );
+  assert.ok(
+    statsHtml.includes("dailyChunkNav"),
+    "Stats must render 10-day desktop chunk navigation",
+  );
+  assert.ok(
+    statsHtml.includes("btnPrevDailyChunk"),
+    "Stats must render Prev 10d button",
+  );
+  assert.ok(
+    statsHtml.includes("btnNextDailyChunk"),
+    "Stats must render Next 10d button",
+  );
 
   const notFoundHtml = renderNotFoundPage({
     base: "https://krix.onrender.com",
@@ -1171,7 +1206,10 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
     owner: null,
     pathname: "/does-not-exist",
   });
-  assert.ok(notFoundHtml.includes("<title>404 Not Found</title>"), "404 title must be exact");
+  assert.ok(
+    notFoundHtml.includes("<title>404 Not Found</title>"),
+    "404 title must be exact",
+  );
 
   // 2. Verify Unguessable 64-char crypto sharing token and privacy toggle
   const meta = fileShareRegistry.ensureFileShare({
@@ -1181,7 +1219,11 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
     contentType: "text/csv",
   });
   assert.equal(meta.shareToken.length, 64, "Share token must be 64-char hex");
-  assert.equal(/^[0-9a-f]{64}$/.test(meta.shareToken), true, "Share token must be cryptographic hex");
+  assert.equal(
+    /^[0-9a-f]{64}$/.test(meta.shareToken),
+    true,
+    "Share token must be cryptographic hex",
+  );
   assert.equal(meta.isPublic, true, "Default privacy must be public");
 
   const toggledFalse = fileShareRegistry.togglePrivacy("test_file_123", false);
