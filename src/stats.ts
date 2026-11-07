@@ -123,9 +123,9 @@ export class StatsTracker {
           params.label ||
           (keyId.startsWith("oauth:")
             ? `OAuth Client (${keyId.slice(6, 16)})`
-            : keyId === "master"
-              ? "Master Gateway Key"
-              : "Gateway Key"),
+            : keyId === "master" || keyId === "master-env-key"
+              ? "Master Key"
+              : "API Key"),
         type:
           params.type ||
           (keyId.startsWith("oauth:")

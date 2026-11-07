@@ -76,7 +76,7 @@ const MCP_API_KEY = process.env.MCP_API_KEY;
 
 if (!MCP_API_KEY) {
   console.error(
-    "FATAL: MCP_API_KEY is not set. Refusing to start an unauthenticated gateway.",
+    "FATAL: MCP_API_KEY is not set. Refusing to start without authentication.",
   );
   process.exit(1);
 }
@@ -176,7 +176,7 @@ function createMasterServer(
       title: "Krix",
       version: "1.1.0",
       description:
-        "Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.",
+        "Remote GitHub discovery, Render management, and sandboxed execution.",
       websiteUrl: "https://github.com/imunmuted/Krix",
       icons: serverInfoIcons,
     },
@@ -371,14 +371,14 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
       return;
     }
 
-    // 2. Check Gateway API keys (server environment key or owner-generated key)
+    // 2. Check API keys (server environment key or owner-generated key)
     if (isAuthorizedApiKey(clientKey)) {
       failedAuthLimiter.reset(ip);
       const isMaster = MCP_API_KEY ? safeEqual(clientKey, MCP_API_KEY) : false;
       const dynamicPrefix = clientKey.slice(0, 16);
       (req as any).clientAuth = {
         keyId: isMaster ? "master-env-key" : `dyn:${dynamicPrefix}`,
-        label: isMaster ? "Master Key (Server Env)" : `Key ${dynamicPrefix}`,
+        label: isMaster ? "Master Key" : `Key ${dynamicPrefix}`,
         type: isMaster ? "master_key" : "dynamic_key",
       };
       next();
@@ -396,7 +396,7 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
     res,
     401,
     -32000,
-    "Unauthorized. Connect using OAuth 2.1 or supply a valid Gateway API key.",
+    "Unauthorized. Connect using OAuth 2.1 or supply a valid API key.",
   );
 }
 
@@ -713,7 +713,7 @@ app.get(["/manifest.json", "/manifest.webmanifest"], (req, res) => {
     name: "Krix",
     short_name: "Krix",
     description:
-      "Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.",
+      "Remote GitHub discovery, Render management, and sandboxed execution.",
     start_url: "/",
     display: "standalone",
     icons: getServerIcons(base).map((icon) => ({
@@ -734,7 +734,7 @@ app.get(["/server.json", "/.well-known/mcp.json"], (req, res) => {
       "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
     name: "io.github.imunmuted/krix",
     description:
-      "Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.",
+      "Remote GitHub discovery, Render management, and sandboxed execution.",
     title: "Krix",
     repository: {
       url: "https://github.com/imunmuted/Krix",
@@ -749,7 +749,7 @@ app.get(["/server.json", "/.well-known/mcp.json"], (req, res) => {
         headers: [
           {
             name: "x-api-key",
-            description: "Krix Gateway MCP API key",
+            description: "Krix MCP API key",
             isSecret: true,
           },
         ],
@@ -769,7 +769,7 @@ app.get("/gemini-extension.json", (req, res) => {
     title: "Krix",
     version: "1.1.0",
     description:
-      "Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.",
+      "Remote GitHub discovery, Render management, and sandboxed execution.",
     icon: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
     iconUrl: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
     logo:
@@ -782,7 +782,7 @@ app.get("/gemini-extension.json", (req, res) => {
     mcpServers: {
       krix: {
         description:
-          "Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.",
+          "Remote GitHub discovery, Render management, and sandboxed execution.",
         httpUrl: `${base}/mcp`,
         url: `${base}/mcp`,
         headers: {
@@ -828,8 +828,7 @@ app.get("/stats/api", async (req, res) => {
 
   if (!isAuth) {
     res.status(401).json({
-      error:
-        "Unauthorized. Sign in as owner or supply a valid Gateway API key.",
+      error: "Unauthorized. Sign in as owner or supply a valid API key.",
     });
     return;
   }

@@ -206,7 +206,7 @@ export async function listUploadedFiles(
 }
 
 export interface UploadRouteOptions {
-  /** The gateway MCP API key the user can present if not logged in via Google. */
+  /** The API key the user can present if not logged in via Google. */
   apiKey: string;
   /** Server-side default GitHub token (what /mcp falls back to when the client sends none). */
   defaultGithubToken?: string;
@@ -751,10 +751,10 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
     </a>
 
     <details>
-      <summary style="margin-top:20px; font-size:12px;">Alternative: authenticate with MCP API Key</summary>
+      <summary style="margin-top:20px; font-size:12px;">Alternative: authenticate with MCP API key</summary>
       <form id="loginForm" autocomplete="off" style="margin-top:10px;">
         <label for="key">MCP API key</label>
-        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter gateway API key">
+        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter API key">
         <button class="primary" id="start" type="submit">Open Upload Session</button>
       </form>
     </details>

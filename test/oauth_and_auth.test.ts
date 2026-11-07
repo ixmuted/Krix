@@ -188,7 +188,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.equal(isAuthorizedEmail("hacker@gmail.com"), false);
   });
 
-  test("Dynamic Gateway API key creation, verification, and revocation", () => {
+  test("Dynamic API key creation, verification, and revocation", () => {
     const entry = createDynamicKey("Cursor Agent Key");
     assert.ok(entry.key.startsWith("krix_"));
     assert.equal(entry.label, "Cursor Agent Key");

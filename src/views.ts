@@ -465,7 +465,7 @@ export function renderHeader(
 export function renderFooter(): string {
   return `
     <footer>
-      <div>Krix MCP Gateway &bull; Single-Tenant Secure Architecture</div>
+      <div>Krix &bull; Single-User Architecture</div>
       <div style="display:flex; gap:16px;">
         <a href="/home">Home</a>
         <a href="/upload">Upload</a>
@@ -490,7 +490,7 @@ export function renderHomePage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Krix MCP Gateway</title>
+  <title>Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
@@ -519,10 +519,10 @@ export function renderHomePage(params: {
           <span class="badge">RFC 9728 & RFC 8414</span>
         </div>
         <h1 style="font-size:26px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); margin-bottom:6px;">
-          Krix Single-Tenant MCP Gateway
+          Krix
         </h1>
         <p style="font-size:14px; color:var(--accents-5); max-width:620px; line-height:1.5;">
-          Minimalist isolated execution sandbox and toolset router. Connect Claude, Gemini, ChatGPT, and Cursor with asymmetric RS256 authentication and per-key usage metrics.
+          Isolated execution sandbox and tools. Connect Claude, Gemini, ChatGPT, and Cursor with asymmetric RS256 authentication and usage metrics.
         </p>
       </div>
 
@@ -541,12 +541,12 @@ export function renderHomePage(params: {
           <span class="badge">${uploads.length} files</span>
         </div>
         <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
-          Live file tree of your sandboxed execution root. Uploaded files in <code>upload/</code> are automatically linked into all active and cloned repositories.
+          Workspace files and active directory tree. Files in <code>upload/</code> are accessible across all active projects.
         </p>
 
         <div class="code-view" style="font-size:12.5px; line-height:1.7;">
           <div><span style="color:#e5c07b; font-weight:600;">📦 krix-sandbox/</span></div>
-          <div>│   ├── <span style="color:#e5c07b; font-weight:600;">📁 upload/</span> <span style="color:var(--accents-4); font-size:11px;">(unified uploads folder)</span></div>
+          <div>│   ├── <span style="color:#e5c07b; font-weight:600;">📁 upload/</span> <span style="color:var(--accents-4); font-size:11px;">(uploads directory)</span></div>
           ${
             uploads.length > 0
               ? uploads
@@ -559,14 +559,14 @@ export function renderHomePage(params: {
           <div>│   │   └── <span style="color:var(--accents-4); font-size:11px;">(no uploads yet)</span></div>`
           }
           <div>│   ├── <span style="color:#e5c07b; font-weight:600;">📁 workspace/</span> <span style="color:var(--accents-4); font-size:11px;">(active repository clone)</span></div>
-          <div>│   │   ├── <span style="color:#e5c07b; font-weight:600;">📁 upload/</span> <span style="color:var(--accents-4); font-size:11px;">&rarr; symlink to sandbox upload/</span></div>
+          <div>│   │   ├── <span style="color:#e5c07b; font-weight:600;">📁 upload/</span> <span style="color:var(--accents-4); font-size:11px;">&rarr; link to upload/</span></div>
           <div>│   │   ├── 📄 package.json</div>
           <div>│   │   └── 📁 src/</div>
           <div>└── ⚙️ system/ <span style="color:var(--accents-4); font-size:11px;">(Node.js 22 LTS &middot; Python 3 &middot; Git)</span></div>
         </div>
 
         <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--accents-5);">
-          <span>Quota sharing: <strong>Unified single sandbox</strong></span>
+          <span>Storage: <strong>Shared Sandbox</strong></span>
           <span>Transport: <strong>Streamable HTTP</strong></span>
         </div>
       </section>
@@ -578,7 +578,7 @@ export function renderHomePage(params: {
           <span class="badge success">RS256</span>
         </div>
         <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
-          Connect Claude Desktop, Cursor, Antigravity, ChatGPT, or any agent using native RS256 OAuth 2.1 or a Gateway API key.
+          Connect Claude Desktop, Cursor, Antigravity, ChatGPT, or any agent using RS256 OAuth 2.1 or an API key.
         </p>
 
         <div class="endpoint-box">
@@ -605,10 +605,10 @@ export function renderHomePage(params: {
         <!-- Key Management Box -->
         <div style="margin-top:16px; padding:14px; background:var(--card-sub); border:1px solid var(--border); border-radius:8px;">
           <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">
-            ${isOwner ? "Gateway Key Management" : "Owner Gateway Key"}
+            ${isOwner ? "API Key Management" : "API Keys"}
           </div>
           <div style="font-size:12px; color:var(--accents-5);">
-            ${isOwner ? "Generate on-demand MCP API keys directly from your signed-in owner account." : "Sign in with Google above to generate, view, and rotate your Gateway API keys."}
+            ${isOwner ? "Generate on-demand API keys directly from your authenticated account." : "Sign in with Google to generate and manage API keys."}
           </div>
 
           ${
@@ -748,7 +748,7 @@ export function renderHomePage(params: {
       const el = document.getElementById('newKeyVal');
       el.select();
       navigator.clipboard.writeText(el.value);
-      alert('Gateway API Key copied to clipboard. Snippets updated.');
+      alert('API key copied to clipboard.');
     }
 
     function toggleTheme() {
@@ -781,7 +781,7 @@ export function renderStatsPage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Krix Stats &amp; Per-Key Analytics</title>
+  <title>Krix Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
@@ -890,10 +890,10 @@ export function renderStatsPage(params: {
     <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
       <div>
         <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-          Gateway Usage &amp; Analytics
+          Usage &amp; Analytics
         </h1>
         <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
-          Per-key activity, tool distributions, and unified sandbox storage quotas.
+          Per-key activity, tool execution, and storage quotas.
         </p>
       </div>
 
@@ -931,16 +931,16 @@ export function renderStatsPage(params: {
       </div>
 
       <div class="card">
-        <div class="metric-label">Shared Sandbox Quota Pool</div>
+        <div class="metric-label">Sandbox Storage</div>
         <div class="metric-value">${summary.sharedSandbox.quotaUsedPercent}%</div>
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" style="width: ${Math.min(100, Math.max(2, summary.sharedSandbox.quotaUsedPercent))}%;"></div>
         </div>
         <div style="font-size:12px; color:var(--accents-5); margin-top:6px; display:flex; justify-content:space-between;">
           <span>${formatBytes(summary.sharedSandbox.totalDiskBytes)} used</span>
-          <span>${summary.sharedSandbox.quotaLimitMb} MB total</span>
+          <span>${summary.sharedSandbox.quotaLimitMb} MB quota</span>
         </div>
-        <p style="font-size:11px; color:var(--accents-5); margin-top:6px;">All API keys and OAuth tokens share the same unified single-user sandbox quota.</p>
+        <p style="font-size:11px; color:var(--accents-5); margin-top:6px;">Shared storage across all API keys and OAuth clients.</p>
       </div>
     </div>
 
@@ -1015,8 +1015,8 @@ export function renderStatsPage(params: {
             <span><strong>${formatBytes(summary.totalBytesIn)}</strong> in / <strong>${formatBytes(summary.totalBytesOut)}</strong> out</span>
           </div>
           <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
-            <span style="color:var(--accents-5);">4. Sandbox Unified Pool:</span>
-            <span><strong>${summary.sharedSandbox.uploadFileCount}</strong> upload files, <strong>${summary.sharedSandbox.activeWorkDirs}</strong> active repos</span>
+            <span style="color:var(--accents-5);">4. Sandbox Storage:</span>
+            <span><strong>${summary.sharedSandbox.uploadFileCount}</strong> files, <strong>${summary.sharedSandbox.activeWorkDirs}</strong> active repositories</span>
           </div>
           <div style="display:flex; justify-content:space-between;">
             <span style="color:var(--accents-5);">OAuth 2.1 Cryptography:</span>
@@ -1030,7 +1030,7 @@ export function renderStatsPage(params: {
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; OAuth Client Breakdown</h2>
-        <span class="badge">${summary.keys.length} tracked entities</span>
+        <span class="badge">${summary.keys.length} keys</span>
       </div>
 
       <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">

@@ -1,7 +1,7 @@
 {
   "name": "Krix",
   "short_name": "Krix",
-  "description": "Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.",
+  "description": "Remote GitHub discovery, Render management, and sandboxed execution.",
   "start_url": "/",
   "display": "standalone",
   "icons": [

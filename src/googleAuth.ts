@@ -393,7 +393,7 @@ export function createGoogleAuthRouter(): Router {
             <div class="card">
               <h1>403 Forbidden: Unauthorized Account</h1>
               <p>Signed in as <code>${encodeURIComponent(email)}</code>.</p>
-              <p>This Krix Gateway is configured for single-user owner access only. Your Google account is not authorized.</p>
+              <p>This instance is configured for single-user owner access only. Your Google account is not authorized.</p>
               <a href="/auth/google">&larr; Sign in with another Google account</a>
             </div>
           </body>
@@ -455,7 +455,7 @@ export function createGoogleAuthRouter(): Router {
     });
   });
 
-  // POST /auth/keys - generate a dynamic gateway API key
+  // POST /auth/keys - generate a dynamic API key
   router.post(
     "/keys",
     requireOwnerAuth,

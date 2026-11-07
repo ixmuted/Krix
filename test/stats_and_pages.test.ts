@@ -258,11 +258,31 @@ test("Home and Stats pages adhere to Geist Minimalist Design, Zero-Neon, and Zer
   assert.ok(homeHtml.includes("/.well-known/jwks.json"));
   assert.ok(statsHtml.includes("/.well-known/jwks.json"));
 
-  // 5. Shared sandbox quota explicitly highlighted
-  assert.ok(statsHtml.includes("Shared Sandbox Quota Pool"));
+  // 5. Shared sandbox storage cleanly highlighted with concise professional terms
+  assert.ok(statsHtml.includes("Sandbox Storage"));
   assert.ok(
-    statsHtml.includes(
-      "All API keys and OAuth tokens share the same unified single-user sandbox quota",
-    ),
+    statsHtml.includes("Shared storage across all API keys and OAuth clients."),
+  );
+
+  // 6. Professional terminology audit: zero 'Gateway' or silly 'pool' in UI copy
+  assert.equal(
+    homeHtml.includes("Gateway"),
+    false,
+    "homeHtml must not contain 'Gateway'",
+  );
+  assert.equal(
+    homeHtml.includes("pool"),
+    false,
+    "homeHtml must not contain 'pool'",
+  );
+  assert.equal(
+    statsHtml.includes("Gateway"),
+    false,
+    "statsHtml must not contain 'Gateway'",
+  );
+  assert.equal(
+    statsHtml.includes("pool"),
+    false,
+    "statsHtml must not contain 'pool'",
   );
 });
