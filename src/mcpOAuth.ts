@@ -1496,7 +1496,22 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
       }
     }
   }
-  return Array.from(result.values());
+  const list = Array.from(result.values());
+  const deduplicated = new Map<string, ActiveOAuthInfo>();
+  for (const item of list) {
+    const normKey = (item.clientName || item.clientId).trim().toLowerCase();
+    const existing = deduplicated.get(normKey);
+    if (!existing) {
+      deduplicated.set(normKey, item);
+    } else {
+      const existingScore = Math.max(existing.lastUsedAt || 0, existing.createdAt || 0);
+      const itemScore = Math.max(item.lastUsedAt || 0, item.createdAt || 0);
+      if (itemScore > existingScore) {
+        deduplicated.set(normKey, item);
+      }
+    }
+  }
+  return Array.from(deduplicated.values());
 }
 
 export function revokeOAuthAuthorization(clientId: string): boolean {

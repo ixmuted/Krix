@@ -12,10 +12,12 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / 1048576).toFixed(1) + " MB";
+export function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0 || isNaN(bytes)) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+  return `${(bytes / 1073741824).toFixed(1)} GB`;
 }
 
 function timeAgo(ms: number): string {
@@ -54,10 +56,19 @@ export function renderSvg(
     | "zap"
     | "edit"
     | "more-vertical"
-    | "search",
+    | "search"
+    | "lock"
+    | "globe"
+    | "monitor",
   size = 14,
 ): string {
   switch (name) {
+    case "lock":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+    case "globe":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
+    case "monitor":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>`;
     case "eye":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
     case "eye-off":
@@ -165,12 +176,16 @@ export function getBaseStyles(): string {
       background-image: radial-gradient(var(--accents-2) 1px, transparent 1px);
       background-size: 24px 24px;
       background-attachment: fixed;
-      font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, Cantarell, "Noto Sans", sans-serif;
       transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
       flex-direction: column;
       align-items: center;
       padding-bottom: 40px;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
     }
 
     .nav-header {
@@ -910,6 +925,13 @@ export function getBaseStyles(): string {
       display: inline-block;
       text-align: right;
     }
+    .kebab-wrap.is-open {
+      z-index: 9999;
+    }
+    tr:has(.kebab-dropdown.open), tr.has-open-kebab {
+      position: relative;
+      z-index: 1000;
+    }
     .kebab-btn {
       width: 32px;
       height: 32px;
@@ -933,13 +955,13 @@ export function getBaseStyles(): string {
       position: absolute;
       right: 0;
       top: calc(100% + 4px);
-      z-index: 1000;
+      z-index: 99999;
       min-width: 170px;
       padding: 6px;
       border-radius: 8px;
       background: var(--card-bg);
       border: 1px solid var(--border);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.32);
       display: none;
       flex-direction: column;
       gap: 2px;
@@ -986,6 +1008,114 @@ export function getBaseStyles(): string {
       height: 1px;
       background: var(--border);
       margin: 4px 0;
+    }
+
+    /* Custom Select Dropdown Component */
+    .custom-select-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .custom-select-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--fg);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      max-width: 220px;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+    .custom-select-btn:hover {
+      border-color: var(--accents-4);
+      background: var(--accents-1);
+    }
+    .custom-select-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .custom-select-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      z-index: 9999;
+      min-width: 200px;
+      max-height: 280px;
+      overflow-y: auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .custom-select-menu.open {
+      display: flex;
+    }
+    .custom-select-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      color: var(--fg);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      transition: background 0.12s ease;
+    }
+    .custom-select-item:hover, .custom-select-item.selected {
+      background: var(--accents-1);
+    }
+    .custom-select-item.selected {
+      font-weight: 600;
+      color: #0070f3;
+    }
+
+    /* Footer Buttons with Crisp Borders */
+    .footer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--accents-5);
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      line-height: 1.3;
+      cursor: pointer;
+    }
+    .footer-btn:hover {
+      color: var(--fg);
+      border-color: var(--accents-4);
+      background: var(--accents-1);
+    }
+    .footer-btn .kbd-badge {
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      background: var(--accents-2);
+      color: var(--fg);
+      padding: 1px 4px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
     }
 
     /* Unified Pagination Controls */
@@ -1099,33 +1229,40 @@ export function getBaseStyles(): string {
         display: inline-flex;
         align-items: center;
         white-space: nowrap;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 500;
         color: var(--accents-5);
-        padding: 5px 12px;
-        border-radius: 20px;
+        padding: 5px 10px;
+        border-radius: 6px;
         text-decoration: none;
-        border: 1px solid transparent;
-        transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-        background: var(--accents-1);
+        border: 1px solid var(--border);
+        transition: all 0.15s ease;
+        background: var(--card-bg);
         touch-action: manipulation;
-        min-height: 32px;
+        min-height: 28px;
       }
       .mobile-subnav-pill:hover {
         color: var(--fg);
-        background: var(--accents-2);
+        background: var(--accents-1);
+        border-color: var(--accents-4);
       }
       .mobile-subnav-pill.active {
         color: var(--fg);
-        background: var(--card-bg);
-        border-color: var(--border);
+        background: var(--accents-1);
+        border-color: var(--fg);
         font-weight: 600;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
       }
-      .grid-4 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr !important; }
+      .grid-3 { grid-template-columns: 1fr !important; }
+      .grid-4 { grid-template-columns: 1fr !important; }
+      .card { max-width: 100%; }
+      .code-view { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+      .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; scrollbar-width: none; }
+      .tab-bar::-webkit-scrollbar { display: none; }
       .nav-inner { padding: 0 12px; gap: 8px; }
       .key-display-scroll { max-width: 130px; }
-      .endpoint-row { flex-direction: column; }
+      .endpoint-row { flex-direction: column; width: 100%; }
+      .endpoint-row input { width: 100% !important; min-width: 0 !important; }
       footer { flex-direction: column; gap: 12px; text-align: center; }
     }
   `;
@@ -1175,7 +1312,12 @@ export function renderHeader(
         </nav>
 
         <div class="nav-right">
-          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+          <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Theme: System (Auto) · Click to switch" aria-label="Toggle Theme">
+            <svg id="themeIconSystem" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
             <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
               <circle cx="12" cy="12" r="5"></circle>
               <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -1187,7 +1329,7 @@ export function renderHeader(
               <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
               <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
             </svg>
-            <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
           </button>
@@ -1295,6 +1437,51 @@ export function renderHeader(
           if (menu) menu.classList.remove('open');
         }
       });
+
+      function applyTheme(theme) {
+        const isSys = theme === 'system';
+        const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const shouldBeDark = isSys ? sysDark : theme === 'dark';
+        document.documentElement.classList.toggle('dark', shouldBeDark);
+        updateThemeIcons(theme);
+      }
+      function updateThemeIcons(theme) {
+        const iconSys = document.getElementById('themeIconSystem');
+        const iconMoon = document.getElementById('themeIconMoon');
+        const iconSun = document.getElementById('themeIconSun');
+        const btn = document.getElementById('themeToggleBtn');
+        if (iconSys) iconSys.style.display = theme === 'system' ? 'inline-block' : 'none';
+        if (iconMoon) iconMoon.style.display = theme === 'dark' ? 'inline-block' : 'none';
+        if (iconSun) iconSun.style.display = theme === 'light' ? 'inline-block' : 'none';
+        if (btn) {
+          const titles = {
+            system: 'Theme: System (Auto) · Click for Dark',
+            dark: 'Theme: Dark · Click for Light',
+            light: 'Theme: Light · Click for System'
+          };
+          btn.title = titles[theme] || 'Toggle Theme';
+          btn.setAttribute('aria-label', titles[theme] || 'Toggle Theme');
+        }
+      }
+      function toggleTheme() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        const current = localStorage.getItem('qw-theme') || 'system';
+        const next = current === 'system' ? 'dark' : current === 'dark' ? 'light' : 'system';
+        localStorage.setItem('qw-theme', next);
+        applyTheme(next);
+      }
+      window.toggleTheme = toggleTheme;
+      window.applyTheme = applyTheme;
+      if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+          const current = localStorage.getItem('qw-theme') || 'system';
+          if (current === 'system') applyTheme('system');
+        });
+      }
+      (function() {
+        const saved = localStorage.getItem('qw-theme') || 'system';
+        applyTheme(saved);
+      })();
     </script>
   `;
 }
@@ -1302,17 +1489,19 @@ export function renderHeader(
 export function renderFooter(): string {
   return `
     <footer>
-      <div>Krix</div>
-      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
-        <a href="/home">Home</a>
-        <a href="/upload">Upload</a>
-        <a href="/store">Store</a>
-        <a href="/stats">Stats</a>
-        <a href="/tools">Tools</a>
-        <a href="/api">API Keys</a>
-        <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact</a>
-        <button type="button" class="btn" onclick="openShortcutsModal()" style="padding:2px 8px; font-size:11px; height:24px; margin-left:4px;" title="View Keyboard Shortcuts (?)">
-          Shortcuts <span class="kbd-badge" style="margin-left:2px; font-size:10px; padding:1px 4px;">?</span>
+      <div style="font-weight:700; color:var(--fg); display:flex; align-items:center; gap:8px;">
+        <span>Krix</span>
+      </div>
+      <div class="footer-links" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <a href="/home" class="footer-btn">Home</a>
+        <a href="/upload" class="footer-btn">Upload</a>
+        <a href="/store" class="footer-btn">Store</a>
+        <a href="/stats" class="footer-btn">Stats</a>
+        <a href="/tools" class="footer-btn">Tools</a>
+        <a href="/api" class="footer-btn">API Keys</a>
+        <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="footer-btn">Contact</a>
+        <button type="button" class="footer-btn" onclick="openShortcutsModal()" title="View Keyboard Shortcuts (?)">
+          Shortcuts <span class="kbd-badge">?</span>
         </button>
       </div>
     </footer>
@@ -1427,7 +1616,7 @@ export function renderAuthRequiredCard(
       </div>
       <h2 style="font-size:18px; font-weight:600; color:var(--fg); margin-bottom:8px;">Authentication Required</h2>
       <p style="font-size:13px; color:var(--accents-5); max-width:420px; margin:0 auto 24px; line-height:1.5;">
-        You must sign in as the verified service owner to access the ${escapeHtml(pageTitle)} page.
+        You must sign in as the verified service owner or authenticate with your MCP API key to access the ${escapeHtml(pageTitle)} page.
       </p>
       <a href="/auth/google?returnTo=${encodeURIComponent(returnUrl)}" class="btn primary" style="padding:8px 18px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">
         ${renderGoogleLogoSvg(18)}
@@ -1441,10 +1630,11 @@ export function renderHomePage(params: {
   base: string;
   isOwner: boolean;
   owner: OwnerProfile | null;
-  uploads: Array<{ name: string; size: number }>;
-  dynamicKeys: Array<Omit<GeneratedKeyEntry, "key"> | GeneratedKeyEntry>;
+  uploads?: Array<{ name: string; size: number }>;
+  dynamicKeys?: Array<Omit<GeneratedKeyEntry, "key"> | GeneratedKeyEntry>;
+  activeNav?: string;
 }): string {
-  const { base, isOwner, owner, uploads, dynamicKeys } = params;
+  const { base, isOwner, owner, uploads = [], dynamicKeys = [] } = params;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1651,24 +1841,6 @@ export function renderHomePage(params: {
       btn.textContent = 'Copied';
       setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
     }
-
-    function toggleTheme() {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
-      updateThemeIcon(isDark);
-    }
-
-    function updateThemeIcon(isDark) {
-      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
-      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
-    }
-
-    const initialDark = document.documentElement.classList.contains('dark');
-    updateThemeIcon(initialDark);
-
-    // Initial API Keys and OAuth pagination render
-    renderKeysPagination();
-    renderOAuthPagination();
   </script>
 </body>
 </html>`;
@@ -1689,7 +1861,7 @@ export function renderApiKeysPage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>API Keys - Krix</title>
+  <title>API Keys</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -1795,7 +1967,7 @@ export function renderApiKeysPage(params: {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active API Keys</h2>
-            <span class="badge" id="keysCountBadge">${keys.length} active</span>
+            <span class="badge ${keys.length > 0 ? "success" : ""}" id="keysCountBadge">${keys.length} active</span>
           </div>
           <div class="search-input-wrap" style="width:100%; max-width:320px;">
             ${renderSvg("search", 15)}
@@ -1803,15 +1975,15 @@ export function renderApiKeysPage(params: {
           </div>
         </div>
 
-        <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:480px; overflow-y:auto; padding-bottom:80px; margin-bottom:-80px;">
-          <table id="keysTable">
+        <div class="table-scroll-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:90px; margin-bottom:-90px;">
+          <table id="keysTable" style="table-layout: fixed; width: 100%;">
             <thead>
               <tr>
-                <th>Label</th>
-                <th>Client ID</th>
-                <th>Key Secret</th>
-                <th>Created</th>
-                <th style="text-align:right;">Actions</th>
+                <th style="width: 24%; min-width: 140px;">Label</th>
+                <th style="width: 20%; min-width: 130px;">Client ID</th>
+                <th style="width: 32%; min-width: 240px;">Key Secret</th>
+                <th style="width: 14%; min-width: 100px;">Created</th>
+                <th style="width: 10%; min-width: 50px; text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody id="keysTableBody">
@@ -1827,25 +1999,25 @@ export function renderApiKeysPage(params: {
                         const fullKey = (k as any).key || prefix || id;
                         return `
                 <tr id="row-${escapeHtml(id)}" class="key-row" data-label="${escapeHtml(label.toLowerCase())}" data-client-id="${escapeHtml(cId.toLowerCase())}" data-prefix="${escapeHtml(prefix.toLowerCase())}" data-id="${escapeHtml(id.toLowerCase())}">
-                  <td>
-                    <div style="font-weight:600; color:var(--fg);" id="key-label-text-${escapeHtml(id)}">${escapeHtml(label)}</div>
-                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(id)}</div>
+                  <td style="overflow:hidden; text-overflow:ellipsis;">
+                    <div style="font-weight:600; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="key-label-text-${escapeHtml(id)}">${escapeHtml(label)}</div>
+                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(id)}</div>
                   </td>
                   <td>
                     <div style="display:flex; align-items:center; gap:6px;">
                       <code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">${escapeHtml(cId || "N/A")}</code>
-                      ${cId ? `<button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="padding:4px 7px;" title="Copy Client ID" aria-label="Copy Client ID">${renderSvg("copy", 13)}</button>` : ""}
+                      ${cId ? `<button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;" title="Copy Client ID" aria-label="Copy Client ID">${renderSvg("copy", 13)}</button>` : ""}
                     </div>
                   </td>
-                  <td>
+                  <td style="width: 32%; min-width: 240px;">
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <div class="key-display-scroll" style="max-width:180px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">
-                        <code id="key-val-${escapeHtml(id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block;">••••••••••••••••</code>
+                      <div class="key-display-scroll" style="width:145px; min-width:145px; max-width:145px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">
+                        <code id="key-val-${escapeHtml(id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block; box-sizing:border-box;">••••••••••••••••</code>
                       </div>
-                      <button type="button" class="btn icon-btn" id="reveal-btn-${escapeHtml(id)}" onclick="toggleKeyReveal('${escapeHtml(id)}')" title="Reveal API Key" aria-label="Reveal API Key" style="padding:4px 7px;">
+                      <button type="button" class="btn icon-btn" id="reveal-btn-${escapeHtml(id)}" onclick="toggleKeyReveal('${escapeHtml(id)}')" title="Reveal API Key" aria-label="Reveal API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">
                         ${renderSvg("eye", 14)}
                       </button>
-                      <button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" title="Copy API Key" aria-label="Copy API Key" style="padding:4px 7px;">
+                      <button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" title="Copy API Key" aria-label="Copy API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">
                         ${renderSvg("copy", 14)}
                       </button>
                     </div>
@@ -1868,7 +2040,7 @@ export function renderApiKeysPage(params: {
                             : ""
                         }
                         <button type="button" class="kebab-item" onclick="openRenameKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
-                          ${renderSvg("edit", 14)} <span>Rename…</span>
+                          ${renderSvg("edit", 14)} <span>Rename</span>
                         </button>
                         <div class="kebab-divider"></div>
                         <button type="button" class="kebab-item danger" onclick="openDeleteKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
@@ -1919,14 +2091,14 @@ export function renderApiKeysPage(params: {
           </div>
         </div>
 
-        <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:480px; overflow-y:auto; padding-bottom:80px; margin-bottom:-80px;">
-          <table>
+        <div class="table-scroll-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:120px; margin-bottom:-120px;">
+          <table style="table-layout: fixed; width: 100%;">
             <thead>
               <tr>
-                <th>Application</th>
-                <th>Client ID</th>
-                <th>Permissions</th>
-                <th style="text-align:right;">Actions</th>
+                <th style="width: 28%; min-width: 140px;">Application</th>
+                <th style="width: 34%; min-width: 160px;">Client ID</th>
+                <th style="width: 26%; min-width: 120px;">Permissions</th>
+                <th style="width: 12%; min-width: 50px; text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody id="oauthTableBody">
@@ -1935,10 +2107,10 @@ export function renderApiKeysPage(params: {
                   ? oauthAuthorizations
                       .map(
                         (a) => `
-                <tr id="oauth-row-${escapeHtml(a.clientId)}" class="oauth-row" data-name="${escapeHtml(a.clientName.toLowerCase())}" data-id="${escapeHtml(a.clientId.toLowerCase())}" data-scope="${escapeHtml(a.scope.toLowerCase())}">
-                  <td><strong id="oauth-name-text-${escapeHtml(a.clientId)}">${escapeHtml(a.clientName)}</strong></td>
+                <tr id="oauth-row-${escapeHtml(a.clientId)}" class="oauth-row" data-name="${escapeHtml((a.clientName || "").toLowerCase())}" data-id="${escapeHtml((a.clientId || "").toLowerCase())}" data-scope="${escapeHtml((a.scope || "").toLowerCase())}">
+                  <td><strong id="oauth-name-text-${escapeHtml(a.clientId)}">${escapeHtml(a.clientName || a.clientId)}</strong></td>
                   <td style="font-family:ui-monospace, monospace; color:var(--accents-5); font-size:12px;">${escapeHtml(a.clientId)}</td>
-                  <td style="font-size:12px; color:var(--accents-5);">${escapeHtml(a.scope)}</td>
+                  <td style="font-size:12px; color:var(--accents-5);">${escapeHtml(a.scope || "mcp:tools")}</td>
                   <td style="text-align:right;">
                     <div class="kebab-wrap">
                       <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-oauth-${escapeHtml(a.clientId)}" aria-label="OAuth Actions">⋮</button>
@@ -1947,7 +2119,7 @@ export function renderApiKeysPage(params: {
                           ${renderSvg("copy", 14)} <span>Copy Client ID</span>
                         </button>
                         <button type="button" class="kebab-item" onclick="openRenameOAuthModal('${escapeHtml(a.clientId)}', '${escapeHtml(a.clientName)}')">
-                          ${renderSvg("edit", 14)} <span>Rename…</span>
+                          ${renderSvg("edit", 14)} <span>Rename</span>
                         </button>
                         <div class="kebab-divider"></div>
                         <button type="button" class="kebab-item danger" onclick="openDeleteOAuthModal('${escapeHtml(a.clientId)}', '${escapeHtml(a.clientName)}')">
@@ -2283,7 +2455,11 @@ export function renderApiKeysPage(params: {
             
             const remaining = document.querySelectorAll('#keysTableBody tr.key-row').length;
             const badge = document.getElementById('keysCountBadge');
-            if (badge) badge.textContent = remaining + '/30 keys';
+            if (badge) {
+              badge.textContent = remaining + ' active';
+              if (remaining === 0) badge.classList.remove('success');
+              else badge.classList.add('success');
+            }
             if (remaining === 0) {
               const tbody = document.getElementById('keysTableBody');
               if (tbody) {
@@ -2326,7 +2502,7 @@ export function renderApiKeysPage(params: {
             const remainingOAuth = document.querySelectorAll('#oauthTableBody tr.oauth-row').length;
             const oBadge = document.getElementById('oauthCountBadge');
             if (oBadge) {
-              oBadge.textContent = remainingOAuth + '/20 connected';
+              oBadge.textContent = remainingOAuth + ' connected';
               if (remainingOAuth === 0) oBadge.classList.remove('success');
             }
             if (remainingOAuth === 0) {
@@ -2365,32 +2541,44 @@ export function renderApiKeysPage(params: {
       activeConfirmAction = null;
     }
 
-    // Kebab Dropdown Delegation with Overflow Detection
+    // Kebab Dropdown Delegation with Overflow Detection & Safe Viewport Positioning
     document.addEventListener('click', function(e) {
       const btn = e.target.closest('.kebab-btn');
       const allDropdowns = document.querySelectorAll('.kebab-dropdown.open');
+      const allWraps = document.querySelectorAll('.kebab-wrap.is-open');
       if (btn) {
         e.stopPropagation();
         const wrap = btn.closest('.kebab-wrap');
         const dropdown = wrap ? wrap.querySelector('.kebab-dropdown') : null;
         allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        allWraps.forEach(w => { if (w !== wrap) w.classList.remove('is-open'); });
         if (dropdown) {
           const isOpen = dropdown.classList.contains('open');
           if (!isOpen) {
             const rect = btn.getBoundingClientRect();
-            if (window.innerHeight - rect.bottom < 180) {
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const scrollParent = btn.closest('div[style*="overflow"]') || btn.closest('.table-scroll-container');
+            let parentSpaceBelow = 9999;
+            if (scrollParent) {
+              const pRect = scrollParent.getBoundingClientRect();
+              parentSpaceBelow = pRect.bottom - rect.bottom;
+            }
+            if (spaceBelow < 200 || parentSpaceBelow < 180) {
               dropdown.classList.add('pop-up');
             } else {
               dropdown.classList.remove('pop-up');
             }
             dropdown.classList.add('open');
+            if (wrap) wrap.classList.add('is-open');
           } else {
             dropdown.classList.remove('open');
+            if (wrap) wrap.classList.remove('is-open');
           }
         }
         return;
       }
       allDropdowns.forEach(d => d.classList.remove('open'));
+      allWraps.forEach(w => w.classList.remove('is-open'));
     });
 
     window.addEventListener('keydown', (e) => {
@@ -2484,7 +2672,7 @@ export function renderApiKeysPage(params: {
               '<div class="kebab-dropdown">' +
               '<button type="button" class="kebab-item kebab-copy-key">Copy Key</button>' +
               (safeCId ? '<button type="button" class="kebab-item kebab-copy-cid">Copy Client ID</button>' : '') +
-              '<button type="button" class="kebab-item kebab-rename-key">Rename…</button>' +
+              '<button type="button" class="kebab-item kebab-rename-key">Rename</button>' +
               '<div class="kebab-divider"></div>' +
               '<button type="button" class="kebab-item danger kebab-delete-key">Delete Key</button>' +
               '</div>' +
@@ -2514,7 +2702,10 @@ export function renderApiKeysPage(params: {
 
           const remaining = document.querySelectorAll('#keysTableBody tr.key-row').length;
           const badge = document.getElementById('keysCountBadge');
-          if (badge) badge.textContent = remaining + '/30 keys';
+          if (badge) {
+            badge.textContent = remaining + ' active';
+            if (remaining > 0) badge.classList.add('success');
+          }
           filterKeys();
         } else {
           showToast('Could not generate key: ' + (data.error || 'Unknown error'), 'error');
@@ -2569,20 +2760,6 @@ export function renderApiKeysPage(params: {
       });
     }
 
-    function toggleTheme() {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
-      updateThemeIcon(isDark);
-    }
-
-    function updateThemeIcon(isDark) {
-      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
-      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
-    }
-
-    const initialDark = document.documentElement.classList.contains('dark');
-    updateThemeIcon(initialDark);
-
     // Initial API Keys and OAuth pagination render
     renderKeysPagination();
     renderOAuthPagination();
@@ -2596,16 +2773,24 @@ export function renderToolsPage(params: {
   isOwner: boolean;
   owner: OwnerProfile | null;
   tools: ToolDetailMeta[];
-  summary: StatsSummary;
+  summary?: StatsSummary;
+  keys?: Array<{ id: string; label?: string }>;
+  selectedKeyId?: string | null;
 }): string {
-  const { base, isOwner, owner, tools, summary } = params;
+  const { base, isOwner, owner, tools } = params;
+  const summary: any = params.summary || {
+    selectedKeyId: params.selectedKeyId || null,
+    keys: params.keys || [],
+    toolDistribution: {},
+  };
+  const toolDistribution = summary.toolDistribution || {};
 
   if (!isOwner) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Tools Directory - Krix</title>
+  <title>Tools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -2644,7 +2829,7 @@ export function renderToolsPage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Tools Directory - Krix</title>
+  <title>Tools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -2788,7 +2973,7 @@ export function renderToolsPage(params: {
     <div class="tools-grid" id="toolsGrid">
       ${tools
         .map((t) => {
-          const calls = summary.toolDistribution[t.name] || 0;
+          const calls = toolDistribution[t.name] || 0;
           return `
         <div
           class="tool-box"
@@ -2917,20 +3102,6 @@ export function renderToolsPage(params: {
       renderToolsPagination();
     }
 
-    function toggleTheme() {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
-      updateThemeIcon(isDark);
-    }
-
-    function updateThemeIcon(isDark) {
-      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
-      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
-    }
-
-    const initialDark = document.documentElement.classList.contains('dark');
-    updateThemeIcon(initialDark);
-
     // Initial tools filter & pagination render
     filterTools();
   </script>
@@ -2951,7 +3122,7 @@ export function renderStatsPage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Krix Analytics</title>
+  <title>Stats</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -2987,7 +3158,7 @@ export function renderStatsPage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Krix Analytics</title>
+  <title>Stats</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -3182,23 +3353,36 @@ export function renderStatsPage(params: {
 
     <!-- Timeline Graph Section (Vector SVG) -->
     <div class="card" style="margin-bottom:24px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
         <div>
-          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Activity Timeline</h2>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Activity Timeline</h2>
+            <div style="display:inline-flex; align-items:center; gap:10px; font-size:11px; color:var(--accents-5);">
+              <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:7px; height:7px; border-radius:2px; background:#10b981; display:inline-block;"></span>Working</span>
+              <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:7px; height:7px; border-radius:2px; background:#ef4444; display:inline-block;"></span>Errors</span>
+            </div>
+          </div>
           <p style="font-size:12px; color:var(--accents-5);">Volume of requests and tool invocations over time</p>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <!-- 10-Day Desktop Chunk Slider -->
+          <div id="dailyChunkNav" style="display:inline-flex; align-items:center; gap:4px;">
+            <button type="button" class="btn secondary" id="btnPrevDailyChunk" style="font-size:11px; padding:3px 8px; height:28px;" onclick="changeDailyChunk(-1)">&larr; Prev 10d</button>
+            <span id="lblDailyChunkRange" style="font-size:11px; font-variant-numeric:tabular-nums; color:var(--accents-5); padding:0 4px;">Days 21–30</span>
+            <button type="button" class="btn secondary" id="btnNextDailyChunk" style="font-size:11px; padding:3px 8px; height:28px;" onclick="changeDailyChunk(1)">Next 10d &rarr;</button>
+          </div>
+
           <!-- Smart Year Filter -->
-          <select class="filter-select" id="yearFilter" onchange="renderChart()">
+          <select class="filter-select" id="yearFilter" onchange="renderChart()" style="height:28px; padding:2px 8px; font-size:12px;">
             <option value="all">All Years</option>
             ${summary.availableYears.map((y) => `<option value="${y}">${y}</option>`).join("")}
           </select>
 
-          <div style="display:flex; gap:6px;">
-            <button class="tab active" id="btnDaily" onclick="setTimeline('daily')">Daily (30d)</button>
-            <button class="tab" id="btnWeekly" onclick="setTimeline('weekly')">Weekly (12w)</button>
-            <button class="tab" id="btnMonthly" onclick="setTimeline('monthly')">Monthly (12m)</button>
+          <div style="display:flex; gap:4px;">
+            <button class="tab active" id="btnDaily" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('daily')">Daily (30d)</button>
+            <button class="tab" id="btnWeekly" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('weekly')">Weekly (12w)</button>
+            <button class="tab" id="btnMonthly" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('monthly')">Monthly (12m)</button>
           </div>
         </div>
       </div>
@@ -3395,9 +3579,15 @@ export function renderStatsPage(params: {
 
     <!-- Per-Key & Per-OAuth Client Analytics Table -->
     <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
-        <span class="badge">${summary.keys.length} keys</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
+          <span class="badge" id="statsKeyCountBadge">${summary.keys.length} keys</span>
+        </div>
+        <div class="search-input-wrapper" style="width:280px; max-width:100%;">
+          ${renderSvg("search", 14)}
+          <input type="text" id="statsKeySearchInput" class="search-input" placeholder="Search clients, keys, or types" oninput="handleStatsKeySearch()" />
+        </div>
       </div>
 
       <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:480px; overflow-y:auto;">
@@ -3491,6 +3681,19 @@ export function renderStatsPage(params: {
     let monthlyData = ${JSON.stringify(summary.monthlyTimeline)};
 
     let currentTimeline = 'daily';
+    let dailyChunkIndex = -1;
+
+    function changeDailyChunk(delta) {
+      let data = dailyData;
+      const filterYear = document.getElementById('yearFilter')?.value;
+      if (filterYear && filterYear !== 'all') {
+        data = data.filter(d => d.date.startsWith(filterYear));
+      }
+      const totalChunks = Math.max(1, Math.ceil(data.length / 10));
+      if (dailyChunkIndex === -1) dailyChunkIndex = totalChunks - 1;
+      dailyChunkIndex = Math.max(0, Math.min(totalChunks - 1, dailyChunkIndex + delta));
+      renderChart();
+    }
 
     function setTimeline(mode) {
       currentTimeline = mode;
@@ -3502,6 +3705,7 @@ export function renderStatsPage(params: {
 
     function renderChart() {
       const container = document.getElementById('timelineChart');
+      const chunkNav = document.getElementById('dailyChunkNav');
       let data = [];
       let labelKey = 'date';
 
@@ -3522,32 +3726,74 @@ export function renderStatsPage(params: {
         data = data.filter(d => d[labelKey].startsWith(filterYear));
       }
 
+      if (currentTimeline === 'daily') {
+        if (chunkNav) chunkNav.style.display = 'inline-flex';
+        const totalChunks = Math.max(1, Math.ceil(data.length / 10));
+        if (dailyChunkIndex === -1 || dailyChunkIndex >= totalChunks) {
+          dailyChunkIndex = totalChunks - 1;
+        }
+        const startIdx = dailyChunkIndex * 10;
+        const endIdx = Math.min(startIdx + 10, data.length);
+        const chunkData = data.slice(startIdx, endIdx);
+
+        const lbl = document.getElementById('lblDailyChunkRange');
+        if (lbl) lbl.textContent = 'Days ' + (startIdx + 1) + '–' + endIdx;
+        const btnPrev = document.getElementById('btnPrevDailyChunk');
+        const btnNext = document.getElementById('btnNextDailyChunk');
+        if (btnPrev) btnPrev.disabled = dailyChunkIndex <= 0;
+        if (btnNext) btnNext.disabled = dailyChunkIndex >= totalChunks - 1;
+
+        data = chunkData;
+      } else {
+        if (chunkNav) chunkNav.style.display = 'none';
+      }
+
       if (!data || data.length === 0) {
         container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; width:100%; height:160px; color:var(--accents-5);">No activity data for this selection</div>';
         return;
       }
 
       const maxVal = data.reduce(function(m, d) { return Math.max(m, d.requests); }, 1);
-      const step = Math.max(38, Math.floor(800 / Math.max(1, data.length)));
-      const width = Math.max(800, data.length * step);
+      const step = Math.max(54, Math.floor(740 / Math.max(1, data.length)));
+      const width = Math.max(740, data.length * step);
       const height = 170;
       const chartHeight = 120;
       const padTop = 15;
-      const barWidth = Math.max(12, Math.min(26, step * 0.6));
+      const barWidth = Math.max(18, Math.min(36, step * 0.55));
 
       let svgHtml = '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" style="height:170px; min-width:' + width + 'px;" preserveAspectRatio="xMinYMin meet">';
       svgHtml += '<line x1="0" y1="' + (chartHeight + padTop) + '" x2="' + width + '" y2="' + (chartHeight + padTop) + '" stroke="var(--border)" stroke-width="1" />';
 
       data.forEach((d, i) => {
-        const barHeight = Math.max(3, Math.round((d.requests / maxVal) * chartHeight));
+        const total = d.requests || 0;
+        const errCount = d.errors || 0;
+        const succCount = d.success !== undefined ? d.success : Math.max(0, total - errCount);
+        const barHeight = Math.max(4, Math.round((total / maxVal) * chartHeight));
         const x = i * step + (step - barWidth) / 2;
-        const y = padTop + (chartHeight - barHeight);
         const rawLabel = d[labelKey];
         const displayLabel = rawLabel.includes('-') ? rawLabel.split('-').slice(1).join('/') : rawLabel;
 
         svgHtml += '<g>';
-        svgHtml += '<title>' + rawLabel + ': ' + d.requests + ' requests (' + d.tools + ' tool calls)</title>';
-        svgHtml += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="3" ry="3" fill="var(--fg)" style="transition:all 0.2s ease; cursor:pointer;" />';
+        svgHtml += '<title>' + rawLabel + ': ' + total + ' requests (' + succCount + ' working, ' + errCount + ' errors, ' + (d.tools || 0) + ' tool calls)</title>';
+
+        if (total === 0) {
+          svgHtml += '<rect x="' + x + '" y="' + (padTop + chartHeight - 3) + '" width="' + barWidth + '" height="3" rx="1.5" ry="1.5" fill="var(--accents-2)" />';
+        } else if (errCount > 0 && succCount > 0) {
+          const errHeight = Math.max(2, Math.round((errCount / total) * barHeight));
+          const succHeight = Math.max(2, barHeight - errHeight);
+          const yErr = padTop + (chartHeight - barHeight);
+          const ySucc = yErr + errHeight;
+
+          svgHtml += '<rect x="' + x + '" y="' + yErr + '" width="' + barWidth + '" height="' + errHeight + '" rx="3" ry="3" fill="#ef4444" style="transition:all 0.2s ease; cursor:pointer;" />';
+          svgHtml += '<rect x="' + x + '" y="' + ySucc + '" width="' + barWidth + '" height="' + succHeight + '" rx="3" ry="3" fill="#10b981" style="transition:all 0.2s ease; cursor:pointer;" />';
+        } else if (errCount > 0) {
+          const y = padTop + (chartHeight - barHeight);
+          svgHtml += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="3" ry="3" fill="#ef4444" style="transition:all 0.2s ease; cursor:pointer;" />';
+        } else {
+          const y = padTop + (chartHeight - barHeight);
+          svgHtml += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="3" ry="3" fill="#10b981" style="transition:all 0.2s ease; cursor:pointer;" />';
+        }
+
         svgHtml += '<text x="' + (x + barWidth / 2) + '" y="' + (chartHeight + padTop + 18) + '" text-anchor="middle" font-size="10" fill="var(--accents-5)" font-family="sans-serif">' + displayLabel + '</text>';
         svgHtml += '</g>';
       });
@@ -3663,10 +3909,24 @@ export function renderStatsPage(params: {
 
     let statsCurrentPage = 1;
     const STATS_PER_PAGE = 10;
+    let statsFilterQuery = '';
+
+    function handleStatsKeySearch() {
+      const input = document.getElementById('statsKeySearchInput');
+      statsFilterQuery = (input ? input.value : '').toLowerCase().trim();
+      statsCurrentPage = 1;
+      renderStatsPagination();
+    }
 
     function renderStatsPagination() {
-      const rows = Array.from(document.querySelectorAll('#statsKeysTableBody tr.stats-key-row'));
-      const total = rows.length;
+      const allRows = Array.from(document.querySelectorAll('#statsKeysTableBody tr.stats-key-row'));
+      const matchingRows = allRows.filter(r => {
+        if (!statsFilterQuery) return true;
+        return r.textContent.toLowerCase().includes(statsFilterQuery);
+      });
+      allRows.forEach(r => { r.style.display = 'none'; });
+
+      const total = matchingRows.length;
       const totalPages = Math.max(1, Math.ceil(total / STATS_PER_PAGE));
       if (statsCurrentPage > totalPages) statsCurrentPage = totalPages;
       if (statsCurrentPage < 1) statsCurrentPage = 1;
@@ -3674,20 +3934,20 @@ export function renderStatsPage(params: {
       const start = (statsCurrentPage - 1) * STATS_PER_PAGE;
       const end = start + STATS_PER_PAGE;
 
-      rows.forEach((r, idx) => {
+      matchingRows.forEach((r, idx) => {
         r.style.display = (idx >= start && idx < end) ? '' : 'none';
       });
 
       const indicator = document.getElementById('statsPageIndicator');
       if (indicator) {
-        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' keys') : 'No keys';
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' keys' + (statsFilterQuery ? ' (filtered)' : '')) : 'No matching keys';
       }
       const prevBtn = document.getElementById('statsPrevBtn');
       const nextBtn = document.getElementById('statsNextBtn');
       if (prevBtn) prevBtn.disabled = statsCurrentPage <= 1;
       if (nextBtn) nextBtn.disabled = statsCurrentPage >= totalPages;
       const bar = document.getElementById('statsPaginationBar');
-      if (bar) bar.style.display = total > STATS_PER_PAGE ? 'flex' : 'none';
+      if (bar) bar.style.display = (total > STATS_PER_PAGE || (statsFilterQuery && total === 0)) ? 'flex' : 'none';
     }
 
     function changeStatsPage(delta) {
@@ -3698,16 +3958,7 @@ export function renderStatsPage(params: {
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
-      updateThemeIcon(isDark);
     }
-
-    function updateThemeIcon(isDark) {
-      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
-      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
-    }
-
-    const initialDark = document.documentElement.classList.contains('dark');
-    updateThemeIcon(initialDark);
 
     // Initial stats pagination render
     renderStatsPagination();
@@ -3726,6 +3977,8 @@ export interface StoredFileInfo {
   source: "store" | "sandbox";
   downloadUrl: string;
   permanent: boolean;
+  shareUrl?: string;
+  isPublic?: boolean;
 }
 
 export function renderStorePage(params: {
@@ -3747,7 +4000,7 @@ export function renderStorePage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Sandbox Store - Krix</title>
+  <title>Store</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -3785,7 +4038,7 @@ export function renderStorePage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Sandbox &amp; Cloud Store - Krix</title>
+  <title>Store</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
@@ -3959,7 +4212,7 @@ export function renderStorePage(params: {
       <div class="card">
         <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Storage Used</div>
         <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);" id="valTotalBytes">${formatBytes(totalBytes)}</div>
-        <div style="font-size:12px; color:var(--accents-5);">${usage ? (usage.bytes / 1024 / 1024).toFixed(1) + " MB in Cloud Store" : "Direct access"}</div>
+        <div style="font-size:12px; color:var(--accents-5);">${usage ? formatBytes(usage.bytes) + " in Cloud Store" : "Direct access"}</div>
       </div>
 
       <div class="card">
@@ -4004,6 +4257,7 @@ export function renderStorePage(params: {
                 ? files
                     .map((f) => {
                       const isPerm = f.permanent || !f.expiresAt;
+                      const isPublic = f.isPublic !== false;
                       const dateStr = f.createdAt
                         ? new Date(f.createdAt).toLocaleDateString()
                         : "N/A";
@@ -4012,17 +4266,19 @@ export function renderStorePage(params: {
                         : f.expiresAt
                           ? new Date(f.expiresAt).toLocaleDateString()
                           : "60m TTL";
-                      const dlUrl =
+                      const shareLink =
+                        f.shareUrl ||
                         f.downloadUrl ||
                         (f.id ? `${base}/store/download/${f.id}` : "#");
                       return `
-              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-id="${escapeHtml(f.id)}" data-name="${escapeHtml(f.name)}" data-perm="${isPerm ? "true" : "false"}" data-size="${f.size || 0}" data-source="${escapeHtml(f.source)}" data-url="${escapeHtml(dlUrl)}">
+              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-id="${escapeHtml(f.id)}" data-name="${escapeHtml(f.name)}" data-perm="${isPerm ? "true" : "false"}" data-size="${f.size || 0}" data-source="${escapeHtml(f.source)}" data-url="${escapeHtml(shareLink)}">
                 <td>
                   <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg); font-size:13px; word-break:break-all;" id="file-name-text-${escapeHtml(f.id)}">
                     ${escapeHtml(f.name)}
                   </div>
                   <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
                     <span style="font-size:11px; color:var(--accents-5);">${escapeHtml(f.contentType)}</span>
+                    <span class="badge ${isPublic ? "success" : ""}" id="privacy-badge-${escapeHtml(f.id)}">${isPublic ? "Public" : "Private"}</span>
                   </div>
                 </td>
                 <td><span style="font-variant-numeric:tabular-nums; font-size:12px;">${formatBytes(f.size)}</span></td>
@@ -4033,24 +4289,28 @@ export function renderStorePage(params: {
                       ${renderSvg("more-vertical", 16)}
                     </button>
                     <div class="kebab-dropdown" id="kebab-menu-${escapeHtml(f.id)}" role="menu">
-                      <button type="button" class="kebab-item" data-action="copy" data-url="${escapeHtml(dlUrl)}" role="menuitem">
+                      <button type="button" class="kebab-item" data-action="copy" data-url="${escapeHtml(shareLink)}" role="menuitem">
                         ${renderSvg("copy", 14)} Copy URL
                       </button>
-                      <a href="${escapeHtml(dlUrl)}" download class="kebab-item" role="menuitem">
+                      <button type="button" class="kebab-item" id="privacy-btn-${escapeHtml(f.id)}" data-action="toggle-privacy" data-file-id="${escapeHtml(f.id)}" data-public="${isPublic ? "true" : "false"}" role="menuitem">
+                        <span id="privacy-icon-${escapeHtml(f.id)}">${isPublic ? renderSvg("lock", 14) : renderSvg("globe", 14)}</span>
+                        <span id="privacy-text-${escapeHtml(f.id)}">${isPublic ? "Make Private" : "Make Public"}</span>
+                      </button>
+                      <a href="${escapeHtml(shareLink)}" download class="kebab-item" role="menuitem">
                         ${renderSvg("download", 14)} Download File
                       </a>
                       ${
                         f.source !== "sandbox"
                           ? `
-                      <button type="button" class="kebab-item" id="perm-btn-${escapeHtml(f.id)}" data-action="toggle-perm" data-file-id="${escapeHtml(f.id)}" data-perm="${isPerm ? "true" : "false"}" title="${isPerm ? "Revert Permanent (72h TTL)" : "Keep Permanent"}" aria-label="${isPerm ? "Revert Permanent" : "Keep Permanent"}" data-perm-label="${isPerm ? "Revert Permanent" : "Keep Permanent"}" role="menuitem">
+                      <button type="button" class="kebab-item" id="perm-btn-${escapeHtml(f.id)}" data-action="toggle-perm" data-file-id="${escapeHtml(f.id)}" data-perm="${isPerm ? "true" : "false"}" title="${isPerm ? "Revert" : "Keep"}" aria-label="${isPerm ? "Revert" : "Keep"}" role="menuitem">
                         <span id="perm-icon-${escapeHtml(f.id)}">${isPerm ? renderSvg("clock", 14) : renderSvg("shield", 14)}</span>
-                        <span id="perm-text-${escapeHtml(f.id)}">${isPerm ? "Revert Keep" : "Keep"}</span>
+                        <span id="perm-text-${escapeHtml(f.id)}">${isPerm ? "Revert" : "Keep"}</span>
                       </button>
                       `
                           : ""
                       }
                       <button type="button" class="kebab-item" data-action="rename" data-file-id="${escapeHtml(f.id)}" data-file-name="${escapeHtml(f.name)}" data-source="${escapeHtml(f.source)}" role="menuitem">
-                        ${renderSvg("edit", 14)} Rename…
+                        ${renderSvg("edit", 14)} Rename
                       </button>
                       <div class="kebab-divider"></div>
                       <button type="button" class="kebab-item danger" data-action="delete" data-file-id="${escapeHtml(f.id)}" data-file-name="${escapeHtml(f.name)}" data-source="${escapeHtml(f.source)}" role="menuitem">
@@ -4311,6 +4571,16 @@ export function renderStorePage(params: {
           return;
         }
 
+        const privBtn = e.target.closest('[data-action="toggle-privacy"]');
+        if (privBtn) {
+          e.stopPropagation();
+          closeAllKebabMenus();
+          const fileId = privBtn.getAttribute('data-file-id');
+          const isPub = privBtn.getAttribute('data-public') === 'true';
+          toggleFilePrivacy(fileId, !isPub);
+          return;
+        }
+
         const permBtn = e.target.closest('[data-action="toggle-perm"]');
         if (permBtn) {
           e.stopPropagation();
@@ -4345,6 +4615,46 @@ export function renderStorePage(params: {
       });
     }
 
+    async function toggleFilePrivacy(id, makePublic) {
+      const btn = document.getElementById('privacy-btn-' + id);
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/store/files/' + encodeURIComponent(id) + '/privacy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isPublic: makePublic })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (btn) {
+            btn.setAttribute('data-public', makePublic ? 'true' : 'false');
+            const txt = document.getElementById('privacy-text-' + id);
+            if (txt) txt.textContent = makePublic ? 'Make Private' : 'Make Public';
+            const icon = document.getElementById('privacy-icon-' + id);
+            if (icon) {
+              icon.innerHTML = makePublic
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>';
+            }
+          }
+          const badge = document.getElementById('privacy-badge-' + id);
+          if (badge) {
+            badge.textContent = makePublic ? 'Public' : 'Private';
+            if (makePublic) badge.classList.add('success');
+            else badge.classList.remove('success');
+          }
+          showToast(makePublic ? 'File link is now Public' : 'File link is now Private (requires authentication)', 'success');
+        } else {
+          showToast(data.error || 'Failed to update file privacy', 'error');
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+    window.toggleFilePrivacy = toggleFilePrivacy;
+
     async function togglePermanent(id, makePerm) {
       const btn = document.getElementById('perm-btn-' + id);
       if (btn) btn.disabled = true;
@@ -4361,7 +4671,7 @@ export function renderStorePage(params: {
           if (btn) {
             btn.setAttribute('data-perm', makePerm ? 'true' : 'false');
             const txt = document.getElementById('perm-text-' + id);
-            if (txt) txt.textContent = makePerm ? 'Revert Keep' : 'Keep';
+            if (txt) txt.textContent = makePerm ? 'Revert' : 'Keep';
             const icon = document.getElementById('perm-icon-' + id);
             if (icon) {
               icon.innerHTML = makePerm
@@ -4463,6 +4773,12 @@ export function renderStorePage(params: {
       activeModalAction = null;
     }
 
+    window.togglePermanent = togglePermanent;
+    window.openDeleteFileModal = openDeleteFileModal;
+    window.closeStoreModal = closeStoreModal;
+    window.openStoreRenameModal = openStoreRenameModal;
+    window.copyFileUrl = copyFileUrl;
+
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeAllKebabMenus();
@@ -4470,20 +4786,6 @@ export function renderStorePage(params: {
         closeStoreRenameModal();
       }
     });
-
-    function toggleTheme() {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
-      updateThemeIcon(isDark);
-    }
-
-    function updateThemeIcon(isDark) {
-      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
-      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
-    }
-
-    const initialDark = document.documentElement.classList.contains('dark');
-    updateThemeIcon(initialDark);
 
     // Initial store pagination render
     renderStorePagination();
@@ -4504,7 +4806,7 @@ export function renderNotFoundPage(params: {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>404 - Page Not Found · Krix</title>
+  <title>404 Not Found</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">

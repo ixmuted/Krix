@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { MongoClient, type Db } from "mongodb";
+import { fileShareRegistry } from "./fileShareRegistry.js";
+import { getMongoDb } from "./googleAuth.js";
 
 export interface KeyMetrics {
   keyId: string;
@@ -18,6 +20,7 @@ export interface KeyMetrics {
   lastUserAgent: string;
   toolCalls: Record<string, number>;
   daily: Record<string, number>;
+  dailyErrors?: Record<string, number>;
   weekly: Record<string, number>;
   monthly: Record<string, number>;
 }
@@ -90,9 +93,27 @@ export interface StatsSummary {
   keys: KeyMetrics[];
   toolDistribution: Record<string, number>;
   protocolDistribution: Record<string, number>;
-  dailyTimeline: Array<{ date: string; requests: number; tools: number }>;
-  weeklyTimeline: Array<{ week: string; requests: number; tools: number }>;
-  monthlyTimeline: Array<{ month: string; requests: number; tools: number }>;
+  dailyTimeline: Array<{
+    date: string;
+    requests: number;
+    tools: number;
+    errors: number;
+    success: number;
+  }>;
+  weeklyTimeline: Array<{
+    week: string;
+    requests: number;
+    tools: number;
+    errors: number;
+    success: number;
+  }>;
+  monthlyTimeline: Array<{
+    month: string;
+    requests: number;
+    tools: number;
+    errors: number;
+    success: number;
+  }>;
   availableYears: number[];
   sharedSandbox: SharedSandboxStats;
   systemHealth: SystemHealthStats;
@@ -112,11 +133,18 @@ export class StatsTracker {
   private keys = new Map<string, KeyMetrics>();
   private globalTools: Record<string, number> = {};
   private globalProtocol: Record<string, number> = {};
-  private globalDaily: Record<string, { requests: number; tools: number }> = {};
-  private globalWeekly: Record<string, { requests: number; tools: number }> =
-    {};
-  private globalMonthly: Record<string, { requests: number; tools: number }> =
-    {};
+  private globalDaily: Record<
+    string,
+    { requests: number; tools: number; errors?: number }
+  > = {};
+  private globalWeekly: Record<
+    string,
+    { requests: number; tools: number; errors?: number }
+  > = {};
+  private globalMonthly: Record<
+    string,
+    { requests: number; tools: number; errors?: number }
+  > = {};
   private statusCodes: Record<string, number> = {
     "200": 0,
     "400": 0,
@@ -153,21 +181,49 @@ export class StatsTracker {
   private mongoClient: MongoClient | null = null;
   private mongoDb: Db | null = null;
   private mongoConnected = false;
+  private mongoInitPromise: Promise<void> | null = null;
 
   constructor(customPath?: string) {
     if (customPath) {
       this.filePath = customPath;
     }
     this.loadFromFile();
-    this.initMongo().catch(() => {});
+    this.ensureMongo().catch(() => {});
   }
 
   public setActiveSessions(count: number): void {
     this.activeHttpSessions = Math.max(0, count);
   }
 
+  public async ensureMongo(): Promise<void> {
+    if (this.mongoConnected && this.mongoDb) return;
+    const sharedDb = getMongoDb();
+    if (sharedDb) {
+      this.mongoDb = sharedDb;
+      this.mongoConnected = true;
+      fileShareRegistry.setMongoDb(sharedDb);
+      await this.loadFromMongo();
+      return;
+    }
+    if (!this.mongoInitPromise) {
+      this.mongoInitPromise = this.initMongo();
+    }
+    await this.mongoInitPromise;
+  }
+
   private async initMongo(): Promise<void> {
-    const uri = process.env.MONGODB_URI;
+    const sharedDb = getMongoDb();
+    if (sharedDb) {
+      this.mongoDb = sharedDb;
+      this.mongoConnected = true;
+      fileShareRegistry.setMongoDb(sharedDb);
+      await this.loadFromMongo();
+      return;
+    }
+    const uri =
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL;
     if (!uri) return;
     try {
       this.mongoClient = new MongoClient(uri, {
@@ -176,9 +232,11 @@ export class StatsTracker {
         appName: "krix-stats",
       });
       await this.mongoClient.connect();
-      const dbName = process.env.MONGODB_DB_NAME || "krix";
+      const dbName =
+        process.env.MONGODB_DB_NAME || process.env.MONGODB_DB || "krix";
       this.mongoDb = this.mongoClient.db(dbName);
       this.mongoConnected = true;
+      fileShareRegistry.setMongoDb(this.mongoDb);
       await this.loadFromMongo();
     } catch {
       this.mongoConnected = false;
@@ -362,6 +420,8 @@ export class StatsTracker {
     entry.totalRequests++;
     if (isError) {
       entry.errorCount++;
+      if (!entry.dailyErrors) entry.dailyErrors = {};
+      entry.dailyErrors[date] = (entry.dailyErrors[date] || 0) + 1;
     } else {
       entry.successCount++;
     }
@@ -382,16 +442,27 @@ export class StatsTracker {
 
     // Global aggregations
     if (!this.globalDaily[date])
-      this.globalDaily[date] = { requests: 0, tools: 0 };
+      this.globalDaily[date] = { requests: 0, tools: 0, errors: 0 };
     this.globalDaily[date].requests++;
+    if (isError) {
+      this.globalDaily[date].errors = (this.globalDaily[date].errors || 0) + 1;
+    }
 
     if (!this.globalWeekly[week])
-      this.globalWeekly[week] = { requests: 0, tools: 0 };
+      this.globalWeekly[week] = { requests: 0, tools: 0, errors: 0 };
     this.globalWeekly[week].requests++;
+    if (isError) {
+      this.globalWeekly[week].errors =
+        (this.globalWeekly[week].errors || 0) + 1;
+    }
 
     if (!this.globalMonthly[month])
-      this.globalMonthly[month] = { requests: 0, tools: 0 };
+      this.globalMonthly[month] = { requests: 0, tools: 0, errors: 0 };
     this.globalMonthly[month].requests++;
+    if (isError) {
+      this.globalMonthly[month].errors =
+        (this.globalMonthly[month].errors || 0) + 1;
+    }
 
     if (toolName) {
       if (isActualTool) {
@@ -838,6 +909,8 @@ export class StatsTracker {
       date: string;
       requests: number;
       tools: number;
+      errors: number;
+      success: number;
     }> = [];
     const nowTime = new Date();
     for (let i = 29; i >= 0; i--) {
@@ -846,11 +919,17 @@ export class StatsTracker {
       const reqCount = isFiltered
         ? matchedKey?.daily[key] || 0
         : this.globalDaily[key]?.requests || 0;
+      const errCount = isFiltered
+        ? matchedKey?.dailyErrors?.[key] || 0
+        : this.globalDaily[key]?.errors || 0;
       const toolCount = isFiltered ? 0 : this.globalDaily[key]?.tools || 0;
+      const succCount = Math.max(0, reqCount - errCount);
       dailyTimeline.push({
         date: key,
         requests: reqCount,
         tools: toolCount,
+        errors: errCount,
+        success: succCount,
       });
     }
 
@@ -858,6 +937,8 @@ export class StatsTracker {
       week: string;
       requests: number;
       tools: number;
+      errors: number;
+      success: number;
     }> = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(nowTime.getTime() - i * 7 * 24 * 60 * 60 * 1000);
@@ -865,12 +946,16 @@ export class StatsTracker {
       const reqCount = isFiltered
         ? matchedKey?.weekly[week] || 0
         : this.globalWeekly[week]?.requests || 0;
+      const errCount = this.globalWeekly[week]?.errors || 0;
       const toolCount = isFiltered ? 0 : this.globalWeekly[week]?.tools || 0;
+      const succCount = Math.max(0, reqCount - errCount);
       if (!weeklyTimeline.some((w) => w.week === week)) {
         weeklyTimeline.push({
           week,
           requests: reqCount,
           tools: toolCount,
+          errors: errCount,
+          success: succCount,
         });
       }
     }
@@ -879,6 +964,8 @@ export class StatsTracker {
         week: `W-${12 - weeklyTimeline.length}`,
         requests: 0,
         tools: 0,
+        errors: 0,
+        success: 0,
       });
     }
 
@@ -886,6 +973,8 @@ export class StatsTracker {
       month: string;
       requests: number;
       tools: number;
+      errors: number;
+      success: number;
     }> = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(nowTime.getFullYear(), nowTime.getMonth() - i, 1);
@@ -893,11 +982,15 @@ export class StatsTracker {
       const reqCount = isFiltered
         ? matchedKey?.monthly[key] || 0
         : this.globalMonthly[key]?.requests || 0;
+      const errCount = this.globalMonthly[key]?.errors || 0;
       const toolCount = isFiltered ? 0 : this.globalMonthly[key]?.tools || 0;
+      const succCount = Math.max(0, reqCount - errCount);
       monthlyTimeline.push({
         month: key,
         requests: reqCount,
         tools: toolCount,
+        errors: errCount,
+        success: succCount,
       });
     }
 
@@ -1530,14 +1623,6 @@ export class StatsTracker {
     }, 2000);
   }
 
-  public flush(): void {
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-      this.saveTimeout = null;
-    }
-    this.save();
-  }
-
   private save(): void {
     // 1. Save to local disk fallback
     try {
@@ -1583,6 +1668,39 @@ export class StatsTracker {
           { upsert: true },
         )
         .catch(() => {});
+    }
+  }
+
+  public async flush(): Promise<void> {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    this.save();
+    if (this.mongoConnected && this.mongoDb) {
+      try {
+        const coll = this.mongoDb.collection("krix_stats");
+        const mongoDoc = {
+          _id: "global_stats" as any,
+          keys: Array.from(this.keys.entries()),
+          globalTools: this.globalTools,
+          globalProtocol: this.globalProtocol,
+          globalDaily: this.globalDaily,
+          globalWeekly: this.globalWeekly,
+          globalMonthly: this.globalMonthly,
+          statusCodes: this.statusCodes,
+          clientEcosystems: this.clientEcosystems,
+          recentErrors: this.recentErrors,
+          hourlyCounts: this.hourlyCounts,
+          dayOfWeekCounts: this.dayOfWeekCounts,
+          updatedAt: new Date(),
+        };
+        await coll.updateOne(
+          { _id: "global_stats" as any },
+          { $set: mongoDoc },
+          { upsert: true },
+        );
+      } catch {}
     }
   }
 

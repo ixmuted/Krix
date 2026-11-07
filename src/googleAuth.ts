@@ -379,7 +379,26 @@ export function createDynamicKey(
 }
 
 export function listDynamicKeys(): GeneratedKeyEntry[] {
-  return [...dynamicApiKeys.values()];
+  const seenKeys = new Set<string>();
+  const seenPrefixes = new Set<string>();
+  const seenIds = new Set<string>();
+  const seenLabels = new Set<string>();
+  const result: GeneratedKeyEntry[] = [];
+
+  for (const entry of dynamicApiKeys.values()) {
+    if (revokedKeyIds.has(entry.id)) continue;
+    if (entry.id && seenIds.has(entry.id)) continue;
+    if (entry.key && seenKeys.has(entry.key)) continue;
+    if (entry.prefix && seenPrefixes.has(entry.prefix)) continue;
+    if (entry.label && seenLabels.has(entry.label.toLowerCase())) continue;
+
+    if (entry.id) seenIds.add(entry.id);
+    if (entry.key) seenKeys.add(entry.key);
+    if (entry.prefix) seenPrefixes.add(entry.prefix);
+    if (entry.label) seenLabels.add(entry.label.toLowerCase());
+    result.push(entry);
+  }
+  return result;
 }
 
 export function revokeDynamicKey(id: string): boolean {

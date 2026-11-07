@@ -58,7 +58,9 @@ import {
   ensureMongoAuth,
   syncKeyToMongo,
   revokeKeyInMongo,
+  getMongoDb,
 } from "./googleAuth.js";
+import { fileShareRegistry } from "./fileShareRegistry.js";
 import {
   createMcpOAuthRouter,
   verifyAccessToken,
@@ -909,7 +911,10 @@ app.get(["/api", "/keys"], async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
   ]);
+  const db = getMongoDb();
+  if (db) fileShareRegistry.setMongoDb(db);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
@@ -944,7 +949,10 @@ app.get("/api/keys", async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
   ]);
+  const dbTools = getMongoDb();
+  if (dbTools) fileShareRegistry.setMongoDb(dbTools);
   const owner = parseOwnerCookie(req);
   if (!owner) {
     res
@@ -959,7 +967,10 @@ app.post("/api/keys", express.json(), async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
   ]);
+  const dbTools = getMongoDb();
+  if (dbTools) fileShareRegistry.setMongoDb(dbTools);
   const owner = parseOwnerCookie(req);
   if (!owner) {
     res
@@ -1045,7 +1056,10 @@ app.get("/tools", async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
   ]);
+  const dbTools = getMongoDb();
+  if (dbTools) fileShareRegistry.setMongoDb(dbTools);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1094,7 +1108,10 @@ app.get("/stats/api", async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
   ]);
+  const dbTools = getMongoDb();
+  if (dbTools) fileShareRegistry.setMongoDb(dbTools);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1115,7 +1132,10 @@ app.get("/stats", async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
   ]);
+  const dbTools = getMongoDb();
+  if (dbTools) fileShareRegistry.setMongoDb(dbTools);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1163,6 +1183,10 @@ app.get("/store", async (req, res) => {
     return;
   }
 
+  await ensureMongoAuth().catch(() => {});
+  const dbStore = getMongoDb();
+  if (dbStore) fileShareRegistry.setMongoDb(dbStore);
+
   try {
     const authKey = computeAuthKey(
       DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
@@ -1177,17 +1201,27 @@ app.get("/store", async (req, res) => {
       fileStore.usage("*").catch(() => undefined),
     ]);
 
-    const files: StoredFileInfo[] = storeResult.files.map((f) => ({
-      id: f.id,
-      name: f.name,
-      size: f.size,
-      contentType: f.contentType,
-      createdAt: f.createdAt,
-      expiresAt: f.expiresAt,
-      source: "store" as const,
-      downloadUrl: `${base}/store/download/${f.id}`,
-      permanent: !f.expiresAt,
-    }));
+    const files: StoredFileInfo[] = storeResult.files.map((f) => {
+      const share = fileShareRegistry.ensureFileShare({
+        fileId: f.id,
+        name: f.name,
+        source: "store",
+        contentType: f.contentType,
+      });
+      return {
+        id: f.id,
+        name: f.name,
+        size: f.size,
+        contentType: f.contentType,
+        createdAt: f.createdAt,
+        expiresAt: f.expiresAt,
+        source: "store" as const,
+        downloadUrl: `${base}/store/share/${share.shareToken}`,
+        shareUrl: `${base}/store/share/${share.shareToken}`,
+        isPublic: share.isPublic,
+        permanent: !f.expiresAt,
+      };
+    });
 
     const uploadDir = path.join(root, UPLOAD_DIR);
     if (fs.existsSync(uploadDir)) {
@@ -1197,15 +1231,24 @@ app.get("/store", async (req, res) => {
           if (entry.isFile()) {
             const filePath = path.join(uploadDir, entry.name);
             const stat = fs.statSync(filePath);
+            const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
+            const share = fileShareRegistry.ensureFileShare({
+              fileId: sbxId,
+              name: entry.name,
+              source: "sandbox",
+              sandboxPath: filePath,
+            });
             files.push({
-              id: `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`,
+              id: sbxId,
               name: entry.name,
               size: stat.size,
               contentType: "application/octet-stream",
               createdAt: stat.birthtime || stat.mtime,
               expiresAt: null,
               source: "sandbox" as const,
-              downloadUrl: `${base}/store/download?file=${encodeURIComponent(entry.name)}`,
+              downloadUrl: `${base}/store/share/${share.shareToken}`,
+              shareUrl: `${base}/store/share/${share.shareToken}`,
+              isPublic: share.isPublic,
               permanent: false,
             });
           }
@@ -1234,6 +1277,9 @@ app.get("/store/api/files", async (req, res) => {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }
+  await ensureMongoAuth().catch(() => {});
+  const dbFiles = getMongoDb();
+  if (dbFiles) fileShareRegistry.setMongoDb(dbFiles);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
   const root = sandboxRootForAuthKey(authKey);
@@ -1246,17 +1292,27 @@ app.get("/store/api/files", async (req, res) => {
     fileStore.usage("*").catch(() => undefined),
   ]);
 
-  const files: StoredFileInfo[] = storeResult.files.map((f) => ({
-    id: f.id,
-    name: f.name,
-    size: f.size,
-    contentType: f.contentType,
-    createdAt: f.createdAt,
-    expiresAt: f.expiresAt,
-    source: "store" as const,
-    downloadUrl: `${base}/store/download/${f.id}`,
-    permanent: !f.expiresAt,
-  }));
+  const files: StoredFileInfo[] = storeResult.files.map((f) => {
+    const share = fileShareRegistry.ensureFileShare({
+      fileId: f.id,
+      name: f.name,
+      source: "store",
+      contentType: f.contentType,
+    });
+    return {
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      contentType: f.contentType,
+      createdAt: f.createdAt,
+      expiresAt: f.expiresAt,
+      source: "store" as const,
+      downloadUrl: `${base}/store/share/${share.shareToken}`,
+      shareUrl: `${base}/store/share/${share.shareToken}`,
+      isPublic: share.isPublic,
+      permanent: !f.expiresAt,
+    };
+  });
 
   const uploadDir = path.join(root, UPLOAD_DIR);
   if (fs.existsSync(uploadDir)) {
@@ -1266,15 +1322,24 @@ app.get("/store/api/files", async (req, res) => {
         if (entry.isFile()) {
           const filePath = path.join(uploadDir, entry.name);
           const stat = fs.statSync(filePath);
+          const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
+          const share = fileShareRegistry.ensureFileShare({
+            fileId: sbxId,
+            name: entry.name,
+            source: "sandbox",
+            sandboxPath: filePath,
+          });
           files.push({
-            id: `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`,
+            id: sbxId,
             name: entry.name,
             size: stat.size,
             contentType: "application/octet-stream",
             createdAt: stat.birthtime || stat.mtime,
             expiresAt: null,
             source: "sandbox" as const,
-            downloadUrl: `${base}/store/download?file=${encodeURIComponent(entry.name)}`,
+            downloadUrl: `${base}/store/share/${share.shareToken}`,
+            shareUrl: `${base}/store/share/${share.shareToken}`,
+            isPublic: share.isPublic,
             permanent: false,
           });
         }
@@ -1285,10 +1350,106 @@ app.get("/store/api/files", async (req, res) => {
   res.json({ files, usage });
 });
 
-app.get("/store/download/:id", async (req, res) => {
+app.post("/store/files/:id/privacy", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
   const id = req.params.id;
+  const explicitIsPublic =
+    typeof req.body?.isPublic === "boolean" ? req.body.isPublic : undefined;
+  const isPublic = fileShareRegistry.togglePrivacy(id, explicitIsPublic);
+  res.json({ success: true, id, isPublic });
+});
+
+app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
+  const token =
+    (Array.isArray(req.params.token) ? req.params.token[0] : req.params.token) ||
+    "";
+  const share =
+    fileShareRegistry.getByToken(token) || fileShareRegistry.getById(token);
+
+  if (share) {
+    if (!share.isPublic) {
+      const owner = parseOwnerCookie(req);
+      const clientKey = extractClientKey(req);
+      const isAuth =
+        Boolean(owner) ||
+        Boolean(
+          clientKey &&
+            (isAuthorizedApiKey(clientKey) ||
+              verifyAccessToken(clientKey).valid),
+        );
+      if (!isAuth) {
+        res
+          .status(401)
+          .type("text/plain")
+          .send("Access denied. This file is private and requires authentication.");
+        return;
+      }
+    }
+
+    try {
+      if (share.source === "store") {
+        const file = await getFileStore().openById("*", share.fileId);
+        if (!file) {
+          res.status(404).type("text/plain").send("File not found or expired.");
+          return;
+        }
+        res.setHeader(
+          "Content-Type",
+          file.contentType || share.contentType || "application/octet-stream",
+        );
+        res.setHeader("Content-Length", String(file.size));
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(file.name)}"`,
+        );
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        await pipeline(file.stream, res);
+        return;
+      } else {
+        let targetPath = share.sandboxPath;
+        if (!targetPath || !fs.existsSync(targetPath)) {
+          const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || "");
+          const root = sandboxRootForAuthKey(authKey);
+          const candidate = path.join(root, UPLOAD_DIR, share.name);
+          if (fs.existsSync(candidate)) targetPath = candidate;
+        }
+        if (!targetPath || !fs.existsSync(targetPath)) {
+          res
+            .status(404)
+            .type("text/plain")
+            .send("Sandbox file not found on disk.");
+          return;
+        }
+        const stat = fs.statSync(targetPath);
+        res.setHeader(
+          "Content-Type",
+          share.contentType || "application/octet-stream",
+        );
+        res.setHeader("Content-Length", String(stat.size));
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(share.name)}"`,
+        );
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        const stream = fs.createReadStream(targetPath);
+        await pipeline(stream, res);
+        return;
+      }
+    } catch (e: any) {
+      if (!res.headersSent) {
+        res.status(500).type("text/plain").send("Download error: " + e.message);
+      }
+      return;
+    }
+  }
+
+  // Fallback: direct ID download from getFileStore()
   try {
-    const file = await getFileStore().openById("*", id);
+    const file = await getFileStore().openById("*", token);
     if (!file) {
       res.status(404).type("text/plain").send("File not found or expired.");
       return;
@@ -1382,8 +1543,12 @@ app.delete("/store/files/:id", async (req, res) => {
   }
   const id = req.params.id;
   const ok = await getFileStore().deleteOwned("*", id);
-  if (ok) res.json({ success: true, deleted: id });
-  else res.status(404).json({ error: "File not found." });
+  if (ok) {
+    fileShareRegistry.removeFile(id);
+    res.json({ success: true, deleted: id });
+  } else {
+    res.status(404).json({ error: "File not found." });
+  }
 });
 
 app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
@@ -1399,8 +1564,12 @@ app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
     return;
   }
   const ok = await getFileStore().rename("*", id, name);
-  if (ok) res.json({ success: true, id, name });
-  else res.status(404).json({ error: "File not found or failed to rename." });
+  if (ok) {
+    fileShareRegistry.renameFile(id, name);
+    res.json({ success: true, id, name });
+  } else {
+    res.status(404).json({ error: "File not found or failed to rename." });
+  }
 });
 
 app.delete("/store/sandbox-file", async (req, res) => {
@@ -1424,6 +1593,8 @@ app.delete("/store/sandbox-file", async (req, res) => {
   const filePath = path.join(root, UPLOAD_DIR, name);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
+    const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
+    fileShareRegistry.removeFile(sbxId);
     res.json({ success: true, deleted: name });
   } else {
     res.status(404).json({ error: "File not found." });
@@ -1556,6 +1727,7 @@ async function shutdown() {
   );
   await shutdownUploadSessions().catch(() => {});
   await stopFileStore().catch(() => {});
+  await statsTracker.flush().catch(() => {});
   server.close(() => process.exit(0));
 }
 

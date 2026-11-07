@@ -759,13 +759,50 @@ export interface PageInfo {
 
 export function renderUploadPage(nonce: string, info: PageInfo): string {
   const isOwner = Boolean(info.owner);
+
+  if (!isOwner) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Upload</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <style nonce="${nonce}">
+    ${getBaseStyles()}
+  </style>
+  ${renderRecaptchaScript(nonce)}
+  <script nonce="${nonce}">
+    (function() {
+      const pref = localStorage.getItem('qw-theme') || 'system';
+      const isDark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("upload", null, nonce)}
+  <div class="wrapper">
+    ${renderAuthRequiredCard("Upload", "/upload")}
+  </div>
+  ${renderFooter()}
+</body>
+</html>`;
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>Upload - Krix</title>
+  <title>Upload</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style nonce="${nonce}">
@@ -816,9 +853,12 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   ${renderRecaptchaScript(nonce)}
   <script nonce="${nonce}">
     (function() {
-      const saved = localStorage.getItem('qw-theme');
-      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      const pref = localStorage.getItem('qw-theme') || 'system';
+      const isDark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (isDark) {
         document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
     })();
   </script>
@@ -829,10 +869,10 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   <div class="wrapper">
     <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); font-family:inherit;">
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
           Sandbox Uploads
         </h1>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:4px; line-height:1.5; font-family:inherit; font-weight:400;">
+        <p style="font-size:13px; color:var(--accents-5); margin-top:4px; line-height:1.5;">
           Upload workspace files, datasets, and scripts directly to your shared sandbox.
         </p>
       </div>
@@ -843,22 +883,8 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       </div>
     </div>
 
-    <!-- Login Section for Unauthenticated Guests -->
-    <div id="login" ${isOwner ? "hidden" : ""}>
-      ${renderAuthRequiredCard("Upload", "/upload")}
-      <details style="margin: -20px auto 28px auto; max-width:540px; font-size:12px; color:var(--accents-5); text-align:center;">
-        <summary style="cursor:pointer; user-select:none;">Alternative: authenticate with MCP API key</summary>
-        <form id="loginForm" autocomplete="off" style="margin-top:12px; text-align:left; padding:16px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg);">
-          <label for="key" style="display:block; font-size:12px; margin-bottom:6px; color:var(--fg); font-weight:500;">MCP API key</label>
-          <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter API key" class="input" style="width:100%; margin-bottom:12px;">
-          <button class="btn" id="start" type="submit" style="width:100%;">Open Upload Session</button>
-        </form>
-        <div class="err" id="loginErr" role="alert" style="color:var(--error); font-size:12px; margin-top:10px;"></div>
-      </details>
-    </div>
-
     <!-- Active Upload & File Management Grid -->
-    <div id="session" ${isOwner ? "" : "hidden"}>
+    <div id="session">
       <div class="grid-2">
         <!-- Left: Upload Dropzone Card -->
         <div class="card">
@@ -978,7 +1004,13 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
     let token = null, limits = null;
     const uploadedFileList = [];
 
-    const fmt = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+    const fmt = (n) => {
+      if (!n || n <= 0 || isNaN(n)) return '0 B';
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+      return (n / 1073741824).toFixed(1) + ' GB';
+    };
 
     function showToast(message, type = 'success') {
       const container = $('toastContainer');
@@ -1282,7 +1314,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           const permBtn = document.createElement('button');
           permBtn.type = 'button';
           permBtn.className = 'kebab-item';
-          permBtn.innerHTML = '${renderSvg("shield", 14)} <span>' + (f.permanent ? 'Revert Keep' : 'Keep') + '</span>';
+          permBtn.innerHTML = '${renderSvg("shield", 14)} <span>' + (f.permanent ? 'Revert' : 'Keep') + '</span>';
           permBtn.onclick = async () => {
             permBtn.disabled = true;
             try {
@@ -1303,7 +1335,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           const renameBtn = document.createElement('button');
           renameBtn.type = 'button';
           renameBtn.className = 'kebab-item';
-          renameBtn.innerHTML = '${renderSvg("edit", 14)} <span>Rename…</span>';
+          renameBtn.innerHTML = '${renderSvg("edit", 14)} <span>Rename</span>';
           renameBtn.onclick = () => {
             openUploadRenameModal(f);
           };
