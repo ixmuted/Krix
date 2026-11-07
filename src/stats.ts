@@ -503,13 +503,17 @@ export class StatsTracker {
     dynamicKeys?: Array<{ id: string; label?: string; clientId?: string }>,
     oauthClients?: Array<{ clientId: string; clientName?: string }>,
   ): void {
+    let changed = false;
+
     if (dynamicKeys && Array.isArray(dynamicKeys)) {
       for (const k of dynamicKeys) {
         if (!k.id) continue;
-        if (!this.keys.has(k.id)) {
-          this.keys.set(k.id, {
+        const targetLabel = k.label || `API Key (${k.id.slice(0, 8)})`;
+        let canonical = this.keys.get(k.id);
+        if (!canonical) {
+          canonical = {
             keyId: k.id,
-            label: k.label || `API Key (${k.id.slice(0, 8)})`,
+            label: targetLabel,
             type: "api_key",
             totalRequests: 0,
             successCount: 0,
@@ -525,17 +529,82 @@ export class StatsTracker {
             daily: {},
             weekly: {},
             monthly: {},
-          });
+          };
+          this.keys.set(k.id, canonical);
+          changed = true;
+        } else if (k.label && canonical.label !== k.label) {
+          canonical.label = k.label;
+          changed = true;
+        }
+
+        // Merge any legacy keys starting with dyn: matching this dynamic key
+        const prefix = k.id.slice(0, 16);
+        for (const [existingKeyId, existingMetrics] of Array.from(
+          this.keys.entries(),
+        )) {
+          if (existingKeyId === k.id) continue;
+          if (
+            existingKeyId.startsWith("dyn:") &&
+            (existingKeyId.includes(prefix) ||
+              existingKeyId.includes(k.id) ||
+              (k.label && existingMetrics.label.includes(k.label)))
+          ) {
+            canonical.totalRequests += existingMetrics.totalRequests;
+            canonical.successCount += existingMetrics.successCount;
+            canonical.errorCount += existingMetrics.errorCount;
+            canonical.totalDurationMs += existingMetrics.totalDurationMs;
+            canonical.avgDurationMs =
+              canonical.totalRequests > 0
+                ? Math.round(
+                    canonical.totalDurationMs / canonical.totalRequests,
+                  )
+                : 0;
+            canonical.bytesIn += existingMetrics.bytesIn;
+            canonical.bytesOut += existingMetrics.bytesOut;
+            canonical.lastActiveAt = Math.max(
+              canonical.lastActiveAt,
+              existingMetrics.lastActiveAt,
+            );
+            if (existingMetrics.lastClientIp)
+              canonical.lastClientIp = existingMetrics.lastClientIp;
+            if (existingMetrics.lastUserAgent)
+              canonical.lastUserAgent = existingMetrics.lastUserAgent;
+            for (const [t, c] of Object.entries(
+              existingMetrics.toolCalls || {},
+            )) {
+              canonical.toolCalls[t] = (canonical.toolCalls[t] || 0) + c;
+            }
+            for (const [d, c] of Object.entries(existingMetrics.daily || {})) {
+              canonical.daily[d] = (canonical.daily[d] || 0) + c;
+            }
+            for (const [w, c] of Object.entries(existingMetrics.weekly || {})) {
+              canonical.weekly[w] = (canonical.weekly[w] || 0) + c;
+            }
+            for (const [m, c] of Object.entries(
+              existingMetrics.monthly || {},
+            )) {
+              canonical.monthly[m] = (canonical.monthly[m] || 0) + c;
+            }
+            this.keys.delete(existingKeyId);
+            changed = true;
+          }
         }
       }
     }
+
     if (oauthClients && Array.isArray(oauthClients)) {
       for (const c of oauthClients) {
         if (!c.clientId) continue;
-        if (!this.keys.has(c.clientId)) {
-          this.keys.set(c.clientId, {
+        const targetLabel =
+          c.clientName ||
+          (c.clientId.toLowerCase().includes("gemini")
+            ? "Google Gemini"
+            : `OAuth Client (${c.clientId.slice(0, 8)})`);
+        let canonical = this.keys.get(c.clientId);
+        if (!canonical) {
+          canonical = {
             keyId: c.clientId,
-            label: c.clientName || `OAuth Client (${c.clientId.slice(0, 8)})`,
+            label: targetLabel,
             type: "oauth",
             totalRequests: 0,
             successCount: 0,
@@ -551,16 +620,86 @@ export class StatsTracker {
             daily: {},
             weekly: {},
             monthly: {},
-          });
+          };
+          this.keys.set(c.clientId, canonical);
+          changed = true;
+        } else if (c.clientName && canonical.label !== c.clientName) {
+          canonical.label = c.clientName;
+          changed = true;
+        }
+
+        // Merge legacy keys (e.g. oauth:sub or oauth:clientId) into the canonical clientId entry
+        for (const [existingKeyId, existingMetrics] of Array.from(
+          this.keys.entries(),
+        )) {
+          if (existingKeyId === c.clientId) continue;
+          const isLegacyOAuthMatch =
+            (existingKeyId.startsWith("oauth:") &&
+              (existingKeyId.includes(c.clientId) ||
+                existingMetrics.label.includes(c.clientId) ||
+                (c.clientId.toLowerCase().includes("gemini") &&
+                  (existingMetrics.label.toLowerCase().includes("gemini") ||
+                    existingMetrics.label.includes(c.clientId))) ||
+                (c.clientName &&
+                  existingMetrics.label
+                    .toLowerCase()
+                    .includes(c.clientName.toLowerCase())))) ||
+            existingKeyId === `oauth:${c.clientId}`;
+
+          if (isLegacyOAuthMatch) {
+            canonical.totalRequests += existingMetrics.totalRequests;
+            canonical.successCount += existingMetrics.successCount;
+            canonical.errorCount += existingMetrics.errorCount;
+            canonical.totalDurationMs += existingMetrics.totalDurationMs;
+            canonical.avgDurationMs =
+              canonical.totalRequests > 0
+                ? Math.round(
+                    canonical.totalDurationMs / canonical.totalRequests,
+                  )
+                : 0;
+            canonical.bytesIn += existingMetrics.bytesIn;
+            canonical.bytesOut += existingMetrics.bytesOut;
+            canonical.lastActiveAt = Math.max(
+              canonical.lastActiveAt,
+              existingMetrics.lastActiveAt,
+            );
+            if (existingMetrics.lastClientIp)
+              canonical.lastClientIp = existingMetrics.lastClientIp;
+            if (existingMetrics.lastUserAgent)
+              canonical.lastUserAgent = existingMetrics.lastUserAgent;
+            for (const [t, cnt] of Object.entries(
+              existingMetrics.toolCalls || {},
+            )) {
+              canonical.toolCalls[t] = (canonical.toolCalls[t] || 0) + cnt;
+            }
+            for (const [d, cnt] of Object.entries(
+              existingMetrics.daily || {},
+            )) {
+              canonical.daily[d] = (canonical.daily[d] || 0) + cnt;
+            }
+            for (const [w, cnt] of Object.entries(
+              existingMetrics.weekly || {},
+            )) {
+              canonical.weekly[w] = (canonical.weekly[w] || 0) + cnt;
+            }
+            for (const [m, cnt] of Object.entries(
+              existingMetrics.monthly || {},
+            )) {
+              canonical.monthly[m] = (canonical.monthly[m] || 0) + cnt;
+            }
+            this.keys.delete(existingKeyId);
+            changed = true;
+          }
         }
       }
     }
+
+    if (changed) {
+      this.scheduleSave();
+    }
   }
 
-  public getSummary(
-    sandboxRoot?: string,
-    targetKeyId?: string,
-  ): StatsSummary {
+  public getSummary(sandboxRoot?: string, targetKeyId?: string): StatsSummary {
     const keys = Array.from(this.keys.values()).sort(
       (a, b) => b.totalRequests - a.totalRequests,
     );
@@ -666,9 +805,9 @@ export class StatsTracker {
       const d = new Date(nowTime.getTime() - i * 24 * 60 * 60 * 1000);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const reqCount = isFiltered
-        ? (matchedKey?.daily[key] || 0)
-        : (this.globalDaily[key]?.requests || 0);
-      const toolCount = isFiltered ? 0 : (this.globalDaily[key]?.tools || 0);
+        ? matchedKey?.daily[key] || 0
+        : this.globalDaily[key]?.requests || 0;
+      const toolCount = isFiltered ? 0 : this.globalDaily[key]?.tools || 0;
       dailyTimeline.push({
         date: key,
         requests: reqCount,
@@ -685,9 +824,9 @@ export class StatsTracker {
       const d = new Date(nowTime.getTime() - i * 7 * 24 * 60 * 60 * 1000);
       const { week } = this.getDateKeys(d);
       const reqCount = isFiltered
-        ? (matchedKey?.weekly[week] || 0)
-        : (this.globalWeekly[week]?.requests || 0);
-      const toolCount = isFiltered ? 0 : (this.globalWeekly[week]?.tools || 0);
+        ? matchedKey?.weekly[week] || 0
+        : this.globalWeekly[week]?.requests || 0;
+      const toolCount = isFiltered ? 0 : this.globalWeekly[week]?.tools || 0;
       if (!weeklyTimeline.some((w) => w.week === week)) {
         weeklyTimeline.push({
           week,
@@ -713,9 +852,9 @@ export class StatsTracker {
       const d = new Date(nowTime.getFullYear(), nowTime.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const reqCount = isFiltered
-        ? (matchedKey?.monthly[key] || 0)
-        : (this.globalMonthly[key]?.requests || 0);
-      const toolCount = isFiltered ? 0 : (this.globalMonthly[key]?.tools || 0);
+        ? matchedKey?.monthly[key] || 0
+        : this.globalMonthly[key]?.requests || 0;
+      const toolCount = isFiltered ? 0 : this.globalMonthly[key]?.tools || 0;
       monthlyTimeline.push({
         month: key,
         requests: reqCount,
@@ -1272,7 +1411,9 @@ export class StatsTracker {
     ];
 
     const activeToolsSource = isFiltered
-      ? (matchedKey ? matchedKey.toolCalls : {})
+      ? matchedKey
+        ? matchedKey.toolCalls
+        : {}
       : this.globalTools;
 
     const cleanToolDistribution: Record<string, number> = {};
@@ -1337,7 +1478,7 @@ export class StatsTracker {
         peakDay,
       },
       toolsCatalog,
-      selectedKeyId: isFiltered ? (matchedKey?.keyId || targetKeyId) : "all",
+      selectedKeyId: isFiltered ? matchedKey?.keyId || targetKeyId : "all",
       lastUpdated: Date.now(),
     };
   }

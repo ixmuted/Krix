@@ -779,3 +779,105 @@ test("Store permanent file toggle, revert retention, and dynamic live counters",
     "Must not have syntax errors in template onclick bindings",
   );
 });
+
+test("OAuth duplicate deduplication, CSP-compliant connector icons, and asset cache-busting", () => {
+  const tmpStatsPath = path.join(
+    os.tmpdir(),
+    `stats_dedup_${Date.now()}_${Math.random().toString(36).slice(2)}.json`,
+  );
+  try {
+    const stats = new StatsTracker(tmpStatsPath);
+
+    // 1. Simulate legacy requests recorded under oauth:user@example.com
+    const geminiClientId = "krix_client_8d8a367412f26f1099faf0a914688628";
+    stats.recordRequest({
+      keyId: "oauth:imitsankit@gmail.com",
+      label: `OAuth (${geminiClientId})`,
+      type: "oauth",
+      durationMs: 120,
+      isError: false,
+      statusCode: 200,
+      toolName: "sandbox_status",
+      isActualTool: true,
+      bytesIn: 100,
+      bytesOut: 500,
+    });
+
+    // Before sync: 1 legacy key exists
+    let summary = stats.getSummary();
+    assert.equal(summary.keys.length, 1);
+    assert.equal(summary.keys[0]?.keyId, "oauth:imitsankit@gmail.com");
+
+    // 2. Run syncKnownKeys with the active OAuth clients
+    stats.syncKnownKeys(
+      [],
+      [
+        {
+          clientId: geminiClientId,
+          clientName: "Google Gemini",
+        },
+      ],
+    );
+
+    // After sync: Deduplicated to 1 consolidated canonical key
+    summary = stats.getSummary();
+    assert.equal(
+      summary.keys.length,
+      1,
+      "Must consolidate duplicate OAuth keys into 1 row",
+    );
+    const canonicalKey = summary.keys[0];
+    assert.equal(
+      canonicalKey?.keyId,
+      geminiClientId,
+      "Key ID must match canonical OAuth client ID",
+    );
+    assert.equal(
+      canonicalKey?.label,
+      "Google Gemini",
+      "Label must be 'Google Gemini'",
+    );
+    assert.equal(
+      canonicalKey?.totalRequests,
+      1,
+      "Must preserve request count from legacy key",
+    );
+    assert.equal(
+      canonicalKey?.toolCalls["sandbox_status"],
+      1,
+      "Must preserve tool call telemetry",
+    );
+
+    // 3. Verify brand icon cache buster ?v=2
+    const headerHtml = renderHeader("home", null);
+    assert.ok(
+      headerHtml.includes("/icon-48.png?v=2"),
+      "Header avatar must include ?v=2 cache buster",
+    );
+
+    const homeHtml = renderHomePage({
+      base: "https://krix.onrender.com",
+      isOwner: false,
+      owner: null,
+      uploads: [],
+      dynamicKeys: [],
+      activeOAuths: [],
+      statsSummary: summary,
+    });
+    assert.ok(
+      homeHtml.includes("/icon-48.png?v=2"),
+      "Home page head link must include ?v=2 cache buster",
+    );
+
+    // 4. Verify CSP-compliant icon priority
+    const icons = getServerIcons("https://krix.onrender.com");
+    assert.ok(
+      icons[0]?.src.startsWith("https://raw.githubusercontent.com"),
+      "Primary icon must use raw.githubusercontent.com for Google CSP compliance on gemini.google.com",
+    );
+  } finally {
+    try {
+      if (fs.existsSync(tmpStatsPath)) fs.unlinkSync(tmpStatsPath);
+    } catch {}
+  }
+});

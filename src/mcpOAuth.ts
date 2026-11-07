@@ -651,8 +651,8 @@ export function createMcpOAuthRouter(): Router {
   <meta charset="utf-8">
   <title>Authorize Connection - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style nonce="${nonce}">
     :root {
       color-scheme: light dark;
@@ -823,7 +823,7 @@ export function createMcpOAuthRouter(): Router {
     <div class="brand-bar">
       <div class="brand">
         <div class="avatar">
-          <img src="/icon-48.png" alt="Krix">
+          <img src="/icon-48.png?v=2" alt="Krix">
         </div>
         <span>Krix</span>
       </div>
@@ -1314,6 +1314,10 @@ export interface ActiveOAuthInfo {
   ownerEmail: string;
   createdAt: number;
   lastUsedAt?: number;
+}
+
+export function getOAuthClient(clientId: string): OAuthClient | undefined {
+  return registeredClients.get(clientId);
 }
 
 export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {

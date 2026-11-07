@@ -766,8 +766,8 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Upload - Krix</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style nonce="${nonce}">
     ${getBaseStyles()}
 

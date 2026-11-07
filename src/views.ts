@@ -930,7 +930,7 @@ export function renderHeader(
       <div class="nav-inner">
         <a href="/home" class="brand-wrap">
           <div class="brand-avatar">
-            <img src="/icon-48.png" alt="Krix">
+            <img src="/icon-48.png?v=2" alt="Krix">
           </div>
           <span>Krix</span>
         </a>
@@ -1116,9 +1116,9 @@ export function renderHomePage(params: {
   <meta charset="utf-8">
   <title>Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
-  <link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png?v=2">
   <style>
     ${getBaseStyles()}
   </style>
@@ -1351,8 +1351,8 @@ export function renderApiKeysPage(params: {
   <meta charset="utf-8">
   <title>API Keys - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
 
@@ -1913,8 +1913,8 @@ export function renderToolsPage(params: {
   <meta charset="utf-8">
   <title>Tools Directory - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
   </style>
@@ -1952,8 +1952,8 @@ export function renderToolsPage(params: {
   <meta charset="utf-8">
   <title>Tools Directory - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
 
@@ -2204,8 +2204,8 @@ export function renderStatsPage(params: {
   <meta charset="utf-8">
   <title>Krix Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
   </style>
@@ -2240,8 +2240,8 @@ export function renderStatsPage(params: {
   <meta charset="utf-8">
   <title>Krix Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
 
@@ -2949,8 +2949,8 @@ export function renderStorePage(params: {
   <meta charset="utf-8">
   <title>Sandbox Store - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
   </style>
@@ -2987,8 +2987,8 @@ export function renderStorePage(params: {
   <meta charset="utf-8">
   <title>Sandbox &amp; Cloud Store - Krix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
     ${getBaseStyles()}
 

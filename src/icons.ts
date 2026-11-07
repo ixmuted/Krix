@@ -167,7 +167,7 @@ export function getServerIcons(
       },
     ];
     const seen = new Set<string>();
-    return [...own, ...icons].filter((i) => {
+    return [...icons, ...own].filter((i) => {
       const key = `${i.src}|${i.theme ?? ""}`;
       if (seen.has(key)) return false;
       seen.add(key);

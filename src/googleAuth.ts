@@ -270,17 +270,15 @@ export function isAuthorizedEmail(email: string): boolean {
   return false;
 }
 
-export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
-  if (!candidateKey) return false;
-  const primaryKey = process.env.MCP_API_KEY;
-  if (primaryKey && safeEqual(candidateKey, primaryKey)) {
-    return true;
-  }
+export function findAuthorizedApiKey(
+  candidateKey?: string | null,
+): GeneratedKeyEntry | null {
+  if (!candidateKey) return null;
 
   for (const entry of dynamicApiKeys.values()) {
     if (safeEqual(candidateKey, entry.key)) {
       entry.lastUsedAt = Date.now();
-      return true;
+      return entry;
     }
   }
 
@@ -299,14 +297,34 @@ export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
             Buffer.from(b64, "base64url").toString("utf-8"),
           );
           if (payload && payload.id && !revokedKeyIds.has(payload.id)) {
-            return true;
+            const restoredEntry: GeneratedKeyEntry = {
+              id: payload.id,
+              clientId: payload.clientId || generateClientId(),
+              key: candidateKey,
+              prefix: candidateKey.slice(0, 16),
+              label: payload.label || "Personal Key",
+              createdAt: payload.iat || Date.now(),
+              lastUsedAt: Date.now(),
+            };
+            dynamicApiKeys.set(restoredEntry.id, restoredEntry);
+            registerSecret(candidateKey);
+            return restoredEntry;
           }
         } catch {}
       }
     }
   }
 
-  return false;
+  return null;
+}
+
+export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
+  if (!candidateKey) return false;
+  const primaryKey = process.env.MCP_API_KEY;
+  if (primaryKey && safeEqual(candidateKey, primaryKey)) {
+    return true;
+  }
+  return findAuthorizedApiKey(candidateKey) !== null;
 }
 
 export function createDynamicKey(

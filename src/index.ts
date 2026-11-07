@@ -49,6 +49,7 @@ import {
 import {
   createGoogleAuthRouter,
   isAuthorizedApiKey,
+  findAuthorizedApiKey,
   parseOwnerCookie,
   listDynamicKeys,
   createDynamicKey,
@@ -60,6 +61,7 @@ import {
 import {
   createMcpOAuthRouter,
   verifyAccessToken,
+  getOAuthClient,
   listActiveOAuthAuthorizations,
   loadOAuthFromMongo,
 } from "./mcpOAuth.js";
@@ -203,11 +205,8 @@ function createMasterServer(
     },
   );
 
-  const primaryIconUrl = serverIcons[0]?.src ?? GITHUB_ICON_48_URL;
-  const primaryLogoUrl =
-    serverIcons.find(
-      (i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"),
-    )?.src ?? GITHUB_LOGO_URL;
+  const primaryIconUrl = GITHUB_ICON_48_URL;
+  const primaryLogoUrl = GITHUB_LOGO_URL;
   (server.server as any)._serverInfo.icon = primaryIconUrl;
   (server.server as any)._serverInfo.iconUrl = primaryIconUrl;
   (server.server as any)._serverInfo.logo = primaryLogoUrl;
@@ -376,25 +375,51 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
       failedAuthLimiter.reset(ip);
       const payload = tokenCheck.payload;
       (req as any).oauthUser = payload;
-      const sub = payload.sub || payload.client_id || "token";
+      const clientId = payload.client_id;
+      const registeredClient = clientId ? getOAuthClient(clientId) : undefined;
+      const keyId =
+        clientId || (payload.sub ? `oauth:${payload.sub}` : "oauth:client");
+      let label = registeredClient?.clientName;
+      if (!label) {
+        if (clientId && clientId.toLowerCase().includes("gemini")) {
+          label = "Google Gemini";
+        } else if (clientId) {
+          label = `OAuth (${clientId})`;
+        } else if (payload.sub) {
+          label = `OAuth (${payload.sub})`;
+        } else {
+          label = "OAuth Client";
+        }
+      }
       (req as any).clientAuth = {
-        keyId: `oauth:${sub}`,
-        label: `OAuth (${payload.client_id || "client"})`,
+        keyId,
+        label,
         type: "oauth",
       };
       next();
       return;
     }
 
-    // 2. Check API keys (server environment key or owner-generated key)
-    if (isAuthorizedApiKey(clientKey)) {
+    // 2. Check dynamic API keys (registered in-memory / MongoDB)
+    const dynEntry = findAuthorizedApiKey(clientKey);
+    if (dynEntry) {
       failedAuthLimiter.reset(ip);
-      const isMaster = MCP_API_KEY ? safeEqual(clientKey, MCP_API_KEY) : false;
-      const dynamicPrefix = clientKey.slice(0, 16);
       (req as any).clientAuth = {
-        keyId: isMaster ? "primary-key" : `dyn:${dynamicPrefix}`,
-        label: isMaster ? "Primary Key" : `Key ${dynamicPrefix}`,
-        type: isMaster ? "master_key" : "dynamic_key",
+        keyId: dynEntry.id,
+        label: dynEntry.label,
+        type: "api_key",
+      };
+      next();
+      return;
+    }
+
+    // 3. Check Primary master key from environment
+    if (MCP_API_KEY && safeEqual(clientKey, MCP_API_KEY)) {
+      failedAuthLimiter.reset(ip);
+      (req as any).clientAuth = {
+        keyId: "primary-key",
+        label: "Primary Key",
+        type: "master_key",
       };
       next();
       return;
@@ -681,7 +706,10 @@ app.get(
       res.setHeader("Content-Type", "image/png");
       res.setHeader("Content-Length", String(buf.length));
       res.setHeader("Content-Disposition", `inline; filename="${targetFile}"`);
-      res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=3600, stale-while-revalidate=86400",
+      );
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -700,7 +728,10 @@ app.get(["/logo.jpg", "/logo.jpeg"], (_req, res) => {
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Content-Length", String(buf.length));
     res.setHeader("Content-Disposition", 'inline; filename="logo.jpg"');
-    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=3600, stale-while-revalidate=86400",
+    );
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -718,7 +749,10 @@ app.get("/favicon.ico", (_req, res) => {
     res.setHeader("Content-Type", "image/x-icon");
     res.setHeader("Content-Length", String(buf.length));
     res.setHeader("Content-Disposition", 'inline; filename="favicon.ico"');
-    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=3600, stale-while-revalidate=86400",
+    );
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -797,16 +831,10 @@ app.get("/gemini-extension.json", (req, res) => {
     version: "1.1.0",
     description:
       "Remote GitHub discovery, Render management, and sandboxed execution.",
-    icon: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
-    iconUrl: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
-    logo:
-      getServerIcons(base).find(
-        (i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"),
-      )?.src ?? GITHUB_LOGO_URL,
-    logoUrl:
-      getServerIcons(base).find(
-        (i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"),
-      )?.src ?? GITHUB_LOGO_URL,
+    icon: GITHUB_ICON_48_URL,
+    iconUrl: GITHUB_ICON_48_URL,
+    logo: GITHUB_LOGO_URL,
+    logoUrl: GITHUB_LOGO_URL,
     icons: getServerIcons(base),
     mcpServers: {
       krix: {
