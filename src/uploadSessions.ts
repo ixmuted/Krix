@@ -827,19 +827,17 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   ${renderHeader("upload", info.owner || null, nonce)}
 
   <div class="wrapper">
-    <div style="margin: 20px 0 24px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
       <div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-            Sandbox Uploads
-          </h1>
-        </div>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); font-family:inherit;">
+          Sandbox Uploads
+        </h1>
+        <p style="font-size:13px; color:var(--accents-5); margin-top:4px; line-height:1.5; font-family:inherit; font-weight:400;">
           Upload workspace files, datasets, and scripts directly to your shared sandbox.
         </p>
       </div>
 
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <a href="/store" class="btn">View Store</a>
         <a href="/home" class="btn primary">Back to Home</a>
       </div>

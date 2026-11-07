@@ -883,19 +883,6 @@ app.get(["/api", "/keys"], async (req, res) => {
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
   const dynamicKeys = listDynamicKeys();
-  const allKeys: Array<any> = [];
-  if (MCP_API_KEY) {
-    allKeys.push({
-      id: "primary-key",
-      clientId: "server-primary",
-      key: MCP_API_KEY,
-      prefix: MCP_API_KEY.slice(0, 16),
-      label: "Primary Key",
-      createdAt: 1728000000000,
-      isPrimary: true,
-    });
-  }
-  allKeys.push(...dynamicKeys);
   const oauthAuthorizations = listActiveOAuthAuthorizations();
 
   if (
@@ -906,7 +893,7 @@ app.get(["/api", "/keys"], async (req, res) => {
       res.status(401).json({ error: "Unauthorized." });
       return;
     }
-    res.json({ keys: allKeys, oauthAuthorizations });
+    res.json({ keys: dynamicKeys, oauthAuthorizations });
     return;
   }
 
@@ -916,7 +903,7 @@ app.get(["/api", "/keys"], async (req, res) => {
       base,
       isOwner,
       owner,
-      keys: allKeys,
+      keys: dynamicKeys,
       oauthAuthorizations,
     }),
   );
@@ -934,20 +921,7 @@ app.get("/api/keys", async (req, res) => {
       .json({ error: "Unauthorized. Sign in as owner to list keys." });
     return;
   }
-  const allKeys: Array<any> = [];
-  if (MCP_API_KEY) {
-    allKeys.push({
-      id: "primary-key",
-      clientId: "server-primary",
-      key: MCP_API_KEY,
-      prefix: MCP_API_KEY.slice(0, 16),
-      label: "Primary Key",
-      createdAt: 1728000000000,
-      isPrimary: true,
-    });
-  }
-  allKeys.push(...listDynamicKeys());
-  res.json({ keys: allKeys });
+  res.json({ keys: listDynamicKeys() });
 });
 
 app.post("/api/keys", express.json(), async (req, res) => {

@@ -710,27 +710,36 @@ test("Store permanent file toggle, revert retention, and dynamic live counters",
     "Store must have togglePermanent script function",
   );
   assert.ok(
+    storeHtml.includes("kebab-btn"),
+    "Store must render kebab-btn for actions",
+  );
+  assert.ok(
+    storeHtml.includes("kebab-dropdown"),
+    "Store must render kebab-dropdown menu",
+  );
+  assert.ok(
     storeHtml.includes("Revert Permanent"),
-    "Store must render Revert Permanent button for permanent file",
+    "Store must render Revert Permanent option in kebab menu",
   );
   assert.ok(
     storeHtml.includes("Keep Permanent"),
-    "Store must render Keep Permanent button for temporary file",
+    "Store must render Keep Permanent option in kebab menu",
+  );
+  assert.ok(
+    storeHtml.includes("Copy URL"),
+    "Store must render Copy URL in kebab menu",
+  );
+  assert.ok(
+    storeHtml.includes("Download File"),
+    "Store must render Download File in kebab menu",
   );
 
-  // 2. Verify API Keys page renders Primary Key, Dynamic Keys, and OAuth badge
+  // 2. Verify API Keys page keeps Master Key confidential, renders Dynamic Keys, and OAuth badge
   const apiHtml = renderApiKeysPage({
     base: "https://krix.onrender.com",
     isOwner: true,
     owner,
     keys: [
-      {
-        id: "primary",
-        key: "kx_primary_key_secret",
-        label: "Primary Key (MCP_API_KEY)",
-        createdAt: 1700000000000,
-        isPrimary: true,
-      } as any,
       {
         id: "kx_dynamic_key_1",
         key: "kx_dyn_1234567890",
@@ -750,12 +759,12 @@ test("Store permanent file toggle, revert retention, and dynamic live counters",
   });
 
   assert.ok(
-    apiHtml.includes("Primary Key (MCP_API_KEY)"),
-    "API keys page must display Primary Key",
+    apiHtml.includes("Claude Desktop"),
+    "API keys page must display dynamic key",
   );
   assert.ok(
-    apiHtml.includes("Primary Key"),
-    "Primary Key must be marked as non-revocable Primary Key",
+    !apiHtml.includes("Primary Key"),
+    "Master API key must remain confidential and hidden from normal users",
   );
   assert.ok(
     apiHtml.includes('id="oauthCountBadge"'),

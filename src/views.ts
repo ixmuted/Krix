@@ -49,10 +49,13 @@ export function renderSvg(
     | "clock"
     | "shield"
     | "zap"
+    | "more-vertical"
     | "search",
   size = 14,
 ): string {
   switch (name) {
+    case "more-vertical":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>`;
     case "search":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
     case "folder":
@@ -1494,11 +1497,7 @@ export function renderApiKeysPage(params: {
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
                   <td><span class="badge success">Active</span></td>
                   <td>
-                    ${
-                      (k as any).isPrimary
-                        ? `<span class="badge" style="font-size:11px;">Primary Key</span>`
-                        : `<button class="btn" onclick="openRevokeKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>`
-                    }
+                    <button class="btn" onclick="openRevokeKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
                   </td>
                 </tr>
               `;
@@ -3032,6 +3031,91 @@ export function renderStorePage(params: {
       color: var(--accents-6);
       border: 1px solid var(--border);
     }
+
+    .kebab-wrap {
+      position: relative;
+      display: inline-block;
+      text-align: right;
+    }
+    .kebab-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--accents-5);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .kebab-btn:hover, .kebab-btn:focus-visible {
+      color: var(--fg);
+      border-color: var(--accents-4);
+      background: var(--accents-1);
+    }
+    .kebab-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 100;
+      min-width: 210px;
+      padding: 6px;
+      border-radius: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kebab-dropdown.open {
+      display: flex;
+    }
+    .kebab-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--fg);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s ease;
+      box-sizing: border-box;
+    }
+    .kebab-item:hover, .kebab-item:focus-visible {
+      background: var(--accents-1);
+      color: var(--fg);
+      outline: none;
+    }
+    .kebab-item.danger {
+      color: var(--error);
+    }
+    .kebab-item.danger:hover, .kebab-item.danger:focus-visible {
+      background: rgba(238, 0, 0, 0.08);
+      color: var(--error);
+    }
+    .kebab-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+    @media (max-width: 640px) {
+      .hide-mobile {
+        display: none !important;
+      }
+      .grid-4 {
+        grid-template-columns: 1fr 1fr !important;
+      }
+    }
   </style>
   ${renderRecaptchaScript()}
   <script>
@@ -3048,17 +3132,17 @@ export function renderStorePage(params: {
 
   <div class="wrapper">
     <!-- Header -->
-    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); font-family:inherit;">
           Sandbox &amp; Cloud Store
         </h1>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
+        <p style="font-size:13px; color:var(--accents-5); margin-top:4px; line-height:1.5; font-family:inherit;">
           View, download, and manage persistent and temporary files stored in Krix.
         </p>
       </div>
 
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <a href="/upload" class="btn primary">Upload New File</a>
         <a href="/home" class="btn">Back to Home</a>
       </div>
@@ -3108,13 +3192,10 @@ export function renderStorePage(params: {
         <table id="storeTable">
           <thead>
             <tr>
-              <th>File Name</th>
-              <th>Location</th>
+              <th>File</th>
               <th>Size</th>
-              <th>Created</th>
-              <th>Retention</th>
-              <th>Direct URL</th>
-              <th>Actions</th>
+              <th class="hide-mobile">Created</th>
+              <th style="width:48px; text-align:right;">Actions</th>
             </tr>
           </thead>
           <tbody id="storeTableBody">
@@ -3135,45 +3216,50 @@ export function renderStorePage(params: {
                         f.downloadUrl ||
                         (f.id ? `${base}/store/download/${f.id}` : "#");
                       return `
-              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-name="${escapeHtml(f.name.toLowerCase())}" data-type="${escapeHtml(f.contentType.toLowerCase())}" data-perm="${isPerm ? "true" : "false"}" data-size="${f.size || 0}">
+              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-id="${escapeHtml(f.id)}" data-name="${escapeHtml(f.name)}" data-perm="${isPerm ? "true" : "false"}" data-size="${f.size || 0}" data-source="${escapeHtml(f.source)}" data-url="${escapeHtml(dlUrl)}">
                 <td>
-                  <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg);">${escapeHtml(f.name)}</div>
-                  <div style="font-size:11px; color:var(--accents-5);">${escapeHtml(f.contentType)}</div>
+                  <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg); font-size:13px; word-break:break-all;">
+                    ${escapeHtml(f.name)}
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
+                    <span style="font-size:11px; color:var(--accents-5);">${escapeHtml(f.contentType)}</span>
+                    <span class="file-source-badge ${f.source === "store" ? "store" : "sandbox"}">
+                      ${f.source === "store" ? "Cloud Store" : "Sandbox"}
+                    </span>
+                    <span class="badge ${isPerm ? "success" : ""}" id="retention-badge-${escapeHtml(f.id)}">
+                      ${expiresStr}
+                    </span>
+                  </div>
                 </td>
-                <td>
-                  <span class="file-source-badge ${f.source === "store" ? "store" : "sandbox"}">
-                    ${f.source === "store" ? "Cloud Store" : "Sandbox"}
-                  </span>
-                </td>
-                <td><span style="font-variant-numeric:tabular-nums;">${formatBytes(f.size)}</span></td>
-                <td><span style="font-size:12px; color:var(--accents-5);">${dateStr}</span></td>
-                <td>
-                  <span class="badge ${isPerm ? "success" : ""}" id="retention-badge-${escapeHtml(f.id)}">
-                    ${expiresStr}
-                  </span>
-                </td>
-                <td>
-                  <button type="button" class="btn" onclick="copyFileUrl('${escapeHtml(dlUrl)}')" style="font-size:11px; padding:3px 8px;">
-                    ${renderSvg("copy", 12)} Copy URL
-                  </button>
-                </td>
-                <td>
-                  <div style="display:flex; align-items:center; gap:6px;">
-                    <a href="${escapeHtml(dlUrl)}" download class="btn" style="font-size:11px; padding:3px 8px;">
-                      ${renderSvg("download", 12)} Download
-                    </a>
-                    ${
-                      f.source === "store"
-                        ? `
-                      <button type="button" class="btn" id="perm-btn-${escapeHtml(f.id)}" onclick="togglePermanent('${escapeHtml(f.id)}', ${!isPerm})" style="font-size:11px; padding:3px 8px;">
-                        ${isPerm ? "Revert Permanent" : "Keep Permanent"}
-                      </button>
-                    `
-                        : ""
-                    }
-                    <button type="button" class="btn" onclick="openDeleteFileModal('${escapeHtml(f.id)}', '${escapeHtml(f.name)}', '${f.source}')" style="font-size:11px; padding:3px 8px; color:var(--error);">
-                      ${renderSvg("trash", 12)}
+                <td><span style="font-variant-numeric:tabular-nums; font-size:12px;">${formatBytes(f.size)}</span></td>
+                <td class="hide-mobile"><span style="font-size:12px; color:var(--accents-5);">${dateStr}</span></td>
+                <td style="text-align:right;">
+                  <div class="kebab-wrap">
+                    <button type="button" class="kebab-btn" aria-label="Actions for ${escapeHtml(f.name)}" data-action="toggle-menu" data-file-id="${escapeHtml(f.id)}">
+                      ${renderSvg("more-vertical", 16)}
                     </button>
+                    <div class="kebab-dropdown" id="kebab-menu-${escapeHtml(f.id)}" role="menu">
+                      <button type="button" class="kebab-item" data-action="copy" data-url="${escapeHtml(dlUrl)}" role="menuitem">
+                        ${renderSvg("copy", 14)} Copy URL
+                      </button>
+                      <a href="${escapeHtml(dlUrl)}" download class="kebab-item" role="menuitem">
+                        ${renderSvg("download", 14)} Download File
+                      </a>
+                      ${
+                        f.source === "store"
+                          ? `
+                      <button type="button" class="kebab-item" id="perm-btn-${escapeHtml(f.id)}" data-action="toggle-perm" data-file-id="${escapeHtml(f.id)}" data-perm="${isPerm ? "true" : "false"}" role="menuitem">
+                        <span id="perm-icon-${escapeHtml(f.id)}">${isPerm ? renderSvg("clock", 14) : renderSvg("shield", 14)}</span>
+                        <span id="perm-text-${escapeHtml(f.id)}">${isPerm ? "Revert Permanent (72h TTL)" : "Keep Permanent"}</span>
+                      </button>
+                      `
+                          : ""
+                      }
+                      <div class="kebab-divider"></div>
+                      <button type="button" class="kebab-item danger" data-action="delete" data-file-id="${escapeHtml(f.id)}" data-file-name="${escapeHtml(f.name)}" data-source="${escapeHtml(f.source)}" role="menuitem">
+                        ${renderSvg("trash", 14)} Delete File
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -3182,7 +3268,7 @@ export function renderStorePage(params: {
                     .join("")
                 : `
               <tr id="emptyStoreRow">
-                <td colspan="7" style="text-align:center; padding:32px 16px; color:var(--accents-5);">
+                <td colspan="4" style="text-align:center; padding:32px 16px; color:var(--accents-5);">
                   No stored files found. Upload files via the <a href="/upload" style="color:var(--accent);">Upload page</a> or use the <code>sandbox_store</code> tool.
                 </td>
               </tr>
@@ -3244,14 +3330,72 @@ export function renderStorePage(params: {
       const rows = document.querySelectorAll('#storeTableBody tr.store-file-row');
       let visible = 0;
       rows.forEach(r => {
-        const name = r.getAttribute('data-name') || '';
-        const type = r.getAttribute('data-type') || '';
+        const name = (r.getAttribute('data-name') || '').toLowerCase();
+        const type = (r.getAttribute('data-type') || '').toLowerCase();
         const match = !q || name.includes(q) || type.includes(q);
         r.style.display = match ? '' : 'none';
         if (match) visible++;
       });
       const noMatch = document.getElementById('noStoreMatch');
       if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
+    }
+
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.kebab-dropdown.open').forEach(d => d.classList.remove('open'));
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.kebab-wrap')) {
+        closeAllKebabMenus();
+      }
+    });
+
+    const storeTbody = document.getElementById('storeTableBody');
+    if (storeTbody) {
+      storeTbody.addEventListener('click', (e) => {
+        const toggleBtn = e.target.closest('[data-action="toggle-menu"]');
+        if (toggleBtn) {
+          e.stopPropagation();
+          const fileId = toggleBtn.getAttribute('data-file-id');
+          const menu = document.getElementById('kebab-menu-' + fileId);
+          if (menu) {
+            const wasOpen = menu.classList.contains('open');
+            closeAllKebabMenus();
+            if (!wasOpen) menu.classList.add('open');
+          }
+          return;
+        }
+
+        const copyBtn = e.target.closest('[data-action="copy"]');
+        if (copyBtn) {
+          e.stopPropagation();
+          closeAllKebabMenus();
+          const url = copyBtn.getAttribute('data-url');
+          copyFileUrl(url);
+          return;
+        }
+
+        const permBtn = e.target.closest('[data-action="toggle-perm"]');
+        if (permBtn) {
+          e.stopPropagation();
+          closeAllKebabMenus();
+          const fileId = permBtn.getAttribute('data-file-id');
+          const isPerm = permBtn.getAttribute('data-perm') === 'true';
+          togglePermanent(fileId, !isPerm);
+          return;
+        }
+
+        const deleteBtn = e.target.closest('[data-action="delete"]');
+        if (deleteBtn) {
+          e.stopPropagation();
+          closeAllKebabMenus();
+          const fileId = deleteBtn.getAttribute('data-file-id');
+          const fileName = deleteBtn.getAttribute('data-file-name');
+          const source = deleteBtn.getAttribute('data-source');
+          openDeleteFileModal(fileId, fileName, source);
+          return;
+        }
+      });
     }
 
     async function togglePermanent(id, makePerm) {
@@ -3273,8 +3417,15 @@ export function renderStorePage(params: {
             row.setAttribute('data-perm', makePerm ? 'true' : 'false');
           }
           if (btn) {
-            btn.textContent = makePerm ? 'Revert Permanent' : 'Keep Permanent';
-            btn.setAttribute('onclick', 'togglePermanent(\'' + id + '\', ' + (!makePerm) + ')');
+            btn.setAttribute('data-perm', makePerm ? 'true' : 'false');
+            const txt = document.getElementById('perm-text-' + id);
+            if (txt) txt.textContent = makePerm ? 'Revert Permanent (72h TTL)' : 'Keep Permanent';
+            const icon = document.getElementById('perm-icon-' + id);
+            if (icon) {
+              icon.innerHTML = makePerm
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>';
+            }
           }
 
           // Update metric counters dynamically
@@ -3342,7 +3493,7 @@ export function renderStorePage(params: {
             if (remaining === 0) {
               const tbody = document.getElementById('storeTableBody');
               if (tbody) {
-                tbody.innerHTML = '<tr id="emptyStoreRow"><td colspan="7" style="text-align:center; padding:32px 16px; color:var(--accents-5);">No stored files found.</td></tr>';
+                tbody.innerHTML = '<tr id="emptyStoreRow"><td colspan="4" style="text-align:center; padding:32px 16px; color:var(--accents-5);">No stored files found.</td></tr>';
               }
             }
             filterStoreFiles();
@@ -3371,7 +3522,10 @@ export function renderStorePage(params: {
     }
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeStoreModal();
+      if (e.key === 'Escape') {
+        closeAllKebabMenus();
+        closeStoreModal();
+      }
     });
 
     function toggleTheme() {

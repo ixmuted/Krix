@@ -99,14 +99,22 @@ export async function loadOAuthFromMongo(): Promise<void> {
     const col = db.collection("oauth_clients");
     const docs = await col.find({}).toArray();
     for (const d of docs) {
+      const clientId =
+        d.clientId || d.client_id || (d._id ? String(d._id) : "");
       if (d.revoked) {
-        registeredClients.delete(d.clientId);
-      } else if (d.clientId) {
-        registeredClients.set(d.clientId, {
-          clientId: d.clientId,
-          clientSecret: d.clientSecret,
-          clientName: d.clientName || d.clientId,
-          redirectUris: d.redirectUris || [],
+        if (clientId) registeredClients.delete(clientId);
+      } else if (clientId) {
+        registeredClients.set(clientId, {
+          clientId,
+          clientSecret: d.clientSecret || d.client_secret || "",
+          clientName:
+            d.clientName ||
+            d.client_name ||
+            d.name ||
+            (clientId.toLowerCase().includes("gemini")
+              ? "Google Gemini"
+              : clientId),
+          redirectUris: d.redirectUris || d.redirect_uris || [],
           createdAt: d.createdAt || Date.now(),
         });
       }
@@ -115,24 +123,27 @@ export async function loadOAuthFromMongo(): Promise<void> {
     const tokCol = db.collection("oauth_tokens");
     const tokDocs = await tokCol.find({}).toArray();
     for (const td of tokDocs) {
+      const token = td.token || td.access_token || td.accessToken;
+      const clientId = td.clientId || td.client_id;
       if (td.revoked) {
-        issuedTokens.delete(td.token);
-      } else if (
-        td.token &&
-        (!td.refreshExpiresAt ||
-          Date.now() < td.refreshExpiresAt ||
-          (td.expiresAt && Date.now() < td.expiresAt + 30 * 86400 * 1000))
-      ) {
+        if (token) issuedTokens.delete(token);
+      } else if (token && clientId) {
         const entry: IssuedTokenEntry = {
-          token: td.token,
-          refreshToken: td.refreshToken || "",
-          clientId: td.clientId,
-          ownerEmail: td.ownerEmail,
-          scope: td.scope,
-          expiresAt: td.expiresAt,
-          refreshExpiresAt: td.refreshExpiresAt,
+          token,
+          refreshToken: td.refreshToken || td.refresh_token || "",
+          clientId,
+          ownerEmail:
+            td.ownerEmail ||
+            td.email ||
+            td.owner_email ||
+            process.env.OWNER_EMAIL ||
+            "owner",
+          scope: td.scope || "mcp:tools mcp:sandbox",
+          expiresAt: td.expiresAt || Date.now() + 86400 * 1000,
+          refreshExpiresAt:
+            td.refreshExpiresAt || Date.now() + 30 * 86400 * 1000,
         };
-        issuedTokens.set(td.token, entry);
+        issuedTokens.set(token, entry);
         if (entry.refreshToken) {
           refreshTokens.set(entry.refreshToken, entry);
         }
