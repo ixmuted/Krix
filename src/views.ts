@@ -644,36 +644,54 @@ export function getBaseStyles(): string {
       color: var(--accents-5);
     }
 
-    .search-input-wrap {
+    .search-input-wrap,
+    .search-input-wrapper {
       position: relative;
+      display: block;
       width: 100%;
+      min-width: 0;
     }
-    .search-input-wrap svg {
+    .search-input-wrap svg,
+    .search-input-wrapper svg {
       position: absolute;
-      left: 12px;
+      left: 14px;
       top: 50%;
       transform: translateY(-50%);
       pointer-events: none;
-      color: var(--accents-4);
+      color: var(--accents-5);
+      z-index: 1;
     }
-    .search-input-wrap input {
+    .search-input-wrap input,
+    .search-input-wrapper input,
+    .search-input {
+      display: block;
       width: 100%;
-      height: 38px;
-      padding: 0 14px 0 36px;
-      border-radius: 8px;
+      min-width: 0;
+      height: 42px;
+      padding: 0 14px 0 42px;
+      border-radius: 11px;
       border: 1px solid var(--border);
-      background: var(--code-bg);
+      background: linear-gradient(135deg, var(--card-sub), var(--code-bg));
       color: var(--fg);
       font-size: 13px;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      line-height: 1.4;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.035), 0 1px 2px rgba(0, 0, 0, 0.025);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      appearance: none;
+      -webkit-appearance: none;
     }
-    .search-input-wrap input:focus {
+    .search-input-wrap input:focus,
+    .search-input-wrapper input:focus,
+    .search-input:focus {
       outline: none;
-      border-color: var(--fg);
-      box-shadow: 0 0 0 1px var(--fg);
+      border-color: var(--accents-5);
+      box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.12), inset 0 1px 2px rgba(0, 0, 0, 0.025);
     }
-    .search-input-wrap input::placeholder {
-      color: var(--accents-4);
+    .search-input-wrap input::placeholder,
+    .search-input-wrapper input::placeholder,
+    .search-input::placeholder {
+      color: var(--accents-5);
+      opacity: 0.82;
     }
 
     .drop-zone {
@@ -1647,6 +1665,64 @@ export function renderHomePage(params: {
   <link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png?v=2">
   <style>
     ${getBaseStyles()}
+
+    @media (max-width: 680px) {
+      .home-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        align-items: stretch;
+      }
+      .home-page .wrapper {
+        width: 100%;
+        max-width: 1080px;
+        min-width: 0;
+        padding: 16px 12px 24px;
+        overflow: hidden;
+      }
+      .home-page .wrapper > div:first-child,
+      .home-page .grid-2,
+      .home-page .card {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .home-page .wrapper > div:first-child > div:last-child {
+        max-width: 100%;
+        flex-wrap: wrap;
+      }
+      .home-page .card {
+        padding: 16px;
+        overflow: hidden;
+      }
+      .home-page .card > div,
+      .home-page .endpoint-box,
+      .home-page .endpoint-row,
+      .home-page .code-view,
+      .home-page .tab-bar {
+        min-width: 0;
+        max-width: 100%;
+      }
+      .home-page .endpoint-row input {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .home-page .code-view {
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+      }
+      .home-page .card h2,
+      .home-page .card strong,
+      .home-page .card span {
+        overflow-wrap: anywhere;
+      }
+      .home-page .card > div[style*="justify-content:space-between"] {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+    }
   </style>
   ${renderRecaptchaScript()}
   <script>
@@ -1658,7 +1734,7 @@ export function renderHomePage(params: {
     })();
   </script>
 </head>
-<body>
+<body class="home-page">
   ${renderHeader("home", owner)}
 
   <div class="wrapper">
@@ -2541,51 +2617,87 @@ export function renderApiKeysPage(params: {
       activeConfirmAction = null;
     }
 
-    // Kebab Dropdown Delegation with Overflow Detection & Safe Viewport Positioning
+    // Keep kebab menus above scroll containers and close them on outside clicks.
+    function closeKebabDropdown(dropdown) {
+      if (!dropdown) return;
+      dropdown.classList.remove('open', 'pop-up');
+      dropdown.style.position = '';
+      dropdown.style.top = '';
+      dropdown.style.left = '';
+      dropdown.style.right = '';
+      dropdown.style.bottom = '';
+      dropdown.style.zIndex = '';
+      dropdown.style.maxHeight = '';
+      dropdown.style.overflowY = '';
+      const placeholder = dropdown.__kebabPlaceholder;
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(dropdown, placeholder);
+        placeholder.remove();
+      }
+      if (dropdown.__kebabOwnerWrap) dropdown.__kebabOwnerWrap.classList.remove('is-open');
+      dropdown.__kebabPlaceholder = null;
+      dropdown.__kebabOwnerWrap = null;
+    }
+
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.kebab-dropdown.open').forEach(closeKebabDropdown);
+      document.querySelectorAll('.kebab-wrap.is-open').forEach(w => w.classList.remove('is-open'));
+    }
+
+    function openKebabDropdown(dropdown, trigger, wrap) {
+      if (!dropdown || !trigger) return;
+      const placeholder = document.createComment('kebab-menu-placeholder');
+      dropdown.parentNode.insertBefore(placeholder, dropdown);
+      dropdown.__kebabPlaceholder = placeholder;
+      dropdown.__kebabOwnerWrap = wrap;
+      document.body.appendChild(dropdown);
+      if (wrap) wrap.classList.add('is-open');
+
+      dropdown.style.position = 'fixed';
+      dropdown.style.zIndex = '2147483647';
+      dropdown.style.right = 'auto';
+      dropdown.style.bottom = 'auto';
+      dropdown.style.maxHeight = 'calc(100vh - 16px)';
+      dropdown.style.overflowY = 'auto';
+      dropdown.classList.add('open');
+
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = dropdown.offsetWidth;
+      const menuHeight = dropdown.offsetHeight;
+      const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+      let top = rect.bottom + 6;
+      if (top + menuHeight > window.innerHeight - 8) top = rect.top - menuHeight - 6;
+      top = Math.max(8, Math.min(top, window.innerHeight - Math.min(menuHeight, window.innerHeight - 16) - 8));
+      dropdown.style.left = left + 'px';
+      dropdown.style.top = top + 'px';
+    }
+
+    window.addEventListener('scroll', closeAllKebabMenus, { passive: true });
+    window.addEventListener('resize', closeAllKebabMenus);
+
     document.addEventListener('click', function(e) {
       const btn = e.target.closest('.kebab-btn');
-      const allDropdowns = document.querySelectorAll('.kebab-dropdown.open');
-      const allWraps = document.querySelectorAll('.kebab-wrap.is-open');
       if (btn) {
         e.stopPropagation();
         const wrap = btn.closest('.kebab-wrap');
         const dropdown = wrap ? wrap.querySelector('.kebab-dropdown') : null;
-        allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
-        allWraps.forEach(w => { if (w !== wrap) w.classList.remove('is-open'); });
-        if (dropdown) {
-          const isOpen = dropdown.classList.contains('open');
-          if (!isOpen) {
-            const rect = btn.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            const scrollParent = btn.closest('div[style*="overflow"]') || btn.closest('.table-scroll-container');
-            let parentSpaceBelow = 9999;
-            if (scrollParent) {
-              const pRect = scrollParent.getBoundingClientRect();
-              parentSpaceBelow = pRect.bottom - rect.bottom;
-            }
-            if (spaceBelow < 200 || parentSpaceBelow < 180) {
-              dropdown.classList.add('pop-up');
-            } else {
-              dropdown.classList.remove('pop-up');
-            }
-            dropdown.classList.add('open');
-            if (wrap) wrap.classList.add('is-open');
-          } else {
-            dropdown.classList.remove('open');
-            if (wrap) wrap.classList.remove('is-open');
-          }
-        }
+        const wasOpen = dropdown && dropdown.classList.contains('open');
+        closeAllKebabMenus();
+        if (dropdown && !wasOpen) openKebabDropdown(dropdown, btn, wrap);
         return;
       }
-      allDropdowns.forEach(d => d.classList.remove('open'));
-      allWraps.forEach(w => w.classList.remove('is-open'));
+      if (e.target.closest('.kebab-dropdown')) {
+        if (e.target.closest('.kebab-item')) closeAllKebabMenus();
+        return;
+      }
+      closeAllKebabMenus();
     });
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeConfirmModal();
         closeRenameModal();
-        document.querySelectorAll('.kebab-dropdown.open').forEach(d => d.classList.remove('open'));
+        closeAllKebabMenus();
       }
     });
 
@@ -3628,7 +3740,7 @@ export function renderStatsPage(params: {
           <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
           <span class="badge" id="statsKeyCountBadge">${summary.keys.length} keys</span>
         </div>
-        <div class="search-input-wrapper" style="width:280px; max-width:100%;">
+        <div class="search-input-wrap" style="width:280px; max-width:100%;">
           ${renderSvg("search", 14)}
           <input type="text" id="statsKeySearchInput" class="search-input" placeholder="Search clients, keys, or types" oninput="handleStatsKeySearch()" />
         </div>
@@ -4528,14 +4640,63 @@ export function renderStorePage(params: {
       if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
     }
 
-    function closeAllKebabMenus() {
-      document.querySelectorAll('.kebab-dropdown.open').forEach(d => d.classList.remove('open'));
+    function closeStoreKebabDropdown(dropdown) {
+      if (!dropdown) return;
+      dropdown.classList.remove('open', 'pop-up');
+      dropdown.style.position = '';
+      dropdown.style.top = '';
+      dropdown.style.left = '';
+      dropdown.style.right = '';
+      dropdown.style.bottom = '';
+      dropdown.style.zIndex = '';
+      dropdown.style.maxHeight = '';
+      dropdown.style.overflowY = '';
+      const placeholder = dropdown.__kebabPlaceholder;
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(dropdown, placeholder);
+        placeholder.remove();
+      }
+      dropdown.__kebabPlaceholder = null;
     }
 
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.kebab-dropdown.open').forEach(closeStoreKebabDropdown);
+    }
+
+    function openStoreKebabDropdown(menu, trigger) {
+      if (!menu || !trigger) return;
+      const placeholder = document.createComment('kebab-menu-placeholder');
+      menu.parentNode.insertBefore(placeholder, menu);
+      menu.__kebabPlaceholder = placeholder;
+      document.body.appendChild(menu);
+      menu.style.position = 'fixed';
+      menu.style.zIndex = '2147483647';
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+      menu.style.maxHeight = 'calc(100vh - 16px)';
+      menu.style.overflowY = 'auto';
+      menu.classList.add('open');
+
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = menu.offsetWidth;
+      const menuHeight = menu.offsetHeight;
+      const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+      let top = rect.bottom + 6;
+      if (top + menuHeight > window.innerHeight - 8) top = rect.top - menuHeight - 6;
+      top = Math.max(8, Math.min(top, window.innerHeight - Math.min(menuHeight, window.innerHeight - 16) - 8));
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+    }
+
+    window.addEventListener('scroll', closeAllKebabMenus, { passive: true });
+    window.addEventListener('resize', closeAllKebabMenus);
+
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.kebab-wrap')) {
-        closeAllKebabMenus();
+      if (e.target.closest('.kebab-dropdown')) {
+        if (e.target.closest('.kebab-item')) closeAllKebabMenus();
+        return;
       }
+      if (!e.target.closest('.kebab-wrap')) closeAllKebabMenus();
     });
 
     // Rename File Modal Logic
@@ -4613,7 +4774,7 @@ export function renderStorePage(params: {
 
     const storeTbody = document.getElementById('storeTableBody');
     if (storeTbody) {
-      storeTbody.addEventListener('click', (e) => {
+      document.addEventListener('click', (e) => {
         const toggleBtn = e.target.closest('[data-action="toggle-menu"]');
         if (toggleBtn) {
           e.stopPropagation();
@@ -4622,15 +4783,7 @@ export function renderStorePage(params: {
           if (menu) {
             const wasOpen = menu.classList.contains('open');
             closeAllKebabMenus();
-            if (!wasOpen) {
-              const rect = toggleBtn.getBoundingClientRect();
-              if (window.innerHeight - rect.bottom < 180) {
-                menu.classList.add('pop-up');
-              } else {
-                menu.classList.remove('pop-up');
-              }
-              menu.classList.add('open');
-            }
+            if (!wasOpen) openStoreKebabDropdown(menu, toggleBtn);
           }
           return;
         }
