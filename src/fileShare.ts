@@ -137,6 +137,7 @@ export interface FileStore {
     id: string,
     ttlHours?: number,
   ): Promise<boolean>;
+  rename(ownerKey: string, id: string, newName: string): Promise<boolean>;
   sweepExpired(): Promise<number>;
   close(): Promise<void>;
 }
@@ -298,6 +299,24 @@ class MongoFileStore implements FileStore {
     const res = await db
       .collection(`${BUCKET}.files`)
       .updateOne(filter, { $set: { "metadata.expiresAt": expiresAt } });
+    return (res.modifiedCount ?? 0) > 0 || (res.matchedCount ?? 0) > 0;
+  }
+
+  async rename(
+    ownerKey: string,
+    id: string,
+    newName: string,
+  ): Promise<boolean> {
+    if (!/^[a-f0-9]{24}$/i.test(id)) return false;
+    const cleanName = path.basename(newName.trim());
+    if (!cleanName || cleanName.length < 1) return false;
+    const { db } = await this.init();
+    const _id = new ObjectId(id);
+    const filter =
+      ownerKey === "*" ? { _id } : { _id, "metadata.ownerKey": ownerKey };
+    const res = await db.collection(`${BUCKET}.files`).updateOne(filter, {
+      $set: { filename: cleanName, "metadata.name": cleanName },
+    });
     return (res.modifiedCount ?? 0) > 0 || (res.matchedCount ?? 0) > 0;
   }
 

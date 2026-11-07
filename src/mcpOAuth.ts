@@ -72,7 +72,10 @@ export function loadOAuthFromDisk(): void {
     if (fs.existsSync(OAUTH_FILE)) {
       const data = JSON.parse(fs.readFileSync(OAUTH_FILE, "utf-8"));
       if (Array.isArray(data.clients)) {
-        for (const [id, client] of data.clients) {
+        const sorted = [...data.clients]
+          .sort((a, b) => (b[1]?.createdAt || 0) - (a[1]?.createdAt || 0))
+          .slice(0, 20);
+        for (const [id, client] of sorted) {
           registeredClients.set(id, client);
         }
       }
@@ -543,16 +546,87 @@ export function createMcpOAuthRouter(): Router {
     express.json({ limit: "32kb" }),
     (req: Request, res: Response): void => {
       const body = req.body && typeof req.body === "object" ? req.body : {};
-      const clientName =
-        typeof body.client_name === "string"
-          ? body.client_name.slice(0, 100)
-          : "MCP Client";
+      if (registeredClients.size >= 20) {
+        res.status(400).json({
+          error: "invalid_request",
+          error_description:
+            "Maximum limit of 20 OAuth client authorizations reached. Delete an existing authorization to connect a new client.",
+        });
+        return;
+      }
+      let clientName =
+        typeof body.client_name === "string" && body.client_name.trim()
+          ? body.client_name.trim().slice(0, 100)
+          : "";
       const rawUris = Array.isArray(body.redirect_uris)
         ? body.redirect_uris
         : [];
       const redirectUris = rawUris.filter(
         (u: unknown): u is string => typeof u === "string",
       );
+
+      // Auto-detect human-friendly provider name if generic or missing
+      if (
+        !clientName ||
+        clientName === "MCP Client" ||
+        clientName.startsWith("Client (")
+      ) {
+        const urisStr = redirectUris.join(" ").toLowerCase();
+        if (urisStr.includes("google") || urisStr.includes("gemini")) {
+          clientName = "Google Gemini";
+        } else if (urisStr.includes("openai") || urisStr.includes("chatgpt")) {
+          clientName = "ChatGPT";
+        } else if (
+          urisStr.includes("anthropic") ||
+          urisStr.includes("claude")
+        ) {
+          clientName = "Claude";
+        } else if (urisStr.includes("cursor")) {
+          clientName = "Cursor";
+        } else {
+          clientName = "OAuth Client";
+        }
+      }
+
+      // Check if this client is already registered (re-registration / reconnect)
+      // Matching by non-empty redirect_uris or existing client with matching name
+      for (const existing of registeredClients.values()) {
+        const hasMatchingUri =
+          redirectUris.length > 0 &&
+          existing.redirectUris.some((u) => redirectUris.includes(u));
+        const hasMatchingName =
+          clientName &&
+          clientName !== "OAuth Client" &&
+          existing.clientName.toLowerCase() === clientName.toLowerCase();
+
+        if (hasMatchingUri || (hasMatchingName && redirectUris.length === 0)) {
+          // Re-use existing client registration to prevent duplicate client rows
+          if (clientName && clientName !== "OAuth Client") {
+            existing.clientName = clientName;
+          }
+          if (redirectUris.length > 0) {
+            existing.redirectUris = Array.from(
+              new Set([...existing.redirectUris, ...redirectUris]),
+            );
+          }
+          saveOAuthToDisk();
+          syncOAuthClientToMongo(existing).catch(() => {});
+          res.status(200).json({
+            client_id: existing.clientId,
+            client_secret: existing.clientSecret,
+            client_name: existing.clientName,
+            redirect_uris: existing.redirectUris,
+            grant_types: [
+              "authorization_code",
+              "refresh_token",
+              "client_credentials",
+            ],
+            response_types: ["code"],
+            token_endpoint_auth_method: "client_secret_post",
+          });
+          return;
+        }
+      }
 
       const clientId = "krix_client_" + crypto.randomBytes(16).toString("hex");
       const clientSecret = "krix_sec_" + crypto.randomBytes(32).toString("hex");
@@ -1049,21 +1123,29 @@ export function createMcpOAuthRouter(): Router {
 
         const effectiveClientId = clientId || entry.clientId;
         if (effectiveClientId) {
-          const clientName =
-            effectiveClientId.toLowerCase().includes("gemini") ||
-            (entry.redirectUri &&
-              entry.redirectUri.toLowerCase().includes("google"))
-              ? "Google Gemini"
-              : `Client (${effectiveClientId.slice(0, 16)})`;
+          let clientRecord = registeredClients.get(effectiveClientId);
+          if (!clientRecord) {
+            const clientName =
+              effectiveClientId.toLowerCase().includes("gemini") ||
+              (entry.redirectUri &&
+                entry.redirectUri.toLowerCase().includes("google"))
+                ? "Google Gemini"
+                : `Client (${effectiveClientId.slice(0, 16)})`;
 
-          const clientRecord: OAuthClient = {
-            clientId: effectiveClientId,
-            clientSecret: "",
-            clientName,
-            redirectUris: entry.redirectUri ? [entry.redirectUri] : [],
-            createdAt: Date.now(),
-          };
-          registeredClients.set(effectiveClientId, clientRecord);
+            clientRecord = {
+              clientId: effectiveClientId,
+              clientSecret: "",
+              clientName,
+              redirectUris: entry.redirectUri ? [entry.redirectUri] : [],
+              createdAt: Date.now(),
+            };
+            registeredClients.set(effectiveClientId, clientRecord);
+          } else if (
+            entry.redirectUri &&
+            !clientRecord.redirectUris.includes(entry.redirectUri)
+          ) {
+            clientRecord.redirectUris.push(entry.redirectUri);
+          }
           saveOAuthToDisk();
           syncOAuthClientToMongo(clientRecord).catch(() => {});
         }
@@ -1304,6 +1386,35 @@ export function createMcpOAuthRouter(): Router {
     },
   );
 
+  router.patch(
+    "/oauth/authorizations/:clientId",
+    express.json({ limit: "32kb" }),
+    (req: Request, res: Response): void => {
+      const owner = parseOwnerCookie(req);
+      if (!owner) {
+        res.status(401).json({ error: "Unauthorized." });
+        return;
+      }
+      const clientId = String(req.params.clientId || "");
+      const newName =
+        typeof req.body?.name === "string" ? req.body.name.trim() : "";
+      if (!newName || newName.length < 2) {
+        res.status(400).json({
+          error: "Client name must be at least 2 characters long.",
+        });
+        return;
+      }
+      try {
+        const client = renameOAuthClient(clientId, newName);
+        res.json({ success: true, clientId, clientName: client.clientName });
+      } catch (err: any) {
+        res.status(400).json({
+          error: err.message || "Failed to rename OAuth client.",
+        });
+      }
+    },
+  );
+
   return router;
 }
 
@@ -1390,4 +1501,44 @@ export function revokeOAuthAuthorization(clientId: string): boolean {
     revokeOAuthTokenInMongo(clientId).catch(() => {});
   }
   return found;
+}
+
+export function renameOAuthClient(
+  clientId: string,
+  newName: string,
+): OAuthClient {
+  const cleanName = (newName || "").trim();
+  if (cleanName.length < 2) {
+    throw new Error("Client name must be at least 2 characters long.");
+  }
+  let client = registeredClients.get(clientId);
+  if (!client) {
+    for (const entry of issuedTokens.values()) {
+      if (entry.clientId === clientId) {
+        client = {
+          clientId,
+          clientSecret: "",
+          clientName: cleanName,
+          redirectUris: [],
+          createdAt: Date.now(),
+        };
+        registeredClients.set(clientId, client);
+        break;
+      }
+    }
+  }
+  if (!client) {
+    throw new Error("OAuth client authorization not found.");
+  }
+  client.clientName = cleanName;
+  saveOAuthToDisk();
+  syncOAuthClientToMongo(client).catch(() => {});
+  return client;
+}
+
+export function resetOAuthStateForTesting(): void {
+  registeredClients.clear();
+  activeAuthCodes.clear();
+  issuedTokens.clear();
+  refreshTokens.clear();
 }

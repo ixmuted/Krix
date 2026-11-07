@@ -330,6 +330,12 @@ export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
 export function createDynamicKey(
   label: string = "Personal Key",
 ): GeneratedKeyEntry {
+  if (dynamicApiKeys.size >= 30) {
+    throw new Error(
+      "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
+    );
+  }
+
   const cleanLabel = (label || "").trim();
   if (cleanLabel.length < 4) {
     throw new Error("Key name must be at least 4 characters long.");
@@ -382,6 +388,37 @@ export function revokeDynamicKey(id: string): boolean {
   saveKeysToDisk();
   revokeKeyInMongo(id).catch(() => {});
   return deleted;
+}
+
+export function renameDynamicKey(
+  id: string,
+  newLabel: string,
+): GeneratedKeyEntry {
+  const cleanLabel = (newLabel || "").trim();
+  if (cleanLabel.length < 4) {
+    throw new Error("Key name must be at least 4 characters long.");
+  }
+
+  const entry = dynamicApiKeys.get(id);
+  if (!entry) {
+    throw new Error("API key not found.");
+  }
+
+  for (const existing of dynamicApiKeys.values()) {
+    if (
+      existing.id !== id &&
+      existing.label.toLowerCase() === cleanLabel.toLowerCase()
+    ) {
+      throw new Error(
+        `An API key named "${cleanLabel}" already exists. Please choose a unique name.`,
+      );
+    }
+  }
+
+  entry.label = cleanLabel;
+  saveKeysToDisk();
+  syncKeyToMongo(entry).catch(() => {});
+  return entry;
 }
 
 export function getPublicBaseUrl(req: Request): string {

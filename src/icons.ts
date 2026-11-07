@@ -186,8 +186,22 @@ export function getServerInfoIcons(
   baseUrl: string = DEFAULT_PUBLIC_URL,
 ): McpIcon[] {
   return [
-    { src: ICON_48_DATA_URI, mimeType: "image/png", theme: "light" },
-    { src: ICON_48_DATA_URI, mimeType: "image/png", theme: "dark" },
+    {
+      src: ICON_48_DATA_URI,
+      url: ICON_48_DATA_URI,
+      mimeType: "image/png",
+      type: "image/png",
+      sizes: ["48x48"],
+      theme: "light",
+    },
+    {
+      src: ICON_48_DATA_URI,
+      url: ICON_48_DATA_URI,
+      mimeType: "image/png",
+      type: "image/png",
+      sizes: ["48x48"],
+      theme: "dark",
+    },
     ...getServerIcons(baseUrl),
   ];
 }

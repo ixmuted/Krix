@@ -54,6 +54,7 @@ import {
   listDynamicKeys,
   createDynamicKey,
   revokeDynamicKey,
+  renameDynamicKey,
   ensureMongoAuth,
   syncKeyToMongo,
   revokeKeyInMongo,
@@ -64,6 +65,7 @@ import {
   getOAuthClient,
   listActiveOAuthAuthorizations,
   loadOAuthFromMongo,
+  renameOAuthClient,
 } from "./mcpOAuth.js";
 import { statsTracker } from "./stats.js";
 import {
@@ -205,8 +207,8 @@ function createMasterServer(
     },
   );
 
-  const primaryIconUrl = GITHUB_ICON_48_URL;
-  const primaryLogoUrl = GITHUB_LOGO_URL;
+  const primaryIconUrl = ICON_48_DATA_URI;
+  const primaryLogoUrl = ICON_48_DATA_URI;
   (server.server as any)._serverInfo.icon = primaryIconUrl;
   (server.server as any)._serverInfo.iconUrl = primaryIconUrl;
   (server.server as any)._serverInfo.logo = primaryLogoUrl;
@@ -831,10 +833,10 @@ app.get("/gemini-extension.json", (req, res) => {
     version: "1.1.0",
     description:
       "Remote GitHub discovery, Render management, and sandboxed execution.",
-    icon: GITHUB_ICON_48_URL,
-    iconUrl: GITHUB_ICON_48_URL,
-    logo: GITHUB_LOGO_URL,
-    logoUrl: GITHUB_LOGO_URL,
+    icon: ICON_48_DATA_URI,
+    iconUrl: ICON_48_DATA_URI,
+    logo: ICON_48_DATA_URI,
+    logoUrl: ICON_48_DATA_URI,
     icons: getServerIcons(base),
     mcpServers: {
       krix: {
@@ -964,6 +966,13 @@ app.post("/api/keys", express.json(), async (req, res) => {
       .json({ error: "Unauthorized. Sign in as owner to create keys." });
     return;
   }
+  if (listDynamicKeys().length >= 30) {
+    res.status(400).json({
+      error:
+        "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
+    });
+    return;
+  }
   const label =
     typeof req.body?.label === "string" ? req.body.label.trim() : "";
   if (!label || label.length < 4) {
@@ -975,9 +984,41 @@ app.post("/api/keys", express.json(), async (req, res) => {
   try {
     const entry = createDynamicKey(label);
     await syncKeyToMongo(entry);
+    statsTracker.syncKnownKeys(
+      listDynamicKeys(),
+      listActiveOAuthAuthorizations(),
+    );
     res.status(201).json(entry);
   } catch (err: any) {
     res.status(400).json({ error: err.message || "Failed to create API key." });
+  }
+});
+
+app.patch("/api/keys/:id", express.json(), async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id as string;
+  const label =
+    typeof req.body?.label === "string" ? req.body.label.trim() : "";
+  if (!label || label.length < 4) {
+    res
+      .status(400)
+      .json({ error: "Key name must be at least 4 characters long." });
+    return;
+  }
+  try {
+    const entry = renameDynamicKey(id, label);
+    statsTracker.syncKnownKeys(
+      listDynamicKeys(),
+      listActiveOAuthAuthorizations(),
+    );
+    res.json({ success: true, key: entry });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "Failed to rename API key." });
   }
 });
 
@@ -991,6 +1032,10 @@ app.delete("/api/keys/:id", async (req, res) => {
   const id = req.params.id as string;
   const revoked = revokeDynamicKey(id);
   await revokeKeyInMongo(id);
+  statsTracker.syncKnownKeys(
+    listDynamicKeys(),
+    listActiveOAuthAuthorizations(),
+  );
   res.json({ success: revoked });
 });
 
@@ -1339,6 +1384,23 @@ app.delete("/store/files/:id", async (req, res) => {
   else res.status(404).json({ error: "File not found." });
 });
 
+app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id;
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  if (!name) {
+    res.status(400).json({ error: "File name is required." });
+    return;
+  }
+  const ok = await getFileStore().rename("*", id, name);
+  if (ok) res.json({ success: true, id, name });
+  else res.status(404).json({ error: "File not found or failed to rename." });
+});
+
 app.delete("/store/sandbox-file", async (req, res) => {
   const owner = parseOwnerCookie(req);
   if (!owner) {
@@ -1363,6 +1425,45 @@ app.delete("/store/sandbox-file", async (req, res) => {
     res.json({ success: true, deleted: name });
   } else {
     res.status(404).json({ error: "File not found." });
+  }
+});
+
+app.post("/upload/rename", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const oldName =
+    typeof req.body?.oldName === "string" ? req.body.oldName.trim() : "";
+  const newName =
+    typeof req.body?.newName === "string" ? req.body.newName.trim() : "";
+  if (
+    !oldName ||
+    !newName ||
+    oldName.includes("..") ||
+    newName.includes("..") ||
+    oldName.includes("/") ||
+    newName.includes("/") ||
+    oldName.includes("\\") ||
+    newName.includes("\\")
+  ) {
+    res.status(400).json({ error: "Invalid filename." });
+    return;
+  }
+  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
+  const root = sandboxRootForAuthKey(authKey);
+  const oldPath = path.join(root, UPLOAD_DIR, oldName);
+  const newPath = path.join(root, UPLOAD_DIR, newName);
+  if (!fs.existsSync(oldPath)) {
+    res.status(404).json({ error: "File not found." });
+    return;
+  }
+  try {
+    fs.renameSync(oldPath, newPath);
+    res.json({ success: true, oldName, newName });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to rename file." });
   }
 });
 

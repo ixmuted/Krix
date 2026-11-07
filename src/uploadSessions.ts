@@ -925,13 +925,35 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           </div>
 
           <!-- Files List -->
-          <ul id="list" style="list-style:none; padding:0; margin:0; max-height:360px; overflow-y:auto;"></ul>
+          <ul id="list" style="list-style:none; padding:0; margin:0; max-height:420px; overflow-y:auto; padding-bottom:40px; margin-bottom:-40px;"></ul>
           <div id="emptyFilesMsg" style="text-align:center; padding:32px 16px; color:var(--accents-5); font-size:13px;">
             No files uploaded in this session yet. Drag and drop above to begin.
           </div>
 
+          <!-- Upload Files Pagination Bar -->
+          <div class="pagination-bar" id="uploadPaginationBar" style="display:none; margin-top:14px;">
+            <span id="uploadPageIndicator">Showing files</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" id="uploadPrevBtn" onclick="changeUploadPage(-1)">Previous</button>
+              <button type="button" class="pagination-btn" id="uploadNextBtn" onclick="changeUploadPage(1)">Next</button>
+            </div>
+          </div>
+
           <div class="err" id="upErr" role="alert" style="color:var(--error); font-size:12px; margin-top:8px;"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Upload File Rename Modal -->
+  <div id="uploadRenameModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Rename File</h3>
+      <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px; line-height:1.5;">Enter a new filename for the sandbox file:</p>
+      <input type="text" id="uploadRenameInput" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeUploadRenameModal()">Cancel</button>
+        <button type="button" id="uploadRenameSaveBtn" class="btn primary">Save Changes</button>
       </div>
     </div>
   </div>
@@ -1075,6 +1097,107 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       }
     });
 
+    let uploadCurrentPage = 1;
+    const UPLOAD_PER_PAGE = 10;
+
+    window.changeUploadPage = function(delta) {
+      uploadCurrentPage += delta;
+      renderFileList();
+    };
+
+    let activeRenameUploadTarget = null;
+    window.openUploadRenameModal = function(file) {
+      activeRenameUploadTarget = file;
+      const input = $('uploadRenameInput');
+      input.value = file.name;
+      const saveBtn = $('uploadRenameSaveBtn');
+      saveBtn.onclick = executeUploadRename;
+      const modal = $('uploadRenameModal');
+      modal.removeAttribute('hidden');
+      modal.classList.add('open');
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    };
+
+    window.closeUploadRenameModal = function() {
+      const modal = $('uploadRenameModal');
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
+      activeRenameUploadTarget = null;
+    };
+
+    async function executeUploadRename() {
+      if (!activeRenameUploadTarget) return;
+      const input = $('uploadRenameInput');
+      const newName = (input.value || '').trim();
+      if (!newName || newName === activeRenameUploadTarget.name) {
+        closeUploadRenameModal();
+        return;
+      }
+      const saveBtn = $('uploadRenameSaveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      try {
+        const res = await fetch('/upload/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName: activeRenameUploadTarget.name, newName })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          activeRenameUploadTarget.name = newName;
+          activeRenameUploadTarget.path = (activeRenameUploadTarget.path || '').replace(/[^/]+$/, newName);
+          showToast('File renamed to "' + newName + '"', 'success');
+          closeUploadRenameModal();
+          renderFileList();
+        } else {
+          showToast(data.error || 'Failed to rename file', 'error');
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.kebab-btn');
+      const allDropdowns = document.querySelectorAll('.kebab-dropdown.open');
+      if (btn) {
+        e.stopPropagation();
+        const wrap = btn.closest('.kebab-wrap');
+        const dropdown = wrap ? wrap.querySelector('.kebab-dropdown') : null;
+        allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        if (dropdown) {
+          const isOpen = dropdown.classList.contains('open');
+          if (!isOpen) {
+            const rect = btn.getBoundingClientRect();
+            if (window.innerHeight - rect.bottom < 180) {
+              dropdown.classList.add('pop-up');
+            } else {
+              dropdown.classList.remove('pop-up');
+            }
+            dropdown.classList.add('open');
+          } else {
+            dropdown.classList.remove('open');
+          }
+        }
+        return;
+      }
+      allDropdowns.forEach(d => d.classList.remove('open'));
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeConfirmModal();
+        closeUploadRenameModal();
+        document.querySelectorAll('.kebab-dropdown.open').forEach(d => d.classList.remove('open'));
+      }
+    });
+
     window.renderFileList = function() {
       const filter = ($('fileFilter').value || '').toLowerCase().trim();
       const container = $('list');
@@ -1088,7 +1211,28 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       const usageEl = $('usage');
       if (usageEl) usageEl.textContent = fmt(totalBytes) + ' used';
 
-      visible.forEach(f => {
+      // Pagination
+      const total = visible.length;
+      const totalPages = Math.max(1, Math.ceil(total / UPLOAD_PER_PAGE));
+      if (uploadCurrentPage > totalPages) uploadCurrentPage = totalPages;
+      if (uploadCurrentPage < 1) uploadCurrentPage = 1;
+
+      const start = (uploadCurrentPage - 1) * UPLOAD_PER_PAGE;
+      const end = start + UPLOAD_PER_PAGE;
+      const pageFiles = visible.slice(start, end);
+
+      const indicator = $('uploadPageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' files') : 'No files';
+      }
+      const prevBtn = $('uploadPrevBtn');
+      const nextBtn = $('uploadNextBtn');
+      if (prevBtn) prevBtn.disabled = uploadCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = uploadCurrentPage >= totalPages;
+      const bar = $('uploadPaginationBar');
+      if (bar) bar.style.display = total > UPLOAD_PER_PAGE ? 'flex' : 'none';
+
+      pageFiles.forEach(f => {
         const li = document.createElement('li');
         li.className = 'file-item' + (f.failed ? ' fail' : '');
 
@@ -1113,30 +1257,37 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
         actions.className = 'file-actions';
 
         if (!f.failed && f.path) {
+          const kebabWrap = document.createElement('div');
+          kebabWrap.className = 'kebab-wrap';
+
+          const kebabBtn = document.createElement('button');
+          kebabBtn.type = 'button';
+          kebabBtn.className = 'kebab-btn';
+          kebabBtn.setAttribute('aria-label', 'File Actions');
+          kebabBtn.textContent = '⋮';
+
+          const dropdown = document.createElement('div');
+          dropdown.className = 'kebab-dropdown';
+
           const copyBtn = document.createElement('button');
-          copyBtn.className = 'btn';
           copyBtn.type = 'button';
-          copyBtn.style.fontSize = '11px';
-          copyBtn.style.padding = '3px 8px';
-          copyBtn.textContent = 'Copy Path';
+          copyBtn.className = 'kebab-item';
+          copyBtn.innerHTML = '${renderSvg("copy", 14)} <span>Copy Path</span>';
           copyBtn.onclick = () => {
             navigator.clipboard.writeText(f.path);
             showToast('File path copied to clipboard', 'success');
           };
 
           const dlLink = document.createElement('a');
-          dlLink.className = 'btn';
-          dlLink.style.fontSize = '11px';
-          dlLink.style.padding = '3px 8px';
+          dlLink.className = 'kebab-item';
           dlLink.href = '/upload/api/download?name=' + encodeURIComponent(f.name);
-          dlLink.textContent = 'Download';
+          dlLink.download = f.name;
+          dlLink.innerHTML = '${renderSvg("download", 14)} <span>Download File</span>';
 
           const permBtn = document.createElement('button');
-          permBtn.className = 'btn';
           permBtn.type = 'button';
-          permBtn.style.fontSize = '11px';
-          permBtn.style.padding = '3px 8px';
-          permBtn.textContent = f.permanent ? 'Revert Permanent' : 'Keep Permanent';
+          permBtn.className = 'kebab-item';
+          permBtn.innerHTML = '${renderSvg("shield", 14)} <span>' + (f.permanent ? 'Revert Keep' : 'Keep') + '</span>';
           permBtn.onclick = async () => {
             permBtn.disabled = true;
             try {
@@ -1154,13 +1305,21 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
             }
           };
 
+          const renameBtn = document.createElement('button');
+          renameBtn.type = 'button';
+          renameBtn.className = 'kebab-item';
+          renameBtn.innerHTML = '${renderSvg("edit", 14)} <span>Rename…</span>';
+          renameBtn.onclick = () => {
+            openUploadRenameModal(f);
+          };
+
+          const divider = document.createElement('div');
+          divider.className = 'kebab-divider';
+
           const delBtn = document.createElement('button');
-          delBtn.className = 'btn';
           delBtn.type = 'button';
-          delBtn.style.fontSize = '11px';
-          delBtn.style.padding = '3px 8px';
-          delBtn.style.color = 'var(--error)';
-          delBtn.textContent = 'Delete';
+          delBtn.className = 'kebab-item danger';
+          delBtn.innerHTML = '${renderSvg("trash", 14)} <span>Delete File</span>';
           delBtn.onclick = () => {
             openDeleteModal(f.name, async () => {
               try {
@@ -1178,7 +1337,9 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
             });
           };
 
-          actions.append(copyBtn, dlLink, permBtn, delBtn);
+          dropdown.append(copyBtn, dlLink, permBtn, renameBtn, divider, delBtn);
+          kebabWrap.append(kebabBtn, dropdown);
+          actions.appendChild(kebabWrap);
         }
 
         li.append(info, actions);

@@ -4,7 +4,11 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import crypto from "node:crypto";
 import express from "express";
-import { createMcpOAuthRouter, verifyAccessToken } from "../src/mcpOAuth.js";
+import {
+  createMcpOAuthRouter,
+  verifyAccessToken,
+  resetOAuthStateForTesting,
+} from "../src/mcpOAuth.js";
 import {
   createGoogleAuthRouter,
   isAuthorizedApiKey,
@@ -18,6 +22,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
   let base = "";
 
   before(async () => {
+    resetOAuthStateForTesting();
     process.env.OWNER_EMAIL = "owner@example.com";
     process.env.SESSION_SECRET = "test-session-secret-0123456789-abcdef";
     process.env.MCP_API_KEY = "mcp-test-primary-gateway-key-32chars";

@@ -49,11 +49,14 @@ export function renderSvg(
     | "clock"
     | "shield"
     | "zap"
+    | "edit"
     | "more-vertical"
     | "search",
   size = 14,
 ): string {
   switch (name) {
+    case "edit":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
     case "more-vertical":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>`;
     case "search":
@@ -892,10 +895,165 @@ export function getBaseStyles(): string {
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
     }
 
+    /* Unified Kebab Menu */
+    .kebab-wrap {
+      position: relative;
+      display: inline-block;
+      text-align: right;
+    }
+    .kebab-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--accents-5);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .kebab-btn:hover, .kebab-btn:focus-visible {
+      color: var(--fg);
+      border-color: var(--accents-4);
+      background: var(--accents-1);
+    }
+    .kebab-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 1000;
+      min-width: 170px;
+      padding: 6px;
+      border-radius: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kebab-dropdown.open {
+      display: flex;
+    }
+    .kebab-dropdown.pop-up {
+      top: auto;
+      bottom: calc(100% + 4px);
+    }
+    .kebab-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--fg);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s ease;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .kebab-item:hover, .kebab-item:focus-visible {
+      background: var(--accents-1);
+      color: var(--fg);
+      outline: none;
+    }
+    .kebab-item.danger {
+      color: var(--error);
+    }
+    .kebab-item.danger:hover, .kebab-item.danger:focus-visible {
+      background: rgba(238, 0, 0, 0.08);
+      color: var(--error);
+    }
+    .kebab-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    /* Unified Pagination Controls */
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--accents-5);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pagination-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--accents-1);
+      color: var(--fg);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pagination-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .pagination-btn:not(:disabled):hover {
+      background: var(--accents-2);
+      border-color: var(--accents-4);
+    }
+
+    /* Keyboard Shortcuts Modal Styles */
+    .shortcut-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .shortcut-row:last-child {
+      border-bottom: none;
+    }
+    .kbd-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--fg);
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
     @media (max-width: 640px) {
       .grid-4 { grid-template-columns: 1fr; }
-      .nav-inner { padding: 0 14px; }
-      .nav-pills { display: none; }
+      .nav-inner { padding: 0 12px; gap: 8px; }
+      .nav-pills {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        max-width: calc(100vw - 120px);
+        padding: 4px 0;
+      }
+      .nav-pills::-webkit-scrollbar { display: none; }
       .endpoint-row { flex-direction: column; }
       footer { flex-direction: column; gap: 12px; text-align: center; }
     }
@@ -976,7 +1134,6 @@ export function renderHeader(
                 <div class="profile-menu-header">
                   <span class="profile-menu-name" title="${escapeHtml(owner?.name || "Server Owner")}">${escapeHtml(owner?.name || "Server Owner")}</span>
                   <span class="profile-menu-email" title="${escapeHtml(owner?.email || "")}">${escapeHtml(owner?.email || "")}</span>
-                  <span class="badge success" style="margin-top:6px; font-size:10px;">Authenticated Owner</span>
                 </div>
                 <button type="button" class="profile-menu-item danger" onclick="openSignOutModal()" role="menuitem">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -1069,7 +1226,10 @@ export function renderFooter(): string {
         <a href="/stats">Stats</a>
         <a href="/tools">Tools</a>
         <a href="/api">API Keys</a>
-        <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
+        <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact</a>
+        <button type="button" class="btn" onclick="openShortcutsModal()" style="padding:2px 8px; font-size:11px; height:24px; margin-left:4px;" title="View Keyboard Shortcuts (?)">
+          Shortcuts <span class="kbd-badge" style="margin-left:2px; font-size:10px; padding:1px 4px;">?</span>
+        </button>
       </div>
     </footer>
     <div class="recaptcha-notice" style="margin-top:14px; font-size:11px; color:var(--accents-5); text-align:center; line-height:1.5;">
@@ -1077,6 +1237,98 @@ export function renderFooter(): string {
       <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and
       <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.
     </div>
+
+    <!-- Global Keyboard Shortcuts Modal -->
+    <div class="modal-backdrop" id="shortcutsModal" onclick="handleShortcutsBackdrop(event)">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" style="max-width:400px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 id="shortcutsModalTitle" style="font-size:16px; font-weight:700; color:var(--fg); margin:0;">Keyboard Shortcuts</h3>
+          <button type="button" class="kebab-btn" onclick="closeShortcutsModal()" style="width:26px; height:26px;">&times;</button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:18px;">
+          <div class="shortcut-row"><span>Go to Home</span><span class="kbd-badge">H</span></div>
+          <div class="shortcut-row"><span>Go to Upload</span><span class="kbd-badge">U</span></div>
+          <div class="shortcut-row"><span>Go to Store</span><span class="kbd-badge">S</span></div>
+          <div class="shortcut-row"><span>Go to Stats</span><span class="kbd-badge">Y</span></div>
+          <div class="shortcut-row"><span>Go to Tools</span><span class="kbd-badge">T</span></div>
+          <div class="shortcut-row"><span>Go to API Keys</span><span class="kbd-badge">A</span></div>
+          <div class="shortcut-row"><span>Quick Search</span><span class="kbd-badge">/</span></div>
+          <div class="shortcut-row"><span>Toggle Theme</span><span class="kbd-badge">Shift + D</span></div>
+          <div class="shortcut-row"><span>Close Modal</span><span class="kbd-badge">Esc</span></div>
+        </div>
+        <div style="text-align:right;">
+          <button type="button" class="btn primary" onclick="closeShortcutsModal()" style="font-size:12px; padding:6px 14px;">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function openShortcutsModal() {
+        const m = document.getElementById('shortcutsModal');
+        if (m) {
+          m.removeAttribute('hidden');
+          m.classList.add('open');
+        }
+      }
+      function closeShortcutsModal() {
+        const m = document.getElementById('shortcutsModal');
+        if (m) {
+          m.classList.remove('open');
+          m.setAttribute('hidden', '');
+        }
+      }
+      function handleShortcutsBackdrop(e) {
+        if (e.target.id === 'shortcutsModal') closeShortcutsModal();
+      }
+
+      window.addEventListener('keydown', (e) => {
+        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+        const isEditing = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
+
+        if (e.key === 'Escape') {
+          closeShortcutsModal();
+          return;
+        }
+
+        if (isEditing) return;
+
+        if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+          e.preventDefault();
+          openShortcutsModal();
+          return;
+        }
+
+        if (e.key === '/') {
+          const searchInput = document.getElementById('toolSearchInput') ||
+                              document.getElementById('storeSearchInput') ||
+                              document.getElementById('keySearchInput') ||
+                              document.getElementById('fileFilter');
+          if (searchInput) {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+          }
+          return;
+        }
+
+        if (e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+          e.preventDefault();
+          if (typeof toggleTheme === 'function') toggleTheme();
+          return;
+        }
+
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          switch (e.key.toLowerCase()) {
+            case 'h': window.location.href = '/home'; break;
+            case 'u': window.location.href = '/upload'; break;
+            case 's': window.location.href = '/store'; break;
+            case 'y': window.location.href = '/stats'; break;
+            case 't': window.location.href = '/tools'; break;
+            case 'a': window.location.href = '/api'; break;
+          }
+        }
+      });
+    </script>
   `;
 }
 
@@ -1143,7 +1395,7 @@ export function renderHomePage(params: {
           Krix
         </h1>
         <p style="font-size:14px; color:var(--accents-5); max-width:620px; line-height:1.5;">
-          Isolated execution sandbox and tools. Connect Claude, Gemini, ChatGPT, and Cursor with real-time usage telemetry.
+          Isolated execution sandbox and tools.
         </p>
       </div>
 
@@ -1329,6 +1581,10 @@ export function renderHomePage(params: {
 
     const initialDark = document.documentElement.classList.contains('dark');
     updateThemeIcon(initialDark);
+
+    // Initial API Keys and OAuth pagination render
+    renderKeysPagination();
+    renderOAuthPagination();
   </script>
 </body>
 </html>`;
@@ -1411,13 +1667,16 @@ export function renderApiKeysPage(params: {
         : `
       <!-- Create Key Card -->
       <div class="card" style="margin-bottom:24px;">
-        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:6px;">Create New API Key</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin:0;">Create New API Key</h2>
+          <span class="badge ${keys.length >= 30 ? "error" : ""}" id="keysCapBadge">${keys.length}/30 keys</span>
+        </div>
         <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
-          Assign a recognizable label (e.g., "MacBook Claude", "Workstation Cursor") to isolate telemetry.
+          Assign a recognizable label to isolate telemetry.
         </p>
 
         <form id="createKeyForm" onsubmit="event.preventDefault(); handleCreateKey(event); return false;" action="javascript:void(0);" method="post" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="keyLabelInput" placeholder="Key Name (e.g. Claude Desktop, min 4 characters)" minlength="4" required onkeydown="if (event.key === 'Enter') { event.preventDefault(); handleCreateKey(event); }" style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
+          <input type="text" id="keyLabelInput" placeholder="Key Name (e.g. Claude, min 4 characters)" minlength="4" required onkeydown="if (event.key === 'Enter') { event.preventDefault(); handleCreateKey(event); }" style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
           <button type="button" class="btn primary" id="createKeyBtn" onclick="handleCreateKey(event)">Generate Key</button>
         </form>
 
@@ -1439,7 +1698,7 @@ export function renderApiKeysPage(params: {
         </div>
       </div>
 
-      <!-- Active Keys Table Card with Live Search -->
+      <!-- Active Keys Table Card with Live Search & Kebab Actions -->
       <div class="card" style="margin-bottom:24px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div style="display:flex; align-items:center; gap:10px;">
@@ -1452,7 +1711,7 @@ export function renderApiKeysPage(params: {
           </div>
         </div>
 
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:480px; overflow-y:auto; padding-bottom:80px; margin-bottom:-80px;">
           <table id="keysTable">
             <thead>
               <tr>
@@ -1460,8 +1719,7 @@ export function renderApiKeysPage(params: {
                 <th>Client ID</th>
                 <th>Key Secret</th>
                 <th>Created</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th style="text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody id="keysTableBody">
@@ -1478,13 +1736,13 @@ export function renderApiKeysPage(params: {
                         return `
                 <tr id="row-${escapeHtml(id)}" class="key-row" data-label="${escapeHtml(label.toLowerCase())}" data-client-id="${escapeHtml(cId.toLowerCase())}" data-prefix="${escapeHtml(prefix.toLowerCase())}" data-id="${escapeHtml(id.toLowerCase())}">
                   <td>
-                    <div style="font-weight:600; color:var(--fg);">${escapeHtml(label)}</div>
+                    <div style="font-weight:600; color:var(--fg);" id="key-label-text-${escapeHtml(id)}">${escapeHtml(label)}</div>
                     <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(id)}</div>
                   </td>
                   <td>
                     <div style="display:flex; align-items:center; gap:6px;">
                       <code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">${escapeHtml(cId || "N/A")}</code>
-                      ${cId ? `<button type="button" class="btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="font-size:11px; padding:3px 6px;">Copy</button>` : ""}
+                      ${cId ? `<button type="button" class="btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="font-size:11px; padding:3px 6px;" title="Copy Client ID">Copy</button>` : ""}
                     </div>
                   </td>
                   <td>
@@ -1495,9 +1753,31 @@ export function renderApiKeysPage(params: {
                     </div>
                   </td>
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
-                  <td><span class="badge success">Active</span></td>
-                  <td>
-                    <button class="btn" onclick="openRevokeKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                  <td style="text-align:right;">
+                    <div class="kebab-wrap">
+                      <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-key-${escapeHtml(id)}" aria-label="Key Actions">⋮</button>
+                      <div class="kebab-dropdown" id="kebab-key-${escapeHtml(id)}">
+                        <button type="button" class="kebab-item" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')">
+                          ${renderSvg("copy", 14)} <span>Copy Key</span>
+                        </button>
+                        ${
+                          cId
+                            ? `
+                        <button type="button" class="kebab-item" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')">
+                          ${renderSvg("copy", 14)} <span>Copy Client ID</span>
+                        </button>
+                        `
+                            : ""
+                        }
+                        <button type="button" class="kebab-item" onclick="openRenameKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
+                          ${renderSvg("edit", 14)} <span>Rename…</span>
+                        </button>
+                        <div class="kebab-divider"></div>
+                        <button type="button" class="kebab-item danger" onclick="openDeleteKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
+                          ${renderSvg("trash", 14)} <span>Delete Key</span>
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               `;
@@ -1505,7 +1785,7 @@ export function renderApiKeysPage(params: {
                       .join("")
                   : `
                 <tr id="emptyKeysRow">
-                  <td colspan="6" style="text-align:center; padding:24px; color:var(--accents-5);">
+                  <td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">
                     No dynamic keys created yet. Generate one above.
                   </td>
                 </tr>
@@ -1517,26 +1797,34 @@ export function renderApiKeysPage(params: {
             No keys match your search query.
           </div>
         </div>
+
+        <!-- Keys Pagination Bar -->
+        <div class="pagination-bar" id="keysPaginationBar">
+          <span id="keysPageIndicator">Showing keys</span>
+          <div class="pagination-controls">
+            <button type="button" class="pagination-btn" id="keysPrevBtn" onclick="changeKeysPage(-1)">Previous</button>
+            <button type="button" class="pagination-btn" id="keysNextBtn" onclick="changeKeysPage(1)">Next</button>
+          </div>
+        </div>
       </div>
 
-      <!-- Active OAuth Authorizations Card -->
+      <!-- Active OAuth Authorizations Card with Kebab Actions -->
       <div class="card" style="margin-bottom:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active OAuth Authorizations</h2>
-            <span class="badge ${oauthAuthorizations.length > 0 ? "success" : ""}" id="oauthCountBadge">${oauthAuthorizations.length} connected</span>
+            <span class="badge ${oauthAuthorizations.length > 0 ? "success" : ""}" id="oauthCountBadge">${oauthAuthorizations.length}/20 connected</span>
           </div>
         </div>
 
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:480px; overflow-y:auto; padding-bottom:80px; margin-bottom:-80px;">
           <table>
             <thead>
               <tr>
                 <th>Application</th>
                 <th>Client ID</th>
                 <th>Permissions</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th style="text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody id="oauthTableBody">
@@ -1545,13 +1833,26 @@ export function renderApiKeysPage(params: {
                   ? oauthAuthorizations
                       .map(
                         (a) => `
-                <tr id="oauth-row-${escapeHtml(a.clientId)}">
-                  <td><strong>${escapeHtml(a.clientName)}</strong></td>
+                <tr id="oauth-row-${escapeHtml(a.clientId)}" class="oauth-row">
+                  <td><strong id="oauth-name-text-${escapeHtml(a.clientId)}">${escapeHtml(a.clientName)}</strong></td>
                   <td style="font-family:ui-monospace, monospace; color:var(--accents-5); font-size:12px;">${escapeHtml(a.clientId)}</td>
                   <td style="font-size:12px; color:var(--accents-5);">${escapeHtml(a.scope)}</td>
-                  <td><span class="badge success">Authorized</span></td>
-                  <td>
-                    <button class="btn" onclick="openRevokeOAuthModal('${escapeHtml(a.clientId)}', '${escapeHtml(a.clientName)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                  <td style="text-align:right;">
+                    <div class="kebab-wrap">
+                      <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-oauth-${escapeHtml(a.clientId)}" aria-label="OAuth Actions">⋮</button>
+                      <div class="kebab-dropdown" id="kebab-oauth-${escapeHtml(a.clientId)}">
+                        <button type="button" class="kebab-item" onclick="copyKeyText('${escapeHtml(a.clientId)}', 'Client ID')">
+                          ${renderSvg("copy", 14)} <span>Copy Client ID</span>
+                        </button>
+                        <button type="button" class="kebab-item" onclick="openRenameOAuthModal('${escapeHtml(a.clientId)}', '${escapeHtml(a.clientName)}')">
+                          ${renderSvg("edit", 14)} <span>Rename…</span>
+                        </button>
+                        <div class="kebab-divider"></div>
+                        <button type="button" class="kebab-item danger" onclick="openDeleteOAuthModal('${escapeHtml(a.clientId)}', '${escapeHtml(a.clientName)}')">
+                          ${renderSvg("trash", 14)} <span>Delete OAuth</span>
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               `,
@@ -1559,7 +1860,7 @@ export function renderApiKeysPage(params: {
                       .join("")
                   : `
                 <tr>
-                  <td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">
+                  <td colspan="4" style="text-align:center; padding:24px; color:var(--accents-5);">
                     No active OAuth connections. Connect Google Gemini or any OAuth 2.1 client to view it here.
                   </td>
                 </tr>
@@ -1567,6 +1868,15 @@ export function renderApiKeysPage(params: {
               }
             </tbody>
           </table>
+        </div>
+
+        <!-- OAuth Pagination Bar -->
+        <div class="pagination-bar" id="oauthPaginationBar">
+          <span id="oauthPageIndicator">Showing authorizations</span>
+          <div class="pagination-controls">
+            <button type="button" class="pagination-btn" id="oauthPrevBtn" onclick="changeOAuthPage(-1)">Previous</button>
+            <button type="button" class="pagination-btn" id="oauthNextBtn" onclick="changeOAuthPage(1)">Next</button>
+          </div>
         </div>
       </div>
     `
@@ -1576,14 +1886,27 @@ export function renderApiKeysPage(params: {
   <!-- Custom Geist Toast Container -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
+  <!-- Unified Rename Modal -->
+  <div id="renameModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="renameModalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Rename</h3>
+      <p id="renameModalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:16px; line-height:1.5;">Enter a recognizable name:</p>
+      <input type="text" id="renameModalInput" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeRenameModal()">Cancel</button>
+        <button type="button" id="renameModalSaveBtn" class="btn primary">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Custom Geist Confirmation Modal -->
   <div id="confirmModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Revocation</h3>
+      <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Deletion</h3>
       <p id="modalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <button type="button" class="btn" onclick="closeConfirmModal()">Cancel</button>
-        <button type="button" id="modalConfirmBtn" class="btn" style="background:#e00; color:#fff; border-color:#e00;">Revoke</button>
+        <button type="button" id="modalConfirmBtn" class="btn" style="background:#e00; color:#fff; border-color:#e00;">Delete</button>
       </div>
     </div>
   </div>
@@ -1608,6 +1931,74 @@ export function renderApiKeysPage(params: {
       }, 3500);
     }
 
+    // Pagination state
+    let keysCurrentPage = 1;
+    const KEYS_PER_PAGE = 10;
+    let oauthCurrentPage = 1;
+    const OAUTH_PER_PAGE = 10;
+
+    function renderKeysPagination() {
+      const rows = Array.from(document.querySelectorAll('#keysTableBody tr.key-row')).filter(r => r.getAttribute('data-filtered') !== 'true');
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total / KEYS_PER_PAGE));
+      if (keysCurrentPage > totalPages) keysCurrentPage = totalPages;
+      if (keysCurrentPage < 1) keysCurrentPage = 1;
+
+      const start = (keysCurrentPage - 1) * KEYS_PER_PAGE;
+      const end = start + KEYS_PER_PAGE;
+
+      rows.forEach((r, idx) => {
+        r.style.display = (idx >= start && idx < end) ? '' : 'none';
+      });
+
+      const indicator = document.getElementById('keysPageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' keys') : 'No keys';
+      }
+      const prevBtn = document.getElementById('keysPrevBtn');
+      const nextBtn = document.getElementById('keysNextBtn');
+      if (prevBtn) prevBtn.disabled = keysCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = keysCurrentPage >= totalPages;
+      const bar = document.getElementById('keysPaginationBar');
+      if (bar) bar.style.display = total > KEYS_PER_PAGE ? 'flex' : 'none';
+    }
+
+    function changeKeysPage(delta) {
+      keysCurrentPage += delta;
+      renderKeysPagination();
+    }
+
+    function renderOAuthPagination() {
+      const rows = Array.from(document.querySelectorAll('#oauthTableBody tr.oauth-row'));
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total / OAUTH_PER_PAGE));
+      if (oauthCurrentPage > totalPages) oauthCurrentPage = totalPages;
+      if (oauthCurrentPage < 1) oauthCurrentPage = 1;
+
+      const start = (oauthCurrentPage - 1) * OAUTH_PER_PAGE;
+      const end = start + OAUTH_PER_PAGE;
+
+      rows.forEach((r, idx) => {
+        r.style.display = (idx >= start && idx < end) ? '' : 'none';
+      });
+
+      const indicator = document.getElementById('oauthPageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' connected') : 'No connected clients';
+      }
+      const prevBtn = document.getElementById('oauthPrevBtn');
+      const nextBtn = document.getElementById('oauthNextBtn');
+      if (prevBtn) prevBtn.disabled = oauthCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = oauthCurrentPage >= totalPages;
+      const bar = document.getElementById('oauthPaginationBar');
+      if (bar) bar.style.display = total > OAUTH_PER_PAGE ? 'flex' : 'none';
+    }
+
+    function changeOAuthPage(delta) {
+      oauthCurrentPage += delta;
+      renderOAuthPagination();
+    }
+
     function filterKeys() {
       const q = (document.getElementById('keySearchInput').value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#keysTableBody tr.key-row');
@@ -1618,9 +2009,11 @@ export function renderApiKeysPage(params: {
         const prefix = r.getAttribute('data-prefix') || '';
         const id = r.getAttribute('data-id') || '';
         const match = !q || label.includes(q) || clientId.includes(q) || prefix.includes(q) || id.includes(q);
-        r.style.display = match ? '' : 'none';
+        r.setAttribute('data-filtered', match ? 'false' : 'true');
         if (match) visible++;
       });
+      keysCurrentPage = 1;
+      renderKeysPagination();
       const noMatch = document.getElementById('noKeysMatch');
       if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
     }
@@ -1645,10 +2038,106 @@ export function renderApiKeysPage(params: {
       showToast((label || 'API key') + ' copied to clipboard', 'success');
     }
 
+    // Rename Modal Logic
+    let activeRenameTarget = null;
+    function openRenameKeyModal(id, currentLabel) {
+      activeRenameTarget = { type: 'key', id };
+      document.getElementById('renameModalTitle').textContent = 'Rename API Key';
+      document.getElementById('renameModalDesc').textContent = 'Enter a new label for key "' + currentLabel + '":';
+      const input = document.getElementById('renameModalInput');
+      input.value = currentLabel;
+      const saveBtn = document.getElementById('renameModalSaveBtn');
+      saveBtn.onclick = executeRename;
+      const modal = document.getElementById('renameModal');
+      modal.removeAttribute('hidden');
+      modal.classList.add('open');
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
+
+    function openRenameOAuthModal(clientId, currentName) {
+      activeRenameTarget = { type: 'oauth', id: clientId };
+      document.getElementById('renameModalTitle').textContent = 'Rename OAuth Authorization';
+      document.getElementById('renameModalDesc').textContent = 'Enter a recognizable application name for "' + currentName + '":';
+      const input = document.getElementById('renameModalInput');
+      input.value = currentName;
+      const saveBtn = document.getElementById('renameModalSaveBtn');
+      saveBtn.onclick = executeRename;
+      const modal = document.getElementById('renameModal');
+      modal.removeAttribute('hidden');
+      modal.classList.add('open');
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
+
+    function closeRenameModal() {
+      const modal = document.getElementById('renameModal');
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
+      activeRenameTarget = null;
+    }
+
+    async function executeRename() {
+      if (!activeRenameTarget) return;
+      const input = document.getElementById('renameModalInput');
+      const newName = (input.value || '').trim();
+      if (newName.length < 2) {
+        showToast('Name must be at least 2 characters long.', 'error');
+        return;
+      }
+      const saveBtn = document.getElementById('renameModalSaveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      try {
+        if (activeRenameTarget.type === 'key') {
+          const res = await fetch('/api/keys/' + encodeURIComponent(activeRenameTarget.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: newName })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            const row = document.getElementById('row-' + activeRenameTarget.id);
+            if (row) {
+              row.setAttribute('data-label', newName.toLowerCase());
+              const nameEl = document.getElementById('key-name-text-' + activeRenameTarget.id);
+              if (nameEl) nameEl.textContent = newName;
+            }
+            showToast('API key renamed successfully', 'success');
+            closeRenameModal();
+          } else {
+            showToast(data.error || 'Failed to rename key', 'error');
+          }
+        } else if (activeRenameTarget.type === 'oauth') {
+          const res = await fetch('/oauth/authorizations/' + encodeURIComponent(activeRenameTarget.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientName: newName })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            const nameEl = document.getElementById('oauth-name-text-' + activeRenameTarget.id);
+            if (nameEl) nameEl.textContent = newName;
+            showToast('OAuth client renamed successfully', 'success');
+            closeRenameModal();
+          } else {
+            showToast(data.error || 'Failed to rename OAuth client', 'error');
+          }
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+
+    // Confirmation Modal Logic (Delete)
     let activeConfirmAction = null;
-    function openRevokeKeyModal(id, label) {
-      document.getElementById('modalTitle').textContent = 'Revoke API Key';
-      document.getElementById('modalDesc').textContent = 'Are you sure you want to revoke key "' + label + '"? Any agent using this key will immediately be disconnected.';
+    function openDeleteKeyModal(id, label) {
+      document.getElementById('modalTitle').textContent = 'Delete API Key';
+      document.getElementById('modalDesc').textContent = 'Are you sure you want to delete key "' + label + '"? Any agent using this key will immediately be disconnected.';
       activeConfirmAction = async () => {
         closeConfirmModal();
         try {
@@ -1656,21 +2145,65 @@ export function renderApiKeysPage(params: {
           if (res.ok) {
             const row = document.getElementById('row-' + id);
             if (row) row.remove();
-            showToast('Key revoked successfully', 'success');
+            showToast('Key deleted successfully', 'success');
             
-            // Update counter badge accurately
             const remaining = document.querySelectorAll('#keysTableBody tr.key-row').length;
             const badge = document.getElementById('keysCountBadge');
-            if (badge) badge.textContent = remaining + ' active';
+            if (badge) badge.textContent = remaining + '/30 keys';
             if (remaining === 0) {
               const tbody = document.getElementById('keysTableBody');
               if (tbody) {
-                tbody.innerHTML = '<tr id="emptyKeysRow"><td colspan="6" style="text-align:center; padding:24px; color:var(--accents-5);">No dynamic keys created yet. Generate one above.</td></tr>';
+                tbody.innerHTML = '<tr id="emptyKeysRow"><td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">No dynamic keys created yet. Generate one above.</td></tr>';
               }
             }
             filterKeys();
           } else {
-            showToast('Failed to revoke key', 'error');
+            showToast('Failed to delete key', 'error');
+          }
+        } catch (e) {
+          showToast('Network error: ' + e.message, 'error');
+        }
+      };
+      document.getElementById('modalConfirmBtn').onclick = activeConfirmAction;
+      const m = document.getElementById('confirmModal');
+      if (m) {
+        m.removeAttribute('hidden');
+        m.classList.add('open');
+      }
+    }
+
+    function openRevokeKeyModal(id, label) {
+      return openDeleteKeyModal(id, label);
+    }
+    window.openRevokeKeyModal = openDeleteKeyModal;
+
+    function openDeleteOAuthModal(clientId, clientName) {
+      document.getElementById('modalTitle').textContent = 'Delete OAuth Authorization';
+      document.getElementById('modalDesc').textContent = 'Are you sure you want to delete OAuth authorization for "' + clientName + '"? The connected client will need to re-authenticate.';
+      activeConfirmAction = async () => {
+        closeConfirmModal();
+        try {
+          const res = await fetch('/oauth/authorizations/' + encodeURIComponent(clientId), { method: 'DELETE' });
+          if (res.ok) {
+            const row = document.getElementById('oauth-row-' + clientId);
+            if (row) row.remove();
+            showToast('OAuth connection deleted', 'success');
+
+            const remainingOAuth = document.querySelectorAll('#oauthTableBody tr.oauth-row').length;
+            const oBadge = document.getElementById('oauthCountBadge');
+            if (oBadge) {
+              oBadge.textContent = remainingOAuth + '/20 connected';
+              if (remainingOAuth === 0) oBadge.classList.remove('success');
+            }
+            if (remainingOAuth === 0) {
+              const tbody = document.getElementById('oauthTableBody');
+              if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--accents-5);">No active OAuth connections. Connect Google Gemini or any OAuth 2.1 client to view it here.</td></tr>';
+              }
+            }
+            renderOAuthPagination();
+          } else {
+            showToast('Failed to delete OAuth authorization', 'error');
           }
         } catch (e) {
           showToast('Network error: ' + e.message, 'error');
@@ -1685,43 +2218,9 @@ export function renderApiKeysPage(params: {
     }
 
     function openRevokeOAuthModal(clientId, clientName) {
-      document.getElementById('modalTitle').textContent = 'Revoke OAuth Connection';
-      document.getElementById('modalDesc').textContent = 'Are you sure you want to revoke OAuth authorization for "' + clientName + '"? The connected client will need to re-authenticate.';
-      activeConfirmAction = async () => {
-        closeConfirmModal();
-        try {
-          const res = await fetch('/oauth/authorizations/' + encodeURIComponent(clientId), { method: 'DELETE' });
-          if (res.ok) {
-            const row = document.getElementById('oauth-row-' + clientId);
-            if (row) row.remove();
-            showToast('OAuth connection revoked', 'success');
-
-            const remainingOAuth = document.querySelectorAll('#oauthTableBody tr[id^="oauth-row-"]').length;
-            const oBadge = document.getElementById('oauthCountBadge');
-            if (oBadge) {
-              oBadge.textContent = remainingOAuth + ' connected';
-              if (remainingOAuth === 0) oBadge.classList.remove('success');
-            }
-            if (remainingOAuth === 0) {
-              const tbody = document.getElementById('oauthTableBody');
-              if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">No active OAuth connections. Connect Google Gemini or any OAuth 2.1 client to view it here.</td></tr>';
-              }
-            }
-          } else {
-            showToast('Failed to revoke OAuth authorization', 'error');
-          }
-        } catch (e) {
-          showToast('Network error: ' + e.message, 'error');
-        }
-      };
-      document.getElementById('modalConfirmBtn').onclick = activeConfirmAction;
-      const m = document.getElementById('confirmModal');
-      if (m) {
-        m.removeAttribute('hidden');
-        m.classList.add('open');
-      }
+      return openDeleteOAuthModal(clientId, clientName);
     }
+    window.openRevokeOAuthModal = openDeleteOAuthModal;
 
     function closeConfirmModal() {
       const modal = document.getElementById('confirmModal');
@@ -1732,8 +2231,40 @@ export function renderApiKeysPage(params: {
       activeConfirmAction = null;
     }
 
+    // Kebab Dropdown Delegation with Overflow Detection
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('.kebab-btn');
+      const allDropdowns = document.querySelectorAll('.kebab-dropdown.open');
+      if (btn) {
+        e.stopPropagation();
+        const wrap = btn.closest('.kebab-wrap');
+        const dropdown = wrap ? wrap.querySelector('.kebab-dropdown') : null;
+        allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        if (dropdown) {
+          const isOpen = dropdown.classList.contains('open');
+          if (!isOpen) {
+            const rect = btn.getBoundingClientRect();
+            if (window.innerHeight - rect.bottom < 180) {
+              dropdown.classList.add('pop-up');
+            } else {
+              dropdown.classList.remove('pop-up');
+            }
+            dropdown.classList.add('open');
+          } else {
+            dropdown.classList.remove('open');
+          }
+        }
+        return;
+      }
+      allDropdowns.forEach(d => d.classList.remove('open'));
+    });
+
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeConfirmModal();
+      if (e.key === 'Escape') {
+        closeConfirmModal();
+        closeRenameModal();
+        document.querySelectorAll('.kebab-dropdown.open').forEach(d => d.classList.remove('open'));
+      }
     });
 
     async function handleCreateKey(ev) {
@@ -1749,9 +2280,15 @@ export function renderApiKeysPage(params: {
         return false;
       }
 
+      const currentCount = document.querySelectorAll('#keysTableBody tr.key-row').length;
+      if (currentCount >= 30) {
+        showToast('Hardcap reached: Maximum of 30 API keys allowed. Delete an existing key to create a new one.', 'error');
+        return false;
+      }
+
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Generating';
+        btn.textContent = 'Generating…';
       }
 
       try {
@@ -1768,7 +2305,7 @@ export function renderApiKeysPage(params: {
           input.value = '';
           showToast('New API key generated successfully', 'success');
 
-          // Dynamically prepend new row into table
+          // Dynamically prepend new row into table with kebab menu
           const emptyRow = document.getElementById('emptyKeysRow');
           if (emptyRow) emptyRow.remove();
 
@@ -1788,7 +2325,7 @@ export function renderApiKeysPage(params: {
             const fullKey = data.key || '';
 
             tr.innerHTML = '<td>' +
-              '<div style="font-weight:600; color:var(--fg);">' + safeLabel + '</div>' +
+              '<div style="font-weight:600; color:var(--fg);" id="key-name-text-' + safeId + '">' + safeLabel + '</div>' +
               '<div style="font-family:monospace; font-size:11px; color:var(--accents-5);">' + safeId + '</div>' +
               '</td>' +
               '<td>' +
@@ -1805,9 +2342,17 @@ export function renderApiKeysPage(params: {
               '</div>' +
               '</td>' +
               '<td><span class="local-date">' + new Date().toLocaleDateString() + '</span></td>' +
-              '<td><span class="badge success">Active</span></td>' +
-              '<td>' +
-              '<button type="button" class="btn revoke-key-btn" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>' +
+              '<td style="text-align:right;">' +
+              '<div class="kebab-wrap">' +
+              '<button type="button" class="kebab-btn" aria-label="Key Actions">⋮</button>' +
+              '<div class="kebab-dropdown">' +
+              '<button type="button" class="kebab-item kebab-copy-key">Copy Key</button>' +
+              (safeCId ? '<button type="button" class="kebab-item kebab-copy-cid">Copy Client ID</button>' : '') +
+              '<button type="button" class="kebab-item kebab-rename-key">Rename…</button>' +
+              '<div class="kebab-divider"></div>' +
+              '<button type="button" class="kebab-item danger kebab-delete-key">Delete Key</button>' +
+              '</div>' +
+              '</div>' +
               '</td>';
 
             const copyCidBtn = tr.querySelector('.copy-cid-btn');
@@ -1818,24 +2363,33 @@ export function renderApiKeysPage(params: {
             if (revealBtn) revealBtn.onclick = function() { toggleKeyReveal(data.id); };
             const copyKeyBtn = tr.querySelector('.copy-key-btn');
             if (copyKeyBtn) copyKeyBtn.onclick = function() { copyKeyText(fullKey, 'API Key'); };
-            const revokeBtn = tr.querySelector('.revoke-key-btn');
-            if (revokeBtn) revokeBtn.onclick = function() { openRevokeKeyModal(data.id, data.label); };
+            
+            const kebabCopyKey = tr.querySelector('.kebab-copy-key');
+            if (kebabCopyKey) kebabCopyKey.onclick = function() { copyKeyText(fullKey, 'API Key'); };
+            const kebabCopyCid = tr.querySelector('.kebab-copy-cid');
+            if (kebabCopyCid) kebabCopyCid.onclick = function() { copyKeyText(data.clientId, 'Client ID'); };
+            const kebabRename = tr.querySelector('.kebab-rename-key');
+            if (kebabRename) kebabRename.onclick = function() { openRenameKeyModal(data.id, data.label); };
+            const kebabDelete = tr.querySelector('.kebab-delete-key');
+            if (kebabDelete) kebabDelete.onclick = function() { openDeleteKeyModal(data.id, data.label); };
 
             tbody.insertBefore(tr, tbody.firstChild);
           }
 
-          // Update counter badge accurately
           const remaining = document.querySelectorAll('#keysTableBody tr.key-row').length;
           const badge = document.getElementById('keysCountBadge');
-          if (badge) badge.textContent = remaining + ' active';
+          if (badge) badge.textContent = remaining + '/30 keys';
+          filterKeys();
         } else {
           showToast('Could not generate key: ' + (data.error || 'Unknown error'), 'error');
         }
       } catch (e) {
         showToast('Network error: ' + e.message, 'error');
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Generate Key';
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Generate Key';
+        }
       }
     }
 
@@ -1892,6 +2446,10 @@ export function renderApiKeysPage(params: {
 
     const initialDark = document.documentElement.classList.contains('dark');
     updateThemeIcon(initialDark);
+
+    // Initial API Keys and OAuth pagination render
+    renderKeysPagination();
+    renderOAuthPagination();
   </script>
 </body>
 </html>`;
@@ -2024,18 +2582,21 @@ export function renderToolsPage(params: {
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <label for="keySelector" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
-          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:7px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:200px;">
+          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:7px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:180px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
             <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
             ${
               summary.keys && summary.keys.length > 0
                 ? `
               <optgroup label="API Keys">
                 ${summary.keys
-                  .filter((k) => k.type === "api_key" || k.type === "master")
+                  .filter(
+                    (k: KeyMetrics) =>
+                      k.type === "api_key" || k.type === "master",
+                  )
                   .map(
-                    (k) => `
+                    (k: KeyMetrics) => `
                   <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                    ${escapeHtml(k.label)}
                   </option>
                 `,
                   )
@@ -2043,11 +2604,11 @@ export function renderToolsPage(params: {
               </optgroup>
               <optgroup label="OAuth Authorizations">
                 ${summary.keys
-                  .filter((k) => k.type === "oauth")
+                  .filter((k: KeyMetrics) => k.type === "oauth")
                   .map(
-                    (k) => `
+                    (k: KeyMetrics) => `
                   <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                    ${escapeHtml(k.label)}
                   </option>
                 `,
                   )
@@ -2118,6 +2679,15 @@ export function renderToolsPage(params: {
         No tools match the query or category filter.
       </div>
     </div>
+
+    <!-- Tools Pagination Bar -->
+    <div class="pagination-bar" id="toolsPaginationBar" style="margin-top:24px;">
+      <span id="toolsPageIndicator">Showing tools</span>
+      <div class="pagination-controls">
+        <button type="button" class="pagination-btn" id="toolsPrevBtn" onclick="changeToolsPage(-1)">Previous</button>
+        <button type="button" class="pagination-btn" id="toolsNextBtn" onclick="changeToolsPage(1)">Next</button>
+      </div>
+    </div>
   </div>
 
   ${renderFooter()}
@@ -2132,12 +2702,45 @@ export function renderToolsPage(params: {
     }
 
     let currentCategory = 'All';
+    let toolsCurrentPage = 1;
+    const TOOLS_PER_PAGE = 18;
 
     function setCategoryFilter(category, btn) {
       currentCategory = category;
       document.querySelectorAll('.pill-group .pill-btn').forEach(el => el.classList.remove('active'));
       if (btn) btn.classList.add('active');
       filterTools();
+    }
+
+    function renderToolsPagination() {
+      const boxes = Array.from(document.querySelectorAll('#toolsGrid .tool-box')).filter(b => b.getAttribute('data-matched') === 'true');
+      const total = boxes.length;
+      const totalPages = Math.max(1, Math.ceil(total / TOOLS_PER_PAGE));
+      if (toolsCurrentPage > totalPages) toolsCurrentPage = totalPages;
+      if (toolsCurrentPage < 1) toolsCurrentPage = 1;
+
+      const start = (toolsCurrentPage - 1) * TOOLS_PER_PAGE;
+      const end = start + TOOLS_PER_PAGE;
+
+      boxes.forEach((b, idx) => {
+        b.style.display = (idx >= start && idx < end) ? 'flex' : 'none';
+      });
+
+      const indicator = document.getElementById('toolsPageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' tools') : 'No tools';
+      }
+      const prevBtn = document.getElementById('toolsPrevBtn');
+      const nextBtn = document.getElementById('toolsNextBtn');
+      if (prevBtn) prevBtn.disabled = toolsCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = toolsCurrentPage >= totalPages;
+      const bar = document.getElementById('toolsPaginationBar');
+      if (bar) bar.style.display = total > TOOLS_PER_PAGE ? 'flex' : 'none';
+    }
+
+    function changeToolsPage(delta) {
+      toolsCurrentPage += delta;
+      renderToolsPagination();
     }
 
     function filterTools() {
@@ -2154,9 +2757,10 @@ export function renderToolsPage(params: {
         const matchesQuery = !query || name.includes(query) || desc.includes(query) || cat.toLowerCase().includes(query);
 
         if (matchesCat && matchesQuery) {
-          box.style.display = 'flex';
+          box.setAttribute('data-matched', 'true');
           matchCount++;
         } else {
+          box.setAttribute('data-matched', 'false');
           box.style.display = 'none';
         }
       });
@@ -2169,6 +2773,9 @@ export function renderToolsPage(params: {
       if (countLabel) {
         countLabel.textContent = 'Showing ' + matchCount + ' of ' + boxes.length + ' tools';
       }
+
+      toolsCurrentPage = 1;
+      renderToolsPagination();
     }
 
     function toggleTheme() {
@@ -2184,6 +2791,9 @@ export function renderToolsPage(params: {
 
     const initialDark = document.documentElement.classList.contains('dark');
     updateThemeIcon(initialDark);
+
+    // Initial tools filter & pagination render
+    filterTools();
   </script>
 </body>
 </html>`;
@@ -2340,18 +2950,21 @@ export function renderStatsPage(params: {
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label for="keySelector" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
-          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:210px;">
+          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:180px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
             <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
             ${
               summary.keys && summary.keys.length > 0
                 ? `
               <optgroup label="API Keys">
                 ${summary.keys
-                  .filter((k) => k.type === "api_key" || k.type === "master")
+                  .filter(
+                    (k: KeyMetrics) =>
+                      k.type === "api_key" || k.type === "master",
+                  )
                   .map(
-                    (k) => `
+                    (k: KeyMetrics) => `
                   <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                    ${escapeHtml(k.label)}
                   </option>
                 `,
                   )
@@ -2359,11 +2972,11 @@ export function renderStatsPage(params: {
               </optgroup>
               <optgroup label="OAuth Authorizations">
                 ${summary.keys
-                  .filter((k) => k.type === "oauth")
+                  .filter((k: KeyMetrics) => k.type === "oauth")
                   .map(
-                    (k) => `
+                    (k: KeyMetrics) => `
                   <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                    ${escapeHtml(k.label)}
                   </option>
                 `,
                   )
@@ -2376,7 +2989,7 @@ export function renderStatsPage(params: {
         </div>
         <div class="live-indicator" id="liveIndicator">
           <span class="live-dot" id="liveDot"></span>
-          <span>Live (3s)</span>
+          <span>Live</span>
         </div>
         <a href="/tools" class="btn">View all tools</a>
         <a href="/home" class="btn primary">Back to Home</a>
@@ -2451,8 +3064,10 @@ export function renderStatsPage(params: {
         </div>
       </div>
 
-      <div id="timelineChart" class="chart-container">
-        <!-- Responsive SVG rendered below -->
+      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%;">
+        <div id="timelineChart" class="chart-container" style="min-width:640px;">
+          <!-- Responsive SVG rendered below -->
+        </div>
       </div>
     </div>
 
@@ -2646,7 +3261,7 @@ export function renderStatsPage(params: {
         <span class="badge">${summary.keys.length} keys</span>
       </div>
 
-      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:480px; overflow-y:auto;">
         <table>
           <thead>
             <tr>
@@ -2660,7 +3275,7 @@ export function renderStatsPage(params: {
               <th>Top Tools</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="statsKeysTableBody">
             ${
               summary.keys.length > 0
                 ? summary.keys
@@ -2686,7 +3301,7 @@ export function renderStatsPage(params: {
                             ) / 10
                           : 100;
                       return `
-                <tr>
+                <tr class="stats-key-row">
                   <td>
                     <div style="font-weight:600;">${escapeHtml(displayLabel)}</div>
                     <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(displayKeyId)}</div>
@@ -2716,6 +3331,15 @@ export function renderStatsPage(params: {
             }
           </tbody>
         </table>
+      </div>
+
+      <!-- Per-Key Pagination Bar -->
+      <div class="pagination-bar" id="statsPaginationBar">
+        <span id="statsPageIndicator">Showing keys</span>
+        <div class="pagination-controls">
+          <button type="button" class="pagination-btn" id="statsPrevBtn" onclick="changeStatsPage(-1)">Previous</button>
+          <button type="button" class="pagination-btn" id="statsNextBtn" onclick="changeStatsPage(1)">Next</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2765,14 +3389,14 @@ export function renderStatsPage(params: {
       }
 
       const maxVal = data.reduce(function(m, d) { return Math.max(m, d.requests); }, 1);
-      const width = 800;
+      const step = Math.max(38, Math.floor(800 / Math.max(1, data.length)));
+      const width = Math.max(800, data.length * step);
       const height = 170;
       const chartHeight = 120;
       const padTop = 15;
-      const step = width / data.length;
-      const barWidth = Math.max(4, Math.min(22, step * 0.65));
+      const barWidth = Math.max(12, Math.min(26, step * 0.6));
 
-      let svgHtml = '<svg viewBox="0 0 ' + width + ' ' + height + '" style="width:100%; height:170px;" preserveAspectRatio="none">';
+      let svgHtml = '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" style="height:170px; min-width:' + width + 'px;" preserveAspectRatio="xMinYMin meet">';
       svgHtml += '<line x1="0" y1="' + (chartHeight + padTop) + '" x2="' + width + '" y2="' + (chartHeight + padTop) + '" stroke="var(--border)" stroke-width="1" />';
 
       data.forEach((d, i) => {
@@ -2898,6 +3522,40 @@ export function renderStatsPage(params: {
 
     setInterval(pollLiveStats, 3000);
 
+    let statsCurrentPage = 1;
+    const STATS_PER_PAGE = 10;
+
+    function renderStatsPagination() {
+      const rows = Array.from(document.querySelectorAll('#statsKeysTableBody tr.stats-key-row'));
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total / STATS_PER_PAGE));
+      if (statsCurrentPage > totalPages) statsCurrentPage = totalPages;
+      if (statsCurrentPage < 1) statsCurrentPage = 1;
+
+      const start = (statsCurrentPage - 1) * STATS_PER_PAGE;
+      const end = start + STATS_PER_PAGE;
+
+      rows.forEach((r, idx) => {
+        r.style.display = (idx >= start && idx < end) ? '' : 'none';
+      });
+
+      const indicator = document.getElementById('statsPageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' keys') : 'No keys';
+      }
+      const prevBtn = document.getElementById('statsPrevBtn');
+      const nextBtn = document.getElementById('statsNextBtn');
+      if (prevBtn) prevBtn.disabled = statsCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = statsCurrentPage >= totalPages;
+      const bar = document.getElementById('statsPaginationBar');
+      if (bar) bar.style.display = total > STATS_PER_PAGE ? 'flex' : 'none';
+    }
+
+    function changeStatsPage(delta) {
+      statsCurrentPage += delta;
+      renderStatsPagination();
+    }
+
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
@@ -2911,6 +3569,9 @@ export function renderStatsPage(params: {
 
     const initialDark = document.documentElement.classList.contains('dark');
     updateThemeIcon(initialDark);
+
+    // Initial stats pagination render
+    renderStatsPagination();
   </script>
 </body>
 </html>`;
@@ -3218,17 +3879,11 @@ export function renderStorePage(params: {
                       return `
               <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-id="${escapeHtml(f.id)}" data-name="${escapeHtml(f.name)}" data-perm="${isPerm ? "true" : "false"}" data-size="${f.size || 0}" data-source="${escapeHtml(f.source)}" data-url="${escapeHtml(dlUrl)}">
                 <td>
-                  <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg); font-size:13px; word-break:break-all;">
+                  <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg); font-size:13px; word-break:break-all;" id="file-name-text-${escapeHtml(f.id)}">
                     ${escapeHtml(f.name)}
                   </div>
-                  <div style="display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
                     <span style="font-size:11px; color:var(--accents-5);">${escapeHtml(f.contentType)}</span>
-                    <span class="file-source-badge ${f.source === "store" ? "store" : "sandbox"}">
-                      ${f.source === "store" ? "Cloud Store" : "Sandbox"}
-                    </span>
-                    <span class="badge ${isPerm ? "success" : ""}" id="retention-badge-${escapeHtml(f.id)}">
-                      ${expiresStr}
-                    </span>
                   </div>
                 </td>
                 <td><span style="font-variant-numeric:tabular-nums; font-size:12px;">${formatBytes(f.size)}</span></td>
@@ -3246,15 +3901,18 @@ export function renderStorePage(params: {
                         ${renderSvg("download", 14)} Download File
                       </a>
                       ${
-                        f.source === "store"
+                        f.source !== "sandbox"
                           ? `
-                      <button type="button" class="kebab-item" id="perm-btn-${escapeHtml(f.id)}" data-action="toggle-perm" data-file-id="${escapeHtml(f.id)}" data-perm="${isPerm ? "true" : "false"}" role="menuitem">
+                      <button type="button" class="kebab-item" id="perm-btn-${escapeHtml(f.id)}" data-action="toggle-perm" data-file-id="${escapeHtml(f.id)}" data-perm="${isPerm ? "true" : "false"}" title="${isPerm ? "Revert Permanent (72h TTL)" : "Keep Permanent"}" aria-label="${isPerm ? "Revert Permanent" : "Keep Permanent"}" data-perm-label="${isPerm ? "Revert Permanent" : "Keep Permanent"}" role="menuitem">
                         <span id="perm-icon-${escapeHtml(f.id)}">${isPerm ? renderSvg("clock", 14) : renderSvg("shield", 14)}</span>
-                        <span id="perm-text-${escapeHtml(f.id)}">${isPerm ? "Revert Permanent (72h TTL)" : "Keep Permanent"}</span>
+                        <span id="perm-text-${escapeHtml(f.id)}">${isPerm ? "Revert Keep" : "Keep"}</span>
                       </button>
                       `
                           : ""
                       }
+                      <button type="button" class="kebab-item" data-action="rename" data-file-id="${escapeHtml(f.id)}" data-file-name="${escapeHtml(f.name)}" data-source="${escapeHtml(f.source)}" role="menuitem">
+                        ${renderSvg("edit", 14)} Rename…
+                      </button>
                       <div class="kebab-divider"></div>
                       <button type="button" class="kebab-item danger" data-action="delete" data-file-id="${escapeHtml(f.id)}" data-file-name="${escapeHtml(f.name)}" data-source="${escapeHtml(f.source)}" role="menuitem">
                         ${renderSvg("trash", 14)} Delete File
@@ -3279,6 +3937,28 @@ export function renderStorePage(params: {
         <div id="noStoreMatch" style="display:none; text-align:center; padding:32px; color:var(--accents-5);">
           No files match your search query.
         </div>
+      </div>
+
+      <!-- Store Pagination Bar -->
+      <div class="pagination-bar" id="storePaginationBar">
+        <span id="storePageIndicator">Showing files</span>
+        <div class="pagination-controls">
+          <button type="button" class="pagination-btn" id="storePrevBtn" onclick="changeStorePage(-1)">Previous</button>
+          <button type="button" class="pagination-btn" id="storeNextBtn" onclick="changeStorePage(1)">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Store File Rename Modal -->
+  <div id="storeRenameModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Rename File</h3>
+      <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px; line-height:1.5;">Enter a new filename:</p>
+      <input type="text" id="storeRenameInput" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeStoreRenameModal()">Cancel</button>
+        <button type="button" id="storeRenameSaveBtn" class="btn primary">Save Changes</button>
       </div>
     </div>
   </div>
@@ -3325,6 +4005,40 @@ export function renderStorePage(params: {
       showToast('File URL copied to clipboard', 'success');
     }
 
+    let storeCurrentPage = 1;
+    const STORE_PER_PAGE = 10;
+
+    function renderStorePagination() {
+      const rows = Array.from(document.querySelectorAll('#storeTableBody tr.store-file-row')).filter(r => r.getAttribute('data-filtered') !== 'true');
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total / STORE_PER_PAGE));
+      if (storeCurrentPage > totalPages) storeCurrentPage = totalPages;
+      if (storeCurrentPage < 1) storeCurrentPage = 1;
+
+      const start = (storeCurrentPage - 1) * STORE_PER_PAGE;
+      const end = start + STORE_PER_PAGE;
+
+      rows.forEach((r, idx) => {
+        r.style.display = (idx >= start && idx < end) ? '' : 'none';
+      });
+
+      const indicator = document.getElementById('storePageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' files') : 'No files';
+      }
+      const prevBtn = document.getElementById('storePrevBtn');
+      const nextBtn = document.getElementById('storeNextBtn');
+      if (prevBtn) prevBtn.disabled = storeCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = storeCurrentPage >= totalPages;
+      const bar = document.getElementById('storePaginationBar');
+      if (bar) bar.style.display = total > STORE_PER_PAGE ? 'flex' : 'none';
+    }
+
+    function changeStorePage(delta) {
+      storeCurrentPage += delta;
+      renderStorePagination();
+    }
+
     function filterStoreFiles() {
       const q = (document.getElementById('storeSearchInput').value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#storeTableBody tr.store-file-row');
@@ -3333,9 +4047,11 @@ export function renderStorePage(params: {
         const name = (r.getAttribute('data-name') || '').toLowerCase();
         const type = (r.getAttribute('data-type') || '').toLowerCase();
         const match = !q || name.includes(q) || type.includes(q);
-        r.style.display = match ? '' : 'none';
+        r.setAttribute('data-filtered', match ? 'false' : 'true');
         if (match) visible++;
       });
+      storeCurrentPage = 1;
+      renderStorePagination();
       const noMatch = document.getElementById('noStoreMatch');
       if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
     }
@@ -3350,6 +4066,79 @@ export function renderStorePage(params: {
       }
     });
 
+    // Rename File Modal Logic
+    let activeRenameFileTarget = null;
+    function openStoreRenameModal(id, currentName, source) {
+      activeRenameFileTarget = { id, currentName, source };
+      const input = document.getElementById('storeRenameInput');
+      input.value = currentName;
+      const saveBtn = document.getElementById('storeRenameSaveBtn');
+      saveBtn.onclick = executeStoreRename;
+      const modal = document.getElementById('storeRenameModal');
+      modal.removeAttribute('hidden');
+      modal.classList.add('open');
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
+
+    function closeStoreRenameModal() {
+      const modal = document.getElementById('storeRenameModal');
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
+      activeRenameFileTarget = null;
+    }
+
+    async function executeStoreRename() {
+      if (!activeRenameFileTarget) return;
+      const input = document.getElementById('storeRenameInput');
+      const newName = (input.value || '').trim();
+      if (!newName || newName === activeRenameFileTarget.currentName) {
+        closeStoreRenameModal();
+        return;
+      }
+
+      const saveBtn = document.getElementById('storeRenameSaveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      try {
+        let res;
+        if (activeRenameFileTarget.source === 'store') {
+          res = await fetch('/store/files/' + encodeURIComponent(activeRenameFileTarget.id) + '/rename', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+          });
+        } else {
+          res = await fetch('/upload/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldName: activeRenameFileTarget.currentName, newName })
+          });
+        }
+
+        const data = await res.json();
+        if (res.ok) {
+          const row = document.getElementById('file-row-' + activeRenameFileTarget.id);
+          if (row) {
+            row.setAttribute('data-name', newName);
+            const nameEl = document.getElementById('file-name-text-' + activeRenameFileTarget.id);
+            if (nameEl) nameEl.textContent = newName;
+          }
+          showToast('File renamed to "' + newName + '"', 'success');
+          closeStoreRenameModal();
+        } else {
+          showToast(data.error || 'Failed to rename file', 'error');
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+
     const storeTbody = document.getElementById('storeTableBody');
     if (storeTbody) {
       storeTbody.addEventListener('click', (e) => {
@@ -3361,7 +4150,15 @@ export function renderStorePage(params: {
           if (menu) {
             const wasOpen = menu.classList.contains('open');
             closeAllKebabMenus();
-            if (!wasOpen) menu.classList.add('open');
+            if (!wasOpen) {
+              const rect = toggleBtn.getBoundingClientRect();
+              if (window.innerHeight - rect.bottom < 180) {
+                menu.classList.add('pop-up');
+              } else {
+                menu.classList.remove('pop-up');
+              }
+              menu.classList.add('open');
+            }
           }
           return;
         }
@@ -3382,6 +4179,17 @@ export function renderStorePage(params: {
           const fileId = permBtn.getAttribute('data-file-id');
           const isPerm = permBtn.getAttribute('data-perm') === 'true';
           togglePermanent(fileId, !isPerm);
+          return;
+        }
+
+        const renameBtn = e.target.closest('[data-action="rename"]');
+        if (renameBtn) {
+          e.stopPropagation();
+          closeAllKebabMenus();
+          const fileId = renameBtn.getAttribute('data-file-id');
+          const fileName = renameBtn.getAttribute('data-file-name');
+          const source = renameBtn.getAttribute('data-source');
+          openStoreRenameModal(fileId, fileName, source);
           return;
         }
 
@@ -3408,18 +4216,13 @@ export function renderStorePage(params: {
         const res = await fetch(endpoint, { method: 'POST' });
         if (res.ok) {
           const row = document.getElementById('file-row-' + id);
-          const badge = document.getElementById('retention-badge-' + id);
-          if (badge) {
-            badge.textContent = makePerm ? 'Permanent' : '72h TTL';
-            badge.classList.toggle('success', makePerm);
-          }
           if (row) {
             row.setAttribute('data-perm', makePerm ? 'true' : 'false');
           }
           if (btn) {
             btn.setAttribute('data-perm', makePerm ? 'true' : 'false');
             const txt = document.getElementById('perm-text-' + id);
-            if (txt) txt.textContent = makePerm ? 'Revert Permanent (72h TTL)' : 'Keep Permanent';
+            if (txt) txt.textContent = makePerm ? 'Revert Keep' : 'Keep';
             const icon = document.getElementById('perm-icon-' + id);
             if (icon) {
               icon.innerHTML = makePerm
@@ -3459,7 +4262,7 @@ export function renderStorePage(params: {
     let activeModalAction = null;
     function openDeleteFileModal(id, name, source) {
       document.getElementById('storeModalTitle').textContent = 'Delete File';
-      document.getElementById('storeModalDesc').textContent = 'Are you sure you want to delete "' + name + '"? This will remove it from ' + (source === 'store' ? 'cloud store' : 'sandbox storage') + '.';
+      document.getElementById('storeModalDesc').textContent = 'Are you sure you want to delete "' + name + '"? This will permanently remove it from storage.';
       activeModalAction = async () => {
         closeStoreModal();
         try {
@@ -3525,6 +4328,7 @@ export function renderStorePage(params: {
       if (e.key === 'Escape') {
         closeAllKebabMenus();
         closeStoreModal();
+        closeStoreRenameModal();
       }
     });
 
@@ -3541,6 +4345,9 @@ export function renderStorePage(params: {
 
     const initialDark = document.documentElement.classList.contains('dark');
     updateThemeIcon(initialDark);
+
+    // Initial store pagination render
+    renderStorePagination();
   </script>
 </body>
 </html>`;
