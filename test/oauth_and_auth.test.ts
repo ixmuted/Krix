@@ -166,7 +166,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.equal(tokenData.scope, "mcp:tools");
 
     // 5. Verify the token signature and validity
-    const check = verifyAccessToken(tokenData.access_token);
+    const check = await verifyAccessToken(tokenData.access_token);
     assert.equal(check.valid, true);
     assert.equal(check.payload.sub, "owner@example.com");
 
@@ -237,6 +237,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
               sub: "owner@example.com",
               client_id: "test_client",
               scope: "mcp:tools",
+              jti: "test-refresh-jti-0001",
               exp: Math.floor(Date.now() / 1000) + 3600,
             }),
           ).toString("base64url") +
@@ -253,6 +254,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
                     sub: "owner@example.com",
                     client_id: "test_client",
                     scope: "mcp:tools",
+                    jti: "test-refresh-jti-0001",
                     exp: Math.floor(Date.now() / 1000) + 3600,
                   }),
                 ).toString("base64url"),
@@ -264,9 +266,28 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.equal(refreshRes.status, 200);
     const data = (await refreshRes.json()) as any;
     assert.ok(data.access_token);
-    const verification = verifyAccessToken(data.access_token);
+    const verification = await verifyAccessToken(data.access_token);
     assert.equal(verification.valid, true);
     assert.equal(verification.payload.sub, "owner@example.com");
+
+    // RFC 7009 revocation of the refresh token must revoke its paired access JWT.
+    const revokeRes = await fetch(`${base}/oauth/revoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: data.refresh_token }).toString(),
+    });
+    assert.equal(revokeRes.status, 200);
+    assert.equal((await verifyAccessToken(data.access_token)).valid, false);
+
+    const replayRefresh = await fetch(`${base}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: data.refresh_token,
+      }).toString(),
+    });
+    assert.equal(replayRefresh.status, 400);
     revokeDynamicKey(entry.id);
   });
 

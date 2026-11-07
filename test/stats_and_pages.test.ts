@@ -94,6 +94,17 @@ test("StatsTracker records requests, computes timeline graphs, and tracks 4 metr
   assert.equal(summary.toolDistribution["sandbox_file"], 1);
   assert.equal(summary.toolDistribution["sandbox_exec"], 2);
   assert.equal(summary.toolDistribution["git_clone"], 1);
+  const execTool = summary.toolsCatalog.find((tool) => tool.name === "sandbox_exec")!;
+  assert.ok(execTool);
+  assert.equal(execTool.totalCalls, 2);
+  assert.equal(execTool.successRate, 50);
+  assert.equal(execTool.avgDurationMs, 185);
+  assert.equal(Object.values(execTool.daily).reduce((sum, count) => sum + count, 0), 2);
+  const keyFilteredSummary = tracker.getSummary(sandboxDir, "dyn:client_abc123456789");
+  const keyFilteredTool = keyFilteredSummary.toolsCatalog.find((tool) => tool.name === "sandbox_exec")!;
+  assert.equal(keyFilteredTool.totalCalls, 2);
+  assert.equal(keyFilteredTool.successRate, 50);
+  assert.equal(keyFilteredTool.avgDurationMs, 185);
 
   // Assert timelines (Daily 30d, Weekly 12w, Monthly 12m)
   assert.equal(summary.dailyTimeline.length, 30);
@@ -129,11 +140,15 @@ test("StatsTracker records requests, computes timeline graphs, and tracks 4 metr
   assert.equal(summary.sharedSandbox.quotaLimitMb, 300);
 
   // Assert persistence to disk
-  tracker.flush();
+  await tracker.flush();
   assert.ok(fs.existsSync(statsFile));
   const reloadedTracker = new StatsTracker(statsFile);
   const reloadedSummary = reloadedTracker.getSummary();
   assert.equal(reloadedSummary.totalRequests, 4);
+  const restoredTool = reloadedSummary.toolsCatalog.find((tool) => tool.name === "sandbox_exec")!;
+  assert.equal(restoredTool.totalCalls, 2);
+  assert.equal(restoredTool.successRate, 50);
+  assert.equal(restoredTool.avgDurationMs, 185);
 
   // Clean up test temp dir
   fs.rmSync(tmpDir, { recursive: true, force: true });

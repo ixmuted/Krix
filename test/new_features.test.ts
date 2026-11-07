@@ -629,7 +629,7 @@ test("OAuth token persistence and recovery from disk and Mongo sync", async () =
     expiresAt: Date.now() + 86400 * 1000,
     refreshExpiresAt: Date.now() + 30 * 86400 * 1000,
   };
-  recordIssuedToken(tokenRecord);
+  await recordIssuedToken(tokenRecord);
   const activeAuths = listActiveOAuthAuthorizations();
   const foundAuth = activeAuths.find((a) => a.clientId === "client_gemini_cli");
   assert.ok(
