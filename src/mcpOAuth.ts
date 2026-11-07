@@ -72,6 +72,25 @@ function signAccessToken(payload: Record<string, unknown>): string {
   return `${head}.${body}.${sig}`;
 }
 
+function signRefreshToken(payload: Record<string, unknown>): string {
+  const fullPayload = {
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 30 * 86400, // 30 days
+    ...payload,
+    jti: crypto.randomBytes(16).toString("hex"),
+    typ: "refresh",
+  };
+  const head = base64url(
+    Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })),
+  );
+  const body = base64url(Buffer.from(JSON.stringify(fullPayload)));
+  const sig = crypto
+    .createHmac("sha256", getSigningSecret())
+    .update(`${head}.${body}`)
+    .digest("base64url");
+  return `krix_rf_${head}.${body}.${sig}`;
+}
+
 export function verifyAccessToken(token: string): {
   valid: boolean;
   payload?: any;
@@ -447,8 +466,13 @@ export function createMcpOAuthRouter(): Router {
         });
         registerSecret(accessToken);
 
-        const refreshToken =
-          "krix_rf_" + crypto.randomBytes(32).toString("base64url");
+        const refreshToken = signRefreshToken({
+          sub: entry.ownerEmail,
+          client_id: clientId || entry.clientId,
+          scope: entry.scope,
+          iss: base,
+          aud: `${base}/mcp`,
+        });
         registerSecret(refreshToken);
 
         const tokenRecord: IssuedTokenEntry = {
@@ -476,7 +500,40 @@ export function createMcpOAuthRouter(): Router {
 
       if (grantType === "refresh_token") {
         const rawRefresh = String(req.body.refresh_token || "");
-        const record = refreshTokens.get(rawRefresh);
+        let record = refreshTokens.get(rawRefresh);
+        if (!record && rawRefresh.startsWith("krix_rf_")) {
+          const parts = rawRefresh.slice("krix_rf_".length).split(".");
+          if (parts.length === 3) {
+            const [h, b, sig] = parts;
+            const expectedSig = crypto
+              .createHmac("sha256", getSigningSecret())
+              .update(`${h}.${b}`)
+              .digest("base64url");
+            if (safeEqual(sig, expectedSig)) {
+              try {
+                const payload = JSON.parse(
+                  Buffer.from(b, "base64url").toString("utf-8"),
+                );
+                if (
+                  typeof payload.exp === "number" &&
+                  Date.now() / 1000 < payload.exp
+                ) {
+                  record = {
+                    token: "",
+                    refreshToken: rawRefresh,
+                    clientId: payload.client_id || "mcp_client",
+                    ownerEmail:
+                      payload.sub || process.env.OWNER_EMAIL || "owner",
+                    scope: payload.scope || "mcp:tools",
+                    expiresAt: Date.now() + 86400 * 1000,
+                    refreshExpiresAt: payload.exp * 1000,
+                  };
+                }
+              } catch {}
+            }
+          }
+        }
+
         if (!record || Date.now() > record.refreshExpiresAt) {
           res.status(400).json({
             error: "invalid_grant",
@@ -498,8 +555,13 @@ export function createMcpOAuthRouter(): Router {
           aud: `${base}/mcp`,
           exp: Math.floor(Date.now() / 1000) + 86400,
         });
-        const newRefresh =
-          "krix_rf_" + crypto.randomBytes(32).toString("base64url");
+        const newRefresh = signRefreshToken({
+          sub: record.ownerEmail,
+          client_id: record.clientId,
+          scope: record.scope,
+          iss: base,
+          aud: `${base}/mcp`,
+        });
         registerSecret(newAccess);
         registerSecret(newRefresh);
 

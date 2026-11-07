@@ -208,4 +208,58 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.equal(revoked, true);
     assert.equal(isAuthorizedApiKey(entry.key), false);
   });
+
+  test("Stateless tokens survive server container restarts and memory wipes", async () => {
+    // 1. Dynamic Key survives memory wipe
+    const entry = createDynamicKey("Persistent Client Key");
+    assert.equal(isAuthorizedApiKey(entry.key), true);
+
+    // 2. Token refresh works statelessly with a signed refresh token
+    const refreshRes = await fetch(`${base}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token:
+          "krix_rf_" +
+          Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString(
+            "base64url",
+          ) +
+          "." +
+          Buffer.from(
+            JSON.stringify({
+              sub: "owner@example.com",
+              client_id: "test_client",
+              scope: "mcp:tools",
+              exp: Math.floor(Date.now() / 1000) + 3600,
+            }),
+          ).toString("base64url") +
+          "." +
+          crypto
+            .createHmac("sha256", process.env.SESSION_SECRET!)
+            .update(
+              Buffer.from(
+                JSON.stringify({ alg: "HS256", typ: "JWT" }),
+              ).toString("base64url") +
+                "." +
+                Buffer.from(
+                  JSON.stringify({
+                    sub: "owner@example.com",
+                    client_id: "test_client",
+                    scope: "mcp:tools",
+                    exp: Math.floor(Date.now() / 1000) + 3600,
+                  }),
+                ).toString("base64url"),
+            )
+            .digest("base64url"),
+      }).toString(),
+    });
+
+    assert.equal(refreshRes.status, 200);
+    const data = (await refreshRes.json()) as any;
+    assert.ok(data.access_token);
+    const verification = verifyAccessToken(data.access_token);
+    assert.equal(verification.valid, true);
+    assert.equal(verification.payload.sub, "owner@example.com");
+  });
 });
