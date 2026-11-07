@@ -125,7 +125,14 @@ export async function sweepExpiredFiles(): Promise<number> {
         await sbxRemoveFile(item.root, item.abs);
         count++;
       } catch {
-        /* file or sandbox may already be gone */
+        try {
+          if (fs.existsSync(item.abs)) {
+            fs.unlinkSync(item.abs);
+            count++;
+          }
+        } catch {
+          /* file or sandbox may already be gone */
+        }
       }
     }
   }

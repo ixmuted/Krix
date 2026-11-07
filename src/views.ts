@@ -2768,6 +2768,97 @@ export function renderApiKeysPage(params: {
 </html>`;
 }
 
+function renderCustomKeySelector(summary: any, selectId = "keySelector"): string {
+  const selectedKey = summary.keys?.find((k: any) => (k.keyId || k.id) === summary.selectedKeyId);
+  const selectedLabel = selectedKey ? (selectedKey.label || selectedKey.keyId || selectedKey.id) : "All Keys & OAuth";
+  const apiKeys = (summary.keys || []).filter(
+    (k: any) => k.type === "api_key" || k.type === "master" || !k.type,
+  );
+  const oauthKeys = (summary.keys || []).filter((k: any) => k.type === "oauth");
+
+  return `
+    <div style="display:flex; align-items:center; gap:8px;">
+      <label for="${selectId}" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
+      <div class="custom-select-wrap" id="${selectId}Wrap">
+        <select id="${selectId}" onchange="onKeyFilterChange(this)" style="display:none;" aria-hidden="true">
+          <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
+          ${
+            summary.keys && summary.keys.length > 0
+              ? `
+            <optgroup label="API Keys">
+              ${apiKeys
+                .map(
+                  (k: any) => `
+                <option value="${escapeHtml(k.keyId || k.id)}" ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}>
+                  ${escapeHtml(k.label || k.keyId || k.id)}
+                </option>
+              `,
+                )
+                .join("")}
+            </optgroup>
+            <optgroup label="OAuth Authorizations">
+              ${oauthKeys
+                .map(
+                  (k: any) => `
+                <option value="${escapeHtml(k.keyId || k.id)}" ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}>
+                  ${escapeHtml(k.label || k.keyId || k.id)}
+                </option>
+              `,
+                )
+                .join("")}
+            </optgroup>
+          `
+              : ""
+          }
+        </select>
+
+        <button type="button" class="custom-select-btn" id="${selectId}Trigger" onclick="toggleCustomKeyDropdown('${selectId}')" aria-haspopup="listbox" aria-expanded="false">
+          <span class="custom-select-label" id="${selectId}Label">${escapeHtml(selectedLabel)}</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M1 1L5 5L9 1"></path></svg>
+        </button>
+
+        <div class="custom-select-menu" id="${selectId}Menu" role="listbox">
+          <button type="button" class="custom-select-item ${!summary.selectedKeyId ? "selected" : ""}" onclick="selectCustomKey('${selectId}', '')">
+            <span>All Keys &amp; OAuth</span>
+          </button>
+          ${
+            apiKeys.length > 0
+              ? `
+            <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--accents-4); padding:6px 10px 2px;">API Keys</div>
+            ${apiKeys
+              .map(
+                (k: any) => `
+              <button type="button" class="custom-select-item ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}" onclick="selectCustomKey('${selectId}', '${escapeHtml(k.keyId || k.id)}')">
+                <span class="custom-select-label">${escapeHtml(k.label || k.keyId || k.id)}</span>
+              </button>
+            `,
+              )
+              .join("")}
+          `
+              : ""
+          }
+          ${
+            oauthKeys.length > 0
+              ? `
+            <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--accents-4); padding:6px 10px 2px;">OAuth Authorizations</div>
+            ${oauthKeys
+              .map(
+                (k: any) => `
+              <button type="button" class="custom-select-item ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}" onclick="selectCustomKey('${selectId}', '${escapeHtml(k.keyId || k.id)}')">
+                <span class="custom-select-label">${escapeHtml(k.label || k.keyId || k.id)}</span>
+              </button>
+            `,
+              )
+              .join("")}
+          `
+              : ""
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function renderToolsPage(params: {
   base: string;
   isOwner: boolean;
@@ -2904,45 +2995,7 @@ export function renderToolsPage(params: {
             oninput="filterTools()"
           />
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label for="keySelector" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
-          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:7px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:180px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-            <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
-            ${
-              summary.keys && summary.keys.length > 0
-                ? `
-              <optgroup label="API Keys">
-                ${summary.keys
-                  .filter(
-                    (k: KeyMetrics) =>
-                      k.type === "api_key" || k.type === "master",
-                  )
-                  .map(
-                    (k: KeyMetrics) => `
-                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)}
-                  </option>
-                `,
-                  )
-                  .join("")}
-              </optgroup>
-              <optgroup label="OAuth Authorizations">
-                ${summary.keys
-                  .filter((k: KeyMetrics) => k.type === "oauth")
-                  .map(
-                    (k: KeyMetrics) => `
-                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)}
-                  </option>
-                `,
-                  )
-                  .join("")}
-              </optgroup>
-            `
-                : ""
-            }
-          </select>
-        </div>
+        ${renderCustomKeySelector(summary, "keySelector")}
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -3024,6 +3077,35 @@ export function renderToolsPage(params: {
       else url.searchParams.delete('key');
       window.location.href = url.toString();
     }
+
+    function toggleCustomKeyDropdown(id) {
+      const menu = document.getElementById(id + 'Menu');
+      const trigger = document.getElementById(id + 'Trigger');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      document.querySelectorAll('.custom-select-menu.open').forEach(m => m.classList.remove('open'));
+      if (!isOpen) {
+        menu.classList.add('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+      } else {
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function selectCustomKey(id, val) {
+      const sel = document.getElementById(id);
+      if (sel) {
+        sel.value = val;
+        onKeyFilterChange(sel);
+      }
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.custom-select-wrap')) {
+        document.querySelectorAll('.custom-select-menu.open').forEach(m => m.classList.remove('open'));
+        document.querySelectorAll('.custom-select-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+      }
+    });
 
     let currentCategory = 'All';
     let toolsCurrentPage = 1;
@@ -3258,45 +3340,7 @@ export function renderStatsPage(params: {
       </div>
 
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label for="keySelector" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
-          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:180px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-            <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
-            ${
-              summary.keys && summary.keys.length > 0
-                ? `
-              <optgroup label="API Keys">
-                ${summary.keys
-                  .filter(
-                    (k: KeyMetrics) =>
-                      k.type === "api_key" || k.type === "master",
-                  )
-                  .map(
-                    (k: KeyMetrics) => `
-                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)}
-                  </option>
-                `,
-                  )
-                  .join("")}
-              </optgroup>
-              <optgroup label="OAuth Authorizations">
-                ${summary.keys
-                  .filter((k: KeyMetrics) => k.type === "oauth")
-                  .map(
-                    (k: KeyMetrics) => `
-                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
-                    ${escapeHtml(k.label)}
-                  </option>
-                `,
-                  )
-                  .join("")}
-              </optgroup>
-            `
-                : ""
-            }
-          </select>
-        </div>
+        ${renderCustomKeySelector(summary, "keySelector")}
         <div class="live-indicator" id="liveIndicator">
           <span class="live-dot" id="liveDot"></span>
           <span>Live</span>
@@ -3849,6 +3893,35 @@ export function renderStatsPage(params: {
       else url.searchParams.delete('key');
       window.location.href = url.toString();
     }
+
+    function toggleCustomKeyDropdown(id) {
+      const menu = document.getElementById(id + 'Menu');
+      const trigger = document.getElementById(id + 'Trigger');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      document.querySelectorAll('.custom-select-menu.open').forEach(m => m.classList.remove('open'));
+      if (!isOpen) {
+        menu.classList.add('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+      } else {
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function selectCustomKey(id, val) {
+      const sel = document.getElementById(id);
+      if (sel) {
+        sel.value = val;
+        onKeyFilterChange(sel);
+      }
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.custom-select-wrap')) {
+        document.querySelectorAll('.custom-select-menu.open').forEach(m => m.classList.remove('open'));
+        document.querySelectorAll('.custom-select-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+      }
+    });
 
     // Live 3s Polling
     async function pollLiveStats() {
