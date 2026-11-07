@@ -621,45 +621,86 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
 <style nonce="${nonce}">
-  :root { color-scheme: dark; --bg:#090d13; --card:#121820; --line:#242c38; --fg:#c9d1d9; --dim:#7d8590; --hi:#f0f6fc; --ok:#238636; --bad:#f85149; --accent:#58a6ff; }
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #000000;
+    --accents-1: #fafafa;
+    --accents-2: #eaeaea;
+    --accents-3: #999999;
+    --accents-4: #888888;
+    --accents-5: #666666;
+    --accents-6: #444444;
+    --accents-7: #333333;
+    --accents-8: #111111;
+    --card: #ffffff;
+    --line: var(--accents-2);
+    --dim: var(--accents-5);
+    --hi: var(--fg);
+    --ok: #0070f3;
+    --bad: #e00;
+    --accent: #0070f3;
+  }
+  .dark {
+    --bg: #000000;
+    --fg: #ffffff;
+    --accents-1: #111111;
+    --accents-2: #222222;
+    --accents-3: #333333;
+    --accents-4: #555555;
+    --accents-5: #777777;
+    --accents-6: #999999;
+    --accents-7: #eaeaea;
+    --accents-8: #fafafa;
+    --card: #0a0a0a;
+    --line: var(--accents-2);
+    --dim: var(--accents-5);
+    --hi: var(--fg);
+    --ok: #0070f3;
+    --bad: #f85149;
+    --accent: #0070f3;
+  }
   * { box-sizing: border-box; margin:0; padding:0; }
-  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .card { width:100%; max-width:540px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:32px; box-shadow:0 1px 3px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08); }
+  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:var(--bg); color:var(--fg); background-image:radial-gradient(var(--accents-2) 1px, transparent 1px); background-size:24px 24px; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; transition:background-color .25s ease, color .25s ease; }
+  .card { width:100%; max-width:540px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:32px; box-shadow:0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); }
   header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
   .brand { display:flex; align-items:center; gap:12px; }
-  .brand-logo { width:38px; height:38px; border-radius:9px; background:#161b22; display:flex; align-items:center; justify-content:center; border:1px solid var(--line); }
+  .brand-logo { width:38px; height:38px; border-radius:9px; overflow:hidden; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+  .brand-logo img { width:100%; height:100%; object-fit:cover; }
   h1 { font-size:20px; color:var(--hi); font-weight:600; }
   p.sub { margin:6px 0 20px; color:var(--dim); font-size:13px; line-height:1.5; }
-  .owner-pill { display:flex; align-items:center; gap:8px; background:#161b22; border:1px solid var(--line); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--hi); }
+  .owner-pill { display:flex; align-items:center; gap:8px; background:var(--accents-1); border:1px solid var(--line); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--hi); }
   .owner-pill img { width:20px; height:20px; border-radius:50%; }
   label { display:block; font-size:13px; color:var(--dim); margin:14px 0 6px; }
-  input[type=password], input[type=text] { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--hi); font:inherit; }
+  input[type=password], input[type=text] { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--accents-1); color:var(--hi); font:inherit; }
   input:focus { outline:2px solid var(--accent); outline-offset:-1px; }
   details { margin-top:16px; font-size:13px; color:var(--dim); }
   details summary { cursor:pointer; user-select:none; }
-  button { font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); padding:10px 16px; background:#21262d; color:var(--hi); transition:all .15s ease; }
-  button.primary { background:var(--ok); border-color:var(--ok); font-weight:600; width:100%; margin-top:16px; color:#fff; }
-  button.primary:hover { background:#2ea043; }
-  button.google-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; background:#ffffff; color:#1f1f1f; font-weight:600; border:none; padding:11px 16px; margin-top:10px; }
-  button.google-btn:hover { background:#f1f1f1; }
+  button { font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); padding:10px 16px; background:var(--accents-1); color:var(--hi); transition:all .15s cubic-bezier(0.16,1,0.3,1); }
+  button:hover { border-color:var(--accents-4); }
+  button.primary { background:var(--fg); border-color:var(--fg); font-weight:600; width:100%; margin-top:16px; color:var(--bg); }
+  button.primary:hover { opacity:0.9; }
+  button.google-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; background:var(--accents-1); color:var(--hi); font-weight:600; border:1px solid var(--line); padding:11px 16px; margin-top:10px; }
+  button.google-btn:hover { border-color:var(--accents-4); background:var(--accents-2); }
   button:disabled { opacity:.5; cursor:not-allowed; }
   .err { color:var(--bad); font-size:13px; margin-top:12px; min-height:1.2em; }
   .bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
   .timer { font-variant-numeric:tabular-nums; font-weight:600; color:var(--hi); }
-  .drop { border:2px dashed var(--line); border-radius:10px; padding:32px 16px; text-align:center; color:var(--dim); cursor:pointer; transition:all .15s; background:rgba(255,255,255,0.01); }
-  .drop.over, .drop:focus-visible { border-color:var(--accent); background:rgba(88,166,255,.06); outline:none; }
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:32px 16px; text-align:center; color:var(--dim); cursor:pointer; transition:all .15s; background:var(--accents-1); }
+  .drop.over, .drop:focus-visible { border-color:var(--accent); background:var(--accents-2); outline:none; }
   ul { list-style:none; margin:16px 0 0; padding:0; max-height:220px; overflow-y:auto; }
   li { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line); font-size:13px; }
   li .n { overflow-wrap:anywhere; color:var(--hi); }
   li .m { color:var(--dim); white-space:nowrap; }
   li.fail .m { color:var(--bad); }
   .note { margin-top:18px; font-size:12px; color:var(--dim); line-height:1.5; }
-  code { background:#0d1117; border:1px solid var(--line); border-radius:4px; padding:2px 6px; color:var(--accent); }
+  code { background:var(--accents-1); border:1px solid var(--line); border-radius:4px; padding:2px 6px; color:var(--hi); font-family:monospace; }
   .row { display:flex; gap:10px; margin-top:18px; }
   .row button { flex:1; }
   [hidden] { display:none !important; }
   .links { margin-top:20px; font-size:13px; text-align:center; color:var(--dim); }
-  .links a { color:var(--accent); text-decoration:none; }
+  .links a { color:var(--dim); text-decoration:none; }
+  .links a:hover { color:var(--hi); }
   @media (max-width: 640px) {
     body { padding:16px 12px; }
     .card { padding:20px 16px; border-radius:12px; }
@@ -668,17 +709,17 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
     .row { flex-direction:column; }
   }
 </style>
+<script nonce="${nonce}">
+  const t = localStorage.getItem('qw-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  if (t === 'dark') document.documentElement.classList.add('dark');
+</script>
 </head>
 <body>
 <main class="card">
   <header>
     <div class="brand">
       <div class="brand-logo">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
+        <img src="/icon-48.png" alt="Krix">
       </div>
       <h1>Krix Upload</h1>
     </div>
@@ -713,7 +754,7 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
       <summary style="margin-top:20px; font-size:12px;">Alternative: authenticate with MCP API Key</summary>
       <form id="loginForm" autocomplete="off" style="margin-top:10px;">
         <label for="key">MCP API key</label>
-        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="krix_... or gateway key">
+        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter gateway API key">
         <button class="primary" id="start" type="submit">Open Upload Session</button>
       </form>
     </details>
@@ -740,7 +781,7 @@ function renderUploadPage(nonce: string, info: PageInfo): string {
 </main>
 
 <div class="links">
-  <a href="/">&larr; Return to Krix Gateway Portal</a>
+  <a href="/home">Home</a> &bull; <a href="/stats">Stats</a> &bull; <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
 </div>
 
 <script nonce="${nonce}">

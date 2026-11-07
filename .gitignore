@@ -12,5 +12,12 @@ node_modules/
 *.log
 npm-debug.log*
 
+# Runtime Data & Storage
+data/
+sandbox_data/
+web-uploads/
+upload/
+storage/
+
 # Agents
 .agents/

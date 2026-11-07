@@ -160,7 +160,7 @@ export function createDynamicKey(
   const entry: GeneratedKeyEntry = {
     id,
     key: raw,
-    prefix: raw.slice(0, 14) + "...",
+    prefix: raw.slice(0, 16),
     label,
     createdAt: Date.now(),
   };

@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import express, { Router, type Request, type Response } from "express";
 import { parseOwnerCookie, getPublicBaseUrl } from "./googleAuth.js";
 import { safeEqual, registerSecret } from "./security.js";
@@ -55,20 +57,103 @@ function verifyPkceS256(verifier: string, challenge: string): boolean {
   return safeEqual(calculated, challenge);
 }
 
+interface RsaKeyPair {
+  privateKey: string;
+  publicKey: string;
+  jwk: {
+    kty: "RSA";
+    n: string;
+    e: string;
+    alg: "RS256";
+    use: "sig";
+    kid: string;
+  };
+}
+
+let cachedRsaKey: RsaKeyPair | null = null;
+
+export function getRsaKeyPair(): RsaKeyPair {
+  if (cachedRsaKey) return cachedRsaKey;
+
+  const keyPath = path.resolve(process.cwd(), "data", ".krix_rsa_key.json");
+
+  // 1. Try environment variables
+  if (process.env.RSA_PRIVATE_KEY && process.env.RSA_PUBLIC_KEY) {
+    try {
+      const pubObj = crypto.createPublicKey(process.env.RSA_PUBLIC_KEY);
+      const exportedJwk = pubObj.export({ format: "jwk" }) as any;
+      cachedRsaKey = {
+        privateKey: process.env.RSA_PRIVATE_KEY,
+        publicKey: process.env.RSA_PUBLIC_KEY,
+        jwk: {
+          kty: "RSA",
+          n: exportedJwk.n,
+          e: exportedJwk.e,
+          alg: "RS256",
+          use: "sig",
+          kid: "krix-rsa-1",
+        },
+      };
+      return cachedRsaKey;
+    } catch {}
+  }
+
+  // 2. Try persistent cache file on disk
+  if (fs.existsSync(keyPath)) {
+    try {
+      const raw = fs.readFileSync(keyPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed.privateKey && parsed.publicKey && parsed.jwk) {
+        cachedRsaKey = parsed;
+        return cachedRsaKey!;
+      }
+    } catch {}
+  }
+
+  // 3. Generate 2048-bit RSA key pair
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+
+  const pubObj = crypto.createPublicKey(publicKey);
+  const exportedJwk = pubObj.export({ format: "jwk" }) as any;
+  cachedRsaKey = {
+    privateKey,
+    publicKey,
+    jwk: {
+      kty: "RSA",
+      n: exportedJwk.n,
+      e: exportedJwk.e,
+      alg: "RS256",
+      use: "sig",
+      kid: "krix-rsa-1",
+    },
+  };
+
+  try {
+    fs.writeFileSync(keyPath, JSON.stringify(cachedRsaKey, null, 2), "utf-8");
+  } catch {}
+
+  return cachedRsaKey;
+}
+
 function signAccessToken(payload: Record<string, unknown>): string {
   const fullPayload = {
     iat: Math.floor(Date.now() / 1000),
     ...payload,
     jti: crypto.randomBytes(16).toString("hex"),
   };
+  const rsa = getRsaKeyPair();
   const head = base64url(
-    Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })),
+    Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT", kid: rsa.jwk.kid })),
   );
   const body = base64url(Buffer.from(JSON.stringify(fullPayload)));
   const sig = crypto
-    .createHmac("sha256", getSigningSecret())
+    .createSign("RSA-SHA256")
     .update(`${head}.${body}`)
-    .digest("base64url");
+    .sign(rsa.privateKey, "base64url");
   return `${head}.${body}.${sig}`;
 }
 
@@ -118,6 +203,37 @@ export function verifyAccessToken(token: string): {
   if (parts.length !== 3)
     return { valid: false, reason: "Malformed token structure" };
   const [head, body, sig] = parts;
+
+  let parsedHead: any = {};
+  try {
+    parsedHead = JSON.parse(Buffer.from(head, "base64url").toString("utf-8"));
+  } catch {
+    return { valid: false, reason: "Invalid token header" };
+  }
+
+  // 1. Asymmetric RS256 verification
+  if (parsedHead.alg === "RS256") {
+    try {
+      const rsa = getRsaKeyPair();
+      const valid = crypto
+        .createVerify("RSA-SHA256")
+        .update(`${head}.${body}`)
+        .verify(rsa.publicKey, sig, "base64url");
+      if (!valid) return { valid: false, reason: "Invalid RS256 signature" };
+
+      const payload = JSON.parse(
+        Buffer.from(body, "base64url").toString("utf-8"),
+      );
+      if (typeof payload.exp === "number" && Date.now() / 1000 > payload.exp) {
+        return { valid: false, reason: "Token expired" };
+      }
+      return { valid: true, payload };
+    } catch {
+      return { valid: false, reason: "RS256 verification failed" };
+    }
+  }
+
+  // 2. Symmetric HS256 verification (fallback)
   const expectedSig = crypto
     .createHmac("sha256", getSigningSecret())
     .update(`${head}.${body}`)
@@ -164,6 +280,19 @@ export function createMcpOAuthRouter(): Router {
   );
 
   // ---------------------------------------------------------------------------
+  // RFC 7517: JSON Web Key Set (JWKS)
+  // ---------------------------------------------------------------------------
+  router.get("/.well-known/jwks.json", (req: Request, res: Response): void => {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.json({
+      keys: [getRsaKeyPair().jwk],
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // RFC 8414: Authorization Server Metadata
   // ---------------------------------------------------------------------------
   router.get(
@@ -179,10 +308,12 @@ export function createMcpOAuthRouter(): Router {
         token_endpoint: `${base}/oauth/token`,
         registration_endpoint: `${base}/oauth/register`,
         revocation_endpoint: `${base}/oauth/revoke`,
+        jwks_uri: `${base}/.well-known/jwks.json`,
         response_types_supported: ["code"],
         code_challenge_methods_supported: ["S256"],
         grant_types_supported: ["authorization_code", "refresh_token"],
         token_endpoint_auth_methods_supported: ["client_secret_post", "none"],
+        token_endpoint_auth_signing_alg_values_supported: ["RS256", "HS256"],
         scopes_supported: ["mcp:tools", "mcp:sandbox", "mcp:admin"],
       });
     },
@@ -271,7 +402,7 @@ export function createMcpOAuthRouter(): Router {
     const registered = registeredClients.get(clientId);
     const clientName =
       registered?.clientName ||
-      (clientId ? `Client (${clientId.slice(0, 16)}...)` : "MCP Client");
+      (clientId ? `Client (${clientId.slice(0, 16)})` : "MCP Client");
 
     const nonce = crypto.randomBytes(16).toString("base64");
     res.setHeader("Content-Type", "text/html; charset=utf-8");

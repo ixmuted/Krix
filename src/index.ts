@@ -51,6 +51,8 @@ import {
   listDynamicKeys,
 } from "./googleAuth.js";
 import { createMcpOAuthRouter, verifyAccessToken } from "./mcpOAuth.js";
+import { statsTracker } from "./stats.js";
+import { renderHomePage, renderStatsPage } from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
 import { createLimiter, rateLimitMiddleware, clientIp } from "./rateLimit.js";
 import {
@@ -355,9 +357,16 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
   if (clientKey) {
     // 1. Check OAuth 2.1 access token
     const tokenCheck = verifyAccessToken(clientKey);
-    if (tokenCheck.valid) {
+    if (tokenCheck.valid && tokenCheck.payload) {
       failedAuthLimiter.reset(ip);
-      (req as any).oauthUser = tokenCheck.payload;
+      const payload = tokenCheck.payload;
+      (req as any).oauthUser = payload;
+      const sub = payload.sub || payload.client_id || "token";
+      (req as any).clientAuth = {
+        keyId: `oauth:${sub}`,
+        label: `OAuth (${payload.client_id || "client"})`,
+        type: "oauth",
+      };
       next();
       return;
     }
@@ -365,6 +374,13 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
     // 2. Check Gateway API keys (server environment key or owner-generated key)
     if (isAuthorizedApiKey(clientKey)) {
       failedAuthLimiter.reset(ip);
+      const isMaster = MCP_API_KEY ? safeEqual(clientKey, MCP_API_KEY) : false;
+      const dynamicPrefix = clientKey.slice(0, 16);
+      (req as any).clientAuth = {
+        keyId: isMaster ? "master-env-key" : `dyn:${dynamicPrefix}`,
+        label: isMaster ? "Master Key (Server Env)" : `Key ${dynamicPrefix}`,
+        type: isMaster ? "master_key" : "dynamic_key",
+      };
       next();
       return;
     }
@@ -407,6 +423,7 @@ app.all(
   },
   express.json({ limit: `${MAX_BODY_MB}mb` }),
   async (req: Request, res: Response): Promise<void> => {
+    const startTime = Date.now();
     const githubToken =
       (typeof req.headers["x-github-token"] === "string"
         ? req.headers["x-github-token"]
@@ -424,6 +441,73 @@ app.all(
         ? req.headers["mcp-session-id"]
         : undefined;
     const body = req.body;
+
+    const rawLen = req.headers["content-length"];
+    const bytesIn = rawLen
+      ? Number(rawLen) || 0
+      : body
+        ? Buffer.byteLength(JSON.stringify(body))
+        : 0;
+    let bytesOut = 0;
+    const origWrite = res.write.bind(res);
+    const origEnd = res.end.bind(res);
+
+    let recorded = false;
+    const recordMetrics = () => {
+      if (recorded) return;
+      recorded = true;
+      let toolName = "mcp_request";
+      if (body) {
+        const item = Array.isArray(body) ? body[0] : body;
+        if (item?.method === "tools/call" && item?.params?.name) {
+          toolName = String(item.params.name);
+        } else if (item?.method) {
+          toolName = String(item.method);
+        }
+      }
+      const clientAuth = (req as any).clientAuth || {
+        keyId: "unknown",
+        label: "Unknown Client",
+        type: "api_key",
+      };
+      const authType: "api_key" | "master" | "oauth" =
+        clientAuth.type === "master_key"
+          ? "master"
+          : clientAuth.type === "oauth"
+            ? "oauth"
+            : "api_key";
+      statsTracker.recordRequest({
+        keyId: clientAuth.keyId,
+        label: clientAuth.label,
+        type: authType,
+        toolName,
+        durationMs: Date.now() - startTime,
+        bytesIn,
+        bytesOut,
+        isError: res.statusCode >= 400,
+        ip: clientIp(req),
+        userAgent: (req.headers["user-agent"] as string) || "",
+      });
+    };
+
+    (res as any).write = function (chunk: any, ...args: any[]) {
+      if (chunk) {
+        bytesOut += Buffer.isBuffer(chunk)
+          ? chunk.length
+          : Buffer.byteLength(String(chunk));
+      }
+      return (origWrite as any)(chunk, ...args);
+    };
+
+    (res as any).end = function (chunk: any, ...args: any[]) {
+      if (chunk) {
+        bytesOut += Buffer.isBuffer(chunk)
+          ? chunk.length
+          : Buffer.byteLength(String(chunk));
+      }
+      recordMetrics();
+      return (origEnd as any)(chunk, ...args);
+    };
 
     try {
       if (sessionId) {
@@ -709,7 +793,7 @@ app.get("/gemini-extension.json", (req, res) => {
   });
 });
 
-app.get("/", async (req, res) => {
+app.get(["/", "/home"], async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const authKey = computeAuthKey(
@@ -718,530 +802,72 @@ app.get("/", async (req, res) => {
   const root = sandboxRootForAuthKey(authKey);
   const uploads = await listUploadedFiles(root);
   const dynamicKeys = listDynamicKeys();
-
   const isOwner = Boolean(owner);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Krix Agentic Gateway</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
-  <link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png">
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #090d13;
-      --card: #121820;
-      --card-sub: #161f2b;
-      --line: #242c38;
-      --fg: #c9d1d9;
-      --dim: #7d8590;
-      --hi: #f0f6fc;
-      --accent: #58a6ff;
-      --cyan: #39c5bb;
-      --ok: #238636;
-      --code-bg: #070a0f;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--fg);
-      font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 32px 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .wrapper { width: 100%; max-width: 960px; }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 28px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--line);
-    }
-    .brand { display: flex; align-items: center; gap: 14px; }
-    .brand-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      background: #101721;
-      border: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 16px rgba(57,197,187,0.15);
-    }
-    h1 { font-size: 22px; color: var(--hi); font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
-    .badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 20px;
-      background: rgba(57,197,187,0.12);
-      color: var(--cyan);
-      border: 1px solid rgba(57,197,187,0.3);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .badge.live {
-      background: rgba(35,134,54,0.12);
-      color: #3fb950;
-      border-color: rgba(35,134,54,0.3);
-    }
-    .user-nav { display: flex; align-items: center; gap: 12px; }
-    .owner-tag {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 12px;
-      color: var(--hi);
-    }
-    .owner-tag img { width: 22px; height: 22px; border-radius: 50%; }
-    .btn {
-      font: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: #21262d;
-      color: var(--hi);
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all .15s ease;
-    }
-    .btn:hover { background: #30363d; border-color: #8b949e; }
-    .btn.primary { background: var(--ok); border-color: var(--ok); color: #fff; }
-    .btn.primary:hover { background: #2ea043; }
-    .btn.google { background: #fff; color: #1f1f1f; border-color: #fff; }
-    .btn.google:hover { background: #f0f0f0; }
+  res.send(
+    renderHomePage({
+      base,
+      isOwner,
+      owner,
+      uploads,
+      dynamicKeys,
+    }),
+  );
+});
 
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
-    @media (max-width: 640px) {
-      body { padding: 16px 12px; }
-      header { flex-direction: column; align-items: flex-start; gap: 14px; }
-      .brand { width: 100%; }
-      .user-nav { width: 100%; justify-content: space-between; }
-      .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-      .card { padding: 18px 14px; }
-      .endpoint-row { flex-direction: column; }
-      .key-disp { flex-direction: column; }
-      footer { flex-direction: column; gap: 8px; text-align: center; }
-    }
+app.get("/stats/api", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  const clientKey = extractClientKey(req);
+  const isAuth =
+    Boolean(owner) ||
+    Boolean(
+      clientKey &&
+      (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+    );
 
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .card-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--hi);
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    p.card-desc { font-size: 13px; color: var(--dim); margin-bottom: 16px; line-height: 1.5; }
+  if (!isAuth) {
+    res.status(401).json({
+      error:
+        "Unauthorized. Sign in as owner or supply a valid Gateway API key.",
+    });
+    return;
+  }
 
-    .endpoint-box {
-      background: var(--card-sub);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-    }
-    .endpoint-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--dim);
-      margin-bottom: 6px;
-    }
-    .endpoint-row {
-      display: flex;
-      gap: 8px;
-    }
-    .endpoint-row input {
-      flex: 1;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: var(--code-bg);
-      color: var(--accent);
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 12.5px;
-    }
+  const authKey = computeAuthKey(
+    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+  );
+  const root = sandboxRootForAuthKey(authKey);
+  const summary = statsTracker.getSummary(root);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(summary);
+});
 
-    .tree-box {
-      background: var(--code-bg);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px 16px;
-      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 12.5px;
-      color: #9cdcfe;
-      line-height: 1.7;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .tree-item { display: flex; align-items: center; gap: 8px; }
-    .tree-folder { color: #e5c07b; font-weight: 600; }
-    .tree-file { color: #d19a66; }
-    .tree-dim { color: var(--dim); font-size: 11px; margin-left: 6px; }
+app.get("/stats", async (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  const isOwner = Boolean(owner);
 
-    .tab-bar { display: flex; gap: 6px; margin-bottom: 12px; }
-    .tab {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--dim);
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .tab.active { background: #21262d; color: var(--hi); border-color: var(--dim); }
-    .code-view {
-      position: relative;
-      background: var(--code-bg);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
-      color: #79c0ff;
-      white-space: pre;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .copy-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      padding: 4px 8px;
-      font-size: 11px;
-      border-radius: 5px;
-      background: #21262d;
-      border: 1px solid var(--line);
-      color: var(--dim);
-      cursor: pointer;
-    }
-    .copy-btn:hover { color: var(--hi); background: #30363d; }
+  if (!isOwner) {
+    res.redirect("/auth/google?returnTo=/stats");
+    return;
+  }
 
-    .key-gen-box {
-      margin-top: 16px;
-      padding: 14px;
-      background: var(--card-sub);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .key-disp {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .key-disp input {
-      flex: 1;
-      padding: 8px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: var(--code-bg);
-      color: #3fb950;
-      font-family: monospace;
-      font-size: 12px;
-    }
+  const authKey = computeAuthKey(
+    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+  );
+  const root = sandboxRootForAuthKey(authKey);
+  const summary = statsTracker.getSummary(root);
 
-    footer {
-      margin-top: 24px;
-      padding-top: 18px;
-      border-top: 1px solid var(--line);
-      display: flex;
-      justify-content: space-between;
-      color: var(--dim);
-      font-size: 12px;
-    }
-    footer a { color: var(--dim); text-decoration: none; }
-    footer a:hover { color: var(--accent); }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <header>
-      <div class="brand">
-        <div class="brand-logo">
-          <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
-            <rect x="2" y="2" width="28" height="28" rx="8" fill="#121820" stroke="#39c5bb" stroke-width="2"/>
-            <path d="M10 8v16M22 8v16M10 16h12M16 8l6 8-6 8" stroke="#58a6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div>
-          <h1>KRIX <span class="badge">v1.1.0</span> <span class="badge live">OAuth 2.1 Ready</span></h1>
-        </div>
-      </div>
-      <div class="user-nav">
-        ${
-          isOwner
-            ? `
-          <div class="owner-tag">
-            ${owner?.picture ? `<img src="${encodeURI(owner.picture)}" alt="">` : ""}
-            <span>${encodeURIComponent(owner?.name || owner?.email || "Owner")}</span>
-          </div>
-          <a href="/auth/logout" class="btn" style="padding:6px 10px; font-size:12px;">Sign out</a>
-        `
-            : `
-          <a href="/auth/google" class="btn google">
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            Sign in with Google
-          </a>
-        `
-        }
-      </div>
-    </header>
-
-    <div class="grid">
-      <section class="card">
-        <div class="card-title">
-          <span>Sandbox Workspace Explorer</span>
-          <a href="/upload" class="btn primary" style="padding:4px 10px; font-size:12px;">+ Upload Files</a>
-        </div>
-        <p class="card-desc">Live tree structure of your sandboxed workspace. Uploaded files in <code>upload/</code> are automatically linked into all active and cloned repositories.</p>
-
-        <div class="tree-box">
-          <div><span class="tree-folder">📦 krix-sandbox/</span></div>
-          <div>│   ├── <span class="tree-folder">📁 upload/</span> <span class="tree-dim">(user uploads folder)</span></div>
-          ${
-            uploads.length > 0
-              ? uploads
-                  .map(
-                    (u) => `
-          <div>│   │   ├── <span class="tree-file">📄 ${encodeURIComponent(u.name)}</span> <span class="tree-dim">(${Math.round(u.size / 1024)} KB)</span></div>
-          `,
-                  )
-                  .join("")
-              : `
-          <div>│   │   └── <span class="tree-dim"><em>(no uploads yet &mdash; click Upload Files above)</em></span></div>
-          `
-          }
-          <div>│   ├── <span class="tree-folder">📁 workspace/</span> <span class="tree-dim">(active git clone)</span></div>
-          <div>│   │   ├── <span class="tree-folder">📁 upload/</span> <span class="tree-dim">&rarr; symlink to sandbox upload/</span></div>
-          <div>│   │   ├── <span class="tree-file">📄 package.json</span></div>
-          <div>│   │   └── <span class="tree-folder">📁 src/</span></div>
-          <div>└── ⚙️ system/ <span class="tree-dim">(Node.js 22 LTS &middot; Python 3 &middot; Git)</span></div>
-        </div>
-
-        <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--dim);">
-          <span>Active files: <strong>${uploads.length}</strong></span>
-          <span>Transport: <strong>Streamable HTTP</strong></span>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-title">
-          <span>MCP Client Setup</span>
-          <span class="badge live">OAuth 2.1</span>
-        </div>
-        <p class="card-desc">Connect Claude Desktop, Cursor, Antigravity, ChatGPT, or any agent using native OAuth 2.1 or a Gateway API key.</p>
-
-        <div class="endpoint-box">
-          <div class="endpoint-label">Streamable HTTP MCP Endpoint URL</div>
-          <div class="endpoint-row">
-            <input type="text" id="mcpUrlInput" value="${base}/mcp" readonly>
-            <button class="btn" onclick="copyMcpUrl()" id="copyUrlBtn">Copy URL</button>
-          </div>
-        </div>
-
-        <div class="tab-bar">
-          <button class="tab active" onclick="showTab('claude')">Claude Desktop</button>
-          <button class="tab" onclick="showTab('cursor')">Cursor</button>
-          <button class="tab" onclick="showTab('antigravity')">Antigravity</button>
-          <button class="tab" onclick="showTab('chatgpt')">ChatGPT</button>
-          <button class="tab" onclick="showTab('oauth')">OAuth 2.1</button>
-        </div>
-
-        <div class="code-view" id="codebox">
-          <button class="copy-btn" onclick="copySnippet()">Copy</button>
-          <code id="snippet"></code>
-        </div>
-
-        <div class="key-gen-box">
-          <div style="font-size:13px; font-weight:600; color:var(--hi); margin-bottom:4px;">
-            ${isOwner ? "Gateway Key Management" : "Owner Gateway Key"}
-          </div>
-          <div style="font-size:12px; color:var(--dim);">
-            ${isOwner ? "Generate on-demand MCP API keys directly from your signed-in owner account." : "Sign in with Google above to generate, view, and rotate your Gateway API keys."}
-          </div>
-
-          ${
-            isOwner
-              ? `
-            <div style="margin-top:10px;">
-              <button class="btn" onclick="generateKey()" id="genBtn" style="font-size:12px; padding:6px 12px;">+ Generate New Gateway Key</button>
-            </div>
-            <div class="key-disp" id="keyDisp" style="display:none;">
-              <input type="text" id="newKeyVal" readonly>
-              <button class="btn" onclick="copyNewKey()" style="padding:6px 12px; font-size:12px;">Copy</button>
-            </div>
-            ${
-              dynamicKeys.length > 0
-                ? `
-              <div style="margin-top:12px; font-size:12px; color:var(--dim);">
-                Active Keys: <strong>${dynamicKeys.length}</strong>
-              </div>
-            `
-                : ""
-            }
-          `
-              : ""
-          }
-        </div>
-      </section>
-    </div>
-
-    <footer>
-      <div>Krix MCP Gateway &bull; Single-Tenant Secure Architecture</div>
-      <div><a href="/upload">Upload Portal</a> &bull; <a href="/.well-known/oauth-protected-resource">RFC 9728 Discovery</a></div>
-    </footer>
-  </div>
-
-  <script>
-    const baseUrl = '${base}';
-    let activeKey = '${dynamicKeys.length > 0 ? dynamicKeys[0].id : "$MCP_API_KEY"}';
-
-    function getSnippets() {
-      const keyDisp = activeKey || '$MCP_API_KEY';
-      return {
-        claude: JSON.stringify({
-          mcpServers: {
-            krix: {
-              url: baseUrl + "/mcp",
-              headers: {
-                "Authorization": "Bearer " + keyDisp
-              }
-            }
-          }
-        }, null, 2),
-        cursor: JSON.stringify({
-          mcpServers: {
-            krix: {
-              url: baseUrl + "/mcp",
-              headers: {
-                "Authorization": "Bearer " + keyDisp
-              }
-            }
-          }
-        }, null, 2),
-        antigravity: JSON.stringify({
-          mcpServers: {
-            krix: {
-              url: baseUrl + "/mcp",
-              headers: {
-                "Authorization": "Bearer " + keyDisp
-              }
-            }
-          }
-        }, null, 2),
-        chatgpt: "// ChatGPT Custom GPT -> Configure -> Add Actions -> Authentication:\\n" +
-          "// 1. Auth Type: Bearer\\n" +
-          "//    Token:     " + keyDisp + "\\n" +
-          "// OR select OAuth:\\n" +
-          "//    Auth URL:  " + baseUrl + "/oauth/authorize\\n" +
-          "//    Token URL: " + baseUrl + "/oauth/token\\n" +
-          "//    Scope:     mcp:tools",
-        oauth: "// Modern MCP Clients auto-discover OAuth 2.1 via RFC 9728 & RFC 8414:\\n" +
-          "// Endpoint:            " + baseUrl + "/mcp\\n" +
-          "// Protected Resource:   " + baseUrl + "/.well-known/oauth-protected-resource\\n" +
-          "// Authorization Server: " + baseUrl + "/oauth/authorize\\n" +
-          "// Token Endpoint:       " + baseUrl + "/oauth/token\\n" +
-          "// Dynamic Client Reg:   " + baseUrl + "/oauth/register"
-      };
-    }
-
-    let curTab = 'claude';
-    function showTab(name) {
-      curTab = name;
-      document.querySelectorAll('.tab').forEach(b => {
-        b.classList.toggle('active', b.getAttribute('onclick').includes("'" + name + "'"));
-      });
-      document.getElementById('snippet').textContent = getSnippets()[name];
-    }
-    showTab('claude');
-
-    function copySnippet() {
-      navigator.clipboard.writeText(getSnippets()[curTab]);
-      const btn = document.querySelector('.copy-btn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy', 1500);
-    }
-
-    function copyMcpUrl() {
-      const el = document.getElementById('mcpUrlInput');
-      el.select();
-      navigator.clipboard.writeText(el.value);
-      const btn = document.getElementById('copyUrlBtn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy URL', 1500);
-    }
-
-    async function generateKey() {
-      const btn = document.getElementById('genBtn');
-      btn.disabled = true;
-      btn.textContent = 'Generating…';
-      try {
-        const res = await fetch('/auth/keys', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: 'Client Key ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) })
-        });
-        const data = await res.json();
-        if (data.key) {
-          activeKey = data.key;
-          document.getElementById('keyDisp').style.display = 'flex';
-          document.getElementById('newKeyVal').value = data.key;
-          showTab(curTab);
-        }
-      } catch (e) {
-        alert('Failed to generate key: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '+ Generate New Gateway Key';
-      }
-    }
-
-    function copyNewKey() {
-      const el = document.getElementById('newKeyVal');
-      el.select();
-      navigator.clipboard.writeText(el.value);
-      alert('Gateway API Key copied to clipboard! The code snippets above have also been updated with this key.');
-    }
-  </script>
-</body>
-</html>`);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderStatsPage({
+      base,
+      isOwner: true,
+      owner,
+      summary,
+    }),
+  );
 });
 
 // Body-parser and other middleware errors: never leak internals.

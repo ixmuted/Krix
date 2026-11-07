@@ -262,4 +262,94 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.equal(verification.valid, true);
     assert.equal(verification.payload.sub, "owner@example.com");
   });
+
+  test("RS256 asymmetric token verification and RFC 7517 JWKS discovery", async () => {
+    // 1. Fetch JWKS
+    const jwksRes = await fetch(`${base}/.well-known/jwks.json`);
+    assert.equal(jwksRes.status, 200);
+    const jwks = (await jwksRes.json()) as any;
+    assert.ok(Array.isArray(jwks.keys));
+    assert.equal(jwks.keys.length > 0, true);
+    const key = jwks.keys[0];
+    assert.equal(key.kty, "RSA");
+    assert.equal(key.alg, "RS256");
+    assert.equal(key.use, "sig");
+    assert.ok(key.n && key.e);
+
+    // 2. Register client & get token to verify RS256 signature
+    const regRes = await fetch(`${base}/oauth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_name: "RS256 Client",
+        redirect_uris: ["http://127.0.0.1:9099/callback"],
+      }),
+    });
+    const client = (await regRes.json()) as any;
+
+    const verifier = crypto.randomBytes(32).toString("base64url");
+    const challenge = crypto
+      .createHash("sha256")
+      .update(verifier)
+      .digest("base64url");
+
+    const sessionPayload = Buffer.from(
+      JSON.stringify({
+        email: "owner@example.com",
+        expiresAt: Date.now() + 3600 * 1000,
+      }),
+    ).toString("base64url");
+    const sessionSig = crypto
+      .createHmac("sha256", process.env.SESSION_SECRET!)
+      .update(sessionPayload)
+      .digest("base64url");
+    const sessionCookie = `krix_session=${sessionPayload}.${sessionSig}`;
+
+    const authRes = await fetch(`${base}/oauth/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: sessionCookie,
+      },
+      redirect: "manual",
+      body: new URLSearchParams({
+        client_id: client.client_id,
+        redirect_uri: "http://127.0.0.1:9099/callback",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+        scope: "mcp:tools",
+        state: "rs256-state",
+      }).toString(),
+    });
+    const redirectUrl = new URL(authRes.headers.get("location")!);
+    const code = redirectUrl.searchParams.get("code");
+
+    const tokenRes = await fetch(`${base}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: code!,
+        code_verifier: verifier,
+        client_id: client.client_id,
+        redirect_uri: "http://127.0.0.1:9099/callback",
+      }).toString(),
+    });
+
+    const tokenData = (await tokenRes.json()) as any;
+    const parts = tokenData.access_token.split(".");
+    assert.equal(parts.length, 3);
+    const header = JSON.parse(
+      Buffer.from(parts[0], "base64url").toString("utf-8"),
+    );
+    assert.equal(header.alg, "RS256");
+
+    // Cryptographic RS256 verification using the public key
+    const pubKey = crypto.createPublicKey({ key: key, format: "jwk" });
+    const verified = crypto
+      .createVerify("RSA-SHA256")
+      .update(`${parts[0]}.${parts[1]}`)
+      .verify(pubKey, parts[2], "base64url");
+    assert.equal(verified, true);
+  });
 });
