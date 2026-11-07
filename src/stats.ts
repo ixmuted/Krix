@@ -694,6 +694,45 @@ export class StatsTracker {
       }
     }
 
+    // Prune any deleted/revoked dynamic API keys so they never show up in stats or tools
+    if (dynamicKeys && Array.isArray(dynamicKeys)) {
+      const activeDynamicIds = new Set(dynamicKeys.map((k) => k.id));
+      for (const [keyId, metric] of Array.from(this.keys.entries())) {
+        if (metric.type === "api_key" && !activeDynamicIds.has(keyId)) {
+          this.keys.delete(keyId);
+          changed = true;
+        }
+      }
+    }
+
+    // Prune any deleted/revoked OAuth clients so they never show up in stats or tools
+    if (oauthClients && Array.isArray(oauthClients)) {
+      const activeOAuthIds = new Set(oauthClients.map((c) => c.clientId));
+      for (const [keyId, metric] of Array.from(this.keys.entries())) {
+        if (metric.type === "oauth" && !activeOAuthIds.has(keyId)) {
+          this.keys.delete(keyId);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      this.scheduleSave();
+    }
+  }
+
+  public removeKey(id: string): void {
+    let changed = false;
+    if (this.keys.has(id)) {
+      this.keys.delete(id);
+      changed = true;
+    }
+    for (const k of Array.from(this.keys.keys())) {
+      if (k === id || k.includes(id)) {
+        this.keys.delete(k);
+        changed = true;
+      }
+    }
     if (changed) {
       this.scheduleSave();
     }

@@ -42,6 +42,9 @@ export function renderSvg(
     | "server"
     | "cpu"
     | "copy"
+    | "clipboard"
+    | "eye"
+    | "eye-off"
     | "check"
     | "trash"
     | "download"
@@ -55,6 +58,12 @@ export function renderSvg(
   size = 14,
 ): string {
   switch (name) {
+    case "eye":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    case "eye-off":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+    case "clipboard":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
     case "edit":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
     case "more-vertical":
@@ -1042,18 +1051,80 @@ export function getBaseStyles(): string {
       box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
-    @media (max-width: 640px) {
-      .grid-4 { grid-template-columns: 1fr; }
-      .nav-inner { padding: 0 12px; gap: 8px; }
-      .nav-pills {
+    .mobile-subnav {
+      display: none;
+    }
+    .key-display-scroll {
+      display: inline-block;
+      max-width: 180px;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: thin;
+      vertical-align: middle;
+    }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 8px;
+      min-width: 32px;
+      min-height: 28px;
+    }
+
+    @media (max-width: 680px) {
+      .desktop-only-nav {
+        display: none !important;
+      }
+      .mobile-subnav {
+        display: block;
+        background: var(--header-bg);
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 49px;
+        z-index: 99;
+      }
+      .mobile-subnav-scroll {
         display: flex;
+        align-items: center;
+        gap: 6px;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        padding: 8px 12px;
         scrollbar-width: none;
-        max-width: calc(100vw - 120px);
-        padding: 4px 0;
       }
-      .nav-pills::-webkit-scrollbar { display: none; }
+      .mobile-subnav-scroll::-webkit-scrollbar {
+        display: none;
+      }
+      .mobile-subnav-pill {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--accents-5);
+        padding: 5px 12px;
+        border-radius: 20px;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+        background: var(--accents-1);
+        touch-action: manipulation;
+        min-height: 32px;
+      }
+      .mobile-subnav-pill:hover {
+        color: var(--fg);
+        background: var(--accents-2);
+      }
+      .mobile-subnav-pill.active {
+        color: var(--fg);
+        background: var(--card-bg);
+        border-color: var(--border);
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .grid-4 { grid-template-columns: 1fr; }
+      .nav-inner { padding: 0 12px; gap: 8px; }
+      .key-display-scroll { max-width: 130px; }
       .endpoint-row { flex-direction: column; }
       footer { flex-direction: column; gap: 12px; text-align: center; }
     }
@@ -1093,7 +1164,7 @@ export function renderHeader(
           <span>Krix</span>
         </a>
 
-        <nav class="nav-pills">
+        <nav class="nav-pills desktop-only-nav">
           <a href="/home" class="nav-pill ${activeNav === "home" ? "active" : ""}">Home</a>
           <a href="/upload" class="nav-pill ${activeNav === "upload" ? "active" : ""}">Upload</a>
           <a href="/store" class="nav-pill ${activeNav === "store" ? "active" : ""}">Store</a>
@@ -1151,6 +1222,19 @@ export function renderHeader(
           }
         </div>
       </div>
+
+      <!-- Mobile-only Horizontally Scrollable Navigation Sub-bar -->
+      <nav class="mobile-subnav" aria-label="Mobile Navigation">
+        <div class="mobile-subnav-scroll">
+          <a href="/home" class="mobile-subnav-pill ${activeNav === "home" ? "active" : ""}">Home</a>
+          <a href="/upload" class="mobile-subnav-pill ${activeNav === "upload" ? "active" : ""}">Upload</a>
+          <a href="/store" class="mobile-subnav-pill ${activeNav === "store" ? "active" : ""}">Store</a>
+          <a href="/stats" class="mobile-subnav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
+          <a href="/tools" class="mobile-subnav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
+          <a href="/api" class="mobile-subnav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
+          <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="mobile-subnav-pill">Contact</a>
+        </div>
+      </nav>
     </header>
 
     <!-- Sign Out Confirmation Modal -->
@@ -1685,14 +1769,22 @@ export function renderApiKeysPage(params: {
           <div style="font-size:12px; color:var(--accents-5); margin-bottom:12px;">Copy your secret key and 12-character client ID now. Both are safely stored and always viewable below.</div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; gap:8px; align-items:center;">
-              <span style="font-size:12px; color:var(--accents-5); width:75px;">API Key:</span>
-              <input type="text" id="newKeyField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
-              <button type="button" class="btn" onclick="copyCreatedKey()" id="copyKeyBtn">Copy Key</button>
+              <span style="font-size:12px; color:var(--accents-5); width:75px; flex-shrink:0;">API Key:</span>
+              <div style="flex:1; min-width:0; overflow-x:auto; white-space:nowrap;">
+                <input type="text" id="newKeyField" readonly style="width:100%; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
+              </div>
+              <button type="button" class="btn icon-btn" onclick="copyCreatedKey()" id="copyKeyBtn" title="Copy Key" aria-label="Copy Key" style="display:inline-flex; align-items:center; gap:6px;">
+                ${renderSvg("copy", 14)} <span>Copy</span>
+              </button>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
-              <span style="font-size:12px; color:var(--accents-5); width:75px;">Client ID:</span>
-              <input type="text" id="newClientIdField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
-              <button type="button" class="btn" onclick="copyCreatedClientId()" id="copyClientIdBtn">Copy Client ID</button>
+              <span style="font-size:12px; color:var(--accents-5); width:75px; flex-shrink:0;">Client ID:</span>
+              <div style="flex:1; min-width:0; overflow-x:auto; white-space:nowrap;">
+                <input type="text" id="newClientIdField" readonly style="width:100%; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
+              </div>
+              <button type="button" class="btn icon-btn" onclick="copyCreatedClientId()" id="copyClientIdBtn" title="Copy Client ID" aria-label="Copy Client ID" style="display:inline-flex; align-items:center; gap:6px;">
+                ${renderSvg("copy", 14)} <span>Copy</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1742,14 +1834,20 @@ export function renderApiKeysPage(params: {
                   <td>
                     <div style="display:flex; align-items:center; gap:6px;">
                       <code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">${escapeHtml(cId || "N/A")}</code>
-                      ${cId ? `<button type="button" class="btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="font-size:11px; padding:3px 6px;" title="Copy Client ID">Copy</button>` : ""}
+                      ${cId ? `<button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="padding:4px 7px;" title="Copy Client ID" aria-label="Copy Client ID">${renderSvg("copy", 13)}</button>` : ""}
                     </div>
                   </td>
                   <td>
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <code id="key-val-${escapeHtml(id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>
-                      <button type="button" class="btn" onclick="toggleKeyReveal('${escapeHtml(id)}')" style="font-size:11px; padding:3px 8px;">Reveal</button>
-                      <button type="button" class="btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" style="font-size:11px; padding:3px 8px;">Copy</button>
+                      <div class="key-display-scroll" style="max-width:180px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">
+                        <code id="key-val-${escapeHtml(id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block;">••••••••••••••••</code>
+                      </div>
+                      <button type="button" class="btn icon-btn" id="reveal-btn-${escapeHtml(id)}" onclick="toggleKeyReveal('${escapeHtml(id)}')" title="Reveal API Key" aria-label="Reveal API Key" style="padding:4px 7px;">
+                        ${renderSvg("eye", 14)}
+                      </button>
+                      <button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" title="Copy API Key" aria-label="Copy API Key" style="padding:4px 7px;">
+                        ${renderSvg("copy", 14)}
+                      </button>
                     </div>
                   </td>
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
@@ -1808,12 +1906,16 @@ export function renderApiKeysPage(params: {
         </div>
       </div>
 
-      <!-- Active OAuth Authorizations Card with Kebab Actions -->
+      <!-- Active OAuth Authorizations Card with Search & Kebab Actions -->
       <div class="card" style="margin-bottom:24px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div style="display:flex; align-items:center; gap:10px;">
-            <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active OAuth Authorizations</h2>
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin:0;">Active OAuth Authorizations</h2>
             <span class="badge ${oauthAuthorizations.length > 0 ? "success" : ""}" id="oauthCountBadge">${oauthAuthorizations.length}/20 connected</span>
+          </div>
+          <div class="search-input-wrap" style="width:100%; max-width:320px;">
+            ${renderSvg("search", 15)}
+            <input type="text" id="oauthSearchInput" placeholder="Search OAuth clients" oninput="filterOAuth()" autocomplete="off" spellcheck="false">
           </div>
         </div>
 
@@ -1833,7 +1935,7 @@ export function renderApiKeysPage(params: {
                   ? oauthAuthorizations
                       .map(
                         (a) => `
-                <tr id="oauth-row-${escapeHtml(a.clientId)}" class="oauth-row">
+                <tr id="oauth-row-${escapeHtml(a.clientId)}" class="oauth-row" data-name="${escapeHtml(a.clientName.toLowerCase())}" data-id="${escapeHtml(a.clientId.toLowerCase())}" data-scope="${escapeHtml(a.scope.toLowerCase())}">
                   <td><strong id="oauth-name-text-${escapeHtml(a.clientId)}">${escapeHtml(a.clientName)}</strong></td>
                   <td style="font-family:ui-monospace, monospace; color:var(--accents-5); font-size:12px;">${escapeHtml(a.clientId)}</td>
                   <td style="font-size:12px; color:var(--accents-5);">${escapeHtml(a.scope)}</td>
@@ -1868,6 +1970,9 @@ export function renderApiKeysPage(params: {
               }
             </tbody>
           </table>
+          <div id="noOAuthMatch" style="display:none; text-align:center; padding:24px; color:var(--accents-5);">
+            No OAuth authorizations match your search query.
+          </div>
         </div>
 
         <!-- OAuth Pagination Bar -->
@@ -1969,7 +2074,7 @@ export function renderApiKeysPage(params: {
     }
 
     function renderOAuthPagination() {
-      const rows = Array.from(document.querySelectorAll('#oauthTableBody tr.oauth-row'));
+      const rows = Array.from(document.querySelectorAll('#oauthTableBody tr.oauth-row')).filter(r => r.getAttribute('data-filtered') !== 'true');
       const total = rows.length;
       const totalPages = Math.max(1, Math.ceil(total / OAUTH_PER_PAGE));
       if (oauthCurrentPage > totalPages) oauthCurrentPage = totalPages;
@@ -1999,6 +2104,24 @@ export function renderApiKeysPage(params: {
       renderOAuthPagination();
     }
 
+    function filterOAuth() {
+      const q = (document.getElementById('oauthSearchInput')?.value || '').trim().toLowerCase();
+      const rows = document.querySelectorAll('#oauthTableBody tr.oauth-row');
+      let visible = 0;
+      rows.forEach(r => {
+        const name = r.getAttribute('data-name') || '';
+        const id = r.getAttribute('data-id') || '';
+        const scope = r.getAttribute('data-scope') || '';
+        const match = !q || name.includes(q) || id.includes(q) || scope.includes(q);
+        r.setAttribute('data-filtered', match ? 'false' : 'true');
+        if (match) visible++;
+      });
+      oauthCurrentPage = 1;
+      renderOAuthPagination();
+      const noMatch = document.getElementById('noOAuthMatch');
+      if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
+    }
+
     function filterKeys() {
       const q = (document.getElementById('keySearchInput').value || '').trim().toLowerCase();
       const rows = document.querySelectorAll('#keysTableBody tr.key-row');
@@ -2020,15 +2143,26 @@ export function renderApiKeysPage(params: {
 
     function toggleKeyReveal(id) {
       const el = document.getElementById('key-val-' + id);
+      const btn = document.getElementById('reveal-btn-' + id);
       if (!el) return;
       const isRevealed = el.getAttribute('data-revealed') === 'true';
       const full = el.getAttribute('data-full') || '';
       if (isRevealed) {
         el.textContent = '••••••••••••••••';
         el.setAttribute('data-revealed', 'false');
+        if (btn) {
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+          btn.title = 'Reveal API Key';
+          btn.setAttribute('aria-label', 'Reveal API Key');
+        }
       } else {
         el.textContent = full;
         el.setAttribute('data-revealed', 'true');
+        if (btn) {
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+          btn.title = 'Hide API Key';
+          btn.setAttribute('aria-label', 'Hide API Key');
+        }
       }
     }
 
@@ -2331,14 +2465,16 @@ export function renderApiKeysPage(params: {
               '<td>' +
               '<div style="display:flex; align-items:center; gap:6px;">' +
               '<code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">' + (safeCId || 'N/A') + '</code>' +
-              (safeCId ? '<button type="button" class="btn copy-cid-btn" style="font-size:11px; padding:3px 6px;">Copy</button>' : '') +
+              (safeCId ? '<button type="button" class="btn icon-btn copy-cid-btn" title="Copy Client ID" aria-label="Copy Client ID" style="padding:4px 7px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' : '') +
               '</div>' +
               '</td>' +
               '<td>' +
               '<div style="display:flex; align-items:center; gap:8px;">' +
-              '<code id="key-val-' + safeId + '" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>' +
-              '<button type="button" class="btn reveal-key-btn" style="font-size:11px; padding:3px 8px;">Reveal</button>' +
-              '<button type="button" class="btn copy-key-btn" style="font-size:11px; padding:3px 8px;">Copy</button>' +
+              '<div class="key-display-scroll" style="max-width:180px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">' +
+              '<code id="key-val-' + safeId + '" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block;">••••••••••••••••</code>' +
+              '</div>' +
+              '<button type="button" class="btn icon-btn reveal-key-btn" id="reveal-btn-' + safeId + '" title="Reveal API Key" aria-label="Reveal API Key" style="padding:4px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>' +
+              '<button type="button" class="btn icon-btn copy-key-btn" title="Copy API Key" aria-label="Copy API Key" style="padding:4px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
               '</div>' +
               '</td>' +
               '<td><span class="local-date">' + new Date().toLocaleDateString() + '</span></td>' +
@@ -2576,7 +2712,10 @@ export function renderToolsPage(params: {
           <input
             type="text"
             id="toolSearchInput"
-            placeholder="Search tools by name, description, or category"
+            placeholder=""
+            value=""
+            autocomplete="off"
+            spellcheck="false"
             oninput="filterTools()"
           />
         </div>
@@ -4349,6 +4488,91 @@ export function renderStorePage(params: {
     // Initial store pagination render
     renderStorePagination();
   </script>
+</body>
+</html>`;
+}
+
+export function renderNotFoundPage(params: {
+  base: string;
+  isOwner: boolean;
+  owner: OwnerProfile | null;
+  pathname?: string;
+  nonce?: string;
+}): string {
+  const { base, isOwner, owner, pathname = "", nonce } = params;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>404 - Page Not Found · Krix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <style>
+    ${getBaseStyles()}
+    .notfound-card {
+      max-width: 520px;
+      margin: 80px auto;
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .notfound-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      color: var(--accents-5);
+      margin-bottom: 16px;
+    }
+    .notfound-code {
+      font-size: 64px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      color: var(--fg);
+      margin-bottom: 8px;
+    }
+  </style>
+  ${renderRecaptchaScript(nonce)}
+  <script${nonce ? ` nonce="${nonce}"` : ""}>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("home", owner, nonce)}
+
+  <div class="wrapper">
+    <div class="card notfound-card">
+      <div class="notfound-badge">404 Error</div>
+      <div class="notfound-code">404</div>
+      <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; color:var(--fg); margin-bottom:8px;">
+        Page Not Found
+      </h1>
+      <p style="font-size:14px; color:var(--accents-5); line-height:1.6; margin-bottom:24px;">
+        The requested URL <code style="font-family:ui-monospace, monospace; background:var(--code-bg); padding:2px 6px; border-radius:4px; font-size:13px; color:var(--fg); word-break:break-all;">${escapeHtml(pathname)}</code> does not exist or has been moved.
+      </p>
+
+      <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+        <a href="/home" class="btn primary">Back to Home</a>
+        <a href="/tools" class="btn">Browse Tools</a>
+        <a href="/upload" class="btn">Sandbox Upload</a>
+        <a href="/store" class="btn">View Store</a>
+      </div>
+    </div>
+  </div>
+
+  ${renderFooter()}
 </body>
 </html>`;
 }

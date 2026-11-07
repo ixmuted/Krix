@@ -14,6 +14,7 @@ import {
   renderToolsPage,
   renderStorePage,
   renderHomePage,
+  renderNotFoundPage,
   getBaseStyles,
 } from "../src/views.js";
 import { StatsTracker } from "../src/stats.js";
@@ -875,6 +876,239 @@ test("OAuth duplicate deduplication, CSP-compliant connector icons, and asset ca
       icons[0]?.src.startsWith("https://raw.githubusercontent.com"),
       "Primary icon must use raw.githubusercontent.com for Google CSP compliance on gemini.google.com",
     );
+  } finally {
+    try {
+      if (fs.existsSync(tmpStatsPath)) fs.unlinkSync(tmpStatsPath);
+    } catch {}
+  }
+});
+
+test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, and deleted keys cleanup", async () => {
+  const owner = {
+    sub: "test-user-123",
+    email: "owner@quickwitty.com",
+    name: "ANKIT",
+    picture: "https://example.com/pic.png",
+  };
+
+  // 1. 404 Not Found Page
+  const notFoundHtml = renderNotFoundPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner,
+    pathname: "/does-not-exist",
+  });
+  assert.ok(
+    notFoundHtml.includes("404 Error"),
+    "404 page must render 404 badge",
+  );
+  assert.ok(
+    notFoundHtml.includes("Page Not Found"),
+    "404 page must render Page Not Found heading",
+  );
+  assert.ok(
+    notFoundHtml.includes("/does-not-exist"),
+    "404 page must display requested pathname",
+  );
+  assert.ok(
+    notFoundHtml.includes("/home"),
+    "404 page must provide Back to Home link",
+  );
+  assert.ok(
+    notFoundHtml.includes("/tools"),
+    "404 page must provide Browse Tools link",
+  );
+
+  // 2. Mobile-only Horizontally Scrollable Navigation Sub-bar in header
+  const headerHtml = renderHeader("upload", owner);
+  assert.ok(
+    headerHtml.includes("mobile-subnav"),
+    "Header must include mobile-subnav element",
+  );
+  assert.ok(
+    headerHtml.includes("mobile-subnav-scroll"),
+    "Header must include mobile-subnav-scroll container",
+  );
+  assert.ok(
+    headerHtml.includes("mobile-subnav-pill active"),
+    "Active page must have active class in mobile subnav",
+  );
+  assert.ok(
+    headerHtml.includes('href="/home"'),
+    "Mobile subnav must link to Home",
+  );
+  assert.ok(
+    headerHtml.includes('href="/upload"'),
+    "Mobile subnav must link to Upload",
+  );
+  assert.ok(
+    headerHtml.includes('href="/store"'),
+    "Mobile subnav must link to Store",
+  );
+  assert.ok(
+    headerHtml.includes('href="/stats"'),
+    "Mobile subnav must link to Stats",
+  );
+  assert.ok(
+    headerHtml.includes('href="/tools"'),
+    "Mobile subnav must link to Tools",
+  );
+  assert.ok(
+    headerHtml.includes('href="/api"'),
+    "Mobile subnav must link to API Keys",
+  );
+  assert.ok(
+    headerHtml.includes("https://quickwitty.onrender.com"),
+    "Mobile subnav must link to Contact",
+  );
+
+  // 3. Tools Search Bar: must NOT have prefilled placeholder text
+  const emptySummary = {
+    totalRequests: 0,
+    totalSuccess: 0,
+    totalErrors: 0,
+    overallSuccessRate: 100,
+    avgDurationMs: 0,
+    p95DurationMs: 0,
+    throughputRpm: 0,
+    activeHttpSessions: 0,
+    totalBytesIn: 0,
+    totalBytesOut: 0,
+    uniqueKeysCount: 0,
+    keys: [],
+    toolDistribution: {},
+    protocolDistribution: {},
+    dailyTimeline: [],
+    weeklyTimeline: [],
+    monthlyTimeline: [],
+    availableYears: [2026],
+    sharedSandbox: { exists: true, totalFiles: 0, totalBytes: 0, root: "" },
+    systemHealth: {
+      nodeUptimeSec: 100,
+      memoryRssMb: 50,
+      memoryHeapMb: 30,
+      cpuUsagePercent: 1,
+    },
+    selectedKeyId: undefined,
+  };
+  const toolsHtml = renderToolsPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner,
+    tools: [],
+    summary: emptySummary as any,
+  });
+  assert.ok(
+    toolsHtml.includes('id="toolSearchInput"'),
+    "Tools page must render toolSearchInput",
+  );
+  assert.ok(
+    toolsHtml.includes('placeholder=""'),
+    "Tools search input must have empty placeholder",
+  );
+
+  // 4. API Keys & OAuth Search, Eye icon, Clipboard copy, and scroll container
+  const apiKeysHtml = renderApiKeysPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner,
+    keys: [
+      {
+        id: "dyn_test_key_1",
+        label: "Claude Desktop",
+        createdAt: Date.now(),
+        prefix: "krix_sec_test",
+        clientId: "client_123456",
+        key: "krix_sec_test_secret_1234567890abcdef",
+      } as any,
+    ],
+    oauthClients: [
+      {
+        clientId: "krix_client_test_oauth",
+        clientName: "Google Gemini",
+        scope: "mcp:tools mcp:sandbox",
+        createdAt: Date.now(),
+      },
+    ],
+  });
+  assert.ok(
+    apiKeysHtml.includes("key-display-scroll"),
+    "API keys must have scrollable container to prevent overflow",
+  );
+  assert.ok(
+    apiKeysHtml.includes("toggleKeyReveal"),
+    "API keys must have toggleKeyReveal function",
+  );
+  assert.ok(
+    apiKeysHtml.includes("oauthSearchInput"),
+    "OAuth authorizations must include search bar",
+  );
+  assert.ok(
+    apiKeysHtml.includes("filterOAuth"),
+    "OAuth search must have filterOAuth function",
+  );
+
+  // 5. Upload Page Redesign: Keep switch, removed unwanted texts
+  const uploadHtml = renderUploadPage("nonce-test", {
+    ttlMinutes: 60,
+    retentionMinutes: 1440,
+    maxFileMb: 25,
+    maxTotalMb: 100,
+    maxFiles: 20,
+    folder: "upload",
+    owner,
+  });
+  assert.ok(
+    uploadHtml.includes(">Keep<"),
+    "Upload page switch must be named Keep",
+  );
+  assert.ok(
+    !uploadHtml.includes(">Permanent Storage<"),
+    "Upload page must not have visible Permanent Storage label",
+  );
+  assert.ok(
+    !uploadHtml.includes("Exempt uploaded files from 24h auto-cleanup"),
+    "Upload page must remove exemption text beneath Keep",
+  );
+  assert.ok(
+    !uploadHtml.includes("Files are saved in your sandbox at upload"),
+    "Upload page must remove sandbox path info text",
+  );
+
+  // 6. Pruning deleted keys in StatsTracker
+  const tmpStatsPath = path.join(
+    os.tmpdir(),
+    `krix_stats_prune_${Date.now()}.json`,
+  );
+  const tracker = new StatsTracker(tmpStatsPath);
+  try {
+    tracker.syncKnownKeys(
+      [
+        { id: "key_active_1", label: "Active Key 1" },
+        { id: "key_to_delete_2", label: "Key To Delete" },
+      ],
+      [{ clientId: "oauth_client_1", clientName: "Gemini" }],
+    );
+
+    let summary = tracker.getSummary();
+    assert.equal(summary.keys.length, 3, "Must have 3 keys initially");
+
+    // Remove key_to_delete_2
+    tracker.removeKey("key_to_delete_2");
+    summary = tracker.getSummary();
+    assert.equal(
+      summary.keys.find((k) => k.keyId === "key_to_delete_2"),
+      undefined,
+      "Deleted key must be removed from stats",
+    );
+
+    // Sync without key_to_delete_2 and verify persistence
+    tracker.syncKnownKeys(
+      [{ id: "key_active_1", label: "Active Key 1" }],
+      [{ clientId: "oauth_client_1", clientName: "Gemini" }],
+    );
+    summary = tracker.getSummary();
+    assert.equal(summary.keys.length, 2, "Only active keys must remain");
   } finally {
     try {
       if (fs.existsSync(tmpStatsPath)) fs.unlinkSync(tmpStatsPath);

@@ -74,6 +74,7 @@ import {
   renderApiKeysPage,
   renderToolsPage,
   renderStorePage,
+  renderNotFoundPage,
   type StoredFileInfo,
 } from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
@@ -1032,6 +1033,7 @@ app.delete("/api/keys/:id", async (req, res) => {
   const id = req.params.id as string;
   const revoked = revokeDynamicKey(id);
   await revokeKeyInMongo(id);
+  statsTracker.removeKey(id);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1502,6 +1504,31 @@ const cleanupTimer = setInterval(
   3 * 60 * 1000,
 );
 cleanupTimer.unref();
+
+// 404 Catch-All Handler: returns modern branded 404 page for browsers, JSON for APIs
+app.use((req: Request, res: Response): void => {
+  res.status(404);
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  if (req.accepts("html")) {
+    const owner = parseOwnerCookie(req);
+    const isOwner = Boolean(owner);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(
+      renderNotFoundPage({
+        base,
+        isOwner,
+        owner,
+        pathname: req.originalUrl || req.url,
+      }),
+    );
+    return;
+  }
+  res.json({
+    error: "Not Found",
+    status: 404,
+    path: req.originalUrl || req.url,
+  });
+});
 
 const PORT = Number(process.env.PORT) || 3000;
 const server = app.listen(PORT, () => {

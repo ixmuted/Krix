@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import express, { Router, type Request, type Response } from "express";
+import { statsTracker } from "./stats.js";
 import {
   parseOwnerCookie,
   getPublicBaseUrl,
@@ -808,8 +809,8 @@ export function createMcpOAuthRouter(): Router {
       height: 100%;
       object-fit: cover;
     }
-    h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--fg); margin-bottom: 6px; }
-    p.sub { color: var(--accents-5); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--fg); margin-bottom: 6px; word-break: break-word; overflow-wrap: anywhere; }
+    p.sub { color: var(--accents-5); font-size: 13px; margin-bottom: 20px; line-height: 1.5; word-break: break-word; overflow-wrap: anywhere; }
     .user-badge {
       display: flex;
       align-items: center;
@@ -820,6 +821,7 @@ export function createMcpOAuthRouter(): Router {
       border: 1px solid var(--border);
       margin-bottom: 20px;
       font-size: 13px;
+      word-break: break-all;
     }
     .user-badge img {
       width: 24px;
@@ -885,6 +887,25 @@ export function createMcpOAuthRouter(): Router {
       border: 1px solid var(--border);
       background: var(--accents-1);
       color: #0070f3;
+    }
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+        justify-content: flex-start;
+        padding-top: 24px;
+      }
+      .card {
+        padding: 20px 16px;
+        border-radius: 12px;
+        max-width: 100%;
+      }
+      h1 { font-size: 18px; }
+      p.sub { font-size: 12px; }
+      .user-badge { font-size: 12px; padding: 8px 12px; gap: 8px; }
+      .scope-item { font-size: 12px; align-items: flex-start; }
+      .scope-item svg { margin-top: 2px; flex-shrink: 0; }
+      .actions { flex-direction: column-reverse; gap: 8px; }
+      .btn { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; }
     }
   </style>
   <script nonce="${nonce}">
@@ -1382,6 +1403,7 @@ export function createMcpOAuthRouter(): Router {
       }
       const clientId = String(req.params.clientId || "");
       const success = revokeOAuthAuthorization(clientId);
+      statsTracker.removeKey(clientId);
       res.json({ success });
     },
   );

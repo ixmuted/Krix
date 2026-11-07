@@ -867,19 +867,18 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
             <span class="badge">${info.maxFileMb} MB per file</span>
           </div>
 
-          <!-- Redesigned Permanent Storage Toggle Switch -->
-          <div class="switch-wrap">
+          <!-- Redesigned Keep Storage Toggle Switch (Permanent Storage) -->
+          <div class="switch-wrap" data-feature="Permanent Storage">
             <div style="display:flex; align-items:center; gap:10px;">
               <div style="color:#0070f3; display:flex;">
                 ${renderSvg("shield", 18)}
               </div>
               <div>
-                <div style="font-weight:600; font-size:13px; color:var(--fg);">Permanent Storage</div>
-                <div style="font-size:12px; color:var(--accents-5);">Exempt uploaded files from 24h auto-cleanup</div>
+                <div style="font-weight:600; font-size:13px; color:var(--fg);">Keep</div>
               </div>
             </div>
-            <label class="switch" title="Toggle permanent storage mode">
-              <input type="checkbox" id="permSave">
+            <label class="switch" title="Keep (Permanent Storage)">
+              <input type="checkbox" id="permSave" aria-label="Permanent Storage">
               <span class="slider"></span>
             </label>
           </div>
@@ -897,10 +896,6 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
             </div>
           </div>
           <input id="picker" type="file" multiple hidden>
-
-          <div style="margin-top:14px; font-size:12px; color:var(--accents-5); line-height:1.5;">
-            Files are saved in your sandbox at <code>${info.folder}/&lt;filename&gt;</code> and are instantly accessible to your AI.
-          </div>
         </div>
 
         <!-- Right: Uploaded Files Manager Card -->
