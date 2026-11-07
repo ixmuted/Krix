@@ -397,6 +397,15 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     );
     assert.ok(html.includes("/icon-48.png"), "Must display anime avatar icon");
     assert.ok(!html.includes("..."), "Must not contain ellipsis in microcopy");
+    const csp = getRes.headers.get("content-security-policy") || "";
+    assert.ok(
+      csp.includes("form-action 'self' https: http:"),
+      "CSP form-action must allow redirects to https and http OAuth callback URIs",
+    );
+    assert.ok(
+      !html.includes('style="'),
+      "Must not contain inline style attributes that trigger CSP violations",
+    );
 
     // 2. POST approval (simulating user clicking Approve & Connect)
     const postRes = await fetch(`${base}/oauth/authorize`, {

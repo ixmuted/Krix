@@ -449,7 +449,7 @@ export function createMcpOAuthRouter(): Router {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' https: data:; form-action 'self'`,
+      `default-src 'none'; style-src 'nonce-${nonce}' 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src 'self' https: data:; form-action 'self' https: http:; base-uri 'self'`,
     );
 
     res.send(`<!DOCTYPE html>
@@ -610,6 +610,15 @@ export function createMcpOAuthRouter(): Router {
       color: var(--fg);
     }
     .btn.secondary:hover { background: var(--accents-2); border-color: var(--accents-4); }
+    .oauth-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--accents-1);
+      color: #0070f3;
+    }
   </style>
   <script nonce="${nonce}">
     const t = localStorage.getItem('qw-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -625,7 +634,7 @@ export function createMcpOAuthRouter(): Router {
         </div>
         <span>Krix</span>
       </div>
-      <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; border:1px solid var(--border); background:var(--accents-1); color:#0070f3;">OAuth</span>
+      <span class="oauth-pill">OAuth</span>
     </div>
 
     <h1>Authorize Access</h1>
