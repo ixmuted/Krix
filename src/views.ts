@@ -508,11 +508,18 @@ export function getBaseStyles(): string {
       inset: 0;
       background: rgba(0,0,0,0.65);
       backdrop-filter: blur(4px);
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       z-index: 10000;
       padding: 20px;
+    }
+    .modal-backdrop.open,
+    .modal-backdrop.active {
+      display: flex;
+    }
+    .modal-backdrop[hidden] {
+      display: none !important;
     }
     .modal-card {
       background: var(--card-bg);
@@ -1184,13 +1191,17 @@ export function renderApiKeysPage(params: {
                 keys.length > 0
                   ? keys
                       .map((k) => {
-                        const fullKey = (k as any).key || k.prefix;
+                        const label = k.label || "Personal Key";
+                        const prefix =
+                          k.prefix || (k as any).key?.slice(0, 16) || "";
+                        const id = k.id || "";
                         const cId = (k as any).clientId || "";
+                        const fullKey = (k as any).key || prefix || id;
                         return `
-                <tr id="row-${escapeHtml(k.id)}" class="key-row" data-label="${escapeHtml(k.label.toLowerCase())}" data-client-id="${escapeHtml(cId.toLowerCase())}" data-prefix="${escapeHtml(k.prefix.toLowerCase())}" data-id="${escapeHtml(k.id.toLowerCase())}">
+                <tr id="row-${escapeHtml(id)}" class="key-row" data-label="${escapeHtml(label.toLowerCase())}" data-client-id="${escapeHtml(cId.toLowerCase())}" data-prefix="${escapeHtml(prefix.toLowerCase())}" data-id="${escapeHtml(id.toLowerCase())}">
                   <td>
-                    <div style="font-weight:600; color:var(--fg);">${escapeHtml(k.label)}</div>
-                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(k.id)}</div>
+                    <div style="font-weight:600; color:var(--fg);">${escapeHtml(label)}</div>
+                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(id)}</div>
                   </td>
                   <td>
                     <div style="display:flex; align-items:center; gap:6px;">
@@ -1200,15 +1211,15 @@ export function renderApiKeysPage(params: {
                   </td>
                   <td>
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <code id="key-val-${escapeHtml(k.id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>
-                      <button type="button" class="btn" onclick="toggleKeyReveal('${escapeHtml(k.id)}')" style="font-size:11px; padding:3px 8px;">Reveal</button>
+                      <code id="key-val-${escapeHtml(id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>
+                      <button type="button" class="btn" onclick="toggleKeyReveal('${escapeHtml(id)}')" style="font-size:11px; padding:3px 8px;">Reveal</button>
                       <button type="button" class="btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" style="font-size:11px; padding:3px 8px;">Copy</button>
                     </div>
                   </td>
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
                   <td><span class="badge success">Active</span></td>
                   <td>
-                    <button class="btn" onclick="openRevokeKeyModal('${escapeHtml(k.id)}', '${escapeHtml(k.label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                    <button class="btn" onclick="openRevokeKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
                   </td>
                 </tr>
               `;
@@ -1288,7 +1299,7 @@ export function renderApiKeysPage(params: {
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <!-- Custom Geist Confirmation Modal -->
-  <div id="confirmModal" class="modal-backdrop" style="display:none;" role="dialog" aria-modal="true">
+  <div id="confirmModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
     <div class="modal-card">
       <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Revocation</h3>
       <p id="modalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
@@ -1388,7 +1399,11 @@ export function renderApiKeysPage(params: {
         }
       };
       document.getElementById('modalConfirmBtn').onclick = activeConfirmAction;
-      document.getElementById('confirmModal').style.display = 'flex';
+      const m = document.getElementById('confirmModal');
+      if (m) {
+        m.removeAttribute('hidden');
+        m.classList.add('open');
+      }
     }
 
     function openRevokeOAuthModal(clientId, clientName) {
@@ -1410,12 +1425,19 @@ export function renderApiKeysPage(params: {
         }
       };
       document.getElementById('modalConfirmBtn').onclick = activeConfirmAction;
-      document.getElementById('confirmModal').style.display = 'flex';
+      const m = document.getElementById('confirmModal');
+      if (m) {
+        m.removeAttribute('hidden');
+        m.classList.add('open');
+      }
     }
 
     function closeConfirmModal() {
       const modal = document.getElementById('confirmModal');
-      if (modal) modal.style.display = 'none';
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
       activeConfirmAction = null;
     }
 

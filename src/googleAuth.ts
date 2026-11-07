@@ -45,25 +45,39 @@ export function generateClientId(): string {
 }
 
 let mongoDb: Db | null = null;
+let mongoInitPromise: Promise<void> | null = null;
 
-async function initMongoAuth(): Promise<void> {
-  const uri = process.env.MONGODB_URI;
+export async function ensureMongoAuth(): Promise<void> {
+  if (mongoDb) return;
+  const uri =
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URL ||
+    process.env.DATABASE_URL;
   if (!uri) return;
-  try {
-    const client = new MongoClient(uri, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
-      appName: "krix-auth",
-    });
-    await client.connect();
-    const dbName = process.env.MONGODB_DB_NAME || "krix";
-    mongoDb = client.db(dbName);
-    await loadKeysFromMongo();
-  } catch {}
-}
-initMongoAuth().catch(() => {});
 
-async function loadKeysFromMongo(): Promise<void> {
+  if (!mongoInitPromise) {
+    mongoInitPromise = (async () => {
+      try {
+        const client = new MongoClient(uri, {
+          serverSelectionTimeoutMS: 5000,
+          connectTimeoutMS: 5000,
+          appName: "krix-auth",
+        });
+        await client.connect();
+        const dbName =
+          process.env.MONGODB_DB_NAME || process.env.MONGODB_DB || "krix";
+        mongoDb = client.db(dbName);
+        await loadKeysFromMongo();
+      } catch (err: any) {
+        console.error("[mongo-auth] connection error:", err?.message);
+      }
+    })();
+  }
+  await mongoInitPromise;
+}
+ensureMongoAuth().catch(() => {});
+
+export async function loadKeysFromMongo(): Promise<void> {
   if (!mongoDb) return;
   try {
     const col = mongoDb.collection("api_keys");
@@ -72,24 +86,30 @@ async function loadKeysFromMongo(): Promise<void> {
       if (d.revoked) {
         revokedKeyIds.add(d.id);
         dynamicApiKeys.delete(d.id);
-      } else if (d.id && d.key) {
+      } else if (d.id) {
+        const rawKey = d.key || d.prefix || "";
         const entry: GeneratedKeyEntry = {
           id: d.id,
           clientId: d.clientId || generateClientId(),
-          key: d.key,
-          prefix: d.prefix || d.key.slice(0, 16),
+          key: rawKey,
+          prefix: d.prefix || (rawKey ? rawKey.slice(0, 16) : d.id),
           label: d.label || "Personal Key",
           createdAt: d.createdAt || Date.now(),
           lastUsedAt: d.lastUsedAt,
         };
         dynamicApiKeys.set(d.id, entry);
-        registerSecret(entry.key);
+        if (entry.key) {
+          registerSecret(entry.key);
+        }
       }
     }
-  } catch {}
+  } catch (err: any) {
+    console.error("[mongo-auth] loadKeysFromMongo error:", err?.message);
+  }
 }
 
-async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
+export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
+  await ensureMongoAuth();
   if (!mongoDb) return;
   try {
     const col = mongoDb.collection("api_keys");
@@ -98,10 +118,13 @@ async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
       { $set: { ...entry, revoked: false, updatedAt: Date.now() } },
       { upsert: true },
     );
-  } catch {}
+  } catch (err: any) {
+    console.error("[mongo-auth] syncKeyToMongo error:", err?.message);
+  }
 }
 
-async function revokeKeyInMongo(id: string): Promise<void> {
+export async function revokeKeyInMongo(id: string): Promise<void> {
+  await ensureMongoAuth();
   if (!mongoDb) return;
   try {
     const col = mongoDb.collection("api_keys");
@@ -109,7 +132,9 @@ async function revokeKeyInMongo(id: string): Promise<void> {
       { id },
       { $set: { revoked: true, revokedAt: Date.now() } },
     );
-  } catch {}
+  } catch (err: any) {
+    console.error("[mongo-auth] revokeKeyInMongo error:", err?.message);
+  }
 }
 
 function saveKeysToDisk(): void {

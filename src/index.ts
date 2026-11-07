@@ -51,6 +51,9 @@ import {
   listDynamicKeys,
   createDynamicKey,
   revokeDynamicKey,
+  ensureMongoAuth,
+  syncKeyToMongo,
+  revokeKeyInMongo,
 } from "./googleAuth.js";
 import {
   createMcpOAuthRouter,
@@ -829,11 +832,24 @@ app.get(["/", "/home"], async (req, res) => {
 });
 
 app.get(["/api", "/keys"], async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
   const dynamicKeys = listDynamicKeys();
   const oauthAuthorizations = listActiveOAuthAuthorizations();
+
+  if (
+    req.headers.accept?.includes("application/json") &&
+    !req.headers.accept?.includes("text/html")
+  ) {
+    if (!isOwner) {
+      res.status(401).json({ error: "Unauthorized." });
+      return;
+    }
+    res.json({ keys: dynamicKeys, oauthAuthorizations });
+    return;
+  }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(
@@ -847,7 +863,20 @@ app.get(["/api", "/keys"], async (req, res) => {
   );
 });
 
+app.get("/api/keys", async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res
+      .status(401)
+      .json({ error: "Unauthorized. Sign in as owner to list keys." });
+    return;
+  }
+  res.json({ keys: listDynamicKeys() });
+});
+
 app.post("/api/keys", express.json(), async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
   const owner = parseOwnerCookie(req);
   if (!owner) {
     res
@@ -865,6 +894,7 @@ app.post("/api/keys", express.json(), async (req, res) => {
   }
   try {
     const entry = createDynamicKey(label);
+    await syncKeyToMongo(entry);
     res.status(201).json(entry);
   } catch (err: any) {
     res.status(400).json({ error: err.message || "Failed to create API key." });
@@ -872,13 +902,15 @@ app.post("/api/keys", express.json(), async (req, res) => {
 });
 
 app.delete("/api/keys/:id", async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
   const owner = parseOwnerCookie(req);
   if (!owner) {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }
-  const id = req.params.id;
+  const id = req.params.id as string;
   const revoked = revokeDynamicKey(id);
+  await revokeKeyInMongo(id);
   res.json({ success: revoked });
 });
 

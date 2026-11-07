@@ -285,7 +285,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; img-src 'self' https: data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' 'unsafe-inline'; connect-src 'self'; img-src 'self' https: data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
     );
     res.send(
       renderUploadPage(nonce, {
@@ -879,7 +879,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <!-- Custom Geist Confirmation Modal -->
-  <div id="confirmModal" class="modal-backdrop" style="display:none;" role="dialog" aria-modal="true">
+  <div id="confirmModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
     <div class="modal-card">
       <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Action</h3>
       <p id="modalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
@@ -928,12 +928,19 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
         await action();
       };
       $('modalConfirmBtn').onclick = activeConfirmAction;
-      $('confirmModal').style.display = 'flex';
+      const m = $('confirmModal');
+      if (m) {
+        m.removeAttribute('hidden');
+        m.classList.add('open');
+      }
     }
 
     window.closeConfirmModal = function() {
       const modal = $('confirmModal');
-      if (modal) modal.style.display = 'none';
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
       activeConfirmAction = null;
     };
 

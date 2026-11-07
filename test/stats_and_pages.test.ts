@@ -507,8 +507,8 @@ test("API keys page includes live search, custom toasts, revoke confirmation mod
 
   // Custom Revocation Confirmation Modal (no browser confirm popups)
   assert.ok(
-    apiKeysHtml.includes('id="confirmModal"'),
-    "Must have custom confirmation modal",
+    apiKeysHtml.includes('id="confirmModal" class="modal-backdrop" hidden'),
+    "Must have custom confirmation modal hidden by default",
   );
   assert.ok(
     apiKeysHtml.includes("function openRevokeKeyModal("),
@@ -630,8 +630,8 @@ test("Upload Page redesign, 12-char Client ID, 4-char unique API key enforcement
     "Must include custom toast notification container",
   );
   assert.ok(
-    uploadHtml.includes("confirmModal"),
-    "Must include custom confirmation modal",
+    uploadHtml.includes('id="confirmModal" class="modal-backdrop" hidden'),
+    "Confirm modal must be hidden by default on upload page",
   );
 
   // 2. Client ID generation: 12-character alphanumeric
