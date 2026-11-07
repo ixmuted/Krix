@@ -856,11 +856,19 @@ app.post("/api/keys", express.json(), async (req, res) => {
     return;
   }
   const label =
-    typeof req.body?.label === "string" && req.body.label.trim()
-      ? req.body.label.trim()
-      : "Client Key";
-  const entry = createDynamicKey(label);
-  res.status(201).json(entry);
+    typeof req.body?.label === "string" ? req.body.label.trim() : "";
+  if (!label || label.length < 4) {
+    res
+      .status(400)
+      .json({ error: "Key name must be at least 4 characters long." });
+    return;
+  }
+  try {
+    const entry = createDynamicKey(label);
+    res.status(201).json(entry);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "Failed to create API key." });
+  }
 });
 
 app.delete("/api/keys/:id", async (req, res) => {

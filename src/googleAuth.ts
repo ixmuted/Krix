@@ -7,6 +7,7 @@ import express, {
   type Response,
   type NextFunction,
 } from "express";
+import { MongoClient, type Db } from "mongodb";
 import { safeEqual, registerSecret } from "./security.js";
 
 export interface OwnerProfile {
@@ -18,6 +19,7 @@ export interface OwnerProfile {
 
 export interface GeneratedKeyEntry {
   id: string;
+  clientId: string;
   key: string;
   prefix: string;
   label: string;
@@ -31,6 +33,84 @@ const revokedKeyIds = new Set<string>();
 
 const KEYS_FILE = path.resolve(process.cwd(), "data", ".krix_keys.json");
 const SECRET_FILE = path.resolve(process.cwd(), "data", ".krix_session_secret");
+
+export function generateClientId(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = crypto.randomBytes(12);
+  let result = "";
+  for (let i = 0; i < 12; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
+
+let mongoDb: Db | null = null;
+
+async function initMongoAuth(): Promise<void> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) return;
+  try {
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      appName: "krix-auth",
+    });
+    await client.connect();
+    const dbName = process.env.MONGODB_DB_NAME || "krix";
+    mongoDb = client.db(dbName);
+    await loadKeysFromMongo();
+  } catch {}
+}
+initMongoAuth().catch(() => {});
+
+async function loadKeysFromMongo(): Promise<void> {
+  if (!mongoDb) return;
+  try {
+    const col = mongoDb.collection("api_keys");
+    const docs = await col.find({}).toArray();
+    for (const d of docs) {
+      if (d.revoked) {
+        revokedKeyIds.add(d.id);
+        dynamicApiKeys.delete(d.id);
+      } else if (d.id && d.key) {
+        const entry: GeneratedKeyEntry = {
+          id: d.id,
+          clientId: d.clientId || generateClientId(),
+          key: d.key,
+          prefix: d.prefix || d.key.slice(0, 16),
+          label: d.label || "Personal Key",
+          createdAt: d.createdAt || Date.now(),
+          lastUsedAt: d.lastUsedAt,
+        };
+        dynamicApiKeys.set(d.id, entry);
+        registerSecret(entry.key);
+      }
+    }
+  } catch {}
+}
+
+async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
+  if (!mongoDb) return;
+  try {
+    const col = mongoDb.collection("api_keys");
+    await col.updateOne(
+      { id: entry.id },
+      { $set: { ...entry, revoked: false, updatedAt: Date.now() } },
+      { upsert: true },
+    );
+  } catch {}
+}
+
+async function revokeKeyInMongo(id: string): Promise<void> {
+  if (!mongoDb) return;
+  try {
+    const col = mongoDb.collection("api_keys");
+    await col.updateOne(
+      { id },
+      { $set: { revoked: true, revokedAt: Date.now() } },
+    );
+  } catch {}
+}
 
 function saveKeysToDisk(): void {
   try {
@@ -49,6 +129,9 @@ function loadKeysFromDisk(): void {
       const data = JSON.parse(fs.readFileSync(KEYS_FILE, "utf-8"));
       if (Array.isArray(data.keys)) {
         for (const [id, entry] of data.keys) {
+          if (!entry.clientId) {
+            entry.clientId = generateClientId();
+          }
           dynamicApiKeys.set(id, entry);
           if (entry.key) registerSecret(entry.key);
         }
@@ -190,10 +273,29 @@ export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
 }
 
 export function createDynamicKey(
-  label: string = "Generated Key",
+  label: string = "Personal Key",
 ): GeneratedKeyEntry {
-  const id = crypto.randomUUID();
-  const payload = JSON.stringify({ id, label, iat: Date.now() });
+  const cleanLabel = (label || "").trim();
+  if (cleanLabel.length < 4) {
+    throw new Error("Key name must be at least 4 characters long.");
+  }
+
+  for (const existing of dynamicApiKeys.values()) {
+    if (existing.label.toLowerCase() === cleanLabel.toLowerCase()) {
+      throw new Error(
+        `An API key named "${cleanLabel}" already exists. Please choose a unique name.`,
+      );
+    }
+  }
+
+  const id = `kx_${crypto.randomBytes(6).toString("hex")}`;
+  const clientId = generateClientId();
+  const payload = JSON.stringify({
+    id,
+    clientId,
+    label: cleanLabel,
+    iat: Date.now(),
+  });
   const b64 = Buffer.from(payload).toString("base64url");
   const sig = crypto
     .createHmac("sha256", getSessionSecret())
@@ -203,13 +305,15 @@ export function createDynamicKey(
   registerSecret(raw);
   const entry: GeneratedKeyEntry = {
     id,
+    clientId,
     key: raw,
     prefix: raw.slice(0, 16),
-    label,
+    label: cleanLabel,
     createdAt: Date.now(),
   };
   dynamicApiKeys.set(id, entry);
   saveKeysToDisk();
+  syncKeyToMongo(entry).catch(() => {});
   return entry;
 }
 
@@ -221,6 +325,7 @@ export function revokeDynamicKey(id: string): boolean {
   revokedKeyIds.add(id);
   const deleted = dynamicApiKeys.delete(id);
   saveKeysToDisk();
+  revokeKeyInMongo(id).catch(() => {});
   return deleted;
 }
 
@@ -509,18 +614,31 @@ export function createGoogleAuthRouter(): Router {
     "/keys",
     requireOwnerAuth,
     (req: Request, res: Response): void => {
-      const label =
+      const rawLabel =
         typeof req.body?.label === "string"
           ? req.body.label.trim().slice(0, 50)
-          : "Personal Key";
-      const entry = createDynamicKey(label);
-      res.status(201).json({
-        id: entry.id,
-        key: entry.key,
-        prefix: entry.prefix,
-        label: entry.label,
-        createdAt: entry.createdAt,
-      });
+          : "";
+      if (!rawLabel || rawLabel.length < 4) {
+        res
+          .status(400)
+          .json({ error: "Key name must be at least 4 characters long." });
+        return;
+      }
+      try {
+        const entry = createDynamicKey(rawLabel);
+        res.status(201).json({
+          id: entry.id,
+          clientId: entry.clientId,
+          key: entry.key,
+          prefix: entry.prefix,
+          label: entry.label,
+          createdAt: entry.createdAt,
+        });
+      } catch (err: any) {
+        res
+          .status(400)
+          .json({ error: err.message || "Failed to create API key." });
+      }
     },
   );
 

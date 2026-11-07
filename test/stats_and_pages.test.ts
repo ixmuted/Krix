@@ -10,6 +10,12 @@ import {
   renderToolsPage,
   renderApiKeysPage,
 } from "../src/views.js";
+import { renderUploadPage } from "../src/uploadSessions.js";
+import {
+  createDynamicKey,
+  revokeDynamicKey,
+  generateClientId,
+} from "../src/googleAuth.js";
 
 test("StatsTracker records requests, computes timeline graphs, and tracks 4 metrics per key", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "krix-stats-test-"));
@@ -571,5 +577,131 @@ test("Real telemetry audit: Peak traffic falls back to N/A when 0 requests, Prim
     emptyStatsHtml.includes("master-env-key"),
     false,
     "Stats page must not display 'master-env-key'",
+  );
+});
+
+test("Upload Page redesign, 12-char Client ID, 4-char unique API key enforcement, and UI polish", () => {
+  // 1. Upload Page standard layout and modern controls
+  const uploadHtml = renderUploadPage("dummy_nonce", {
+    ttlMinutes: 60,
+    retentionMinutes: 1440,
+    maxFileMb: 25,
+    maxTotalMb: 100,
+    maxFiles: 20,
+    folder: "upload",
+    owner: {
+      email: "owner@example.com",
+      name: "Owner User",
+      expiresAt: Date.now() + 3600000,
+    },
+  });
+
+  // Must use standard header and footer
+  assert.ok(
+    uploadHtml.includes("nav-pill"),
+    "Upload page must include standard nav-pill navigation",
+  );
+  assert.ok(
+    uploadHtml.includes("Krix"),
+    "Upload page must include Krix branding",
+  );
+  assert.ok(
+    uploadHtml.includes("Drag and drop files here, or click to browse"),
+    "Must have modern drop zone text",
+  );
+  assert.ok(
+    uploadHtml.includes("drop-zone"),
+    "Must have modern drop-zone class",
+  );
+  assert.ok(
+    uploadHtml.includes("Search files"),
+    "Must rename Filter files to Search files",
+  );
+  assert.ok(
+    uploadHtml.includes("Permanent Storage"),
+    "Must include Permanent Storage switch",
+  );
+  assert.ok(
+    uploadHtml.includes("switch-wrap"),
+    "Must include switch-wrap toggle component",
+  );
+  assert.ok(
+    uploadHtml.includes("toastContainer"),
+    "Must include custom toast notification container",
+  );
+  assert.ok(
+    uploadHtml.includes("confirmModal"),
+    "Must include custom confirmation modal",
+  );
+
+  // 2. Client ID generation: 12-character alphanumeric
+  const clientId = generateClientId();
+  assert.equal(clientId.length, 12, "Client ID must be exactly 12 characters");
+  assert.ok(
+    /^[a-z0-9]{12}$/.test(clientId),
+    "Client ID must be alphanumeric lowercase string",
+  );
+
+  // 3. Minimum 4 characters key name enforcement
+  assert.throws(
+    () => createDynamicKey("abc"),
+    /Key name must be at least 4 characters long/,
+    "Must reject key name shorter than 4 characters",
+  );
+
+  // 4. Unique key name enforcement
+  const uniqueName = `Suite-Key-${Date.now()}`;
+  const key1 = createDynamicKey(uniqueName);
+  assert.ok(key1.clientId, "Key must have clientId property");
+  assert.equal(key1.clientId.length, 12, "Key clientId must be 12 characters");
+
+  assert.throws(
+    () => createDynamicKey(uniqueName.toLowerCase()),
+    /already exists/,
+    "Must reject duplicate key name case-insensitively",
+  );
+
+  // Clean up key
+  revokeDynamicKey(key1.id);
+
+  // 5. API Keys Page layout: Client ID column, count badge, and no unified auth card
+  const apiKeysHtml = renderApiKeysPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner: {
+      email: "owner@example.com",
+      name: "Owner User",
+      expiresAt: Date.now() + 3600000,
+    },
+    keys: [
+      {
+        id: "test_k1",
+        clientId: "x9k2m1p0q8w4",
+        key: "krix_key_dummy_secret_1234567890",
+        prefix: "krix_key_dummy_",
+        label: "Primary Production Key",
+        createdAt: Date.now(),
+      },
+    ],
+    oauthClients: [],
+  });
+
+  assert.ok(
+    apiKeysHtml.includes("Client ID"),
+    "API keys table must display Client ID column header",
+  );
+  assert.ok(
+    apiKeysHtml.includes("x9k2m1p0q8w4"),
+    "API keys table must render the 12-char client ID",
+  );
+  assert.ok(
+    apiKeysHtml.includes("keysCountBadge"),
+    "Must include keysCountBadge element for reactive counter updates",
+  );
+  assert.equal(
+    apiKeysHtml.includes("Unified Authentication &amp; MCP Integration") ||
+      apiKeysHtml.includes("Unified Authentication & MCP Integration"),
+    false,
+    "API keys page must remove the Unified Authentication & MCP Integration card",
   );
 });

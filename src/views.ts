@@ -2,7 +2,7 @@ import type { OwnerProfile, GeneratedKeyEntry } from "./googleAuth.js";
 import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 import type { ActiveOAuthInfo } from "./mcpOAuth.js";
 
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -600,6 +600,110 @@ export function getBaseStyles(): string {
       color: var(--accents-5);
     }
 
+    .search-input-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .search-input-wrap svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--accents-4);
+    }
+    .search-input-wrap input {
+      width: 100%;
+      height: 38px;
+      padding: 0 14px 0 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      color: var(--fg);
+      font-size: 13px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .search-input-wrap input:focus {
+      outline: none;
+      border-color: var(--fg);
+      box-shadow: 0 0 0 1px var(--fg);
+    }
+    .search-input-wrap input::placeholder {
+      color: var(--accents-4);
+    }
+
+    .drop-zone {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      background: var(--card-bg);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--fg);
+      background: var(--accents-1);
+    }
+    .drop-zone:focus-visible {
+      outline: 2px solid var(--fg);
+    }
+
+    .switch-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      margin-bottom: 16px;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--accents-2);
+      transition: .2s;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--fg);
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #0070f3;
+      border-color: #0070f3;
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: #ffffff;
+    }
+
     footer {
       width: 100%;
       max-width: 1080px;
@@ -1028,16 +1132,24 @@ export function renderApiKeysPage(params: {
         </p>
 
         <form id="createKeyForm" onsubmit="handleCreateKey(event)" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="keyLabelInput" placeholder="Key Label (e.g. Claude Desktop)" required style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
+          <input type="text" id="keyLabelInput" placeholder="Key Name (e.g. Claude Desktop, min 4 characters)" minlength="4" required style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
           <button type="submit" class="btn primary" id="createKeyBtn">Generate Key</button>
         </form>
 
-        <div id="newKeyBanner" style="display:none; margin-top:16px; padding:14px; background:rgba(0,112,243,0.06); border:1px solid rgba(0,112,243,0.3); border-radius:8px;">
-          <div style="font-size:12px; font-weight:600; color:#0070f3; margin-bottom:4px;">New Key Generated</div>
-          <div style="font-size:12px; color:var(--accents-5); margin-bottom:8px;">Copy this key now. You can also view and copy all keys from the table below anytime.</div>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="newKeyField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
-            <button class="btn" onclick="copyCreatedKey()" id="copyKeyBtn">Copy Key</button>
+        <div id="newKeyBanner" style="display:none; margin-top:16px; padding:16px; background:rgba(0,112,243,0.06); border:1px solid rgba(0,112,243,0.3); border-radius:8px;">
+          <div style="font-size:13px; font-weight:600; color:#0070f3; margin-bottom:4px;">New Key Generated Successfully</div>
+          <div style="font-size:12px; color:var(--accents-5); margin-bottom:12px;">Copy your secret key and 12-character client ID now. Both are safely stored and always viewable below.</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span style="font-size:12px; color:var(--accents-5); width:75px;">API Key:</span>
+              <input type="text" id="newKeyField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
+              <button type="button" class="btn" onclick="copyCreatedKey()" id="copyKeyBtn">Copy Key</button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span style="font-size:12px; color:var(--accents-5); width:75px;">Client ID:</span>
+              <input type="text" id="newClientIdField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
+              <button type="button" class="btn" onclick="copyCreatedClientId()" id="copyClientIdBtn">Copy Client ID</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1049,8 +1161,9 @@ export function renderApiKeysPage(params: {
             <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active API Keys</h2>
             <span class="badge" id="keysCountBadge">${keys.length} active</span>
           </div>
-          <div style="width:100%; max-width:320px;">
-            <input type="text" id="keySearchInput" placeholder="Search keys by label, prefix, or ID" oninput="filterKeys()" style="width:100%; padding:7px 12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:12px;">
+          <div class="search-input-wrap" style="width:100%; max-width:320px;">
+            ${renderSvg("search", 15)}
+            <input type="text" id="keySearchInput" placeholder="Search keys by label, client ID, or prefix" oninput="filterKeys()">
           </div>
         </div>
 
@@ -1059,7 +1172,8 @@ export function renderApiKeysPage(params: {
             <thead>
               <tr>
                 <th>Label</th>
-                <th>Key Value</th>
+                <th>Client ID</th>
+                <th>Key Secret</th>
                 <th>Created</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -1071,14 +1185,24 @@ export function renderApiKeysPage(params: {
                   ? keys
                       .map((k) => {
                         const fullKey = (k as any).key || k.prefix;
+                        const cId = (k as any).clientId || "";
                         return `
-                <tr id="row-${escapeHtml(k.id)}" class="key-row" data-label="${escapeHtml(k.label.toLowerCase())}" data-prefix="${escapeHtml(k.prefix.toLowerCase())}" data-id="${escapeHtml(k.id.toLowerCase())}">
-                  <td><strong>${escapeHtml(k.label)}</strong></td>
+                <tr id="row-${escapeHtml(k.id)}" class="key-row" data-label="${escapeHtml(k.label.toLowerCase())}" data-client-id="${escapeHtml(cId.toLowerCase())}" data-prefix="${escapeHtml(k.prefix.toLowerCase())}" data-id="${escapeHtml(k.id.toLowerCase())}">
+                  <td>
+                    <div style="font-weight:600; color:var(--fg);">${escapeHtml(k.label)}</div>
+                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(k.id)}</div>
+                  </td>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">${escapeHtml(cId || "N/A")}</code>
+                      ${cId ? `<button type="button" class="btn" onclick="copyKeyText('${escapeHtml(cId)}', 'Client ID')" style="font-size:11px; padding:3px 6px;">Copy</button>` : ""}
+                    </div>
+                  </td>
                   <td>
                     <div style="display:flex; align-items:center; gap:8px;">
                       <code id="key-val-${escapeHtml(k.id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>
                       <button type="button" class="btn" onclick="toggleKeyReveal('${escapeHtml(k.id)}')" style="font-size:11px; padding:3px 8px;">Reveal</button>
-                      <button type="button" class="btn" onclick="copyKeyText('${escapeHtml(fullKey)}')" style="font-size:11px; padding:3px 8px;">Copy</button>
+                      <button type="button" class="btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" style="font-size:11px; padding:3px 8px;">Copy</button>
                     </div>
                   </td>
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
@@ -1092,7 +1216,7 @@ export function renderApiKeysPage(params: {
                       .join("")
                   : `
                 <tr id="emptyKeysRow">
-                  <td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">
+                  <td colspan="6" style="text-align:center; padding:24px; color:var(--accents-5);">
                     No dynamic keys created yet. Generate one above.
                   </td>
                 </tr>
@@ -1156,34 +1280,6 @@ export function renderApiKeysPage(params: {
           </table>
         </div>
       </div>
-
-      <!-- Security & MCP Integration Guide -->
-      <div class="card" style="margin-top:24px;">
-        <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin-bottom:6px;">Unified Authentication &amp; MCP Integration</h2>
-        <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
-          All generated keys share the same isolated sandbox and 300 MB quota with owner privileges.
-        </p>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
-          <div style="background:var(--card-sub); border:1px solid var(--border); border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">Google Gemini MCP</div>
-            <div style="font-size:12px; color:var(--accents-5); line-height:1.6;">
-              Connect via OAuth 2.1 PKCE by entering your MCP endpoint URL. Redirect URI and Additional settings are handled automatically. If using Client Secret, you may use any active key above.
-            </div>
-          </div>
-          <div style="background:var(--card-sub); border:1px solid var(--border); border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">Claude Desktop &amp; Cursor</div>
-            <div style="font-size:12px; color:var(--accents-5); line-height:1.6;">
-              Supply your active key in HTTP headers using <code>Authorization: Bearer &lt;key&gt;</code> or <code>x-api-key: &lt;key&gt;</code>. Query parameter keys are disabled for maximum logging security.
-            </div>
-          </div>
-          <div style="background:var(--card-sub); border:1px solid var(--border); border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:var(--fg); margin-bottom:4px;">Cryptographic Storage</div>
-            <div style="font-size:12px; color:var(--accents-5); line-height:1.6;">
-              Keys are stored hashed in MongoDB and verified in constant time. Key deletion immediately invalidates access across all MCP connections.
-            </div>
-          </div>
-        </div>
-      </div>
     `
     }
   </div>
@@ -1225,13 +1321,14 @@ export function renderApiKeysPage(params: {
 
     function filterKeys() {
       const q = (document.getElementById('keySearchInput').value || '').trim().toLowerCase();
-      const rows = document.querySelectorAll('.key-row');
+      const rows = document.querySelectorAll('#keysTableBody tr.key-row');
       let visible = 0;
       rows.forEach(r => {
         const label = r.getAttribute('data-label') || '';
+        const clientId = r.getAttribute('data-client-id') || '';
         const prefix = r.getAttribute('data-prefix') || '';
         const id = r.getAttribute('data-id') || '';
-        const match = !q || label.includes(q) || prefix.includes(q) || id.includes(q);
+        const match = !q || label.includes(q) || clientId.includes(q) || prefix.includes(q) || id.includes(q);
         r.style.display = match ? '' : 'none';
         if (match) visible++;
       });
@@ -1253,10 +1350,10 @@ export function renderApiKeysPage(params: {
       }
     }
 
-    function copyKeyText(text) {
+    function copyKeyText(text, label) {
       if (!text) return;
       navigator.clipboard.writeText(text);
-      showToast('API key copied to clipboard', 'success');
+      showToast((label || 'API key') + ' copied to clipboard', 'success');
     }
 
     let activeConfirmAction = null;
@@ -1271,6 +1368,17 @@ export function renderApiKeysPage(params: {
             const row = document.getElementById('row-' + id);
             if (row) row.remove();
             showToast('Key revoked successfully', 'success');
+            
+            // Update counter badge accurately
+            const remaining = document.querySelectorAll('#keysTableBody tr.key-row').length;
+            const badge = document.getElementById('keysCountBadge');
+            if (badge) badge.textContent = remaining + ' active';
+            if (remaining === 0) {
+              const tbody = document.getElementById('keysTableBody');
+              if (tbody) {
+                tbody.innerHTML = '<tr id="emptyKeysRow"><td colspan="6" style="text-align:center; padding:24px; color:var(--accents-5);">No dynamic keys created yet. Generate one above.</td></tr>';
+              }
+            }
             filterKeys();
           } else {
             showToast('Failed to revoke key', 'error');
@@ -1319,6 +1427,12 @@ export function renderApiKeysPage(params: {
       ev.preventDefault();
       const btn = document.getElementById('createKeyBtn');
       const input = document.getElementById('keyLabelInput');
+      const labelVal = (input.value || '').trim();
+      if (labelVal.length < 4) {
+        showToast('Key name must be at least 4 characters long.', 'error');
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = 'Generating';
 
@@ -1326,15 +1440,64 @@ export function renderApiKeysPage(params: {
         const res = await fetch('/api/keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: input.value })
+          body: JSON.stringify({ label: labelVal })
         });
         const data = await res.json();
         if (data.key) {
           document.getElementById('newKeyBanner').style.display = 'block';
           document.getElementById('newKeyField').value = data.key;
+          document.getElementById('newClientIdField').value = data.clientId || '';
           input.value = '';
           showToast('New API key generated successfully', 'success');
-          setTimeout(() => location.reload(), 2000);
+
+          // Dynamically prepend new row into table
+          const emptyRow = document.getElementById('emptyKeysRow');
+          if (emptyRow) emptyRow.remove();
+
+          const tbody = document.getElementById('keysTableBody');
+          if (tbody) {
+            const tr = document.createElement('tr');
+            tr.id = 'row-' + data.id;
+            tr.className = 'key-row';
+            tr.setAttribute('data-label', (data.label || '').toLowerCase());
+            tr.setAttribute('data-client-id', (data.clientId || '').toLowerCase());
+            tr.setAttribute('data-prefix', (data.prefix || '').toLowerCase());
+            tr.setAttribute('data-id', (data.id || '').toLowerCase());
+
+            const safeLabel = (data.label || '').replace(/</g, '&lt;');
+            const safeId = (data.id || '').replace(/</g, '&lt;');
+            const safeCId = (data.clientId || '').replace(/</g, '&lt;');
+            const safeKey = (data.key || '').replace(/'/g, "\\'");
+
+            tr.innerHTML = '<td>' +
+              '<div style="font-weight:600; color:var(--fg);">' + safeLabel + '</div>' +
+              '<div style="font-family:monospace; font-size:11px; color:var(--accents-5);">' + safeId + '</div>' +
+              '</td>' +
+              '<td>' +
+              '<div style="display:flex; align-items:center; gap:6px;">' +
+              '<code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">' + (safeCId || 'N/A') + '</code>' +
+              (safeCId ? '<button type="button" class="btn" onclick="copyKeyText(\'' + safeCId + '\', \'Client ID\')" style="font-size:11px; padding:3px 6px;">Copy</button>' : '') +
+              '</div>' +
+              '</td>' +
+              '<td>' +
+              '<div style="display:flex; align-items:center; gap:8px;">' +
+              '<code id="key-val-' + safeId + '" data-full="' + safeKey + '" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>' +
+              '<button type="button" class="btn" onclick="toggleKeyReveal(\'' + safeId + '\')" style="font-size:11px; padding:3px 8px;">Reveal</button>' +
+              '<button type="button" class="btn" onclick="copyKeyText(\'' + safeKey + '\', \'API Key\')" style="font-size:11px; padding:3px 8px;">Copy</button>' +
+              '</div>' +
+              '</td>' +
+              '<td><span class="local-date">' + new Date().toLocaleDateString() + '</span></td>' +
+              '<td><span class="badge success">Active</span></td>' +
+              '<td>' +
+              '<button class="btn" onclick="openRevokeKeyModal(\'' + safeId + '\', \'' + safeLabel + '\')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>' +
+              '</td>';
+            tbody.insertBefore(tr, tbody.firstChild);
+          }
+
+          // Update counter badge accurately
+          const remaining = document.querySelectorAll('#keysTableBody tr.key-row').length;
+          const badge = document.getElementById('keysCountBadge');
+          if (badge) badge.textContent = remaining + ' active';
         } else {
           showToast('Could not generate key: ' + (data.error || 'Unknown error'), 'error');
         }
@@ -1354,6 +1517,16 @@ export function renderApiKeysPage(params: {
       const b = document.getElementById('copyKeyBtn');
       b.textContent = 'Copied';
       setTimeout(() => { b.textContent = 'Copy Key'; }, 1500);
+    }
+
+    function copyCreatedClientId() {
+      const f = document.getElementById('newClientIdField');
+      f.select();
+      navigator.clipboard.writeText(f.value);
+      showToast('Client ID copied to clipboard', 'success');
+      const b = document.getElementById('copyClientIdBtn');
+      b.textContent = 'Copied';
+      setTimeout(() => { b.textContent = 'Copy Client ID'; }, 1500);
     }
 
     // Format timestamps to user local timezone
@@ -1468,18 +1641,14 @@ export function renderToolsPage(params: {
 
     <!-- Search & Category Filters -->
     <div class="filter-bar">
-      <div style="position:relative; width:100%; max-width:420px;">
+      <div class="search-input-wrap" style="max-width:420px;">
+        ${renderSvg("search", 15)}
         <input
           type="text"
           id="toolSearchInput"
           placeholder="Search tools by name, description, or category"
-          class="input"
-          style="width:100%; padding-left:34px;"
           oninput="filterTools()"
         />
-        <div style="position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--accents-4); display:flex;">
-          ${renderSvg("search", 15)}
-        </div>
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">

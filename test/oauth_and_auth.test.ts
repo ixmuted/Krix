@@ -211,7 +211,8 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
 
   test("Stateless tokens survive server container restarts and memory wipes", async () => {
     // 1. Dynamic Key survives memory wipe
-    const entry = createDynamicKey("Persistent Client Key");
+    const keyLabel = `Persistent Client Key ${Date.now()}`;
+    const entry = createDynamicKey(keyLabel);
     assert.equal(isAuthorizedApiKey(entry.key), true);
 
     // 2. Token refresh works statelessly with a signed refresh token
@@ -261,6 +262,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     const verification = verifyAccessToken(data.access_token);
     assert.equal(verification.valid, true);
     assert.equal(verification.payload.sub, "owner@example.com");
+    revokeDynamicKey(entry.id);
   });
 
   test("RS256 asymmetric token verification and RFC 7517 JWKS discovery", async () => {

@@ -29,6 +29,13 @@ import {
   isAuthorizedApiKey,
   type OwnerProfile,
 } from "./googleAuth.js";
+import {
+  renderHeader,
+  renderFooter,
+  getBaseStyles,
+  renderSvg,
+  escapeHtml,
+} from "./views.js";
 
 /**
  * Temporary web upload sessions.
@@ -660,7 +667,7 @@ export function registerUploadRoutes(
 // UI Render Function
 // -------------------------------------------------------------------------------------------------
 
-interface PageInfo {
+export interface PageInfo {
   ttlMinutes: number;
   retentionMinutes: number;
   maxFileMb: number;
@@ -670,443 +677,551 @@ interface PageInfo {
   owner?: OwnerProfile | null;
 }
 
-function renderUploadPage(nonce: string, info: PageInfo): string {
+export function renderUploadPage(nonce: string, info: PageInfo): string {
   const isOwner = Boolean(info.owner);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>Krix Upload Portal</title>
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
-<style nonce="${nonce}">
-  :root {
-    color-scheme: light dark;
-    --bg: #ffffff;
-    --fg: #000000;
-    --accents-1: #fafafa;
-    --accents-2: #eaeaea;
-    --accents-3: #999999;
-    --accents-4: #888888;
-    --accents-5: #666666;
-    --accents-6: #444444;
-    --accents-7: #333333;
-    --accents-8: #111111;
-    --card: #ffffff;
-    --line: var(--accents-2);
-    --dim: var(--accents-5);
-    --hi: var(--fg);
-    --ok: #0070f3;
-    --bad: #e00;
-    --accent: #0070f3;
-  }
-  .dark {
-    --bg: #000000;
-    --fg: #ffffff;
-    --accents-1: #111111;
-    --accents-2: #222222;
-    --accents-3: #333333;
-    --accents-4: #555555;
-    --accents-5: #777777;
-    --accents-6: #999999;
-    --accents-7: #eaeaea;
-    --accents-8: #fafafa;
-    --card: #0a0a0a;
-    --line: var(--accents-2);
-    --dim: var(--accents-5);
-    --hi: var(--fg);
-    --ok: #0070f3;
-    --bad: #f85149;
-    --accent: #0070f3;
-  }
-  * { box-sizing: border-box; margin:0; padding:0; }
-  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:var(--bg); color:var(--fg); background-image:radial-gradient(var(--accents-2) 1px, transparent 1px); background-size:24px 24px; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; transition:background-color .25s ease, color .25s ease; }
-  .card { width:100%; max-width:540px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:32px; box-shadow:0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); }
-  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-  .brand { display:flex; align-items:center; gap:12px; }
-  .brand-logo { width:38px; height:38px; border-radius:9px; overflow:hidden; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
-  .brand-logo img { width:100%; height:100%; object-fit:cover; }
-  h1 { font-size:20px; color:var(--hi); font-weight:600; }
-  p.sub { margin:6px 0 20px; color:var(--dim); font-size:13px; line-height:1.5; }
-  .owner-pill { display:flex; align-items:center; gap:8px; background:var(--accents-1); border:1px solid var(--line); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--hi); }
-  .owner-pill img { width:20px; height:20px; border-radius:50%; }
-  label { display:block; font-size:13px; color:var(--dim); margin:14px 0 6px; }
-  input[type=password], input[type=text] { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--accents-1); color:var(--hi); font:inherit; }
-  input:focus { outline:2px solid var(--accent); outline-offset:-1px; }
-  details { margin-top:16px; font-size:13px; color:var(--dim); }
-  details summary { cursor:pointer; user-select:none; }
-  button { font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); padding:10px 16px; background:var(--accents-1); color:var(--hi); transition:all .15s cubic-bezier(0.16,1,0.3,1); }
-  button:hover { border-color:var(--accents-4); }
-  button.primary { background:var(--fg); border-color:var(--fg); font-weight:600; width:100%; margin-top:16px; color:var(--bg); }
-  button.primary:hover { opacity:0.9; }
-  button.google-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; background:var(--accents-1); color:var(--hi); font-weight:600; border:1px solid var(--line); padding:11px 16px; margin-top:10px; }
-  button.google-btn:hover { border-color:var(--accents-4); background:var(--accents-2); }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  .err { color:var(--bad); font-size:13px; margin-top:12px; min-height:1.2em; }
-  .bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-  .timer { font-variant-numeric:tabular-nums; font-weight:600; color:var(--hi); }
-  .drop { border:2px dashed var(--line); border-radius:10px; padding:32px 16px; text-align:center; color:var(--dim); cursor:pointer; transition:all .15s; background:var(--accents-1); }
-  .drop.over, .drop:focus-visible { border-color:var(--accent); background:var(--accents-2); outline:none; }
-  ul { list-style:none; margin:16px 0 0; padding:0; max-height:220px; overflow-y:auto; }
-  li { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line); font-size:13px; }
-  li .n { overflow-wrap:anywhere; color:var(--hi); }
-  li .m { color:var(--dim); white-space:nowrap; }
-  li.fail .m { color:var(--bad); }
-  .note { margin-top:18px; font-size:12px; color:var(--dim); line-height:1.5; }
-  code { background:var(--accents-1); border:1px solid var(--line); border-radius:4px; padding:2px 6px; color:var(--hi); font-family:monospace; }
-  .row { display:flex; gap:10px; margin-top:18px; }
-  .row button { flex:1; }
-  [hidden] { display:none !important; }
-  .links { margin-top:20px; font-size:13px; text-align:center; color:var(--dim); }
-  .links a { color:var(--dim); text-decoration:none; }
-  .links a:hover { color:var(--hi); }
-  .file-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line); font-size:13px; }
-  .file-info { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
-  .file-name { font-weight:500; color:var(--hi); overflow-wrap:anywhere; }
-  .file-meta { font-size:11px; color:var(--dim); display:flex; align-items:center; gap:6px; }
-  .file-badge { font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; text-transform:uppercase; }
-  .file-badge.perm { background:rgba(0,112,243,0.12); color:var(--accent); }
-  .file-badge.temp { background:var(--accents-2); color:var(--dim); }
-  .file-actions { display:flex; align-items:center; gap:6px; }
-  .file-btn { font-size:11px; padding:4px 8px; border-radius:6px; border:1px solid var(--line); background:var(--accents-1); color:var(--hi); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
-  .file-btn:hover { border-color:var(--accents-4); background:var(--accents-2); }
-  .file-btn.del:hover { border-color:var(--bad); color:var(--bad); }
-  @media (max-width: 640px) {
-    body { padding:16px 12px; }
-    .card { padding:20px 16px; border-radius:12px; }
-    header { flex-direction:column; align-items:flex-start; gap:12px; }
-    .owner-pill { width:100%; justify-content:space-between; }
-    .row { flex-direction:column; }
-    .file-item { flex-direction:column; align-items:flex-start; }
-    .file-actions { width:100%; justify-content:flex-end; }
-  }
-</style>
-<script nonce="${nonce}">
-  const t = localStorage.getItem('qw-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  if (t === 'dark') document.documentElement.classList.add('dark');
-</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Upload - Krix</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style nonce="${nonce}">
+    ${getBaseStyles()}
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      margin-bottom: 8px;
+      transition: all 0.15s ease;
+    }
+    .file-item:hover {
+      border-color: var(--accents-4);
+    }
+    .file-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+    }
+    .file-name {
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+      color: var(--fg);
+      overflow-wrap: anywhere;
+    }
+    .file-meta {
+      font-size: 11px;
+      color: var(--accents-5);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .file-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+  <script nonce="${nonce}">
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
 </head>
 <body>
-<main class="card">
-  <header>
-    <div class="brand">
-      <div class="brand-logo">
-        <img src="/icon-48.png" alt="Krix">
+  ${renderHeader("upload", info.owner || null)}
+
+  <div class="wrapper">
+    <div style="margin: 20px 0 24px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
+            Sandbox Uploads
+          </h1>
+          <span class="badge" id="sessionBadge">${isOwner ? "Owner Session" : "Guest"}</span>
+        </div>
+        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
+          Upload workspace files, datasets, and scripts directly to your shared sandbox.
+        </p>
       </div>
-      <h1>Krix Upload</h1>
-    </div>
-    ${
-      isOwner
-        ? `
-      <div class="owner-pill">
-        ${info.owner?.picture ? `<img src="${encodeURI(info.owner.picture)}" alt="">` : ""}
-        <span>${encodeURIComponent(info.owner?.email || "Owner")}</span>
+
+      <div style="display:flex; gap:8px;">
+        <a href="/tools" class="btn">Tools</a>
+        <a href="/stats" class="btn">View Stats</a>
+        <a href="/home" class="btn primary">Back to Home</a>
       </div>
-    `
-        : ""
-    }
-  </header>
-
-  <section id="login" ${isOwner ? "hidden" : ""}>
-    <p class="sub">Upload files directly into your sandboxed execution environment. Files are saved in <code>${info.folder}/</code> and are instantly accessible to your AI.</p>
-
-    <a href="/auth/google?returnTo=/upload" style="text-decoration:none;">
-      <button class="google-btn" type="button">
-        <svg width="18" height="18" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        Sign in with Google (Owner)
-      </button>
-    </a>
-
-    <details>
-      <summary style="margin-top:20px; font-size:12px;">Alternative: authenticate with MCP API key</summary>
-      <form id="loginForm" autocomplete="off" style="margin-top:10px;">
-        <label for="key">MCP API key</label>
-        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter API key">
-        <button class="primary" id="start" type="submit">Open Upload Session</button>
-      </form>
-    </details>
-    <div class="err" id="loginErr" role="alert"></div>
-  </section>
-
-  <section id="session" ${isOwner ? "" : "hidden"}>
-    <div class="bar">
-      <span id="sessionStatus" style="font-weight:600; color:var(--hi);">Active Sandbox Upload Session</span>
-      <span id="usage" class="note" style="margin:0;"></span>
-    </div>
-    <span id="timer" style="display:none;"></span>
-
-    <div style="margin: 10px 0 16px 0;">
-      <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--hi); cursor:pointer;">
-        <input type="checkbox" id="permSave" style="cursor:pointer; width:16px; height:16px;">
-        <span>Keep files permanently (exempt from auto-cleanup)</span>
-      </label>
     </div>
 
-    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Drop files to upload">
-      <div style="font-weight:600; color:var(--hi); margin-bottom:4px;">Drag &amp; drop files here, or click to browse</div>
-      <small>Up to ${info.maxFiles} files &middot; ${info.maxFileMb} MB each &middot; ${info.maxTotalMb} MB total</small>
-    </div>
-    <input id="picker" type="file" multiple hidden>
+    <!-- Login Section for Unauthenticated Guests -->
+    <div class="card" id="login" ${isOwner ? "hidden" : ""} style="padding:32px; max-width:540px; margin:0 auto 24px auto;">
+      <h2 style="font-size:16px; font-weight:600; color:var(--fg); margin-bottom:8px;">Authentication Required</h2>
+      <p style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;">
+        Sign in with Google as the verified owner to manage and upload sandbox files. Files land in <code>${info.folder}/</code> and are instantly accessible to your AI.
+      </p>
 
-    <input id="fileFilter" type="text" placeholder="Filter files" style="width:100%; margin-top:14px; padding:8px 12px; border-radius:6px; border:1px solid var(--line); background:var(--accents-1); color:var(--hi); font-size:12px; display:none;">
-
-    <ul id="list" style="margin-top:14px;"></ul>
-    <div class="err" id="upErr" role="alert"></div>
-    <p class="note">Files are saved in your sandbox at <code>${info.folder}/&lt;filename&gt;</code>. They are automatically accessible to your AI from both the sandbox root and cloned repository directories.</p>
-    <div style="margin-top:16px;">
-      <a href="/home" style="text-decoration:none; display:block;">
-        <button type="button" class="btn" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">Go to Workspace Explorer &rarr;</button>
+      <a href="/auth/google?returnTo=/upload" style="text-decoration:none; display:block;">
+        <button class="btn primary" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          Sign in with Google (Owner)
+        </button>
       </a>
+
+      <details style="margin-top:20px; font-size:12px; color:var(--accents-5);">
+        <summary style="cursor:pointer; user-select:none;">Alternative: authenticate with MCP API key</summary>
+        <form id="loginForm" autocomplete="off" style="margin-top:12px;">
+          <label for="key" style="display:block; font-size:12px; margin-bottom:6px; color:var(--fg); font-weight:500;">MCP API key</label>
+          <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter API key" class="input" style="width:100%; margin-bottom:12px;">
+          <button class="btn" id="start" type="submit" style="width:100%;">Open Upload Session</button>
+        </form>
+      </details>
+      <div class="err" id="loginErr" role="alert" style="color:var(--error); font-size:12px; margin-top:10px;"></div>
     </div>
-  </section>
-</main>
 
-<div class="links">
-  <a href="/home">Home</a> &bull; <a href="/upload">Upload</a> &bull; <a href="/stats">Stats</a> &bull; <a href="/tools">Tools</a> &bull; <a href="/api">API Keys</a> &bull; <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
-</div>
+    <!-- Active Upload & File Management Grid -->
+    <div id="session" ${isOwner ? "" : "hidden"}>
+      <div class="grid-2">
+        <!-- Left: Upload Dropzone Card -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Upload Workspace Files</h2>
+            <span class="badge">${info.maxFileMb} MB per file</span>
+          </div>
 
-<script nonce="${nonce}">
-(() => {
-  'use strict';
-  const $ = (id) => document.getElementById(id);
-  const isOwner = ${isOwner};
-  let token = null, limits = null;
-  const uploadedFileList = [];
+          <!-- Redesigned Permanent Storage Toggle Switch -->
+          <div class="switch-wrap">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="color:#0070f3; display:flex;">
+                ${renderSvg("shield", 18)}
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:13px; color:var(--fg);">Permanent Storage</div>
+                <div style="font-size:12px; color:var(--accents-5);">Exempt uploaded files from 24h auto-cleanup</div>
+              </div>
+            </div>
+            <label class="switch" title="Toggle permanent storage mode">
+              <input type="checkbox" id="permSave">
+              <span class="slider"></span>
+            </label>
+          </div>
 
-  const fmt = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+          <!-- Redesigned Modern Drag & Drop Zone -->
+          <div class="drop-zone" id="drop" tabindex="0" role="button" aria-label="Drop files to upload">
+            <div style="color:var(--accents-4); margin-bottom:12px; display:flex; justify-content:center;">
+              ${renderSvg("download", 32)}
+            </div>
+            <div style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:4px;">
+              Drag and drop files here, or click to browse
+            </div>
+            <div style="font-size:12px; color:var(--accents-5);">
+              Up to ${info.maxFiles} files &middot; ${info.maxFileMb} MB each &middot; ${info.maxTotalMb} MB total
+            </div>
+          </div>
+          <input id="picker" type="file" multiple hidden>
 
-  function show(loggedIn) {
-    $('login').hidden = loggedIn;
-    $('session').hidden = !loggedIn;
-  }
+          <div style="margin-top:14px; font-size:12px; color:var(--accents-5); line-height:1.5;">
+            Files are saved in your sandbox at <code>${info.folder}/&lt;filename&gt;</code> and are instantly accessible to your AI.
+          </div>
+        </div>
 
-  function reset(msg) {
-    token = null;
-    $('list').textContent = ''; $('upErr').textContent = ''; $('usage').textContent = '';
-    show(false);
-    $('loginErr').textContent = msg || '';
-  }
+        <!-- Right: Uploaded Files Manager Card -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Sandbox Files</h2>
+              <span class="badge" id="filesCountBadge">0 files</span>
+            </div>
+            <span id="usage" style="font-size:12px; color:var(--accents-5);"></span>
+          </div>
 
-  async function api(path, opts) {
-    const res = await fetch('/upload/api' + path, opts);
-    let data = {};
-    try { data = await res.json(); } catch (_) {}
-    if (!res.ok) { const e = new Error(data.error || 'Request failed (' + res.status + ').'); e.status = res.status; throw e; }
-    return data;
-  }
+          <!-- Renamed Modern Search Input -->
+          <div class="search-input-wrap" style="margin-bottom:14px;">
+            ${renderSvg("search", 15)}
+            <input
+              type="text"
+              id="fileFilter"
+              placeholder="Search files"
+              oninput="renderFileList()"
+            >
+          </div>
 
-  async function initSession(apiKey) {
-    const data = await api('/session', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ apiKey: apiKey || '' })
+          <!-- Files List -->
+          <ul id="list" style="list-style:none; padding:0; margin:0; max-height:360px; overflow-y:auto;"></ul>
+          <div id="emptyFilesMsg" style="text-align:center; padding:32px 16px; color:var(--accents-5); font-size:13px;">
+            No files uploaded in this session yet. Drag and drop above to begin.
+          </div>
+
+          <div class="err" id="upErr" role="alert" style="color:var(--error); font-size:12px; margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Geist Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Custom Geist Confirmation Modal -->
+  <div id="confirmModal" class="modal-backdrop" style="display:none;" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Action</h3>
+      <p id="modalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeConfirmModal()">Cancel</button>
+        <button type="button" id="modalConfirmBtn" class="btn" style="background:#e00; color:#fff; border-color:#e00;">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  ${renderFooter()}
+
+  <script nonce="${nonce}">
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const isOwner = ${isOwner};
+    let token = null, limits = null;
+    const uploadedFileList = [];
+
+    const fmt = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+
+    function showToast(message, type = 'success') {
+      const container = $('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      const icon = type === 'error'
+        ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0070f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      toast.innerHTML = icon + '<span>' + message.replace(/</g, '&lt;') + '</span>';
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+      }, 3500);
+    }
+
+    let activeConfirmAction = null;
+    function openDeleteModal(fileName, action) {
+      $('modalTitle').textContent = 'Delete File';
+      $('modalDesc').textContent = 'Are you sure you want to delete file "' + fileName + '" from the sandbox? This cannot be undone.';
+      activeConfirmAction = async () => {
+        closeConfirmModal();
+        await action();
+      };
+      $('modalConfirmBtn').onclick = activeConfirmAction;
+      $('confirmModal').style.display = 'flex';
+    }
+
+    window.closeConfirmModal = function() {
+      const modal = $('confirmModal');
+      if (modal) modal.style.display = 'none';
+      activeConfirmAction = null;
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeConfirmModal();
     });
-    token = data.token; limits = data.limits;
-    show(true);
-  }
 
-  if (isOwner) {
-    initSession().catch((e) => {
-      $('loginErr').textContent = e.message;
+    function show(loggedIn) {
+      $('login').hidden = loggedIn;
+      $('session').hidden = !loggedIn;
+    }
+
+    function reset(msg) {
+      token = null;
+      $('list').textContent = ''; $('upErr').textContent = ''; $('usage').textContent = '';
       show(false);
-    });
-  }
-
-  $('loginForm')?.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    $('loginErr').textContent = '';
-    $('start').disabled = true;
-    try {
-      await initSession($('key').value);
-      $('key').value = '';
-    } catch (e) {
-      $('loginErr').textContent = e.message;
-    } finally {
-      $('start').disabled = false;
-    }
-  });
-
-  function renderFileList() {
-    const filter = ($('fileFilter').value || '').toLowerCase();
-    const container = $('list');
-    container.innerHTML = '';
-    const visible = uploadedFileList.filter(f => f.name.toLowerCase().includes(filter));
-    if (uploadedFileList.length > 3) {
-      $('fileFilter').style.display = 'block';
+      $('loginErr').textContent = msg || '';
     }
 
-    visible.forEach(f => {
-      const li = document.createElement('li');
-      li.className = 'file-item' + (f.failed ? ' fail' : '');
+    async function api(path, opts) {
+      const res = await fetch('/upload/api' + path, opts);
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok) { const e = new Error(data.error || 'Request failed (' + res.status + ').'); e.status = res.status; throw e; }
+      return data;
+    }
 
-      const info = document.createElement('div');
-      info.className = 'file-info';
+    async function initSession(apiKey) {
+      const data = await api('/session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKey || '' })
+      });
+      token = data.token; limits = data.limits;
+      show(true);
 
-      const nameEl = document.createElement('span');
-      nameEl.className = 'file-name';
-      nameEl.textContent = f.path || f.name;
-
-      const metaEl = document.createElement('div');
-      metaEl.className = 'file-meta';
-      metaEl.innerHTML = '<span>' + (f.statusText || fmt(f.size)) + '</span>';
-      if (f.permanent) {
-        metaEl.innerHTML += '<span class="file-badge perm">Permanent</span>';
-      } else if (!f.failed && f.path) {
-        metaEl.innerHTML += '<span class="file-badge temp">60m TTL</span>';
+      if (Array.isArray(data.files)) {
+        data.files.forEach(f => {
+          uploadedFileList.push({
+            name: f.name,
+            size: f.size,
+            path: f.path,
+            permanent: Boolean(f.permanent),
+            statusText: fmt(f.size),
+            failed: false
+          });
+        });
+        renderFileList();
       }
-      info.append(nameEl, metaEl);
+    }
 
-      const actions = document.createElement('div');
-      actions.className = 'file-actions';
+    if (isOwner) {
+      initSession().catch((e) => {
+        $('loginErr').textContent = e.message;
+        show(false);
+      });
+    }
 
-      if (!f.failed && f.path) {
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'file-btn';
-        copyBtn.type = 'button';
-        copyBtn.textContent = 'Copy Path';
-        copyBtn.onclick = () => {
-          navigator.clipboard.writeText(f.path);
-          copyBtn.textContent = 'Copied';
-          setTimeout(() => { copyBtn.textContent = 'Copy Path'; }, 1500);
-        };
+    $('loginForm')?.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      $('loginErr').textContent = '';
+      $('start').disabled = true;
+      try {
+        await initSession($('key').value);
+        $('key').value = '';
+      } catch (e) {
+        $('loginErr').textContent = e.message;
+      } finally {
+        $('start').disabled = false;
+      }
+    });
 
-        const dlLink = document.createElement('a');
-        dlLink.className = 'file-btn';
-        dlLink.href = '/upload/api/download?name=' + encodeURIComponent(f.name);
-        dlLink.textContent = 'Download';
+    window.renderFileList = function() {
+      const filter = ($('fileFilter').value || '').toLowerCase().trim();
+      const container = $('list');
+      container.innerHTML = '';
+      const visible = uploadedFileList.filter(f => f.name.toLowerCase().includes(filter));
 
-        const delBtn = document.createElement('button');
-        delBtn.className = 'file-btn del';
-        delBtn.type = 'button';
-        delBtn.textContent = 'Delete';
-        delBtn.onclick = async () => {
-          if (!confirm('Delete ' + f.name + '?')) return;
-          try {
-            await api('/file?name=' + encodeURIComponent(f.name), {
-              method: 'DELETE',
-              headers: { 'x-upload-token': token }
+      $('filesCountBadge').textContent = uploadedFileList.length + ' file' + (uploadedFileList.length === 1 ? '' : 's');
+      $('emptyFilesMsg').style.display = visible.length === 0 ? 'block' : 'none';
+
+      visible.forEach(f => {
+        const li = document.createElement('li');
+        li.className = 'file-item' + (f.failed ? ' fail' : '');
+
+        const info = document.createElement('div');
+        info.className = 'file-info';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'file-name';
+        nameEl.textContent = f.path || f.name;
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'file-meta';
+        metaEl.innerHTML = '<span>' + (f.statusText || fmt(f.size)) + '</span>';
+        if (f.permanent) {
+          metaEl.innerHTML += '<span class="badge success">Permanent</span>';
+        } else if (!f.failed && f.path) {
+          metaEl.innerHTML += '<span class="badge">60m TTL</span>';
+        }
+        info.append(nameEl, metaEl);
+
+        const actions = document.createElement('div');
+        actions.className = 'file-actions';
+
+        if (!f.failed && f.path) {
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'btn';
+          copyBtn.type = 'button';
+          copyBtn.style.fontSize = '11px';
+          copyBtn.style.padding = '3px 8px';
+          copyBtn.textContent = 'Copy Path';
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(f.path);
+            showToast('File path copied to clipboard', 'success');
+          };
+
+          const dlLink = document.createElement('a');
+          dlLink.className = 'btn';
+          dlLink.style.fontSize = '11px';
+          dlLink.style.padding = '3px 8px';
+          dlLink.href = '/upload/api/download?name=' + encodeURIComponent(f.name);
+          dlLink.textContent = 'Download';
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn';
+          delBtn.type = 'button';
+          delBtn.style.fontSize = '11px';
+          delBtn.style.padding = '3px 8px';
+          delBtn.style.color = 'var(--error)';
+          delBtn.textContent = 'Delete';
+          delBtn.onclick = () => {
+            openDeleteModal(f.name, async () => {
+              try {
+                await api('/file?name=' + encodeURIComponent(f.name), {
+                  method: 'DELETE',
+                  headers: { 'x-upload-token': token }
+                });
+                const idx = uploadedFileList.indexOf(f);
+                if (idx >= 0) uploadedFileList.splice(idx, 1);
+                showToast('File "' + f.name + '" deleted successfully', 'success');
+                renderFileList();
+              } catch (e) {
+                showToast('Could not delete: ' + e.message, 'error');
+              }
             });
-            const idx = uploadedFileList.indexOf(f);
-            if (idx >= 0) uploadedFileList.splice(idx, 1);
+          };
+
+          actions.append(copyBtn, dlLink, delBtn);
+        }
+
+        li.append(info, actions);
+        container.appendChild(li);
+      });
+    };
+
+    function sendOne(file) {
+      const isPermanent = Boolean($('permSave')?.checked);
+      const item = {
+        name: file.name,
+        size: file.size,
+        statusText: 'uploading',
+        permanent: isPermanent,
+        failed: false
+      };
+      uploadedFileList.unshift(item);
+      renderFileList();
+
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload/api/files');
+        xhr.setRequestHeader('x-upload-token', token);
+        xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+        xhr.setRequestHeader('content-type', 'application/octet-stream');
+        if (isPermanent) {
+          xhr.setRequestHeader('x-permanent', 'true');
+        }
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            item.statusText = Math.round(e.loaded / e.total * 100) + '%';
             renderFileList();
-          } catch (e) {
-            alert('Could not delete: ' + e.message);
           }
         };
-
-        actions.append(copyBtn, dlLink, delBtn);
-      }
-
-      li.append(info, actions);
-      container.appendChild(li);
-    });
-  }
-
-  $('fileFilter')?.addEventListener('input', renderFileList);
-
-  function sendOne(file) {
-    const isPermanent = Boolean($('permSave')?.checked);
-    const item = {
-      name: file.name,
-      size: file.size,
-      statusText: 'uploading',
-      permanent: isPermanent,
-      failed: false
-    };
-    uploadedFileList.unshift(item);
-    renderFileList();
-
-    return new Promise((resolve) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/upload/api/files');
-      xhr.setRequestHeader('x-upload-token', token);
-      xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
-      xhr.setRequestHeader('content-type', 'application/octet-stream');
-      if (isPermanent) {
-        xhr.setRequestHeader('x-permanent', 'true');
-      }
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          item.statusText = Math.round(e.loaded / e.total * 100) + '%';
+        xhr.onload = () => {
+          let d = {}; try { d = JSON.parse(xhr.responseText); } catch (_) {}
+          if (xhr.status === 201) {
+            item.path = d.file.path;
+            item.name = d.file.name;
+            item.size = d.file.size;
+            item.permanent = Boolean(d.file.permanent);
+            item.statusText = fmt(d.file.size);
+            $('usage').textContent = d.files.length + ' file(s), ' + fmt(d.bytes);
+            showToast('Uploaded ' + item.name + ' successfully', 'success');
+          } else {
+            item.failed = true;
+            item.statusText = d.error || 'failed';
+            showToast('Upload failed: ' + item.statusText, 'error');
+            if (xhr.status === 401) reset('Upload session closed. Uploaded files remain active in your sandbox.');
+          }
           renderFileList();
-        }
-      };
-      xhr.onload = () => {
-        let d = {}; try { d = JSON.parse(xhr.responseText); } catch (_) {}
-        if (xhr.status === 201) {
-          item.path = d.file.path;
-          item.name = d.file.name;
-          item.size = d.file.size;
-          item.permanent = Boolean(d.file.permanent);
-          item.statusText = fmt(d.file.size);
-          $('usage').textContent = d.files.length + ' file(s), ' + fmt(d.bytes);
-        } else {
+          resolve();
+        };
+        xhr.onerror = () => {
           item.failed = true;
-          item.statusText = d.error || 'failed';
-          if (xhr.status === 401) reset('Upload session closed. Uploaded files remain active in your sandbox.');
-        }
-        renderFileList();
-        resolve();
-      };
-      xhr.onerror = () => {
-        item.failed = true;
-        item.statusText = 'network error';
-        renderFileList();
-        resolve();
-      };
-      xhr.send(file);
-    });
-  }
-
-  async function upload(files) {
-    $('upErr').textContent = '';
-    for (const f of files) {
-      if (!token) return;
-      if (f.size === 0) {
-        uploadedFileList.unshift({ name: f.name, size: 0, statusText: 'empty file', failed: true });
-        renderFileList();
-        continue;
-      }
-      if (limits && f.size > limits.maxFileBytes) {
-        uploadedFileList.unshift({ name: f.name, size: f.size, statusText: 'too large', failed: true });
-        renderFileList();
-        continue;
-      }
-      await sendOne(f);
+          item.statusText = 'network error';
+          showToast('Network error during upload', 'error');
+          renderFileList();
+          resolve();
+        };
+        xhr.send(file);
+      });
     }
-  }
 
-  const drop = $('drop'), picker = $('picker');
-  drop.addEventListener('click', () => picker.click());
-  drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); } });
-  picker.addEventListener('change', () => { const f = [...picker.files]; picker.value = ''; upload(f); });
-  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', (e) => upload([...e.dataTransfer.files]));
-  window.addEventListener('dragover', (e) => e.preventDefault());
-  window.addEventListener('drop', (e) => e.preventDefault());
+    async function upload(files) {
+      $('upErr').textContent = '';
+      for (const f of files) {
+        if (!token) return;
+        if (f.size === 0) {
+          uploadedFileList.unshift({ name: f.name, size: 0, statusText: 'empty file', failed: true });
+          renderFileList();
+          continue;
+        }
+        if (limits && f.size > limits.maxFileBytes) {
+          uploadedFileList.unshift({ name: f.name, size: f.size, statusText: 'too large', failed: true });
+          renderFileList();
+          continue;
+        }
+        await sendOne(f);
+      }
+    }
 
-  $('end')?.addEventListener('click', async () => {
-    const t = token;
-    token = null;
-    $('sessionStatus').textContent = 'Session Closed';
-    $('upErr').textContent = 'Upload session ended. Uploaded files remain active in your sandbox.';
-    if (t) { try { await api('/end', { method: 'POST', headers: { 'x-upload-token': t, 'content-type': 'application/json' }, body: '{}' }); } catch (_) {} }
-  });
+    const drop = $('drop'), picker = $('picker');
+    drop.addEventListener('click', () => picker.click());
+    drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); } });
+    picker.addEventListener('change', () => { const f = [...picker.files]; picker.value = ''; upload(f); });
 
-  // Closing or leaving the page closes the upload token (does NOT delete files)
-  window.addEventListener('pagehide', () => {
-    if (token) navigator.sendBeacon('/upload/api/end', new Blob([JSON.stringify({ token })], { type: 'application/json' }));
-  });
-})();
-</script>
+    ['dragenter', 'dragover'].forEach((t) => {
+      drop.addEventListener(t, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.add('drag-over');
+      });
+      window.addEventListener(t, (e) => {
+        e.preventDefault();
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((t) => {
+      drop.addEventListener(t, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.remove('drag-over');
+      });
+    });
+
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.remove('drag-over');
+      if (e.dataTransfer && e.dataTransfer.files) {
+        upload([...e.dataTransfer.files]);
+      }
+    });
+
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => e.preventDefault());
+
+    window.addEventListener('pagehide', () => {
+      if (token) navigator.sendBeacon('/upload/api/end', new Blob([JSON.stringify({ token })], { type: 'application/json' }));
+    });
+
+    window.toggleTheme = function() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
+      updateThemeIcon(isDark);
+    };
+
+    function updateThemeIcon(isDark) {
+      const sun = $('themeIconSun');
+      const moon = $('themeIconMoon');
+      if (sun) sun.style.display = isDark ? 'block' : 'none';
+      if (moon) moon.style.display = isDark ? 'none' : 'block';
+    }
+
+    const initialDark = document.documentElement.classList.contains('dark');
+    updateThemeIcon(initialDark);
+  })();
+  </script>
 </body>
 </html>`;
 }
