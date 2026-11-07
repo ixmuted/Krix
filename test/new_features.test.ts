@@ -16,11 +16,11 @@ import {
   renderHomePage,
   renderNotFoundPage,
   getBaseStyles,
-} from "../src/views.js";
-import { StatsTracker } from "../src/stats.js";
-import { shareFile } from "../src/fileShare.js";
-import { getServerIcons } from "../src/icons.js";
-import { renderUploadPage } from "../src/uploadSessions.js";
+} from "../dist/views.js";
+import { StatsTracker } from "../dist/stats.js";
+import { shareFile } from "../dist/fileShare.js";
+import { getServerIcons } from "../dist/icons.js";
+import { renderUploadPage } from "../dist/uploadSessions.js";
 
 test("SEP-2127 MCP server card, icon sizes, and metadata standard", () => {
   const base = "https://krix.onrender.com";
@@ -1117,13 +1117,13 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
 });
 
 test("Exact page titles, 10-day slider, error/working graph, store privacy, and unguessable token", async () => {
-  const { fileShareRegistry } = await import("../src/fileShareRegistry.js");
+  const { fileShareRegistry } = await import("../dist/fileShareRegistry.js");
   const {
     renderToolsPage,
     renderStatsPage,
     renderNotFoundPage,
-    renderUploadPage,
-  } = await import("../src/views.js");
+  } = await import("../dist/views.js");
+  const { renderUploadPage } = await import("../dist/uploadSessions.js");
 
   // 1. Verify exact page titles
   const toolsHtml = renderToolsPage({
