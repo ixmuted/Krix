@@ -1,4 +1,4 @@
-# Krix 
+# Krix
 
 **Krix** (built for a single owner's personal use, not as a public service) is a production-grade Model Context Protocol (MCP) server that empowers AI agents with complete control over **GitHub Repositories**, **Render Cloud Infrastructure**, and an **Isolated Execution Sandbox** with persistent bash shells, language runtimes, and local Git CLI tools over a unified HTTP transport.
 
@@ -9,6 +9,7 @@ Engineered for **LLM token conservation**, **multi-tenant identity isolation**, 
 ## 🚀 Key Features & Innovations
 
 ### 1. Token-Efficient Toolset Categories
+
 To conserve token budget, Krix starts with a lightweight default suite (**Core + Sandbox + Sandbox Store**). Larger categories are switched on per deployment with environment flags (there is no runtime `load_toolset` tool):
 
 ```bash
@@ -20,6 +21,7 @@ ENABLE_FILE_SHARING=false       # Turn the file-sharing tools off
 ```
 
 ### 2. Isolated Multi-Tenant Execution Sandbox
+
 - **Identity-Scoped File System**: Sandboxes are isolated under `/tmp/krix_sbx_${authKey}/` where `authKey` is a SHA-256 hash of the caller's GitHub token. User data never leaks across sessions or accounts.
 - **Persistent Shell State**: Keeps long-lived `bash` sessions per `(authKey, sessionId)` pair. `cd`, `export`, and venv activations persist between tool calls.
 - **Race-Guarded Concurrency**: In-flight shell creation is promise-guarded to prevent concurrent requests from spawning orphan processes.
@@ -27,6 +29,7 @@ ENABLE_FILE_SHARING=false       # Turn the file-sharing tools off
 - **Context-Aware Reset (`sandbox_reset`)**: Wipes scratch files, persistent shells, and background processes while safely preserving active Git context (`owner`, `repo`, `branch`).
 
 ### 2a. Sandbox Store: `sandbox_store` (share / list / delete / download / view)
+
 One unified tool moves files between the sandbox, MongoDB cloud storage, the internet, and the user:
 
 - `download` — fetch any file, image, or dataset from anywhere on the internet into the sandbox (with browser headers, redirect safety, and DNS pinning). Supports `view: true` to display images inline, and `extractMedia: true` to discover downloadable image/media links from webpages.
@@ -37,16 +40,18 @@ One unified tool moves files between the sandbox, MongoDB cloud storage, the int
 
 Shared links are 256-bit random tokens, always served with `nosniff` and sandboxing CSP. Supports 250+ file types spanning images, audio, video, documents, AI models, archives, and code. Setup: set `MONGODB_URI` (see `.env.example`).
 
-### 2b. Temporary Web Upload (`/upload`)
-Open `https://<your-server>/upload`, enter your **MCP API key**, and you get a **10-minute upload session** (`UPLOAD_SESSION_MINUTES`). Drag in files and they are written straight into your sandbox at `web-uploads/<filename>`, so the AI can read them with `sandbox_file` / `sandbox_exec` immediately - just tell it to look in `web-uploads/`.
+### 2b. Web Upload Portal (`/upload`) & Single-User Auth
 
-- The session ends on the timer, with the **End session** button, or as soon as the tab is closed or reloaded; every uploaded file is deleted when it ends.
-- The page keeps the session token in memory only (no cookies or storage); the server stores only its SHA-256 hash.
-- Files are written as the unprivileged sandbox user. Defaults: 25 MB per file, 20 files, 100 MB per session (`UPLOAD_MAX_FILE_MB`, `UPLOAD_MAX_FILES`, `UPLOAD_MAX_TOTAL_MB`). Disable with `ENABLE_WEB_UPLOAD=false`.
+Open `https://<your-server>/upload`, sign in securely via **Google Sign-In** (strictly authorized for `OWNER_EMAIL`) or your MCP API key. Files are written straight into your sandbox at `upload/<filename>`, automatically symlinked into any cloned repository work directory, and reported directly to the AI in `sandbox_status.uploads`. The AI can read them via `sandbox_file` (`upload/...` or `/upload/...`) and `sandbox_exec` immediately.
+
+- **Non-Destructive Session Ending**: Ending your upload session (via button or tab close) preserves all uploaded files in the sandbox. Files are retained for active use and automatically swept after a configurable retention window (`UPLOAD_FILE_RETENTION_MINUTES`, default 60 minutes).
+- **In-Portal Key Generator**: Generate, view, and revoke dynamic Gateway API keys (`krix_...`) directly from the portal when authenticated.
+- **OAuth 2.1 Native Gateway**: Full support for RFC 9728 (Protected Resource Metadata), RFC 8414 (Authorization Server Metadata), RFC 7591 (Dynamic Client Registration), and PKCE S256 token exchange (`/oauth/authorize`, `/oauth/token`).
+- Files are written safely as the unprivileged sandbox user. Defaults: 25 MB per file, 20 files, 100 MB per session (`UPLOAD_MAX_FILE_MB`, `UPLOAD_MAX_FILES`, `UPLOAD_MAX_TOTAL_MB`). Disable with `ENABLE_WEB_UPLOAD=false`.
 - Files go to the same sandbox your MCP client uses: the identity is the GitHub token, so if your client sends its own `x-github-token`, paste it under **Advanced** on the page. With the server's default token (the usual setup) you can leave it blank.
-- The sandbox is cleared when your MCP session closes or goes idle, which also removes uploaded files, so upload shortly before you need them.
 
 ### 3. Surgical Code Editing & Structural Search
+
 - **`str_replace_editor`**: Performs exact string block replacement. On match failure, it calculates **Levenshtein Distance Similarity** and returns a line-numbered context hint showing the closest matching code lines with similarity percentages. Supports Base64 (`old_str_b64`, `new_str_b64`).
 - **`patch_contents`**: Enables direct line-range edits (`startLine` to `endLine`) without requiring string matching.
 - **`get_file_contents`**: Line-windowed file reader (100 lines default, 500 max) with line number prefixes and a 100KB payload threshold.
@@ -54,11 +59,12 @@ Open `https://<your-server>/upload`, enter your **MCP API key**, and you get a *
 - **`view_file_outline`**: Extracts high-level AST symbol structures (classes, methods, functions, exports).
 
 ### 4. Security Model
+
 - **OS-level sandbox isolation**: sandboxed code, git commands and sandbox file operations run as an unprivileged user (`SANDBOX_UID`/`SANDBOX_GID`; set by the provided `Dockerfile`). The server's secrets (`MCP_API_KEY`, GitHub/Render tokens, `MONGODB_URI`) are removed from every child environment, and the sandbox user cannot read `/proc/<server>/environ` or the server's code. In production the sandbox **fails closed** if isolation is not active (`SANDBOX_REQUIRE_ISOLATION`).
 - **No shell injection**: git, install and run tools use argument vectors (never shell strings); branch / owner / repo / package names are validated; the persistent shell receives commands base64-encoded.
 - **GitHub credentials are scoped**: passed to git only as an in-memory config entry limited to `https://github.com/`, never on a command line or in `.git/config`; remotes are explicit URLs and `url.*.insteadOf` rewrites in a tampered repo config are detected and refused.
 - **Path safety**: `sanitizePath` uses real path-relative checks (no `/tmp` bypass, no prefix confusion), symlink escapes are rejected, and `cwd`/`env` set via `set_active_context` are validated (loader/shell hooks like `LD_PRELOAD`, `BASH_ENV` are blocked).
-- **HTTP hardening**: constant-time API-key comparison, authentication *before* body parsing, failed-auth lockout, global + per-route rate limits, session cap and identity binding, security headers, request/body timeouts, generic error messages, graceful shutdown. The server refuses to start without `MCP_API_KEY`.
+- **HTTP hardening**: constant-time API-key comparison, authentication _before_ body parsing, failed-auth lockout, global + per-route rate limits, session cap and identity binding, security headers, request/body timeouts, generic error messages, graceful shutdown. The server refuses to start without `MCP_API_KEY`.
 - **Output scrubbing**: configured secrets (exact values), runtime tokens, GitHub/Render/Mongo/Bearer/Basic credentials and private keys are redacted from all tool output and logs.
 - **Honest tool annotations**: only genuinely destructive or code-executing tools carry `destructiveHint`; additive tools (create branch/issue/PR, …) do not. Hints are advisory — all enforcement is server-side.
 - **Guardrails (not a boundary)**: `COMMAND_RESTRICTION_LEVEL` / `NETWORK_RESTRICTION_LEVEL` pattern checks catch accidents and obvious SSRF targets, but string matching cannot stop a determined user. For hard egress control use container/network policy.
@@ -72,128 +78,134 @@ Open `https://<your-server>/upload`, enter your **MCP API key**, and you get a *
 ## 🛠️ Tool Categories & Matrix
 
 ### Core Agentic Tools (`core` — Always Enabled)
-| Tool Name | Type | Description |
-| :--- | :--- | :--- |
-| `set_active_context` | `READ_ONLY` | Sets default `owner`, `repo`, and `branch`. Persists across session resets per auth key. |
-| `get_me` | `READ_ONLY` | Retrieves authenticated GitHub user profile information. |
-| `get_file_contents` | `READ_ONLY` | Reads windowed line ranges of a file (100 default, 500 max lines). |
-| `str_replace_editor` | `MUTATING` | Surgically replaces code blocks with Levenshtein similarity context feedback on match errors. |
-| `patch_contents` | `MUTATING` | Replaces specified line ranges directly by 1-indexed line numbers. |
-| `create_or_update_file` | `MUTATING` | Creates or updates files via plain text or Base64 (`content_b64`). |
-| `delete_file` | `MUTATING` | Deletes a file from a repository branch. |
-| `grep` | `READ_ONLY` | Pattern search supporting regex, file extension filters, globs, and context windowing. |
-| `view_file_outline` | `READ_ONLY` | Extracts high-level AST symbol outlines (classes, functions, exports). |
-| `git_tree` | `READ_ONLY` | Recursively indexes file tree structures with `tree_sha`, `offset`, `limit`, and path search `q`. |
-| `list_branches` | `READ_ONLY` | Lists branches in the active repository. |
-| `create_branch` | `MUTATING` | Creates a new branch from a specified ref/commit SHA. |
-| `delete_branch` | `MUTATING` | Deletes a branch from the repository. |
-| `push_files` | `MUTATING` | Batch commits and pushes multiple files in a single operation. |
-| `create_pull_request` | `MUTATING` | Opens a new pull request between head and base branches. |
-| `search_code` | `READ_ONLY` | Searches code across GitHub repositories. |
-| `search_repositories` | `READ_ONLY` | Searches GitHub repositories (`exact: true` returns single best match). |
-| `sandbox_status` | `READ_ONLY` | Inspects sandbox memory, runtimes (Node, Python, Go, Git), active repo/branch, and shell state. |
+
+| Tool Name               | Type        | Description                                                                                       |
+| :---------------------- | :---------- | :------------------------------------------------------------------------------------------------ |
+| `set_active_context`    | `READ_ONLY` | Sets default `owner`, `repo`, and `branch`. Persists across session resets per auth key.          |
+| `get_me`                | `READ_ONLY` | Retrieves authenticated GitHub user profile information.                                          |
+| `get_file_contents`     | `READ_ONLY` | Reads windowed line ranges of a file (100 default, 500 max lines).                                |
+| `str_replace_editor`    | `MUTATING`  | Surgically replaces code blocks with Levenshtein similarity context feedback on match errors.     |
+| `patch_contents`        | `MUTATING`  | Replaces specified line ranges directly by 1-indexed line numbers.                                |
+| `create_or_update_file` | `MUTATING`  | Creates or updates files via plain text or Base64 (`content_b64`).                                |
+| `delete_file`           | `MUTATING`  | Deletes a file from a repository branch.                                                          |
+| `grep`                  | `READ_ONLY` | Pattern search supporting regex, file extension filters, globs, and context windowing.            |
+| `view_file_outline`     | `READ_ONLY` | Extracts high-level AST symbol outlines (classes, functions, exports).                            |
+| `git_tree`              | `READ_ONLY` | Recursively indexes file tree structures with `tree_sha`, `offset`, `limit`, and path search `q`. |
+| `list_branches`         | `READ_ONLY` | Lists branches in the active repository.                                                          |
+| `create_branch`         | `MUTATING`  | Creates a new branch from a specified ref/commit SHA.                                             |
+| `delete_branch`         | `MUTATING`  | Deletes a branch from the repository.                                                             |
+| `push_files`            | `MUTATING`  | Batch commits and pushes multiple files in a single operation.                                    |
+| `create_pull_request`   | `MUTATING`  | Opens a new pull request between head and base branches.                                          |
+| `search_code`           | `READ_ONLY` | Searches code across GitHub repositories.                                                         |
+| `search_repositories`   | `READ_ONLY` | Searches GitHub repositories (`exact: true` returns single best match).                           |
+| `sandbox_status`        | `READ_ONLY` | Inspects sandbox memory, runtimes (Node, Python, Go, Git), active repo/branch, and shell state.   |
 
 ---
 
 ### Execution Sandbox & Local Git (`sandbox` — Enabled by Default)
-| Tool Name | Type | Description |
-| :--- | :--- | :--- |
-| `sandbox_exec` | `MUTATING` | Executes shell commands in a persistent bash shell or isolated process with backgrounding support (`background: true`). |
-| `sandbox_run` | `MUTATING` | Runs inline code snippets across supported runtimes (`py`, `js`, `ts`, `sh`, `go`, `java`, `cpp`, `c`, `rs`, `rb`, `php`). |
-| `sandbox_install` | `MUTATING` | Installs dependencies via `npm` or `pip` targeting isolated sandbox directories. |
-| `sandbox_ps` | `READ_ONLY` | Lists, inspects output, or terminates background processes. |
-| `sandbox_output` | `READ_ONLY` | Reads paginated stdout/stderr for truncated shell execution results. |
-| `sandbox_reset` | `MUTATING` | Cleans scratch files, kills persistent shells and background jobs while preserving active Git context. |
-| `git_clone` | `MUTATING` | Clones a repository into the sandbox working directory. |
-| `git_checkout` | `MUTATING` | Switches or creates local branches in the cloned repository. |
-| `git_pull` | `MUTATING` | Performs fast-forward pull on the active sandbox branch. |
-| `git_status` | `READ_ONLY` | Inspects working tree status and untracked files in the sandbox. |
-| `git_diff` | `READ_ONLY` | Generates staged or unstaged git diff output. |
-| `git_commit_push` | `MUTATING` | Stages, commits, and pushes changes from the sandbox repository. |
+
+| Tool Name         | Type        | Description                                                                                                                |
+| :---------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------- |
+| `sandbox_exec`    | `MUTATING`  | Executes shell commands in a persistent bash shell or isolated process with backgrounding support (`background: true`).    |
+| `sandbox_run`     | `MUTATING`  | Runs inline code snippets across supported runtimes (`py`, `js`, `ts`, `sh`, `go`, `java`, `cpp`, `c`, `rs`, `rb`, `php`). |
+| `sandbox_install` | `MUTATING`  | Installs dependencies via `npm` or `pip` targeting isolated sandbox directories.                                           |
+| `sandbox_ps`      | `READ_ONLY` | Lists, inspects output, or terminates background processes.                                                                |
+| `sandbox_output`  | `READ_ONLY` | Reads paginated stdout/stderr for truncated shell execution results.                                                       |
+| `sandbox_reset`   | `MUTATING`  | Cleans scratch files, kills persistent shells and background jobs while preserving active Git context.                     |
+| `git_clone`       | `MUTATING`  | Clones a repository into the sandbox working directory.                                                                    |
+| `git_checkout`    | `MUTATING`  | Switches or creates local branches in the cloned repository.                                                               |
+| `git_pull`        | `MUTATING`  | Performs fast-forward pull on the active sandbox branch.                                                                   |
+| `git_status`      | `READ_ONLY` | Inspects working tree status and untracked files in the sandbox.                                                           |
+| `git_diff`        | `READ_ONLY` | Generates staged or unstaged git diff output.                                                                              |
+| `git_commit_push` | `MUTATING`  | Stages, commits, and pushes changes from the sandbox repository.                                                           |
 
 ---
 
 ### Sandbox Store (`files` — Enabled by Default, sharing needs `MONGODB_URI`)
+
 | `sandbox_store` | `MUTATING` | `action: share \| list \| delete \| download \| view` — cloud file sharing with 72h/never auto-expiry, token-efficient search/sorting by size, batch deletion, universal internet downloading, webpage media extraction, and direct MCP image viewing. |
 
 ---
 
 ### GitHub Issues & Pull Requests (`github_issues_prs` — Lazy Loaded)
+
 Enable via `ENABLE_GITHUB_ISSUES_PRS=true`:
 
-| Tool Name | Type | Description |
-| :--- | :--- | :--- |
-| `list_issues` | `READ_ONLY` | Lists repository issues filtered by state, labels, assignee, or creator. |
-| `issue_read` | `READ_ONLY` | Reads detailed issue title, body, comments, and state. |
-| `issue_write` | `MUTATING` | Creates a new issue or updates an existing issue. |
-| `sub_issue_write` | `MUTATING` | Attaches a sub-issue to a parent issue. |
-| `add_issue_comment` | `MUTATING` | Adds a comment to an issue or pull request. |
-| `list_pull_requests` | `READ_ONLY` | Lists pull requests filtered by state, head, base, or branch. |
-| `pull_request_read` | `READ_ONLY` | Fetches pull request mergeability status and details. |
-| `update_pull_request` | `MUTATING` | Updates PR title, body, or state (`open`/`closed`). |
-| `update_pull_request_branch` | `MUTATING` | Merges base branch updates into the PR head branch. |
-| `merge_pull_request` | `MUTATING` | Merges a pull request into its base branch. |
-| `pull_request_review_write` | `MUTATING` | Submits a PR review (`APPROVE`, `REQUEST_CHANGES`, `COMMENT`). |
-| `add_comment_to_pending_review` | `MUTATING` | Adds a line-specific diff comment to a pending review. |
-| `add_reply_to_pull_request_comment` | `MUTATING` | Replies to an existing review comment thread. |
-| `search_issues` | `READ_ONLY` | Searches issues across GitHub repositories. |
-| `search_pull_requests` | `READ_ONLY` | Searches pull requests across GitHub repositories. |
+| Tool Name                           | Type        | Description                                                              |
+| :---------------------------------- | :---------- | :----------------------------------------------------------------------- |
+| `list_issues`                       | `READ_ONLY` | Lists repository issues filtered by state, labels, assignee, or creator. |
+| `issue_read`                        | `READ_ONLY` | Reads detailed issue title, body, comments, and state.                   |
+| `issue_write`                       | `MUTATING`  | Creates a new issue or updates an existing issue.                        |
+| `sub_issue_write`                   | `MUTATING`  | Attaches a sub-issue to a parent issue.                                  |
+| `add_issue_comment`                 | `MUTATING`  | Adds a comment to an issue or pull request.                              |
+| `list_pull_requests`                | `READ_ONLY` | Lists pull requests filtered by state, head, base, or branch.            |
+| `pull_request_read`                 | `READ_ONLY` | Fetches pull request mergeability status and details.                    |
+| `update_pull_request`               | `MUTATING`  | Updates PR title, body, or state (`open`/`closed`).                      |
+| `update_pull_request_branch`        | `MUTATING`  | Merges base branch updates into the PR head branch.                      |
+| `merge_pull_request`                | `MUTATING`  | Merges a pull request into its base branch.                              |
+| `pull_request_review_write`         | `MUTATING`  | Submits a PR review (`APPROVE`, `REQUEST_CHANGES`, `COMMENT`).           |
+| `add_comment_to_pending_review`     | `MUTATING`  | Adds a line-specific diff comment to a pending review.                   |
+| `add_reply_to_pull_request_comment` | `MUTATING`  | Replies to an existing review comment thread.                            |
+| `search_issues`                     | `READ_ONLY` | Searches issues across GitHub repositories.                              |
+| `search_pull_requests`              | `READ_ONLY` | Searches pull requests across GitHub repositories.                       |
 
 ---
 
 ### GitHub Extended & Admin (`github_admin` — Lazy Loaded)
+
 Enable via `ENABLE_GITHUB_ADMIN=true`:
 
-| Tool Name | Type | Description |
-| :--- | :--- | :--- |
-| `get_commit` | `READ_ONLY` | Retrieves commit details by SHA. |
-| `search_commits` | `READ_ONLY` | Searches commit messages across GitHub. |
-| `get_label` | `READ_ONLY` | Fetches details for an issue label. |
-| `get_release` | `READ_ONLY` | Fetches release details by tag or published release. |
-| `get_tag` | `READ_ONLY` | Fetches git tag object details by SHA. |
-| `get_teams` | `READ_ONLY` | Lists teams in an organization. |
-| `get_team_members` | `READ_ONLY` | Lists members of an organization team. |
-| `list_commits` | `READ_ONLY` | Lists commits filtered by author, path, or date range. |
-| `list_releases` | `READ_ONLY` | Lists published releases for a repository. |
-| `list_tags` | `READ_ONLY` | Lists repository git tags. |
-| `list_issue_fields` | `READ_ONLY` | Lists repository issue labels and custom fields. |
-| `list_issue_types` | `READ_ONLY` | Lists organization issue types (`Bug`, `Feature`, `Task`). |
-| `list_repository_collaborators` | `READ_ONLY` | Lists collaborators and their permission levels. |
-| `search_users` | `READ_ONLY` | Searches GitHub users by query. |
-| `create_repository` | `MUTATING` | Creates a new GitHub repository. |
-| `fork_repository` | `MUTATING` | Forks a repository to the authenticated account. |
-| `run_secret_scanning` | `READ_ONLY` | Runs secret scanning alert checks on a repository. |
-| `request_copilot_review` | `MUTATING` | Requests an automated GitHub Copilot PR review. |
-| `assign_copilot_to_issue` | `MUTATING` | Assigns GitHub Copilot coding agent to solve an issue. |
+| Tool Name                       | Type        | Description                                                |
+| :------------------------------ | :---------- | :--------------------------------------------------------- |
+| `get_commit`                    | `READ_ONLY` | Retrieves commit details by SHA.                           |
+| `search_commits`                | `READ_ONLY` | Searches commit messages across GitHub.                    |
+| `get_label`                     | `READ_ONLY` | Fetches details for an issue label.                        |
+| `get_release`                   | `READ_ONLY` | Fetches release details by tag or published release.       |
+| `get_tag`                       | `READ_ONLY` | Fetches git tag object details by SHA.                     |
+| `get_teams`                     | `READ_ONLY` | Lists teams in an organization.                            |
+| `get_team_members`              | `READ_ONLY` | Lists members of an organization team.                     |
+| `list_commits`                  | `READ_ONLY` | Lists commits filtered by author, path, or date range.     |
+| `list_releases`                 | `READ_ONLY` | Lists published releases for a repository.                 |
+| `list_tags`                     | `READ_ONLY` | Lists repository git tags.                                 |
+| `list_issue_fields`             | `READ_ONLY` | Lists repository issue labels and custom fields.           |
+| `list_issue_types`              | `READ_ONLY` | Lists organization issue types (`Bug`, `Feature`, `Task`). |
+| `list_repository_collaborators` | `READ_ONLY` | Lists collaborators and their permission levels.           |
+| `search_users`                  | `READ_ONLY` | Searches GitHub users by query.                            |
+| `create_repository`             | `MUTATING`  | Creates a new GitHub repository.                           |
+| `fork_repository`               | `MUTATING`  | Forks a repository to the authenticated account.           |
+| `run_secret_scanning`           | `READ_ONLY` | Runs secret scanning alert checks on a repository.         |
+| `request_copilot_review`        | `MUTATING`  | Requests an automated GitHub Copilot PR review.            |
+| `assign_copilot_to_issue`       | `MUTATING`  | Assigns GitHub Copilot coding agent to solve an issue.     |
 
 ---
 
 ### Render Cloud API (`render` — Lazy Loaded)
+
 Enable via `ENABLE_RENDER=true`:
 
-| Tool Name | Type | Description |
-| :--- | :--- | :--- |
-| `list_workspaces` | `READ_ONLY` | Lists available Render workspace accounts. |
-| `select_workspace` | `MUTATING` | Sets active Render workspace target for the session. |
-| `get_selected_workspace` | `READ_ONLY` | Displays currently selected Render workspace ID. |
-| `list_services` | `READ_ONLY` | Lists deployed services (web, static sites, background workers, cron). |
-| `get_service` | `READ_ONLY` | Fetches details and status for a service. |
-| `create_web_service` | `MUTATING` | Provisions a new Render web service from a GitHub repository. |
-| `create_static_site` | `MUTATING` | Provisions a new Render static site. |
-| `create_cron_job` | `MUTATING` | Provisions a scheduled cron job service. |
-| `restart_service` | `MUTATING` | Triggers service restart or clear-cache restart. |
-| `delete_service` | `MUTATING` | Deletes a Render service instance. |
-| `list_deploys` | `READ_ONLY` | Lists recent deployment history for a service. |
-| `get_deploy` | `READ_ONLY` | Fetches deployment status, build logs, and commit info. |
-| `trigger_deploy` | `MUTATING` | Triggers a new manual deploy. |
-| `cancel_deploy` | `MUTATING` | Cancels an in-progress deployment. |
-| `list_logs` | `READ_ONLY` | Retrieves runtime application logs with server-side filtering (`level`, `text`, `startTime`/`endTime`). |
-| `list_log_label_values` | `READ_ONLY` | Lists streaming log label values. |
-| `get_metrics` | `READ_ONLY` | Fetches CPU, memory, and bandwidth utilization metrics. |
-| `list_env_vars` | `READ_ONLY` | Lists environment variables for a service. |
-| `update_env_vars` | `MUTATING` | Sets or updates key-value environment variables. |
-| `delete_env_var` | `MUTATING` | Removes an environment variable from a service. |
-| `query_render_postgres` | `READ_ONLY` | Inspects status and database details for Render Managed Postgres. |
+| Tool Name                | Type        | Description                                                                                             |
+| :----------------------- | :---------- | :------------------------------------------------------------------------------------------------------ |
+| `list_workspaces`        | `READ_ONLY` | Lists available Render workspace accounts.                                                              |
+| `select_workspace`       | `MUTATING`  | Sets active Render workspace target for the session.                                                    |
+| `get_selected_workspace` | `READ_ONLY` | Displays currently selected Render workspace ID.                                                        |
+| `list_services`          | `READ_ONLY` | Lists deployed services (web, static sites, background workers, cron).                                  |
+| `get_service`            | `READ_ONLY` | Fetches details and status for a service.                                                               |
+| `create_web_service`     | `MUTATING`  | Provisions a new Render web service from a GitHub repository.                                           |
+| `create_static_site`     | `MUTATING`  | Provisions a new Render static site.                                                                    |
+| `create_cron_job`        | `MUTATING`  | Provisions a scheduled cron job service.                                                                |
+| `restart_service`        | `MUTATING`  | Triggers service restart or clear-cache restart.                                                        |
+| `delete_service`         | `MUTATING`  | Deletes a Render service instance.                                                                      |
+| `list_deploys`           | `READ_ONLY` | Lists recent deployment history for a service.                                                          |
+| `get_deploy`             | `READ_ONLY` | Fetches deployment status, build logs, and commit info.                                                 |
+| `trigger_deploy`         | `MUTATING`  | Triggers a new manual deploy.                                                                           |
+| `cancel_deploy`          | `MUTATING`  | Cancels an in-progress deployment.                                                                      |
+| `list_logs`              | `READ_ONLY` | Retrieves runtime application logs with server-side filtering (`level`, `text`, `startTime`/`endTime`). |
+| `list_log_label_values`  | `READ_ONLY` | Lists streaming log label values.                                                                       |
+| `get_metrics`            | `READ_ONLY` | Fetches CPU, memory, and bandwidth utilization metrics.                                                 |
+| `list_env_vars`          | `READ_ONLY` | Lists environment variables for a service.                                                              |
+| `update_env_vars`        | `MUTATING`  | Sets or updates key-value environment variables.                                                        |
+| `delete_env_var`         | `MUTATING`  | Removes an environment variable from a service.                                                         |
+| `query_render_postgres`  | `READ_ONLY` | Inspects status and database details for Render Managed Postgres.                                       |
 
 ---
 
@@ -240,16 +252,17 @@ PORT=3000
 ```
 
 ### System Runtimes (Sandbox)
+
 The Execution Sandbox utilizes installed system binaries on the host system or Docker container:
 
-| Language | Binary | Ubuntu / Debian Package |
-| :--- | :--- | :--- |
-| Git ops | `git` | `git` |
-| Node.js / TS | `node`, `npx` | `nodejs` |
-| Python | `python3` | `python3`, `python3-pip` |
-| Go | `go` | `golang-go` |
-| Java | `java`, `javac` | `default-jdk-headless` |
-| C / C++ | `gcc`, `g++` | `g++` |
+| Language     | Binary          | Ubuntu / Debian Package  |
+| :----------- | :-------------- | :----------------------- |
+| Git ops      | `git`           | `git`                    |
+| Node.js / TS | `node`, `npx`   | `nodejs`                 |
+| Python       | `python3`       | `python3`, `python3-pip` |
+| Go           | `go`            | `golang-go`              |
+| Java         | `java`, `javac` | `default-jdk-headless`   |
+| C / C++      | `gcc`, `g++`    | `g++`                    |
 
 The included **single-stage `Dockerfile`** installs all runtimes in one build layer, ensuring no missing OS dependencies when deploying to cloud platforms such as Render.
 
@@ -258,6 +271,7 @@ The included **single-stage `Dockerfile`** installs all runtimes in one build la
 ## 📦 Getting Started
 
 ### 1. Installation
+
 ```bash
 # Clone repository
 git clone https://github.com/imanki-t/Krix.git
@@ -268,6 +282,7 @@ npm install
 ```
 
 ### 2. Build & Run
+
 ```bash
 # Build TypeScript
 npm run build
@@ -284,6 +299,7 @@ npm run dev
 ## 🔌 MCP Client Integration
 
 ### Streamable HTTP Endpoint (`/mcp`)
+
 Connect MCP clients (Antigravity, Claude Desktop, Cursor, or Custom SDKs) via Streamable HTTP:
 
 ```json
