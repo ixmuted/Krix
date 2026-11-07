@@ -213,8 +213,8 @@ export function createDynamicKey(
   return entry;
 }
 
-export function listDynamicKeys(): Omit<GeneratedKeyEntry, "key">[] {
-  return [...dynamicApiKeys.values()].map(({ key, ...rest }) => rest);
+export function listDynamicKeys(): GeneratedKeyEntry[] {
+  return [...dynamicApiKeys.values()];
 }
 
 export function revokeDynamicKey(id: string): boolean {

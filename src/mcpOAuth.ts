@@ -1040,5 +1040,97 @@ export function createMcpOAuthRouter(): Router {
     },
   );
 
+  // ---------------------------------------------------------------------------
+  // Owner Active OAuth Authorizations Management
+  // ---------------------------------------------------------------------------
+  router.get("/oauth/authorizations", (req: Request, res: Response): void => {
+    const owner = parseOwnerCookie(req);
+    if (!owner) {
+      res.status(401).json({ error: "Unauthorized." });
+      return;
+    }
+    res.json({ authorizations: listActiveOAuthAuthorizations() });
+  });
+
+  router.delete(
+    "/oauth/authorizations/:clientId",
+    (req: Request, res: Response): void => {
+      const owner = parseOwnerCookie(req);
+      if (!owner) {
+        res.status(401).json({ error: "Unauthorized." });
+        return;
+      }
+      const clientId = String(req.params.clientId || "");
+      const success = revokeOAuthAuthorization(clientId);
+      res.json({ success });
+    },
+  );
+
   return router;
+}
+
+export interface ActiveOAuthInfo {
+  clientId: string;
+  clientName: string;
+  scope: string;
+  ownerEmail: string;
+  createdAt: number;
+  lastUsedAt?: number;
+}
+
+export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
+  const result = new Map<string, ActiveOAuthInfo>();
+  for (const client of registeredClients.values()) {
+    result.set(client.clientId, {
+      clientId: client.clientId,
+      clientName: client.clientName || client.clientId,
+      scope: "mcp:tools mcp:sandbox",
+      ownerEmail: process.env.OWNER_EMAIL || "owner",
+      createdAt: client.createdAt,
+    });
+  }
+  for (const entry of issuedTokens.values()) {
+    if (Date.now() < entry.expiresAt) {
+      const existing = result.get(entry.clientId);
+      if (existing) {
+        existing.lastUsedAt = Math.max(
+          existing.lastUsedAt || 0,
+          entry.expiresAt - 86400 * 1000,
+        );
+      } else {
+        result.set(entry.clientId, {
+          clientId: entry.clientId,
+          clientName: entry.clientId.toLowerCase().includes("gemini")
+            ? "Google Gemini"
+            : `Client (${entry.clientId.slice(0, 16)})`,
+          scope: entry.scope,
+          ownerEmail: entry.ownerEmail,
+          createdAt: entry.expiresAt - 86400 * 1000,
+          lastUsedAt: Date.now(),
+        });
+      }
+    }
+  }
+  return Array.from(result.values());
+}
+
+export function revokeOAuthAuthorization(clientId: string): boolean {
+  let found = false;
+  if (registeredClients.has(clientId)) {
+    registeredClients.delete(clientId);
+    found = true;
+  }
+  for (const [token, entry] of issuedTokens.entries()) {
+    if (entry.clientId === clientId) {
+      issuedTokens.delete(token);
+      found = true;
+    }
+  }
+  for (const [token, entry] of refreshTokens.entries()) {
+    if (entry.clientId === clientId) {
+      refreshTokens.delete(token);
+      found = true;
+    }
+  }
+  return found;
 }

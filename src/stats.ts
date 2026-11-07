@@ -57,7 +57,15 @@ export interface SystemHealthStats {
 
 export interface ToolDetailMeta {
   name: string;
-  category: "Execution" | "Filesystem" | "Git & Cloud" | "Inspection";
+  category:
+    | "Sandbox"
+    | "Files"
+    | "Render"
+    | "GitHub"
+    | "Execution"
+    | "Filesystem"
+    | "Git & Cloud"
+    | "Inspection";
   description: string;
   totalCalls: number;
   successRate: number;
@@ -92,8 +100,8 @@ export interface StatsSummary {
   clientEcosystems: Record<string, number>;
   recentErrors: RecentErrorEntry[];
   peakTraffic: {
-    peakHourUtc: number;
-    peakDay: string;
+    peakHourUtc: number | null;
+    peakDay: string | null;
   };
   toolsCatalog: ToolDetailMeta[];
   lastUpdated: number;
@@ -118,9 +126,10 @@ export class StatsTracker {
   private clientEcosystems: Record<string, number> = {
     "Claude Desktop": 0,
     Cursor: 0,
-    Gemini: 0,
+    "Google Gemini": 0,
     ChatGPT: 0,
     Antigravity: 0,
+    "CLI / Script": 0,
     Other: 0,
   };
   private recentErrors: RecentErrorEntry[] = [];
@@ -199,15 +208,26 @@ export class StatsTracker {
     };
   }
 
-  private detectEcosystem(ua?: string): string {
-    if (!ua) return "Other";
-    const l = ua.toLowerCase();
-    if (l.includes("claude") || l.includes("anthropic"))
+  private detectEcosystem(ua?: string, label?: string, keyId?: string): string {
+    const combined = `${ua || ""} ${label || ""} ${keyId || ""}`.toLowerCase();
+    if (combined.includes("gemini") || combined.includes("google"))
+      return "Google Gemini";
+    if (combined.includes("claude") || combined.includes("anthropic"))
       return "Claude Desktop";
-    if (l.includes("cursor")) return "Cursor";
-    if (l.includes("gemini") || l.includes("google")) return "Gemini";
-    if (l.includes("chatgpt") || l.includes("openai")) return "ChatGPT";
-    if (l.includes("antigravity")) return "Antigravity";
+    if (combined.includes("cursor")) return "Cursor";
+    if (combined.includes("antigravity") || combined.includes("agy"))
+      return "Antigravity";
+    if (combined.includes("chatgpt") || combined.includes("openai"))
+      return "ChatGPT";
+    if (
+      combined.includes("python") ||
+      combined.includes("curl") ||
+      combined.includes("node") ||
+      combined.includes("fetch") ||
+      combined.includes("postman")
+    ) {
+      return "CLI / Script";
+    }
     return "Other";
   }
 
@@ -290,7 +310,7 @@ export class StatsTracker {
     this.statusCodes[codeKey] = (this.statusCodes[codeKey] || 0) + 1;
 
     // Client ecosystem breakdown
-    const eco = this.detectEcosystem(userAgent);
+    const eco = this.detectEcosystem(userAgent, params.label, keyId);
     this.clientEcosystems[eco] = (this.clientEcosystems[eco] || 0) + 1;
 
     let entry = this.keys.get(keyId);
@@ -301,14 +321,18 @@ export class StatsTracker {
           params.label ||
           (keyId.startsWith("oauth:")
             ? `OAuth Client (${keyId.slice(6, 16)})`
-            : keyId === "master" || keyId === "master-env-key"
-              ? "Master Key"
+            : keyId === "master" ||
+                keyId === "master-env-key" ||
+                keyId === "primary-key"
+              ? "Primary Key"
               : "API Key"),
         type:
           params.type ||
           (keyId.startsWith("oauth:")
             ? "oauth"
-            : keyId === "master"
+            : keyId === "master" ||
+                keyId === "master-env-key" ||
+                keyId === "primary-key"
               ? "master"
               : "api_key"),
         totalRequests: 0,
@@ -510,9 +534,9 @@ export class StatsTracker {
     const count5m = this.recentTimestamps.filter((t) => t >= cutoff5m).length;
     const throughputRpm = Math.round((count5m / 5) * 10) / 10;
 
-    // Calculate peak traffic
-    let peakHourUtc = 0;
-    let maxHourly = -1;
+    // Calculate peak traffic (strictly real data, null if zero requests)
+    let peakHourUtc: number | null = null;
+    let maxHourly = 0;
     for (let h = 0; h < 24; h++) {
       if (this.hourlyCounts[h] > maxHourly) {
         maxHourly = this.hourlyCounts[h];
@@ -520,8 +544,8 @@ export class StatsTracker {
       }
     }
 
-    let peakDay = "Monday";
-    let maxDayCount = -1;
+    let peakDay: string | null = null;
+    let maxDayCount = 0;
     for (const [day, count] of Object.entries(this.dayOfWeekCounts)) {
       if (count > maxDayCount) {
         maxDayCount = count;
@@ -611,64 +635,563 @@ export class StatsTracker {
       platform: `${process.platform} (${process.arch})`,
     };
 
-    // Tools Catalog with complete metrics for /tools page
+    // Tools Catalog with complete specifications for all 87 MCP tools offered by Krix
     const knownTools: Array<{
       name: string;
-      category: "Execution" | "Filesystem" | "Git & Cloud" | "Inspection";
+      category: "Sandbox" | "Files" | "Render" | "GitHub";
       description: string;
     }> = [
+      // 1. Sandbox Tools (14 tools)
       {
         name: "sandbox_exec",
-        category: "Execution",
+        category: "Sandbox",
         description:
-          "Executes commands, tests, scripts, and compilers inside the unprivileged sandbox container.",
+          "Executes commands, compilers, tests, and scripts inside the isolated sandbox.",
+      },
+      {
+        name: "sandbox_run",
+        category: "Sandbox",
+        description:
+          "Runs long-running background tasks or development servers with log streaming.",
+      },
+      {
+        name: "sandbox_install",
+        category: "Sandbox",
+        description:
+          "Installs package dependencies (npm, pip, apt) inside the sandbox workspace.",
+      },
+      {
+        name: "sandbox_ps",
+        category: "Sandbox",
+        description:
+          "Lists running processes, PIDs, memory usage, and background jobs in the sandbox.",
+      },
+      {
+        name: "sandbox_output",
+        category: "Sandbox",
+        description:
+          "Retrieves accumulated stdout and stderr streams from background sandbox tasks.",
       },
       {
         name: "sandbox_file",
-        category: "Filesystem",
+        category: "Sandbox",
         description:
-          "Reads, writes, updates, or checks files in the workspace with atomic disk safety.",
+          "Reads, writes, updates, and inspects files in the workspace with atomic disk safety.",
+      },
+      {
+        name: "sandbox_reset",
+        category: "Sandbox",
+        description:
+          "Resets sandbox workspace to a clean state while preserving shared uploads.",
+      },
+      {
+        name: "sandbox_status",
+        category: "Sandbox",
+        description:
+          "Reports container health, memory utilization, disk usage, and resource quotas.",
       },
       {
         name: "git_clone",
-        category: "Git & Cloud",
+        category: "Sandbox",
         description:
           "Clones public or private GitHub repositories directly into the sandbox working tree.",
       },
       {
-        name: "grep",
-        category: "Inspection",
+        name: "git_checkout",
+        category: "Sandbox",
         description:
-          "Searches regex patterns and code tokens across repository source trees at high speed.",
+          "Switches branches, tags, or commits within cloned git repositories in the sandbox.",
+      },
+      {
+        name: "git_pull",
+        category: "Sandbox",
+        description:
+          "Pulls and integrates latest commits from upstream remote repository tracking branches.",
+      },
+      {
+        name: "git_status",
+        category: "Sandbox",
+        description:
+          "Inspects modified, untracked, and staged file paths in the active repository tree.",
+      },
+      {
+        name: "git_diff",
+        category: "Sandbox",
+        description:
+          "Generates unified diffs of uncommitted changes across files in the sandbox workspace.",
+      },
+      {
+        name: "git_commit_push",
+        category: "Sandbox",
+        description:
+          "Stages workspace modifications, creates signed commits, and pushes to remote branches.",
+      },
+
+      // 2. File Storage Tools (1 tool)
+      {
+        name: "sandbox_store",
+        category: "Files",
+        description:
+          "Persistent cloud storage, permanent retention, direct sharing links, and uploads.",
+      },
+
+      // 3. Render Tools (21 tools)
+      {
+        name: "list_workspaces",
+        category: "Render",
+        description:
+          "Lists all authorized Render workspaces and team organization accounts.",
+      },
+      {
+        name: "select_workspace",
+        category: "Render",
+        description:
+          "Sets the active target workspace context for subsequent Render management calls.",
+      },
+      {
+        name: "get_selected_workspace",
+        category: "Render",
+        description:
+          "Retrieves metadata and owner details for the currently active Render workspace.",
+      },
+      {
+        name: "list_services",
+        category: "Render",
+        description:
+          "Lists web services, background workers, cron jobs, and static sites on Render.",
+      },
+      {
+        name: "get_service",
+        category: "Render",
+        description:
+          "Fetches configuration, environment variables, health status, and live URL.",
+      },
+      {
+        name: "create_web_service",
+        category: "Render",
+        description:
+          "Deploys a new containerized web service or Node.js/Python server to Render.",
+      },
+      {
+        name: "create_static_site",
+        category: "Render",
+        description:
+          "Provisions and deploys a high-speed CDN static website on Render infrastructure.",
+      },
+      {
+        name: "create_cron_job",
+        category: "Render",
+        description:
+          "Schedules recurring cron jobs and timed background tasks on Render.",
+      },
+      {
+        name: "restart_service",
+        category: "Render",
+        description:
+          "Restarts running service containers on Render to pick up fresh environment configurations.",
+      },
+      {
+        name: "delete_service",
+        category: "Render",
+        description:
+          "Permanently tears down and destroys a service instance on Render.",
+      },
+      {
+        name: "list_deploys",
+        category: "Render",
+        description:
+          "Retrieves recent deployment history, build statuses, commit hashes, and triggers.",
+      },
+      {
+        name: "get_deploy",
+        category: "Render",
+        description:
+          "Fetches real-time build logs, progress, and error traces for an active Render deploy.",
+      },
+      {
+        name: "trigger_deploy",
+        category: "Render",
+        description:
+          "Triggers a live continuous deployment build with optional cache invalidation.",
+      },
+      {
+        name: "cancel_deploy",
+        category: "Render",
+        description:
+          "Cancels an in-progress build or deployment pipeline on Render.",
+      },
+      {
+        name: "list_logs",
+        category: "Render",
+        description:
+          "Streams live stdout and stderr runtime log lines from active Render service containers.",
+      },
+      {
+        name: "list_log_label_values",
+        category: "Render",
+        description:
+          "Inspects searchable log stream labels and component tags for Render services.",
+      },
+      {
+        name: "get_metrics",
+        category: "Render",
+        description:
+          "Queries real-time CPU utilization, memory consumption, and network I/O metrics.",
+      },
+      {
+        name: "list_env_vars",
+        category: "Render",
+        description:
+          "Lists secret and plain-text environment variables configured on a Render service.",
+      },
+      {
+        name: "update_env_vars",
+        category: "Render",
+        description:
+          "Sets or updates environment variables and triggers zero-downtime service redeployments.",
+      },
+      {
+        name: "delete_env_var",
+        category: "Render",
+        description:
+          "Removes an environment variable from a target Render service configuration.",
+      },
+      {
+        name: "query_render_postgres",
+        category: "Render",
+        description:
+          "Executes parameterized SQL queries against managed PostgreSQL databases on Render.",
+      },
+
+      // 4. GitHub Tools (51 tools)
+      {
+        name: "set_active_context",
+        category: "GitHub",
+        description:
+          "Sets the default owner and repository context for subsequent GitHub tool invocations.",
+      },
+      {
+        name: "get_me",
+        category: "GitHub",
+        description:
+          "Retrieves authenticated GitHub user profile, scopes, permissions, and quota details.",
+      },
+      {
+        name: "get_file_contents",
+        category: "GitHub",
+        description:
+          "Reads source code files, directory listings, or binary assets from any GitHub repository.",
       },
       {
         name: "str_replace_editor",
-        category: "Filesystem",
+        category: "GitHub",
         description:
-          "Performs precise, lossless search-and-replace edits preserving code indentation and structure.",
+          "Performs surgical, lossless text replacements preserving code structure and indentation.",
       },
       {
-        name: "sandbox_store",
-        category: "Git & Cloud",
+        name: "grep",
+        category: "GitHub",
         description:
-          "Persistent cloud storage, direct sharing, artifact links, and permanent file uploads.",
+          "Fast regex pattern and token search across entire GitHub repository source trees.",
       },
       {
-        name: "render_deploy",
-        category: "Git & Cloud",
+        name: "view_file_outline",
+        category: "GitHub",
         description:
-          "Inspects live Render services, triggers continuous builds, and monitors container health.",
+          "Extracts AST symbol definitions, classes, functions, and interfaces from source files.",
       },
       {
-        name: "github_repo_info",
-        category: "Inspection",
+        name: "git_tree",
+        category: "GitHub",
         description:
-          "Fetches repository commit logs, pull request statuses, issue threads, and branch heads.",
+          "Recursively explores directory hierarchies, files, submodules, and repository trees.",
+      },
+      {
+        name: "patch_contents",
+        category: "GitHub",
+        description:
+          "Applies unified diff patches to source files with atomic validation.",
+      },
+      {
+        name: "get_commit",
+        category: "GitHub",
+        description:
+          "Fetches commit details, author metadata, parent commit SHAs, and file changesets.",
+      },
+      {
+        name: "get_label",
+        category: "GitHub",
+        description:
+          "Retrieves issue and pull request label metadata, descriptions, and color codes.",
+      },
+      {
+        name: "get_release",
+        category: "GitHub",
+        description:
+          "Fetches release tag metadata, release notes, changelogs, and binary asset downloads.",
+      },
+      {
+        name: "get_tag",
+        category: "GitHub",
+        description:
+          "Reads git tag annotations, target commit hashes, and tagger signatures.",
+      },
+      {
+        name: "get_team_members",
+        category: "GitHub",
+        description:
+          "Lists members of organization teams, permissions, and roles.",
+      },
+      {
+        name: "get_teams",
+        category: "GitHub",
+        description:
+          "Lists organizational teams, slugs, and access control groups.",
+      },
+      {
+        name: "list_branches",
+        category: "GitHub",
+        description:
+          "Lists active and protected branches in a repository with latest commit SHAs.",
+      },
+      {
+        name: "list_commits",
+        category: "GitHub",
+        description:
+          "Queries chronological commit histories, author timestamps, and commit messages.",
+      },
+      {
+        name: "list_issue_fields",
+        category: "GitHub",
+        description:
+          "Inspects custom fields, project columns, and issue metadata schemas.",
+      },
+      {
+        name: "list_issue_types",
+        category: "GitHub",
+        description:
+          "Lists issue type classifications, bug templates, and feature request schemas.",
+      },
+      {
+        name: "list_issues",
+        category: "GitHub",
+        description:
+          "Filters and queries repository issue trackers by state, labels, author, and assignee.",
+      },
+      {
+        name: "list_pull_requests",
+        category: "GitHub",
+        description:
+          "Lists pull requests by review status, target branch, author, and draft state.",
+      },
+      {
+        name: "list_releases",
+        category: "GitHub",
+        description:
+          "Lists all published and draft releases, prereleases, and release tags.",
+      },
+      {
+        name: "list_repository_collaborators",
+        category: "GitHub",
+        description:
+          "Lists repository contributors, collaborators, and their access permission tiers.",
+      },
+      {
+        name: "list_tags",
+        category: "GitHub",
+        description:
+          "Queries all git release and version tags in a repository.",
+      },
+      {
+        name: "issue_read",
+        category: "GitHub",
+        description:
+          "Reads full issue descriptions, conversation threads, reactions, and timeline events.",
+      },
+      {
+        name: "pull_request_read",
+        category: "GitHub",
+        description:
+          "Inspects pull request diffs, review comments, check runs, and merge readiness.",
+      },
+      {
+        name: "search_code",
+        category: "GitHub",
+        description:
+          "Searches code snippets and symbols across all public and organization repositories.",
+      },
+      {
+        name: "search_commits",
+        category: "GitHub",
+        description:
+          "Searches commit messages and changes across GitHub repository histories.",
+      },
+      {
+        name: "search_issues",
+        category: "GitHub",
+        description:
+          "Performs advanced searches across issues, discussions, and pull requests.",
+      },
+      {
+        name: "search_pull_requests",
+        category: "GitHub",
+        description:
+          "Searches pull requests by review state, CI status, and target branches.",
+      },
+      {
+        name: "search_repositories",
+        category: "GitHub",
+        description:
+          "Discovers repositories by name, topic, language, stars, and organization.",
+      },
+      {
+        name: "search_users",
+        category: "GitHub",
+        description:
+          "Searches GitHub users and organizations by username, bio, and location.",
+      },
+      {
+        name: "run_secret_scanning",
+        category: "GitHub",
+        description:
+          "Scans code commits and PRs for leaked API tokens, private keys, and secrets.",
+      },
+      {
+        name: "add_comment_to_pending_review",
+        category: "GitHub",
+        description:
+          "Adds an inline line-by-line review comment to a pull request review draft.",
+      },
+      {
+        name: "add_issue_comment",
+        category: "GitHub",
+        description:
+          "Posts a new markdown comment to an issue or pull request discussion thread.",
+      },
+      {
+        name: "add_reply_to_pull_request_comment",
+        category: "GitHub",
+        description:
+          "Replies to an existing pull request review comment thread.",
+      },
+      {
+        name: "create_branch",
+        category: "GitHub",
+        description:
+          "Creates a new git branch pointing to an existing commit SHA or branch ref.",
+      },
+      {
+        name: "delete_branch",
+        category: "GitHub",
+        description:
+          "Deletes a remote git branch after pull request merges or cleanup.",
+      },
+      {
+        name: "create_or_update_file",
+        category: "GitHub",
+        description:
+          "Creates or updates a single file in a GitHub repository via git commit.",
+      },
+      {
+        name: "create_pull_request",
+        category: "GitHub",
+        description:
+          "Opens a new pull request with title, description body, base branch, and head branch.",
+      },
+      {
+        name: "create_repository",
+        category: "GitHub",
+        description:
+          "Creates a new public or private repository with optional templates.",
+      },
+      {
+        name: "delete_file",
+        category: "GitHub",
+        description:
+          "Deletes a file from a repository with a clean commit message.",
+      },
+      {
+        name: "fork_repository",
+        category: "GitHub",
+        description:
+          "Forks an upstream repository into the authenticated user or organization account.",
+      },
+      {
+        name: "issue_write",
+        category: "GitHub",
+        description:
+          "Creates or updates an issue title, markdown body, assignees, and labels.",
+      },
+      {
+        name: "merge_pull_request",
+        category: "GitHub",
+        description:
+          "Merges a pull request using merge commit, squash and merge, or rebase.",
+      },
+      {
+        name: "pull_request_review_write",
+        category: "GitHub",
+        description:
+          "Submits an approving review, comment, or request-for-changes on a pull request.",
+      },
+      {
+        name: "push_files",
+        category: "GitHub",
+        description:
+          "Commits and pushes multiple file modifications atomically in a single git commit.",
+      },
+      {
+        name: "request_copilot_review",
+        category: "GitHub",
+        description:
+          "Requests an automated Copilot review on an open pull request.",
+      },
+      {
+        name: "assign_copilot_to_issue",
+        category: "GitHub",
+        description:
+          "Assigns Copilot coding assistant to triage and resolve an issue.",
+      },
+      {
+        name: "sub_issue_write",
+        category: "GitHub",
+        description:
+          "Creates or links a child sub-issue under a parent epic or tracking issue.",
+      },
+      {
+        name: "update_pull_request",
+        category: "GitHub",
+        description:
+          "Updates pull request title, description, state (open/closed), or target base.",
+      },
+      {
+        name: "update_pull_request_branch",
+        category: "GitHub",
+        description:
+          "Updates a pull request branch with latest commits from the base branch.",
       },
     ];
 
+    const cleanToolDistribution: Record<string, number> = {};
+    for (const [k, v] of Object.entries(this.globalTools)) {
+      if (
+        ![
+          "mcp_request",
+          "server/discover",
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "prompts/list",
+          "resources/list",
+        ].includes(k) &&
+        v > 0
+      ) {
+        cleanToolDistribution[k] = v;
+      }
+    }
+
     const toolsCatalog: ToolDetailMeta[] = knownTools.map((t) => {
-      const calls = this.globalTools[t.name] || 0;
+      const calls = cleanToolDistribution[t.name] || 0;
       return {
         name: t.name,
         category: t.category,
@@ -695,7 +1218,7 @@ export class StatsTracker {
       totalBytesOut,
       uniqueKeysCount: keys.length,
       keys,
-      toolDistribution: this.globalTools,
+      toolDistribution: cleanToolDistribution,
       protocolDistribution: this.globalProtocol,
       dailyTimeline,
       weeklyTimeline,
@@ -800,8 +1323,34 @@ export class StatsTracker {
         if (Array.isArray(data.hourlyCounts))
           this.hourlyCounts = data.hourlyCounts;
         if (data.dayOfWeekCounts) this.dayOfWeekCounts = data.dayOfWeekCounts;
+        this.purgeProtocolAndLegacyKeys();
       }
     } catch {}
+  }
+
+  private purgeProtocolAndLegacyKeys(): void {
+    const protocolNames = new Set([
+      "mcp_request",
+      "server/discover",
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+      "prompts/list",
+      "resources/list",
+    ]);
+    for (const p of protocolNames) {
+      delete this.globalTools[p];
+    }
+    for (const k of this.keys.values()) {
+      for (const p of protocolNames) {
+        delete k.toolCalls[p];
+      }
+      if (k.keyId === "master" || k.keyId === "master-env-key") {
+        k.keyId = "primary-key";
+        k.label = "Primary Key";
+        k.type = "master";
+      }
+    }
   }
 
   private async loadFromMongo(): Promise<void> {
@@ -825,6 +1374,7 @@ export class StatsTracker {
         if (Array.isArray(doc.hourlyCounts))
           this.hourlyCounts = doc.hourlyCounts;
         if (doc.dayOfWeekCounts) this.dayOfWeekCounts = doc.dayOfWeekCounts;
+        this.purgeProtocolAndLegacyKeys();
       }
     } catch {}
   }

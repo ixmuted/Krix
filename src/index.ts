@@ -52,7 +52,11 @@ import {
   createDynamicKey,
   revokeDynamicKey,
 } from "./googleAuth.js";
-import { createMcpOAuthRouter, verifyAccessToken } from "./mcpOAuth.js";
+import {
+  createMcpOAuthRouter,
+  verifyAccessToken,
+  listActiveOAuthAuthorizations,
+} from "./mcpOAuth.js";
 import { statsTracker } from "./stats.js";
 import {
   renderHomePage,
@@ -379,8 +383,8 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
       const isMaster = MCP_API_KEY ? safeEqual(clientKey, MCP_API_KEY) : false;
       const dynamicPrefix = clientKey.slice(0, 16);
       (req as any).clientAuth = {
-        keyId: isMaster ? "master-env-key" : `dyn:${dynamicPrefix}`,
-        label: isMaster ? "Master Key" : `Key ${dynamicPrefix}`,
+        keyId: isMaster ? "primary-key" : `dyn:${dynamicPrefix}`,
+        label: isMaster ? "Primary Key" : `Key ${dynamicPrefix}`,
         type: isMaster ? "master_key" : "dynamic_key",
       };
       next();
@@ -829,6 +833,7 @@ app.get(["/api", "/keys"], async (req, res) => {
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
   const dynamicKeys = listDynamicKeys();
+  const oauthAuthorizations = listActiveOAuthAuthorizations();
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(
@@ -837,6 +842,7 @@ app.get(["/api", "/keys"], async (req, res) => {
       isOwner,
       owner,
       keys: dynamicKeys,
+      oauthAuthorizations,
     }),
   );
 });

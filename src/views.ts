@@ -1,5 +1,6 @@
 import type { OwnerProfile, GeneratedKeyEntry } from "./googleAuth.js";
 import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
+import type { ActiveOAuthInfo } from "./mcpOAuth.js";
 
 function escapeHtml(str: string): string {
   return str
@@ -46,10 +47,13 @@ export function renderSvg(
     | "arrow-right"
     | "clock"
     | "shield"
-    | "zap",
+    | "zap"
+    | "search",
   size = 14,
 ): string {
   switch (name) {
+    case "search":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
     case "folder":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
     case "file":
@@ -465,6 +469,137 @@ export function getBaseStyles(): string {
       100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 112, 243, 0); }
     }
 
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 99999;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--fg);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      font-size: 13px;
+      transform: translateY(12px);
+      opacity: 0;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 380px;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .toast.success { border-color: rgba(0,112,243,0.4); }
+    .toast.error { border-color: rgba(238,0,0,0.4); }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 20px;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+
+    .pill-btn {
+      background: var(--card-sub);
+      border: 1px solid var(--border);
+      color: var(--accents-5);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .pill-btn:hover {
+      color: var(--fg);
+      border-color: var(--accents-4);
+    }
+    .pill-btn.active {
+      background: var(--fg);
+      color: var(--bg);
+      border-color: var(--fg);
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 14px;
+    }
+    .tool-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .tool-box:hover {
+      border-color: var(--accents-4);
+      transform: translateY(-2px);
+    }
+    .tool-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .tool-box-name {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--fg);
+      word-break: break-all;
+    }
+    .tool-box-desc {
+      font-size: 12px;
+      color: var(--accents-5);
+      line-height: 1.5;
+      margin-bottom: 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tool-box-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      color: var(--accents-5);
+    }
+
     footer {
       width: 100%;
       max-width: 1080px;
@@ -807,9 +942,12 @@ export function renderApiKeysPage(params: {
   base: string;
   isOwner: boolean;
   owner: OwnerProfile | null;
-  keys: Array<Omit<GeneratedKeyEntry, "key"> | GeneratedKeyEntry>;
+  keys?: Array<Omit<GeneratedKeyEntry, "key"> | GeneratedKeyEntry>;
+  dynamicKeys?: Array<Omit<GeneratedKeyEntry, "key"> | GeneratedKeyEntry>;
+  oauthAuthorizations?: ActiveOAuthInfo[];
 }): string {
-  const { base, isOwner, owner, keys } = params;
+  const { base, isOwner, owner, oauthAuthorizations = [] } = params;
+  const keys = params.keys || params.dynamicKeys || [];
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -896,7 +1034,7 @@ export function renderApiKeysPage(params: {
 
         <div id="newKeyBanner" style="display:none; margin-top:16px; padding:14px; background:rgba(0,112,243,0.06); border:1px solid rgba(0,112,243,0.3); border-radius:8px;">
           <div style="font-size:12px; font-weight:600; color:#0070f3; margin-bottom:4px;">New Key Generated</div>
-          <div style="font-size:12px; color:var(--accents-5); margin-bottom:8px;">Copy this key now. It will not be shown again in full.</div>
+          <div style="font-size:12px; color:var(--accents-5); margin-bottom:8px;">Copy this key now. You can also view and copy all keys from the table below anytime.</div>
           <div style="display:flex; gap:8px;">
             <input type="text" id="newKeyField" readonly style="flex:1; padding:8px 10px; font-family:monospace; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
             <button class="btn" onclick="copyCreatedKey()" id="copyKeyBtn">Copy Key</button>
@@ -904,19 +1042,24 @@ export function renderApiKeysPage(params: {
         </div>
       </div>
 
-      <!-- Active Keys Table -->
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active API Keys</h2>
-          <span class="badge">${keys.length} active</span>
+      <!-- Active Keys Table Card with Live Search -->
+      <div class="card" style="margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active API Keys</h2>
+            <span class="badge" id="keysCountBadge">${keys.length} active</span>
+          </div>
+          <div style="width:100%; max-width:320px;">
+            <input type="text" id="keySearchInput" placeholder="Search keys by label, prefix, or ID" oninput="filterKeys()" style="width:100%; padding:7px 12px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:12px;">
+          </div>
         </div>
 
         <div style="overflow-x:auto;">
-          <table>
+          <table id="keysTable">
             <thead>
               <tr>
                 <th>Label</th>
-                <th>Prefix</th>
+                <th>Key Value</th>
                 <th>Created</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -926,15 +1069,76 @@ export function renderApiKeysPage(params: {
               ${
                 keys.length > 0
                   ? keys
-                      .map(
-                        (k) => `
-                <tr id="row-${escapeHtml(k.id)}">
+                      .map((k) => {
+                        const fullKey = (k as any).key || k.prefix;
+                        return `
+                <tr id="row-${escapeHtml(k.id)}" class="key-row" data-label="${escapeHtml(k.label.toLowerCase())}" data-prefix="${escapeHtml(k.prefix.toLowerCase())}" data-id="${escapeHtml(k.id.toLowerCase())}">
                   <td><strong>${escapeHtml(k.label)}</strong></td>
-                  <td style="font-family:monospace; color:var(--accents-5);">${escapeHtml(k.prefix)}</td>
-                  <td>${new Date(k.createdAt).toLocaleDateString()}</td>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <code id="key-val-${escapeHtml(k.id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>
+                      <button type="button" class="btn" onclick="toggleKeyReveal('${escapeHtml(k.id)}')" style="font-size:11px; padding:3px 8px;">Reveal</button>
+                      <button type="button" class="btn" onclick="copyKeyText('${escapeHtml(fullKey)}')" style="font-size:11px; padding:3px 8px;">Copy</button>
+                    </div>
+                  </td>
+                  <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
                   <td><span class="badge success">Active</span></td>
                   <td>
-                    <button class="btn" onclick="revokeKey('${escapeHtml(k.id)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                    <button class="btn" onclick="openRevokeKeyModal('${escapeHtml(k.id)}', '${escapeHtml(k.label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                  </td>
+                </tr>
+              `;
+                      })
+                      .join("")
+                  : `
+                <tr id="emptyKeysRow">
+                  <td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">
+                    No dynamic keys created yet. Generate one above.
+                  </td>
+                </tr>
+              `
+              }
+            </tbody>
+          </table>
+          <div id="noKeysMatch" style="display:none; text-align:center; padding:24px; color:var(--accents-5);">
+            No keys match your search query.
+          </div>
+        </div>
+      </div>
+
+      <!-- Active OAuth Authorizations Card -->
+      <div class="card" style="margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active OAuth Authorizations</h2>
+            <span class="badge ${oauthAuthorizations.length > 0 ? "success" : ""}">${oauthAuthorizations.length} connected</span>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Application</th>
+                <th>Client ID</th>
+                <th>Permissions</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="oauthTableBody">
+              ${
+                oauthAuthorizations.length > 0
+                  ? oauthAuthorizations
+                      .map(
+                        (a) => `
+                <tr id="oauth-row-${escapeHtml(a.clientId)}">
+                  <td><strong>${escapeHtml(a.clientName)}</strong></td>
+                  <td style="font-family:ui-monospace, monospace; color:var(--accents-5); font-size:12px;">${escapeHtml(a.clientId)}</td>
+                  <td style="font-size:12px; color:var(--accents-5);">${escapeHtml(a.scope)}</td>
+                  <td><span class="badge success">Authorized</span></td>
+                  <td>
+                    <button class="btn" onclick="openRevokeOAuthModal('${escapeHtml(a.clientId)}', '${escapeHtml(a.clientName)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
                   </td>
                 </tr>
               `,
@@ -943,7 +1147,7 @@ export function renderApiKeysPage(params: {
                   : `
                 <tr>
                   <td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">
-                    No dynamic keys created yet. Generate one above.
+                    No active OAuth connections. Connect Google Gemini or any OAuth 2.1 client to view it here.
                   </td>
                 </tr>
               `
@@ -984,9 +1188,133 @@ export function renderApiKeysPage(params: {
     }
   </div>
 
+  <!-- Custom Geist Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Custom Geist Confirmation Modal -->
+  <div id="confirmModal" class="modal-backdrop" style="display:none;" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Revocation</h3>
+      <p id="modalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeConfirmModal()">Cancel</button>
+        <button type="button" id="modalConfirmBtn" class="btn" style="background:#e00; color:#fff; border-color:#e00;">Revoke</button>
+      </div>
+    </div>
+  </div>
+
   ${renderFooter()}
 
   <script>
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      const icon = type === 'error'
+        ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0070f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      toast.innerHTML = icon + '<span>' + message.replace(/</g, '&lt;') + '</span>';
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+      }, 3500);
+    }
+
+    function filterKeys() {
+      const q = (document.getElementById('keySearchInput').value || '').trim().toLowerCase();
+      const rows = document.querySelectorAll('.key-row');
+      let visible = 0;
+      rows.forEach(r => {
+        const label = r.getAttribute('data-label') || '';
+        const prefix = r.getAttribute('data-prefix') || '';
+        const id = r.getAttribute('data-id') || '';
+        const match = !q || label.includes(q) || prefix.includes(q) || id.includes(q);
+        r.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      const noMatch = document.getElementById('noKeysMatch');
+      if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
+    }
+
+    function toggleKeyReveal(id) {
+      const el = document.getElementById('key-val-' + id);
+      if (!el) return;
+      const isRevealed = el.getAttribute('data-revealed') === 'true';
+      const full = el.getAttribute('data-full') || '';
+      if (isRevealed) {
+        el.textContent = '••••••••••••••••';
+        el.setAttribute('data-revealed', 'false');
+      } else {
+        el.textContent = full;
+        el.setAttribute('data-revealed', 'true');
+      }
+    }
+
+    function copyKeyText(text) {
+      if (!text) return;
+      navigator.clipboard.writeText(text);
+      showToast('API key copied to clipboard', 'success');
+    }
+
+    let activeConfirmAction = null;
+    function openRevokeKeyModal(id, label) {
+      document.getElementById('modalTitle').textContent = 'Revoke API Key';
+      document.getElementById('modalDesc').textContent = 'Are you sure you want to revoke key "' + label + '"? Any agent using this key will immediately be disconnected.';
+      activeConfirmAction = async () => {
+        closeConfirmModal();
+        try {
+          const res = await fetch('/api/keys/' + encodeURIComponent(id), { method: 'DELETE' });
+          if (res.ok) {
+            const row = document.getElementById('row-' + id);
+            if (row) row.remove();
+            showToast('Key revoked successfully', 'success');
+            filterKeys();
+          } else {
+            showToast('Failed to revoke key', 'error');
+          }
+        } catch (e) {
+          showToast('Network error: ' + e.message, 'error');
+        }
+      };
+      document.getElementById('modalConfirmBtn').onclick = activeConfirmAction;
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+
+    function openRevokeOAuthModal(clientId, clientName) {
+      document.getElementById('modalTitle').textContent = 'Revoke OAuth Connection';
+      document.getElementById('modalDesc').textContent = 'Are you sure you want to revoke OAuth authorization for "' + clientName + '"? The connected client will need to re-authenticate.';
+      activeConfirmAction = async () => {
+        closeConfirmModal();
+        try {
+          const res = await fetch('/oauth/authorizations/' + encodeURIComponent(clientId), { method: 'DELETE' });
+          if (res.ok) {
+            const row = document.getElementById('oauth-row-' + clientId);
+            if (row) row.remove();
+            showToast('OAuth connection revoked', 'success');
+          } else {
+            showToast('Failed to revoke OAuth authorization', 'error');
+          }
+        } catch (e) {
+          showToast('Network error: ' + e.message, 'error');
+        }
+      };
+      document.getElementById('modalConfirmBtn').onclick = activeConfirmAction;
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      if (modal) modal.style.display = 'none';
+      activeConfirmAction = null;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeConfirmModal();
+    });
+
     async function handleCreateKey(ev) {
       ev.preventDefault();
       const btn = document.getElementById('createKeyBtn');
@@ -1005,12 +1333,13 @@ export function renderApiKeysPage(params: {
           document.getElementById('newKeyBanner').style.display = 'block';
           document.getElementById('newKeyField').value = data.key;
           input.value = '';
-          setTimeout(() => location.reload(), 2500);
+          showToast('New API key generated successfully', 'success');
+          setTimeout(() => location.reload(), 2000);
         } else {
-          alert('Could not generate key: ' + (data.error || 'Unknown error'));
+          showToast('Could not generate key: ' + (data.error || 'Unknown error'), 'error');
         }
       } catch (e) {
-        alert('Network error: ' + e.message);
+        showToast('Network error: ' + e.message, 'error');
       } finally {
         btn.disabled = false;
         btn.textContent = 'Generate Key';
@@ -1021,27 +1350,23 @@ export function renderApiKeysPage(params: {
       const f = document.getElementById('newKeyField');
       f.select();
       navigator.clipboard.writeText(f.value);
+      showToast('New key copied to clipboard', 'success');
       const b = document.getElementById('copyKeyBtn');
       b.textContent = 'Copied';
       setTimeout(() => { b.textContent = 'Copy Key'; }, 1500);
     }
 
-    async function revokeKey(id) {
-      if (!confirm('Are you sure you want to revoke this key? Any connected agent using it will lose access immediately.')) return;
-      try {
-        const res = await fetch('/api/keys/' + encodeURIComponent(id), {
-          method: 'DELETE'
+    // Format timestamps to user local timezone
+    document.querySelectorAll('.local-date').forEach(el => {
+      const ts = Number(el.getAttribute('data-ts'));
+      if (ts) {
+        el.textContent = new Date(ts).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
         });
-        if (res.ok) {
-          const row = document.getElementById('row-' + id);
-          if (row) row.remove();
-        } else {
-          alert('Failed to revoke key.');
-        }
-      } catch (e) {
-        alert('Error: ' + e.message);
       }
-    }
+    });
 
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
@@ -1070,6 +1395,14 @@ export function renderToolsPage(params: {
 }): string {
   const { base, owner, tools, summary } = params;
 
+  const counts = {
+    All: tools.length,
+    Sandbox: tools.filter((t) => t.category === "Sandbox").length,
+    Render: tools.filter((t) => t.category === "Render").length,
+    GitHub: tools.filter((t) => t.category === "GitHub").length,
+    Files: tools.filter((t) => t.category === "Files").length,
+  };
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1081,47 +1414,23 @@ export function renderToolsPage(params: {
   <style>
     ${getBaseStyles()}
 
-    .tool-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 16px;
-      transition: all 0.2s ease;
-    }
-    .tool-card:hover {
-      border-color: var(--accents-4);
-      transform: translateY(-2px);
-    }
-    .tool-header {
+    .filter-bar {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
     }
-    .tool-name {
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--fg);
+    @media (min-width: 640px) {
+      .filter-bar {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
     }
-    .tool-desc {
-      font-size: 13px;
-      color: var(--accents-5);
-      line-height: 1.5;
-      margin-bottom: 14px;
-    }
-    .tool-metrics {
+    .pill-group {
       display: flex;
-      gap: 20px;
-      font-size: 12px;
-      border-top: 1px solid var(--border);
-      padding-top: 12px;
-      color: var(--accents-5);
+      gap: 6px;
       flex-wrap: wrap;
-    }
-    .tool-metrics strong {
-      color: var(--fg);
     }
   </style>
   <script>
@@ -1137,48 +1446,145 @@ export function renderToolsPage(params: {
   ${renderHeader("tools", owner)}
 
   <div class="wrapper">
-    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div style="margin: 20px 0 24px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-          Tools Directory
-        </h1>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
+            Tools Directory
+          </h1>
+          <span class="badge">${tools.length} tools</span>
+        </div>
         <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
-          Individual specifications and invocation statistics for all ${tools.length} sandbox tools.
+          Individual specifications and invocation telemetry for all ${tools.length} MCP tools.
         </p>
       </div>
 
       <div style="display:flex; gap:8px;">
+        <a href="/api" class="btn">API Keys</a>
         <a href="/stats" class="btn">View Stats</a>
         <a href="/home" class="btn primary">Back to Home</a>
       </div>
     </div>
 
-    <div>
+    <!-- Search & Category Filters -->
+    <div class="filter-bar">
+      <div style="position:relative; width:100%; max-width:420px;">
+        <input
+          type="text"
+          id="toolSearchInput"
+          placeholder="Search tools by name, description, or category"
+          class="input"
+          style="width:100%; padding-left:34px;"
+          oninput="filterTools()"
+        />
+        <div style="position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--accents-4); display:flex;">
+          ${renderSvg("search", 15)}
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="pill-group">
+          <button type="button" class="pill-btn active" data-cat="All" onclick="setCategoryFilter('All', this)">
+            All (${counts.All})
+          </button>
+          <button type="button" class="pill-btn" data-cat="Sandbox" onclick="setCategoryFilter('Sandbox', this)">
+            Sandbox (${counts.Sandbox})
+          </button>
+          <button type="button" class="pill-btn" data-cat="Render" onclick="setCategoryFilter('Render', this)">
+            Render (${counts.Render})
+          </button>
+          <button type="button" class="pill-btn" data-cat="GitHub" onclick="setCategoryFilter('GitHub', this)">
+            GitHub (${counts.GitHub})
+          </button>
+          <button type="button" class="pill-btn" data-cat="Files" onclick="setCategoryFilter('Files', this)">
+            Files (${counts.Files})
+          </button>
+        </div>
+        <span id="toolMatchCount" style="font-size:12px; color:var(--accents-5); font-weight:500;">
+          Showing ${tools.length} of ${tools.length} tools
+        </span>
+      </div>
+    </div>
+
+    <!-- Modular Compact Boxes Grid -->
+    <div class="tools-grid" id="toolsGrid">
       ${tools
         .map((t) => {
           const calls = summary.toolDistribution[t.name] || 0;
           return `
-        <div class="tool-card">
-          <div class="tool-header">
-            <span class="tool-name">${escapeHtml(t.name)}</span>
-            <span class="badge ${calls > 0 ? "success" : ""}">${t.category}</span>
+        <div
+          class="tool-box"
+          data-name="${escapeHtml(t.name.toLowerCase())}"
+          data-category="${escapeHtml(t.category)}"
+          data-desc="${escapeHtml(t.description.toLowerCase())}"
+        >
+          <div>
+            <div class="tool-box-header">
+              <span class="tool-box-name">${escapeHtml(t.name)}</span>
+              <span class="badge ${calls > 0 ? "success" : ""}">${escapeHtml(t.category)}</span>
+            </div>
+            <div class="tool-box-desc" title="${escapeHtml(t.description)}">
+              ${escapeHtml(t.description)}
+            </div>
           </div>
-          <div class="tool-desc">${escapeHtml(t.description)}</div>
-          <div class="tool-metrics">
-            <span>Total Calls: <strong>${calls.toLocaleString()}</strong></span>
-            <span>Success Rate: <strong>${calls > 0 ? "100%" : "No calls"}</strong></span>
-            <span>Avg Duration: <strong>${calls > 0 ? summary.avgDurationMs + "ms" : "N/A"}</strong></span>
+          <div class="tool-box-footer">
+            <span>Calls: <strong>${calls.toLocaleString()}</strong></span>
+            <span>Rate: <strong>${calls > 0 ? "100%" : "N/A"}</strong></span>
+            <span>Avg: <strong>${calls > 0 ? summary.avgDurationMs + "ms" : "N/A"}</strong></span>
           </div>
         </div>
       `;
         })
         .join("")}
+      <div id="noToolsMatch" style="display:none; text-align:center; padding:48px 20px; color:var(--accents-5); grid-column:1/-1;">
+        No tools match the query or category filter.
+      </div>
     </div>
   </div>
 
   ${renderFooter()}
 
   <script>
+    let currentCategory = 'All';
+
+    function setCategoryFilter(category, btn) {
+      currentCategory = category;
+      document.querySelectorAll('.pill-group .pill-btn').forEach(el => el.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      filterTools();
+    }
+
+    function filterTools() {
+      const query = (document.getElementById('toolSearchInput')?.value || '').toLowerCase().trim();
+      const boxes = document.querySelectorAll('#toolsGrid .tool-box');
+      let matchCount = 0;
+
+      boxes.forEach(box => {
+        const name = box.getAttribute('data-name') || '';
+        const cat = box.getAttribute('data-category') || '';
+        const desc = box.getAttribute('data-desc') || '';
+
+        const matchesCat = (currentCategory === 'All' || cat.toLowerCase() === currentCategory.toLowerCase());
+        const matchesQuery = !query || name.includes(query) || desc.includes(query) || cat.toLowerCase().includes(query);
+
+        if (matchesCat && matchesQuery) {
+          box.style.display = 'flex';
+          matchCount++;
+        } else {
+          box.style.display = 'none';
+        }
+      });
+
+      const noMatch = document.getElementById('noToolsMatch');
+      if (noMatch) {
+        noMatch.style.display = matchCount === 0 ? 'block' : 'none';
+      }
+      const countLabel = document.getElementById('toolMatchCount');
+      if (countLabel) {
+        countLabel.textContent = 'Showing ' + matchCount + ' of ' + boxes.length + ' tools';
+      }
+    }
+
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
@@ -1204,6 +1610,11 @@ export function renderStatsPage(params: {
   summary: StatsSummary;
 }): string {
   const { base, owner, summary } = params;
+
+  const hasPeakTraffic =
+    summary.peakTraffic.peakHourUtc !== null && summary.totalRequests > 0;
+  const clientValues = Object.values(summary.clientEcosystems);
+  const totalClientTraffic = clientValues.reduce((a, b) => a + b, 0);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1340,7 +1751,11 @@ export function renderStatsPage(params: {
         <div class="metric-label">Latency (Avg / P95)</div>
         <div class="metric-value" id="valLatency">${summary.avgDurationMs} <span style="font-size:14px; font-weight:500;">/ ${summary.p95DurationMs} ms</span></div>
         <div style="font-size:12px; color:var(--accents-5);">
-          Peak window: <strong>${summary.peakTraffic.peakHourUtc}:00 UTC (${summary.peakTraffic.peakDay})</strong>
+          Peak window: <strong id="valPeakTime" data-utc-hour="${hasPeakTraffic ? summary.peakTraffic.peakHourUtc : ""}" data-utc-day="${hasPeakTraffic ? summary.peakTraffic.peakDay : ""}">${
+            hasPeakTraffic
+              ? `${summary.peakTraffic.peakHourUtc}:00 UTC (${summary.peakTraffic.peakDay})`
+              : "N/A"
+          }</strong>
         </div>
       </div>
 
@@ -1386,7 +1801,7 @@ export function renderStatsPage(params: {
       </div>
     </div>
 
-    <!-- 12 Real Features: Extended Performance & Health Grid -->
+    <!-- Extended Performance & Health Grid -->
     <div class="grid-3">
       <!-- 1. Process Health & Memory -->
       <div class="card">
@@ -1447,17 +1862,21 @@ export function renderStatsPage(params: {
         <h2 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
           ${renderSvg("activity", 15)} Client Ecosystem
         </h2>
-        <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
-          ${Object.entries(summary.clientEcosystems)
-            .map(
-              ([client, count]) => `
-            <div style="display:flex; justify-content:space-between;">
-              <span style="color:var(--accents-5);">${escapeHtml(client)}:</span>
-              <strong>${count}</strong>
-            </div>
-          `,
-            )
-            .join("")}
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;" id="clientEcosystemList">
+          ${
+            totalClientTraffic > 0
+              ? Object.entries(summary.clientEcosystems)
+                  .map(
+                    ([client, count]) => `
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:var(--accents-5);">${escapeHtml(client)}:</span>
+                <strong>${count}</strong>
+              </div>
+            `,
+                  )
+                  .join("")
+              : `<div style="font-size:13px; color:var(--accents-5); text-align:center; padding:12px 0;">No client traffic recorded yet (N/A)</div>`
+          }
         </div>
       </div>
     </div>
@@ -1493,7 +1912,7 @@ export function renderStatsPage(params: {
             `;
                   })
                   .join("")
-              : `<div style="font-size:13px; color:var(--accents-5); padding:12px 0;">No tool calls recorded yet</div>`
+              : `<div style="font-size:13px; color:var(--accents-5); padding:16px 0; text-align:center;">No tool calls recorded yet (N/A)</div>`
           }
         </div>
       </div>
@@ -1543,7 +1962,7 @@ export function renderStatsPage(params: {
                     .map(
                       (err) => `
                 <tr>
-                  <td>${new Date(err.timestamp).toLocaleTimeString()}</td>
+                  <td class="local-timestamp" data-ts="${err.timestamp}">${new Date(err.timestamp).toLocaleTimeString()}</td>
                   <td style="font-family:monospace; font-weight:600;">${escapeHtml(err.toolName)}</td>
                   <td>${escapeHtml(err.client)}</td>
                   <td><span class="badge" style="color:var(--error);">${err.statusCode}</span></td>
@@ -1591,6 +2010,15 @@ export function renderStatsPage(params: {
               summary.keys.length > 0
                 ? summary.keys
                     .map((k) => {
+                      const displayLabel =
+                        k.label === "Master Key" || k.keyId === "primary-key"
+                          ? "Primary Key"
+                          : k.label;
+                      const displayKeyId =
+                        k.keyId === "master-env-key" ? "primary-key" : k.keyId;
+                      const displayType =
+                        k.type === "master" ? "primary" : k.type;
+
                       const topTools = Object.entries(k.toolCalls)
                         .sort((a, b) => b[1] - a[1])
                         .slice(0, 2)
@@ -1605,17 +2033,19 @@ export function renderStatsPage(params: {
                       return `
                 <tr>
                   <td>
-                    <div style="font-weight:600;">${escapeHtml(k.label)}</div>
-                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(k.keyId)}</div>
+                    <div style="font-weight:600;">${escapeHtml(displayLabel)}</div>
+                    <div style="font-family:monospace; font-size:11px; color:var(--accents-5);">${escapeHtml(displayKeyId)}</div>
                   </td>
                   <td>
-                    <span class="badge ${k.type === "oauth" ? "success" : ""}">${k.type}</span>
+                    <span class="badge ${displayType === "oauth" ? "success" : ""}">${displayType}</span>
                   </td>
                   <td><strong>${k.totalRequests}</strong></td>
                   <td>${rate}%</td>
                   <td>${k.avgDurationMs}ms</td>
                   <td>${formatBytes(k.bytesIn)} / ${formatBytes(k.bytesOut)}</td>
-                  <td>${timeAgo(k.lastActiveAt)}</td>
+                  <td>
+                    <span class="local-timestamp" data-ts="${k.lastActiveAt}">${timeAgo(k.lastActiveAt)}</span>
+                  </td>
                   <td style="font-size:12px; color:var(--accents-5);">${topTools || "none"}</td>
                 </tr>
               `;
@@ -1710,6 +2140,44 @@ export function renderStatsPage(params: {
 
     renderChart();
 
+    function formatPeakWindow() {
+      const el = document.getElementById('valPeakTime');
+      if (!el) return;
+      const hourAttr = el.getAttribute('data-utc-hour');
+      const dayAttr = el.getAttribute('data-utc-day');
+      if (!hourAttr || hourAttr === 'null' || hourAttr === '') {
+        el.textContent = 'N/A';
+        return;
+      }
+      const utcHour = parseInt(hourAttr, 10);
+      if (isNaN(utcHour)) {
+        el.textContent = 'N/A';
+        return;
+      }
+      const d = new Date();
+      d.setUTCHours(utcHour, 0, 0, 0);
+      const localTimeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      let tzName = '';
+      try {
+        tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch {}
+      el.textContent = localTimeStr + (dayAttr ? ' (' + dayAttr + (tzName ? ', ' + tzName : '') + ')' : '');
+    }
+
+    function convertLocalTimestamps() {
+      document.querySelectorAll('.local-timestamp').forEach(el => {
+        const tsAttr = el.getAttribute('data-ts');
+        if (!tsAttr) return;
+        const ts = parseInt(tsAttr, 10);
+        if (ts && !isNaN(ts)) {
+          el.textContent = new Date(ts).toLocaleString();
+        }
+      });
+    }
+
+    formatPeakWindow();
+    convertLocalTimestamps();
+
     // Live 3s Polling
     async function pollLiveStats() {
       try {
@@ -1727,6 +2195,19 @@ export function renderStatsPage(params: {
         document.getElementById('valLatency').innerHTML = s.avgDurationMs + ' <span style="font-size:14px; font-weight:500;">/ ' + s.p95DurationMs + ' ms</span>';
         document.getElementById('valQuotaUsed').textContent = s.sharedSandbox.quotaUsedPercent + '%';
         document.getElementById('barQuotaFill').style.width = Math.min(100, Math.max(2, s.sharedSandbox.quotaUsedPercent)) + '%';
+
+        // Update peak window
+        const peakEl = document.getElementById('valPeakTime');
+        if (peakEl) {
+          if (s.peakTraffic && s.peakTraffic.peakHourUtc !== null && s.totalRequests > 0) {
+            peakEl.setAttribute('data-utc-hour', s.peakTraffic.peakHourUtc);
+            peakEl.setAttribute('data-utc-day', s.peakTraffic.peakDay || '');
+          } else {
+            peakEl.setAttribute('data-utc-hour', '');
+            peakEl.setAttribute('data-utc-day', '');
+          }
+          formatPeakWindow();
+        }
 
         // Update system health
         if (s.systemHealth) {

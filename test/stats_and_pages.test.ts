@@ -4,7 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { StatsTracker } from "../src/stats.js";
-import { renderHomePage, renderStatsPage } from "../src/views.js";
+import {
+  renderHomePage,
+  renderStatsPage,
+  renderToolsPage,
+  renderApiKeysPage,
+} from "../src/views.js";
 
 test("StatsTracker records requests, computes timeline graphs, and tracks 4 metrics per key", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "krix-stats-test-"));
@@ -352,5 +357,219 @@ test("Home and Stats pages adhere to Geist Minimalist Design, Zero-Neon, and Zer
     statsHtml.includes("pool"),
     false,
     "statsHtml must not contain 'pool'",
+  );
+});
+
+test("Tools page renders modular compact boxes, search bar, category pills, and full 87+ tools catalog", () => {
+  const tracker = new StatsTracker();
+  const summary = tracker.getSummary();
+
+  assert.ok(
+    summary.toolsCatalog.length >= 87,
+    `toolsCatalog must contain at least 87 tools, got ${summary.toolsCatalog.length}`,
+  );
+
+  const toolsHtml = renderToolsPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner: {
+      email: "owner@example.com",
+      name: "Owner User",
+      expiresAt: Date.now() + 100000,
+    },
+    tools: summary.toolsCatalog,
+    summary,
+  });
+
+  // Zero-Ellipsis Audit
+  assert.equal(
+    toolsHtml.includes("..."),
+    false,
+    "toolsHtml must not contain '...'",
+  );
+  assert.equal(
+    toolsHtml.includes("&hellip;"),
+    false,
+    "toolsHtml must not contain '&hellip;'",
+  );
+
+  // Search input & Category Pills
+  assert.ok(
+    toolsHtml.includes('id="toolSearchInput"'),
+    "Must include tool search input",
+  );
+  assert.ok(
+    toolsHtml.includes('data-cat="All"'),
+    "Must include All category pill",
+  );
+  assert.ok(
+    toolsHtml.includes('data-cat="Sandbox"'),
+    "Must include Sandbox category pill",
+  );
+  assert.ok(
+    toolsHtml.includes('data-cat="Render"'),
+    "Must include Render category pill",
+  );
+  assert.ok(
+    toolsHtml.includes('data-cat="GitHub"'),
+    "Must include GitHub category pill",
+  );
+  assert.ok(
+    toolsHtml.includes('data-cat="Files"'),
+    "Must include Files category pill",
+  );
+
+  // Compact grid structure
+  assert.ok(
+    toolsHtml.includes('class="tools-grid"'),
+    "Must use tools-grid layout",
+  );
+  assert.ok(
+    toolsHtml.includes('class="tool-box"'),
+    "Must use tool-box containers",
+  );
+
+  // Verify representative tools across all categories
+  assert.ok(toolsHtml.includes("sandbox_exec"), "Must include sandbox_exec");
+  assert.ok(toolsHtml.includes("sandbox_store"), "Must include sandbox_store");
+  assert.ok(
+    toolsHtml.includes("create_web_service"),
+    "Must include create_web_service",
+  );
+  assert.ok(
+    toolsHtml.includes("create_pull_request"),
+    "Must include create_pull_request",
+  );
+});
+
+test("API keys page includes live search, custom toasts, revoke confirmation modal, and OAuth authorizations", () => {
+  const apiKeysHtml = renderApiKeysPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner: {
+      email: "owner@example.com",
+      name: "Owner User",
+      expiresAt: Date.now() + 100000,
+    },
+    dynamicKeys: [
+      {
+        id: "key-test-1",
+        label: "Gemini CLI Key",
+        prefix: "kx_live_abcdef123456",
+        createdAt: Date.now(),
+      },
+    ],
+    oauthAuthorizations: [
+      {
+        clientId: "client-gemini-mcp",
+        clientName: "Google Gemini Connected App",
+        authorizedAt: Date.now(),
+        lastUsedAt: Date.now(),
+        scope: "read write sandbox",
+        active: true,
+      },
+    ],
+  });
+
+  // Zero-Ellipsis Audit
+  assert.equal(
+    apiKeysHtml.includes("..."),
+    false,
+    "apiKeysHtml must not contain '...'",
+  );
+  assert.equal(
+    apiKeysHtml.includes("&hellip;"),
+    false,
+    "apiKeysHtml must not contain '&hellip;'",
+  );
+
+  // Live search bar
+  assert.ok(
+    apiKeysHtml.includes('id="keySearchInput"'),
+    "Must include API key search input",
+  );
+
+  // Custom Toast notifications (no browser alert popups)
+  assert.ok(
+    apiKeysHtml.includes('class="toast-container"'),
+    "Must have custom toast container",
+  );
+  assert.ok(
+    apiKeysHtml.includes("function showToast("),
+    "Must implement custom showToast",
+  );
+
+  // Custom Revocation Confirmation Modal (no browser confirm popups)
+  assert.ok(
+    apiKeysHtml.includes('id="confirmModal"'),
+    "Must have custom confirmation modal",
+  );
+  assert.ok(
+    apiKeysHtml.includes("function openRevokeKeyModal("),
+    "Must implement openRevokeKeyModal",
+  );
+
+  // Active OAuth Authorizations section
+  assert.ok(
+    apiKeysHtml.includes("Active OAuth Authorizations"),
+    "Must display OAuth authorizations header",
+  );
+  assert.ok(
+    apiKeysHtml.includes("client-gemini-mcp"),
+    "Must list OAuth client ID",
+  );
+  assert.ok(
+    apiKeysHtml.includes("Google Gemini Connected App"),
+    "Must list OAuth client name",
+  );
+});
+
+test("Real telemetry audit: Peak traffic falls back to N/A when 0 requests, Primary Key rename, and clean tools", () => {
+  const tracker = new StatsTracker();
+  const summary = tracker.getSummary();
+
+  // Peak traffic must be null when requests are 0
+  assert.equal(summary.totalRequests, 0);
+  assert.equal(summary.peakTraffic.peakHourUtc, null);
+  assert.equal(summary.peakTraffic.peakDay, null);
+
+  const emptyStatsHtml = renderStatsPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner: {
+      email: "owner@example.com",
+      name: "Owner User",
+      expiresAt: Date.now() + 100000,
+    },
+    summary,
+  });
+
+  // Must display N/A for peak window
+  assert.ok(
+    emptyStatsHtml.includes('id="valPeakTime"') &&
+      emptyStatsHtml.includes("N/A"),
+    "Empty stats must show N/A for peak window",
+  );
+
+  // Must display N/A for empty tools and client traffic
+  assert.ok(
+    emptyStatsHtml.includes("No tool calls recorded yet (N/A)"),
+    "Must display N/A fallback when no tool calls exist",
+  );
+  assert.ok(
+    emptyStatsHtml.includes("No client traffic recorded yet (N/A)"),
+    "Must display N/A fallback when no client traffic exists",
+  );
+
+  // Primary Key rename audit
+  assert.equal(
+    emptyStatsHtml.includes("Master Key"),
+    false,
+    "Stats page must not display 'Master Key'",
+  );
+  assert.equal(
+    emptyStatsHtml.includes("master-env-key"),
+    false,
+    "Stats page must not display 'master-env-key'",
   );
 });
