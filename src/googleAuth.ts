@@ -91,20 +91,25 @@ export async function loadKeysFromMongo(): Promise<void> {
     const docs = await col.find({}).toArray();
     for (const d of docs) {
       if (d.revoked) {
-        revokedKeyIds.add(d.id);
-        dynamicApiKeys.delete(d.id);
-      } else if (d.id) {
-        const rawKey = d.key || d.prefix || "";
+        if (d.id) revokedKeyIds.add(d.id);
+        if (d.id) dynamicApiKeys.delete(d.id);
+      } else if (d.id || d.key || d._id) {
+        const id =
+          d.id ||
+          (d._id
+            ? String(d._id)
+            : `kx_${crypto.randomBytes(6).toString("hex")}`);
+        const rawKey = d.key || d.apiKey || d.prefix || "";
         const entry: GeneratedKeyEntry = {
-          id: d.id,
+          id,
           clientId: d.clientId || generateClientId(),
           key: rawKey,
-          prefix: d.prefix || (rawKey ? rawKey.slice(0, 16) : d.id),
-          label: d.label || "Personal Key",
+          prefix: d.prefix || (rawKey ? rawKey.slice(0, 16) : id),
+          label: d.label || d.name || "Personal Key",
           createdAt: d.createdAt || Date.now(),
           lastUsedAt: d.lastUsedAt,
         };
-        dynamicApiKeys.set(d.id, entry);
+        dynamicApiKeys.set(id, entry);
         if (entry.key) {
           registerSecret(entry.key);
         }

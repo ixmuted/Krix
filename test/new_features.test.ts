@@ -351,7 +351,9 @@ test("API key page form submission fix: prevents page reload and URL query inser
 
   // Verify form has event.preventDefault() and javascript:void(0)
   assert.ok(
-    apiHtml.includes('onsubmit="event.preventDefault(); handleCreateKey(event); return false;"'),
+    apiHtml.includes(
+      'onsubmit="event.preventDefault(); handleCreateKey(event); return false;"',
+    ),
     "createKeyForm onsubmit must prevent default and return false",
   );
   assert.ok(
@@ -379,7 +381,8 @@ test("Dedicated Store page renders files table, download links, and permanent st
       createdAt: new Date(),
       expiresAt: null, // permanent
       source: "store" as const,
-      downloadUrl: "https://krix.onrender.com/store/download/662a1b2c3d4e5f6a7b8c9d0e",
+      downloadUrl:
+        "https://krix.onrender.com/store/download/662a1b2c3d4e5f6a7b8c9d0e",
       permanent: true,
     },
     {
@@ -409,14 +412,29 @@ test("Dedicated Store page renders files table, download links, and permanent st
   });
 
   // Check metrics cards
-  assert.ok(storeHtml.includes("Total Stored Files"), "Must display Total Stored Files card");
-  assert.ok(storeHtml.includes("Storage Used"), "Must display Storage Used card");
-  assert.ok(storeHtml.includes("Permanent Files"), "Must display Permanent Files card");
+  assert.ok(
+    storeHtml.includes("Total Stored Files"),
+    "Must display Total Stored Files card",
+  );
+  assert.ok(
+    storeHtml.includes("Storage Used"),
+    "Must display Storage Used card",
+  );
+  assert.ok(
+    storeHtml.includes("Permanent Files"),
+    "Must display Permanent Files card",
+  );
 
   // Check files table
-  assert.ok(storeHtml.includes("results_dataset.csv"), "Must display results_dataset.csv");
+  assert.ok(
+    storeHtml.includes("results_dataset.csv"),
+    "Must display results_dataset.csv",
+  );
   assert.ok(storeHtml.includes("script.py"), "Must display script.py");
-  assert.ok(storeHtml.includes("Cloud Store"), "Must display Cloud Store badge");
+  assert.ok(
+    storeHtml.includes("Cloud Store"),
+    "Must display Cloud Store badge",
+  );
   assert.ok(storeHtml.includes("Sandbox"), "Must display Sandbox badge");
   assert.ok(storeHtml.includes("Permanent"), "Must display Permanent badge");
 
@@ -430,7 +448,10 @@ test("Dedicated Store page renders files table, download links, and permanent st
     "Must include download URL for sandbox file",
   );
   assert.ok(storeHtml.includes("Copy URL"), "Must include Copy URL button");
-  assert.ok(storeHtml.includes("openDeleteFileModal"), "Must include delete button modal");
+  assert.ok(
+    storeHtml.includes("openDeleteFileModal"),
+    "Must include delete button modal",
+  );
 });
 
 test("Key selector dropdown and per-key filtered stats calculation", () => {
@@ -474,7 +495,11 @@ test("Key selector dropdown and per-key filtered stats calculation", () => {
 
   // 1. Overall stats (all keys)
   const allSummary = tracker.getSummary();
-  assert.equal(allSummary.totalRequests, 3, "Total requests for all keys must be 3");
+  assert.equal(
+    allSummary.totalRequests,
+    3,
+    "Total requests for all keys must be 3",
+  );
   assert.equal(allSummary.totalSuccess, 2, "Total success must be 2");
   assert.equal(allSummary.totalErrors, 1, "Total errors must be 1");
   assert.equal(allSummary.toolDistribution["sandbox_exec"], 2);
@@ -486,14 +511,22 @@ test("Key selector dropdown and per-key filtered stats calculation", () => {
   assert.equal(alphaSummary.totalRequests, 2, "Alpha key requests must be 2");
   assert.equal(alphaSummary.totalSuccess, 2, "Alpha key success must be 2");
   assert.equal(alphaSummary.totalErrors, 0, "Alpha key errors must be 0");
-  assert.equal(alphaSummary.avgDurationMs, 50, "Alpha key avg duration must be 50ms");
+  assert.equal(
+    alphaSummary.avgDurationMs,
+    50,
+    "Alpha key avg duration must be 50ms",
+  );
   assert.equal(alphaSummary.toolDistribution["sandbox_exec"], 2);
   assert.equal(alphaSummary.toolDistribution["sandbox_read"], undefined);
 
   // 3. Filtered by OAuth client: client_gemini_oauth
   const oauthSummary = tracker.getSummary(undefined, "client_gemini_oauth");
   assert.equal(oauthSummary.selectedKeyId, "client_gemini_oauth");
-  assert.equal(oauthSummary.totalRequests, 1, "OAuth client requests must be 1");
+  assert.equal(
+    oauthSummary.totalRequests,
+    1,
+    "OAuth client requests must be 1",
+  );
   assert.equal(oauthSummary.totalSuccess, 0, "OAuth client success must be 0");
   assert.equal(oauthSummary.totalErrors, 1, "OAuth client errors must be 1");
   assert.equal(oauthSummary.toolDistribution["sandbox_read"], 1);
@@ -507,10 +540,22 @@ test("Key selector dropdown and per-key filtered stats calculation", () => {
     owner,
     summary: alphaSummary,
   });
-  assert.ok(statsHtml.includes('id="keySelector"'), "Stats page must render keySelector");
-  assert.ok(statsHtml.includes("All Keys &amp; OAuth"), "Must include All Keys option");
-  assert.ok(statsHtml.includes("Claude Key"), "Must include Claude Key in selector");
-  assert.ok(statsHtml.includes("Gemini OAuth"), "Must include Gemini OAuth in selector");
+  assert.ok(
+    statsHtml.includes('id="keySelector"'),
+    "Stats page must render keySelector",
+  );
+  assert.ok(
+    statsHtml.includes("All Keys &amp; OAuth"),
+    "Must include All Keys option",
+  );
+  assert.ok(
+    statsHtml.includes("Claude Key"),
+    "Must include Claude Key in selector",
+  );
+  assert.ok(
+    statsHtml.includes("Gemini OAuth"),
+    "Must include Gemini OAuth in selector",
+  );
 
   const toolsHtml = renderToolsPage({
     base: "https://krix.onrender.com",
@@ -519,8 +564,14 @@ test("Key selector dropdown and per-key filtered stats calculation", () => {
     tools: alphaSummary.toolsCatalog,
     summary: alphaSummary,
   });
-  assert.ok(toolsHtml.includes('id="keySelector"'), "Tools page must render keySelector");
-  assert.ok(toolsHtml.includes("onKeyFilterChange"), "Tools page must have onKeyFilterChange");
+  assert.ok(
+    toolsHtml.includes('id="keySelector"'),
+    "Tools page must render keySelector",
+  );
+  assert.ok(
+    toolsHtml.includes("onKeyFilterChange"),
+    "Tools page must have onKeyFilterChange",
+  );
 
   // 5. Test syncKnownKeys populates unused keys and OAuth clients with 0 requests
   tracker.syncKnownKeys(
@@ -528,14 +579,22 @@ test("Key selector dropdown and per-key filtered stats calculation", () => {
     [{ clientId: "client_fresh_oauth", clientName: "Claude Desktop OAuth" }],
   );
   const syncSummary = tracker.getSummary();
-  const foundKey = syncSummary.keys.find((k) => k.keyId === "kx_new_key_zero_traffic");
+  const foundKey = syncSummary.keys.find(
+    (k) => k.keyId === "kx_new_key_zero_traffic",
+  );
   assert.ok(foundKey, "Must find newly synced API key in summary");
   assert.equal(foundKey?.totalRequests, 0, "Unused key should have 0 requests");
   assert.equal(foundKey?.type, "api_key");
 
-  const foundOauth = syncSummary.keys.find((k) => k.keyId === "client_fresh_oauth");
+  const foundOauth = syncSummary.keys.find(
+    (k) => k.keyId === "client_fresh_oauth",
+  );
   assert.ok(foundOauth, "Must find newly synced OAuth client in summary");
-  assert.equal(foundOauth?.totalRequests, 0, "Unused OAuth should have 0 requests");
+  assert.equal(
+    foundOauth?.totalRequests,
+    0,
+    "Unused OAuth should have 0 requests",
+  );
   assert.equal(foundOauth?.type, "oauth");
 
   const syncStatsHtml = renderStatsPage({
@@ -544,12 +603,22 @@ test("Key selector dropdown and per-key filtered stats calculation", () => {
     owner,
     summary: syncSummary,
   });
-  assert.ok(syncStatsHtml.includes("Cursor Fresh Key"), "Must render newly created API key in dropdown");
-  assert.ok(syncStatsHtml.includes("Claude Desktop OAuth"), "Must render newly connected OAuth in dropdown");
+  assert.ok(
+    syncStatsHtml.includes("Cursor Fresh Key"),
+    "Must render newly created API key in dropdown",
+  );
+  assert.ok(
+    syncStatsHtml.includes("Claude Desktop OAuth"),
+    "Must render newly connected OAuth in dropdown",
+  );
 });
 
 test("OAuth token persistence and recovery from disk and Mongo sync", async () => {
-  const { recordIssuedToken, listActiveOAuthAuthorizations, loadOAuthFromDisk } = await import("../src/mcpOAuth.js");
+  const {
+    recordIssuedToken,
+    listActiveOAuthAuthorizations,
+    loadOAuthFromDisk,
+  } = await import("../src/mcpOAuth.js");
   const tokenRecord = {
     token: "test_stateless_access_token_12345",
     refreshToken: "test_stateless_refresh_token_12345",
@@ -562,7 +631,10 @@ test("OAuth token persistence and recovery from disk and Mongo sync", async () =
   recordIssuedToken(tokenRecord);
   const activeAuths = listActiveOAuthAuthorizations();
   const foundAuth = activeAuths.find((a) => a.clientId === "client_gemini_cli");
-  assert.ok(foundAuth, "Must include OAuth client in active authorizations list");
+  assert.ok(
+    foundAuth,
+    "Must include OAuth client in active authorizations list",
+  );
   assert.equal(foundAuth?.ownerEmail, "owner@quickwitty.com");
 
   // Verify recovery from disk reload
@@ -570,4 +642,131 @@ test("OAuth token persistence and recovery from disk and Mongo sync", async () =
   const diskAuths = listActiveOAuthAuthorizations();
   const diskFound = diskAuths.find((a) => a.clientId === "client_gemini_cli");
   assert.ok(diskFound, "Must recover OAuth token from disk");
+});
+
+test("Store permanent file toggle, revert retention, and dynamic live counters", async () => {
+  const { renderStorePage, renderApiKeysPage } =
+    await import("../src/views.js");
+  const owner = {
+    sub: "12345",
+    email: "owner@quickwitty.com",
+    name: "ANKIT",
+    picture: "https://example.com/pic.png",
+  };
+
+  // 1. Verify Store page counters and revert/permanent toggle UI
+  const storeHtml = renderStorePage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner,
+    files: [
+      {
+        id: "file_test_perm_1",
+        name: "document.pdf",
+        size: 1048576,
+        contentType: "application/pdf",
+        ownerKey: "hash123",
+        createdAt: new Date(),
+        expiresAt: null, // permanent
+        permanent: true,
+      },
+      {
+        id: "file_test_temp_2",
+        name: "data.csv",
+        size: 524288,
+        contentType: "text/csv",
+        ownerKey: "hash123",
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 3600 * 1000), // expiring
+        permanent: false,
+      },
+    ],
+    usage: {
+      count: 2,
+      bytes: 1572864,
+      permanentCount: 1,
+      expiredCount: 0,
+    },
+  });
+
+  assert.ok(
+    storeHtml.includes('id="valTotalFiles"'),
+    "Store must have valTotalFiles counter element",
+  );
+  assert.ok(
+    storeHtml.includes('id="valPermanentFiles"'),
+    "Store must have valPermanentFiles counter element",
+  );
+  assert.ok(
+    storeHtml.includes('id="valExpiringFiles"'),
+    "Store must have valExpiringFiles counter element",
+  );
+  assert.ok(
+    storeHtml.includes('id="valTotalBytes"'),
+    "Store must have valTotalBytes counter element",
+  );
+  assert.ok(
+    storeHtml.includes("togglePermanent"),
+    "Store must have togglePermanent script function",
+  );
+  assert.ok(
+    storeHtml.includes("Revert Permanent"),
+    "Store must render Revert Permanent button for permanent file",
+  );
+  assert.ok(
+    storeHtml.includes("Keep Permanent"),
+    "Store must render Keep Permanent button for temporary file",
+  );
+
+  // 2. Verify API Keys page renders Primary Key, Dynamic Keys, and OAuth badge
+  const apiHtml = renderApiKeysPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner,
+    keys: [
+      {
+        id: "primary",
+        key: "kx_primary_key_secret",
+        label: "Primary Key (MCP_API_KEY)",
+        createdAt: 1700000000000,
+        isPrimary: true,
+      } as any,
+      {
+        id: "kx_dynamic_key_1",
+        key: "kx_dyn_1234567890",
+        label: "Claude Desktop",
+        createdAt: 1700000001000,
+      },
+    ],
+    authorizations: [
+      {
+        clientId: "client_gemini_oauth",
+        clientName: "Google Gemini",
+        scope: "mcp:tools mcp:sandbox",
+        ownerEmail: "owner@quickwitty.com",
+        createdAt: 1700000000000,
+      },
+    ],
+  });
+
+  assert.ok(
+    apiHtml.includes("Primary Key (MCP_API_KEY)"),
+    "API keys page must display Primary Key",
+  );
+  assert.ok(
+    apiHtml.includes("Primary Key"),
+    "Primary Key must be marked as non-revocable Primary Key",
+  );
+  assert.ok(
+    apiHtml.includes('id="oauthCountBadge"'),
+    "API keys page must include oauthCountBadge",
+  );
+  assert.ok(
+    apiHtml.includes("handleCreateKey"),
+    "API keys page must declare handleCreateKey",
+  );
+  assert.ok(
+    !apiHtml.includes("copyKeyText('' +"),
+    "Must not have syntax errors in template onclick bindings",
+  );
 });

@@ -117,7 +117,12 @@ export async function loadOAuthFromMongo(): Promise<void> {
     for (const td of tokDocs) {
       if (td.revoked) {
         issuedTokens.delete(td.token);
-      } else if (td.token && td.expiresAt && Date.now() < td.expiresAt) {
+      } else if (
+        td.token &&
+        (!td.refreshExpiresAt ||
+          Date.now() < td.refreshExpiresAt ||
+          (td.expiresAt && Date.now() < td.expiresAt + 30 * 86400 * 1000))
+      ) {
         const entry: IssuedTokenEntry = {
           token: td.token,
           refreshToken: td.refreshToken || "",
@@ -139,7 +144,9 @@ export async function loadOAuthFromMongo(): Promise<void> {
 }
 loadOAuthFromMongo().catch(() => {});
 
-export async function syncOAuthClientToMongo(client: OAuthClient): Promise<void> {
+export async function syncOAuthClientToMongo(
+  client: OAuthClient,
+): Promise<void> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) return;
@@ -155,7 +162,9 @@ export async function syncOAuthClientToMongo(client: OAuthClient): Promise<void>
   }
 }
 
-export async function revokeOAuthClientInMongo(clientId: string): Promise<void> {
+export async function revokeOAuthClientInMongo(
+  clientId: string,
+): Promise<void> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) return;
@@ -166,11 +175,17 @@ export async function revokeOAuthClientInMongo(clientId: string): Promise<void> 
       { $set: { revoked: true, revokedAt: Date.now() } },
     );
   } catch (err: any) {
-    console.error("[mongo-oauth] revokeOAuthClientInMongo error:", err?.message);
+    console.error(
+      "[mongo-oauth] revokeOAuthClientInMongo error:",
+      err?.message,
+    );
   }
 }
 
-export async function syncOAuthTokenToMongo(token: string, entry: IssuedTokenEntry): Promise<void> {
+export async function syncOAuthTokenToMongo(
+  token: string,
+  entry: IssuedTokenEntry,
+): Promise<void> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) return;
@@ -1021,6 +1036,27 @@ export function createMcpOAuthRouter(): Router {
 
         recordIssuedToken(tokenRecord);
 
+        const effectiveClientId = clientId || entry.clientId;
+        if (effectiveClientId) {
+          const clientName =
+            effectiveClientId.toLowerCase().includes("gemini") ||
+            (entry.redirectUri &&
+              entry.redirectUri.toLowerCase().includes("google"))
+              ? "Google Gemini"
+              : `Client (${effectiveClientId.slice(0, 16)})`;
+
+          const clientRecord: OAuthClient = {
+            clientId: effectiveClientId,
+            clientSecret: "",
+            clientName,
+            redirectUris: entry.redirectUri ? [entry.redirectUri] : [],
+            createdAt: Date.now(),
+          };
+          registeredClients.set(effectiveClientId, clientRecord);
+          saveOAuthToDisk();
+          syncOAuthClientToMongo(clientRecord).catch(() => {});
+        }
+
         res.json({
           access_token: accessToken,
           token_type: "Bearer",
@@ -1092,6 +1128,23 @@ export function createMcpOAuthRouter(): Router {
           refreshExpiresAt: 0,
         };
         recordIssuedToken(tokenRecord);
+
+        if (clientId) {
+          const clientName = clientId.toLowerCase().includes("gemini")
+            ? "Google Gemini"
+            : `Client (${clientId.slice(0, 16)})`;
+
+          const clientRecord: OAuthClient = {
+            clientId,
+            clientSecret: "",
+            clientName,
+            redirectUris: [],
+            createdAt: Date.now(),
+          };
+          registeredClients.set(clientId, clientRecord);
+          saveOAuthToDisk();
+          syncOAuthClientToMongo(clientRecord).catch(() => {});
+        }
 
         res.json({
           access_token: accessToken,
@@ -1257,14 +1310,22 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
   for (const client of registeredClients.values()) {
     result.set(client.clientId, {
       clientId: client.clientId,
-      clientName: client.clientName || client.clientId,
+      clientName:
+        client.clientName ||
+        (client.clientId.toLowerCase().includes("gemini")
+          ? "Google Gemini"
+          : client.clientId),
       scope: "mcp:tools mcp:sandbox",
       ownerEmail: process.env.OWNER_EMAIL || "owner",
-      createdAt: client.createdAt,
+      createdAt: client.createdAt || Date.now(),
     });
   }
   for (const entry of issuedTokens.values()) {
-    if (Date.now() < entry.expiresAt) {
+    const isUnexpired =
+      !entry.refreshExpiresAt ||
+      Date.now() < entry.refreshExpiresAt ||
+      (entry.expiresAt && Date.now() < entry.expiresAt + 30 * 86400 * 1000);
+    if (isUnexpired) {
       const existing = result.get(entry.clientId);
       if (existing) {
         existing.lastUsedAt = Math.max(
@@ -1277,9 +1338,11 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
           clientName: entry.clientId.toLowerCase().includes("gemini")
             ? "Google Gemini"
             : `Client (${entry.clientId.slice(0, 16)})`,
-          scope: entry.scope,
-          ownerEmail: entry.ownerEmail,
-          createdAt: entry.expiresAt - 86400 * 1000,
+          scope: entry.scope || "mcp:tools",
+          ownerEmail: entry.ownerEmail || process.env.OWNER_EMAIL || "owner",
+          createdAt: entry.expiresAt
+            ? entry.expiresAt - 86400 * 1000
+            : Date.now(),
           lastUsedAt: Date.now(),
         });
       }

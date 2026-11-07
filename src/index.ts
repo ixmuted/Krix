@@ -205,8 +205,9 @@ function createMasterServer(
 
   const primaryIconUrl = serverIcons[0]?.src ?? GITHUB_ICON_48_URL;
   const primaryLogoUrl =
-    serverIcons.find((i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"))?.src ??
-    GITHUB_LOGO_URL;
+    serverIcons.find(
+      (i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"),
+    )?.src ?? GITHUB_LOGO_URL;
   (server.server as any)._serverInfo.icon = primaryIconUrl;
   (server.server as any)._serverInfo.iconUrl = primaryIconUrl;
   (server.server as any)._serverInfo.logo = primaryLogoUrl;
@@ -799,11 +800,13 @@ app.get("/gemini-extension.json", (req, res) => {
     icon: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
     iconUrl: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
     logo:
-      getServerIcons(base).find((i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"))?.src ??
-      GITHUB_LOGO_URL,
+      getServerIcons(base).find(
+        (i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"),
+      )?.src ?? GITHUB_LOGO_URL,
     logoUrl:
-      getServerIcons(base).find((i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"))?.src ??
-      GITHUB_LOGO_URL,
+      getServerIcons(base).find(
+        (i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"),
+      )?.src ?? GITHUB_LOGO_URL,
     icons: getServerIcons(base),
     mcpServers: {
       krix: {
@@ -880,6 +883,19 @@ app.get(["/api", "/keys"], async (req, res) => {
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
   const dynamicKeys = listDynamicKeys();
+  const allKeys: Array<any> = [];
+  if (MCP_API_KEY) {
+    allKeys.push({
+      id: "primary-key",
+      clientId: "server-primary",
+      key: MCP_API_KEY,
+      prefix: MCP_API_KEY.slice(0, 16),
+      label: "Primary Key",
+      createdAt: 1728000000000,
+      isPrimary: true,
+    });
+  }
+  allKeys.push(...dynamicKeys);
   const oauthAuthorizations = listActiveOAuthAuthorizations();
 
   if (
@@ -890,7 +906,7 @@ app.get(["/api", "/keys"], async (req, res) => {
       res.status(401).json({ error: "Unauthorized." });
       return;
     }
-    res.json({ keys: dynamicKeys, oauthAuthorizations });
+    res.json({ keys: allKeys, oauthAuthorizations });
     return;
   }
 
@@ -900,7 +916,7 @@ app.get(["/api", "/keys"], async (req, res) => {
       base,
       isOwner,
       owner,
-      keys: dynamicKeys,
+      keys: allKeys,
       oauthAuthorizations,
     }),
   );
@@ -918,7 +934,20 @@ app.get("/api/keys", async (req, res) => {
       .json({ error: "Unauthorized. Sign in as owner to list keys." });
     return;
   }
-  res.json({ keys: listDynamicKeys() });
+  const allKeys: Array<any> = [];
+  if (MCP_API_KEY) {
+    allKeys.push({
+      id: "primary-key",
+      clientId: "server-primary",
+      key: MCP_API_KEY,
+      prefix: MCP_API_KEY.slice(0, 16),
+      label: "Primary Key",
+      createdAt: 1728000000000,
+      isPrimary: true,
+    });
+  }
+  allKeys.push(...listDynamicKeys());
+  res.json({ keys: allKeys });
 });
 
 app.post("/api/keys", express.json(), async (req, res) => {
@@ -968,7 +997,10 @@ app.get("/tools", async (req, res) => {
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
   ]);
-  statsTracker.syncKnownKeys(listDynamicKeys(), listActiveOAuthAuthorizations());
+  statsTracker.syncKnownKeys(
+    listDynamicKeys(),
+    listActiveOAuthAuthorizations(),
+  );
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
@@ -1000,7 +1032,7 @@ app.get("/stats/api", async (req, res) => {
     Boolean(owner) ||
     Boolean(
       clientKey &&
-        (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+      (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
     );
 
   if (!isAuth) {
@@ -1014,7 +1046,10 @@ app.get("/stats/api", async (req, res) => {
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
   ]);
-  statsTracker.syncKnownKeys(listDynamicKeys(), listActiveOAuthAuthorizations());
+  statsTracker.syncKnownKeys(
+    listDynamicKeys(),
+    listActiveOAuthAuthorizations(),
+  );
   const selectedKeyId =
     typeof req.query.key === "string" ? req.query.key.trim() : undefined;
   const authKey = computeAuthKey(
@@ -1032,7 +1067,10 @@ app.get("/stats", async (req, res) => {
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
   ]);
-  statsTracker.syncKnownKeys(listDynamicKeys(), listActiveOAuthAuthorizations());
+  statsTracker.syncKnownKeys(
+    listDynamicKeys(),
+    listActiveOAuthAuthorizations(),
+  );
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
@@ -1148,9 +1186,7 @@ app.get("/store/api/files", async (req, res) => {
     return;
   }
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
-  );
+  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
   const root = sandboxRootForAuthKey(authKey);
   const fileStore = getFileStore();
 
@@ -1208,7 +1244,10 @@ app.get("/store/download/:id", async (req, res) => {
       res.status(404).type("text/plain").send("File not found or expired.");
       return;
     }
-    res.setHeader("Content-Type", file.contentType || "application/octet-stream");
+    res.setHeader(
+      "Content-Type",
+      file.contentType || "application/octet-stream",
+    );
     res.setHeader("Content-Length", String(file.size));
     res.setHeader(
       "Content-Disposition",
@@ -1218,7 +1257,10 @@ app.get("/store/download/:id", async (req, res) => {
     await pipeline(file.stream, res);
   } catch (e: any) {
     if (!res.headersSent)
-      res.status(500).type("text/plain").send("Download error: " + e.message);
+      res
+        .status(500)
+        .type("text/plain")
+        .send("Download error: " + e.message);
   }
 });
 
@@ -1229,7 +1271,7 @@ app.get("/store/download", async (req, res) => {
     Boolean(owner) ||
     Boolean(
       clientKey &&
-        (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+      (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
     );
   if (!isAuth) {
     res.status(401).type("text/plain").send("Unauthorized.");
@@ -1271,6 +1313,18 @@ app.post("/store/permanent/:id", async (req, res) => {
   else res.status(404).json({ error: "File not found." });
 });
 
+app.post("/store/revert-permanent/:id", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id;
+  const ok = await getFileStore().revertPermanent("*", id);
+  if (ok) res.json({ success: true, permanent: false });
+  else res.status(404).json({ error: "File not found." });
+});
+
 app.delete("/store/files/:id", async (req, res) => {
   const owner = parseOwnerCookie(req);
   if (!owner) {
@@ -1299,9 +1353,7 @@ app.delete("/store/sandbox-file", async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
-  );
+  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
   const root = sandboxRootForAuthKey(authKey);
   const filePath = path.join(root, UPLOAD_DIR, name);
   if (fs.existsSync(filePath)) {

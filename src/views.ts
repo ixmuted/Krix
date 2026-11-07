@@ -3,7 +3,8 @@ import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 import type { ActiveOAuthInfo } from "./mcpOAuth.js";
 
 export function escapeHtml(str: string): string {
-  return str
+  if (!str) return "";
+  return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -84,6 +85,8 @@ export function renderSvg(
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
     case "clock":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+    case "shield":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`;
     case "zap":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
     default:
@@ -1074,7 +1077,10 @@ export function renderFooter(): string {
   `;
 }
 
-export function renderAuthRequiredCard(pageTitle: string, returnUrl: string): string {
+export function renderAuthRequiredCard(
+  pageTitle: string,
+  returnUrl: string,
+): string {
   return `
     <div class="card" style="text-align:center; padding:48px 24px; max-width:540px; margin:40px auto;">
       <div style="width:48px; height:48px; border-radius:50%; background:var(--accents-1); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; color:var(--fg);">
@@ -1488,7 +1494,11 @@ export function renderApiKeysPage(params: {
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
                   <td><span class="badge success">Active</span></td>
                   <td>
-                    <button class="btn" onclick="openRevokeKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>
+                    ${
+                      (k as any).isPrimary
+                        ? `<span class="badge" style="font-size:11px;">Primary Key</span>`
+                        : `<button class="btn" onclick="openRevokeKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>`
+                    }
                   </td>
                 </tr>
               `;
@@ -1515,7 +1525,7 @@ export function renderApiKeysPage(params: {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Active OAuth Authorizations</h2>
-            <span class="badge ${oauthAuthorizations.length > 0 ? "success" : ""}">${oauthAuthorizations.length} connected</span>
+            <span class="badge ${oauthAuthorizations.length > 0 ? "success" : ""}" id="oauthCountBadge">${oauthAuthorizations.length} connected</span>
           </div>
         </div>
 
@@ -1686,6 +1696,19 @@ export function renderApiKeysPage(params: {
             const row = document.getElementById('oauth-row-' + clientId);
             if (row) row.remove();
             showToast('OAuth connection revoked', 'success');
+
+            const remainingOAuth = document.querySelectorAll('#oauthTableBody tr[id^="oauth-row-"]').length;
+            const oBadge = document.getElementById('oauthCountBadge');
+            if (oBadge) {
+              oBadge.textContent = remainingOAuth + ' connected';
+              if (remainingOAuth === 0) oBadge.classList.remove('success');
+            }
+            if (remainingOAuth === 0) {
+              const tbody = document.getElementById('oauthTableBody');
+              if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--accents-5);">No active OAuth connections. Connect Google Gemini or any OAuth 2.1 client to view it here.</td></tr>';
+              }
+            }
           } else {
             showToast('Failed to revoke OAuth authorization', 'error');
           }
@@ -1763,7 +1786,7 @@ export function renderApiKeysPage(params: {
             const safeLabel = (data.label || '').replace(/</g, '&lt;');
             const safeId = (data.id || '').replace(/</g, '&lt;');
             const safeCId = (data.clientId || '').replace(/</g, '&lt;');
-            const safeKey = (data.key || '').replace(/'/g, "\\'");
+            const fullKey = data.key || '';
 
             tr.innerHTML = '<td>' +
               '<div style="font-weight:600; color:var(--fg);">' + safeLabel + '</div>' +
@@ -1772,21 +1795,33 @@ export function renderApiKeysPage(params: {
               '<td>' +
               '<div style="display:flex; align-items:center; gap:6px;">' +
               '<code style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:12px; background:var(--code-bg); padding:3px 6px; border-radius:4px; border:1px solid var(--border); color:var(--fg);">' + (safeCId || 'N/A') + '</code>' +
-              (safeCId ? '<button type="button" class="btn" onclick="copyKeyText(\'' + safeCId + '\', \'Client ID\')" style="font-size:11px; padding:3px 6px;">Copy</button>' : '') +
+              (safeCId ? '<button type="button" class="btn copy-cid-btn" style="font-size:11px; padding:3px 6px;">Copy</button>' : '') +
               '</div>' +
               '</td>' +
               '<td>' +
               '<div style="display:flex; align-items:center; gap:8px;">' +
-              '<code id="key-val-' + safeId + '" data-full="' + safeKey + '" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>' +
-              '<button type="button" class="btn" onclick="toggleKeyReveal(\'' + safeId + '\')" style="font-size:11px; padding:3px 8px;">Reveal</button>' +
-              '<button type="button" class="btn" onclick="copyKeyText(\'' + safeKey + '\', \'API Key\')" style="font-size:11px; padding:3px 8px;">Copy</button>' +
+              '<code id="key-val-' + safeId + '" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg);">••••••••••••••••</code>' +
+              '<button type="button" class="btn reveal-key-btn" style="font-size:11px; padding:3px 8px;">Reveal</button>' +
+              '<button type="button" class="btn copy-key-btn" style="font-size:11px; padding:3px 8px;">Copy</button>' +
               '</div>' +
               '</td>' +
               '<td><span class="local-date">' + new Date().toLocaleDateString() + '</span></td>' +
               '<td><span class="badge success">Active</span></td>' +
               '<td>' +
-              '<button class="btn" onclick="openRevokeKeyModal(\'' + safeId + '\', \'' + safeLabel + '\')" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>' +
+              '<button type="button" class="btn revoke-key-btn" style="font-size:11px; padding:4px 8px; color:var(--error);">Revoke</button>' +
               '</td>';
+
+            const copyCidBtn = tr.querySelector('.copy-cid-btn');
+            if (copyCidBtn) copyCidBtn.onclick = function() { copyKeyText(data.clientId, 'Client ID'); };
+            const codeEl = tr.querySelector('#key-val-' + safeId);
+            if (codeEl) codeEl.setAttribute('data-full', fullKey);
+            const revealBtn = tr.querySelector('.reveal-key-btn');
+            if (revealBtn) revealBtn.onclick = function() { toggleKeyReveal(data.id); };
+            const copyKeyBtn = tr.querySelector('.copy-key-btn');
+            if (copyKeyBtn) copyKeyBtn.onclick = function() { copyKeyText(fullKey, 'API Key'); };
+            const revokeBtn = tr.querySelector('.revoke-key-btn');
+            if (revokeBtn) revokeBtn.onclick = function() { openRevokeKeyModal(data.id, data.label); };
+
             tbody.insertBefore(tr, tbody.firstChild);
           }
 
@@ -2825,6 +2860,14 @@ export function renderStatsPage(params: {
         document.getElementById('valLatency').innerHTML = s.avgDurationMs + ' <span style="font-size:14px; font-weight:500;">/ ' + s.p95DurationMs + ' ms</span>';
         document.getElementById('valQuotaUsed').textContent = s.sharedSandbox.quotaUsedPercent + '%';
         document.getElementById('barQuotaFill').style.width = Math.min(100, Math.max(2, s.sharedSandbox.quotaUsedPercent)) + '%';
+        if (s.sharedSandbox) {
+          const bytesEl = document.getElementById('valDiskBytes');
+          if (bytesEl) {
+            const b = s.sharedSandbox.totalDiskBytes;
+            const fmt = b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+            bytesEl.textContent = fmt + ' used';
+          }
+        }
 
         // Update peak window
         const peakEl = document.getElementById('valPeakTime');
@@ -2934,7 +2977,9 @@ export function renderStorePage(params: {
 
   const totalFiles = files.length;
   const totalBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
-  const permanentFiles = files.filter((f) => f.permanent || !f.expiresAt).length;
+  const permanentFiles = files.filter(
+    (f) => f.permanent || !f.expiresAt,
+  ).length;
   const expiringFiles = totalFiles - permanentFiles;
 
   return `<!DOCTYPE html>
@@ -3023,25 +3068,25 @@ export function renderStorePage(params: {
     <div class="grid-4">
       <div class="card">
         <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Total Stored Files</div>
-        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${totalFiles}</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);" id="valTotalFiles">${totalFiles}</div>
         <div style="font-size:12px; color:var(--accents-5);">Across cloud store &amp; sandbox</div>
       </div>
 
       <div class="card">
         <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Storage Used</div>
-        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${formatBytes(totalBytes)}</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);" id="valTotalBytes">${formatBytes(totalBytes)}</div>
         <div style="font-size:12px; color:var(--accents-5);">${usage ? (usage.bytes / 1024 / 1024).toFixed(1) + " MB in Cloud Store" : "Direct access"}</div>
       </div>
 
       <div class="card">
         <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Permanent Files</div>
-        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${permanentFiles}</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);" id="valPermanentFiles">${permanentFiles}</div>
         <div style="font-size:12px; color:var(--accents-5);">Never automatically deleted</div>
       </div>
 
       <div class="card">
         <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Auto-Expiring Files</div>
-        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${expiringFiles}</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);" id="valExpiringFiles">${expiringFiles}</div>
         <div style="font-size:12px; color:var(--accents-5);">Scheduled for cleanup</div>
       </div>
     </div>
@@ -3078,10 +3123,19 @@ export function renderStorePage(params: {
                 ? files
                     .map((f) => {
                       const isPerm = f.permanent || !f.expiresAt;
-                      const dateStr = f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "N/A";
-                      const expiresStr = isPerm ? "Permanent" : (f.expiresAt ? new Date(f.expiresAt).toLocaleDateString() : "60m TTL");
+                      const dateStr = f.createdAt
+                        ? new Date(f.createdAt).toLocaleDateString()
+                        : "N/A";
+                      const expiresStr = isPerm
+                        ? "Permanent"
+                        : f.expiresAt
+                          ? new Date(f.expiresAt).toLocaleDateString()
+                          : "60m TTL";
+                      const dlUrl =
+                        f.downloadUrl ||
+                        (f.id ? `${base}/store/download/${f.id}` : "#");
                       return `
-              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-name="${escapeHtml(f.name.toLowerCase())}" data-type="${escapeHtml(f.contentType.toLowerCase())}">
+              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-name="${escapeHtml(f.name.toLowerCase())}" data-type="${escapeHtml(f.contentType.toLowerCase())}" data-perm="${isPerm ? "true" : "false"}" data-size="${f.size || 0}">
                 <td>
                   <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg);">${escapeHtml(f.name)}</div>
                   <div style="font-size:11px; color:var(--accents-5);">${escapeHtml(f.contentType)}</div>
@@ -3099,20 +3153,20 @@ export function renderStorePage(params: {
                   </span>
                 </td>
                 <td>
-                  <button type="button" class="btn" onclick="copyFileUrl('${escapeHtml(f.downloadUrl)}')" style="font-size:11px; padding:3px 8px;">
+                  <button type="button" class="btn" onclick="copyFileUrl('${escapeHtml(dlUrl)}')" style="font-size:11px; padding:3px 8px;">
                     ${renderSvg("copy", 12)} Copy URL
                   </button>
                 </td>
                 <td>
                   <div style="display:flex; align-items:center; gap:6px;">
-                    <a href="${escapeHtml(f.downloadUrl)}" download class="btn" style="font-size:11px; padding:3px 8px;">
+                    <a href="${escapeHtml(dlUrl)}" download class="btn" style="font-size:11px; padding:3px 8px;">
                       ${renderSvg("download", 12)} Download
                     </a>
                     ${
-                      !isPerm && f.source === "store"
+                      f.source === "store"
                         ? `
-                      <button type="button" class="btn" id="perm-btn-${escapeHtml(f.id)}" onclick="makeFilePermanent('${escapeHtml(f.id)}')" style="font-size:11px; padding:3px 8px;">
-                        Keep Permanent
+                      <button type="button" class="btn" id="perm-btn-${escapeHtml(f.id)}" onclick="togglePermanent('${escapeHtml(f.id)}', ${!isPerm})" style="font-size:11px; padding:3px 8px;">
+                        ${isPerm ? "Revert Permanent" : "Keep Permanent"}
                       </button>
                     `
                         : ""
@@ -3200,23 +3254,54 @@ export function renderStorePage(params: {
       if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
     }
 
-    async function makeFilePermanent(id) {
+    async function togglePermanent(id, makePerm) {
+      const btn = document.getElementById('perm-btn-' + id);
+      if (btn) btn.disabled = true;
       try {
-        const res = await fetch('/store/permanent/' + encodeURIComponent(id), { method: 'POST' });
+        const endpoint = makePerm
+          ? '/store/permanent/' + encodeURIComponent(id)
+          : '/store/revert-permanent/' + encodeURIComponent(id);
+        const res = await fetch(endpoint, { method: 'POST' });
         if (res.ok) {
+          const row = document.getElementById('file-row-' + id);
           const badge = document.getElementById('retention-badge-' + id);
           if (badge) {
-            badge.textContent = 'Permanent';
-            badge.classList.add('success');
+            badge.textContent = makePerm ? 'Permanent' : '72h TTL';
+            badge.classList.toggle('success', makePerm);
           }
-          const btn = document.getElementById('perm-btn-' + id);
-          if (btn) btn.remove();
-          showToast('File marked as permanent', 'success');
+          if (row) {
+            row.setAttribute('data-perm', makePerm ? 'true' : 'false');
+          }
+          if (btn) {
+            btn.textContent = makePerm ? 'Revert Permanent' : 'Keep Permanent';
+            btn.setAttribute('onclick', 'togglePermanent(\'' + id + '\', ' + (!makePerm) + ')');
+          }
+
+          // Update metric counters dynamically
+          const permCounter = document.getElementById('valPermanentFiles');
+          const expCounter = document.getElementById('valExpiringFiles');
+          if (permCounter && expCounter) {
+            let p = parseInt(permCounter.textContent, 10) || 0;
+            let e = parseInt(expCounter.textContent, 10) || 0;
+            if (makePerm) {
+              p++;
+              e = Math.max(0, e - 1);
+            } else {
+              p = Math.max(0, p - 1);
+              e++;
+            }
+            permCounter.textContent = p;
+            expCounter.textContent = e;
+          }
+
+          showToast(makePerm ? 'File marked as permanent' : 'Permanent retention reverted', 'success');
         } else {
-          showToast('Failed to mark permanent', 'error');
+          showToast('Failed to update retention', 'error');
         }
       } catch (e) {
         showToast('Error: ' + e.message, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 
@@ -3233,11 +3318,27 @@ export function renderStorePage(params: {
           const res = await fetch(endpoint, { method: 'DELETE' });
           if (res.ok) {
             const row = document.getElementById('file-row-' + id);
+            const wasPerm = row && row.getAttribute('data-perm') === 'true';
             if (row) row.remove();
             showToast('File deleted successfully', 'success');
+
             const remaining = document.querySelectorAll('#storeTableBody tr.store-file-row').length;
             const badge = document.getElementById('storeCountBadge');
             if (badge) badge.textContent = remaining + ' files';
+
+            const totalEl = document.getElementById('valTotalFiles');
+            if (totalEl) totalEl.textContent = remaining;
+
+            const permCounter = document.getElementById('valPermanentFiles');
+            const expCounter = document.getElementById('valExpiringFiles');
+            if (wasPerm && permCounter) {
+              const p = parseInt(permCounter.textContent, 10) || 0;
+              permCounter.textContent = Math.max(0, p - 1);
+            } else if (!wasPerm && expCounter) {
+              const e = parseInt(expCounter.textContent, 10) || 0;
+              expCounter.textContent = Math.max(0, e - 1);
+            }
+
             if (remaining === 0) {
               const tbody = document.getElementById('storeTableBody');
               if (tbody) {

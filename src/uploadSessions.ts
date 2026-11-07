@@ -91,6 +91,7 @@ interface UploadedFile {
   name: string;
   size: number;
   abs: string;
+  permanent?: boolean;
 }
 
 interface UploadSession {
@@ -392,6 +393,32 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       const token = crypto.randomBytes(32).toString("base64url");
       const hash = sha256Hex(token);
       const ttlMs = uploadConfig.ttlMs;
+
+      const existingFiles: UploadedFile[] = [];
+      let totalBytes = 0;
+      try {
+        const uploadDirPath = path.join(root, UPLOAD_DIR);
+        if (fs.existsSync(uploadDirPath)) {
+          const entries = fs.readdirSync(uploadDirPath, {
+            withFileTypes: true,
+          });
+          for (const entry of entries) {
+            if (entry.isFile()) {
+              const abs = path.join(uploadDirPath, entry.name);
+              const stat = fs.statSync(abs);
+              const isPerm = !retentionTracker.some((r) => r.abs === abs);
+              existingFiles.push({
+                name: entry.name,
+                size: stat.size,
+                abs,
+                permanent: isPerm,
+              });
+              totalBytes += stat.size;
+            }
+          }
+        }
+      } catch {}
+
       const session: UploadSession = {
         root,
         expiresAt: Date.now() + ttlMs,
@@ -416,6 +443,12 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
           maxTotalBytes: uploadConfig.maxTotalBytes,
           maxFiles: uploadConfig.maxFiles,
         },
+        files: existingFiles.map((f) => ({
+          name: f.name,
+          size: f.size,
+          path: `${UPLOAD_DIR}/${f.name}`,
+          permanent: Boolean(f.permanent),
+        })),
       });
     },
   );
@@ -522,7 +555,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         const { name, abs } = await uniqueTarget(s.root, dir, wanted);
         await assertInsideRealRoot(s.root, abs);
         await sbxWriteText(s.root, abs, data, false);
-        s.files.push({ name, size: data.length, abs });
+        s.files.push({ name, size: data.length, abs, permanent: isPerm });
         s.bytes += data.length;
 
         // Schedule for automatic retention cleanup only if not permanent
@@ -600,6 +633,8 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       if (fs.existsSync(abs)) {
         await sbxRemoveFile(s.root, abs);
         s.files = s.files.filter((f) => f.name !== name);
+        const idx = retentionTracker.findIndex((r) => r.abs === abs);
+        if (idx !== -1) retentionTracker.splice(idx, 1);
         json(res, 200, { success: true, removed: name });
         return;
       }
@@ -608,6 +643,48 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       json(res, 500, { error: "Could not delete file." });
     }
   });
+
+  // File permanent toggle endpoint
+  api.post(
+    "/file/permanent",
+    requireSession,
+    async (req: Request, res: Response) => {
+      const s = res.locals.session as UploadSession;
+      const name = safeFileName(String(req.query.name || ""));
+      const makePerm = String(req.query.permanent || "true") === "true";
+      if (!name) {
+        json(res, 400, { error: "Filename is required." });
+        return;
+      }
+      const abs = path.join(s.root, UPLOAD_DIR, name);
+      try {
+        await assertInsideRealRoot(s.root, abs);
+        if (!fs.existsSync(abs)) {
+          json(res, 404, { error: "File not found." });
+          return;
+        }
+        const existing = s.files.find((f) => f.name === name);
+        if (existing) {
+          existing.permanent = makePerm;
+        }
+        const idx = retentionTracker.findIndex((r) => r.abs === abs);
+        if (makePerm) {
+          if (idx !== -1) retentionTracker.splice(idx, 1);
+        } else {
+          if (idx === -1) {
+            retentionTracker.push({
+              root: s.root,
+              abs,
+              deleteAt: Date.now() + uploadConfig.retentionMs,
+            });
+          }
+        }
+        json(res, 200, { success: true, permanent: makePerm, name });
+      } catch {
+        json(res, 500, { error: "Could not update file retention." });
+      }
+    },
+  );
 
   // Explicit end (button) and tab-close beacon: ends the upload session without wiping files
   api.post(
@@ -763,8 +840,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       </div>
 
       <div style="display:flex; gap:8px;">
-        <a href="/tools" class="btn">Tools</a>
-        <a href="/stats" class="btn">View Stats</a>
+        <a href="/store" class="btn">View Store</a>
         <a href="/home" class="btn primary">Back to Home</a>
       </div>
     </div>
@@ -965,6 +1041,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       show(true);
 
       if (Array.isArray(data.files)) {
+        uploadedFileList.length = 0;
         data.files.forEach(f => {
           uploadedFileList.push({
             name: f.name,
@@ -1009,6 +1086,10 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       $('filesCountBadge').textContent = uploadedFileList.length + ' file' + (uploadedFileList.length === 1 ? '' : 's');
       $('emptyFilesMsg').style.display = visible.length === 0 ? 'block' : 'none';
 
+      const totalBytes = uploadedFileList.reduce((acc, x) => acc + (x.size || 0), 0);
+      const usageEl = $('usage');
+      if (usageEl) usageEl.textContent = fmt(totalBytes) + ' used';
+
       visible.forEach(f => {
         const li = document.createElement('li');
         li.className = 'file-item' + (f.failed ? ' fail' : '');
@@ -1052,6 +1133,29 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           dlLink.href = '/upload/api/download?name=' + encodeURIComponent(f.name);
           dlLink.textContent = 'Download';
 
+          const permBtn = document.createElement('button');
+          permBtn.className = 'btn';
+          permBtn.type = 'button';
+          permBtn.style.fontSize = '11px';
+          permBtn.style.padding = '3px 8px';
+          permBtn.textContent = f.permanent ? 'Revert Permanent' : 'Keep Permanent';
+          permBtn.onclick = async () => {
+            permBtn.disabled = true;
+            try {
+              const res = await api('/file/permanent?name=' + encodeURIComponent(f.name) + '&permanent=' + (!f.permanent), {
+                method: 'POST',
+                headers: { 'x-upload-token': token }
+              });
+              f.permanent = Boolean(res.permanent);
+              showToast(f.permanent ? 'File marked as permanent' : 'Permanent retention reverted', 'success');
+              renderFileList();
+            } catch (e) {
+              showToast('Error: ' + e.message, 'error');
+            } finally {
+              permBtn.disabled = false;
+            }
+          };
+
           const delBtn = document.createElement('button');
           delBtn.className = 'btn';
           delBtn.type = 'button';
@@ -1076,7 +1180,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
             });
           };
 
-          actions.append(copyBtn, dlLink, delBtn);
+          actions.append(copyBtn, dlLink, permBtn, delBtn);
         }
 
         li.append(info, actions);
