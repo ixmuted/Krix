@@ -361,7 +361,7 @@ function extractClientKey(req: Request): string | undefined {
   return undefined;
 }
 
-function authenticate(req: Request, res: Response, next: NextFunction): void {
+async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const ip = clientIp(req);
   if (!failedAuthLimiter.hit(ip, 0)) {
     res.setHeader(
@@ -375,7 +375,7 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
   const clientKey = extractClientKey(req);
   if (clientKey) {
     // 1. Check OAuth 2.1 access token
-    const tokenCheck = verifyAccessToken(clientKey);
+    const tokenCheck = await verifyAccessToken(clientKey);
     if (tokenCheck.valid && tokenCheck.payload) {
       failedAuthLimiter.reset(ip);
       const payload = tokenCheck.payload;
@@ -468,6 +468,9 @@ app.all(
   },
   express.json({ limit: `${MAX_BODY_MB}mb` }),
   async (req: Request, res: Response): Promise<void> => {
+    await statsTracker.ensureMongo().catch((error) => {
+      console.error("[stats] startup restore before MCP request failed:", error?.message || error);
+    });
     const startTime = Date.now();
     const githubToken =
       (typeof req.headers["x-github-token"] === "string"
@@ -498,63 +501,77 @@ app.all(
     const origEnd = res.end.bind(res);
 
     let recorded = false;
+    let responseText = "";
+    const appendResponse = (chunk: any) => {
+      if (chunk && responseText.length < 2_000_000) {
+        responseText += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+      }
+    };
     const recordMetrics = () => {
       if (recorded) return;
       recorded = true;
-      let toolName = "mcp_request";
-      let isActualTool = false;
-      if (body) {
-        const item = Array.isArray(body) ? body[0] : body;
-        if (item?.method === "tools/call" && item?.params?.name) {
-          toolName = String(item.params.name);
-          isActualTool = true;
-        } else if (item?.method) {
-          toolName = String(item.method);
-          isActualTool = false;
+      const requests = Array.isArray(body) ? body : [body];
+      const requestItems = requests.filter((item: any) => item && typeof item.method === "string");
+      const responseErrors = new Map<string, boolean>();
+      let responseFailed = res.statusCode >= 400;
+      try {
+        const parsed = JSON.parse(responseText);
+        const responses = Array.isArray(parsed) ? parsed : [parsed];
+        for (const item of responses) {
+          const failed = Boolean(item?.error || item?.result?.isError);
+          if (item?.id !== undefined && item?.id !== null) {
+            responseErrors.set(String(item.id), failed);
+          }
+          responseFailed = responseFailed || failed;
         }
+      } catch {
+        // Non-JSON/empty responses retain HTTP status as the success signal.
       }
       const clientAuth = (req as any).clientAuth || {
-        keyId: "unknown",
-        label: "Unknown Client",
-        type: "api_key",
+        keyId: "unknown", label: "Unknown Client", type: "api_key",
       };
       const authType: "api_key" | "master" | "oauth" =
-        clientAuth.type === "master_key"
-          ? "master"
-          : clientAuth.type === "oauth"
-            ? "oauth"
-            : "api_key";
+        clientAuth.type === "master_key" ? "master" :
+        clientAuth.type === "oauth" ? "oauth" : "api_key";
       statsTracker.setActiveSessions(transports.size);
-      statsTracker.recordRequest({
-        keyId: clientAuth.keyId,
-        label: clientAuth.label,
-        type: authType,
-        toolName,
-        isActualTool,
-        durationMs: Date.now() - startTime,
-        bytesIn,
-        bytesOut,
-        isError: res.statusCode >= 400,
-        statusCode: res.statusCode,
-        ip: clientIp(req),
-        userAgent: (req.headers["user-agent"] as string) || "",
+
+      // Count every JSON-RPC item in a batch, not only the first item.
+      const items = requestItems.length ? requestItems : [null];
+      items.forEach((item: any, index: number) => {
+        const isToolCall = item?.method === "tools/call" && typeof item?.params?.name === "string";
+        const toolName = isToolCall ? String(item.params.name) : String(item?.method || "mcp_request");
+        statsTracker.recordRequest({
+          keyId: clientAuth.keyId,
+          label: clientAuth.label,
+          type: authType,
+          toolName,
+          isActualTool: isToolCall,
+          durationMs: Date.now() - startTime,
+          bytesIn: index === 0 ? bytesIn : 0,
+          bytesOut: index === 0 ? bytesOut : 0,
+          isError: res.statusCode >= 400 ||
+            (item?.id !== undefined && responseErrors.has(String(item.id))
+              ? Boolean(responseErrors.get(String(item.id)))
+              : items.length === 1 && responseFailed),
+          statusCode: res.statusCode,
+          ip: clientIp(req),
+          userAgent: (req.headers["user-agent"] as string) || "",
+        });
       });
     };
 
     (res as any).write = function (chunk: any, ...args: any[]) {
       if (chunk) {
-        bytesOut += Buffer.isBuffer(chunk)
-          ? chunk.length
-          : Buffer.byteLength(String(chunk));
+        bytesOut += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk));
+        appendResponse(chunk);
       }
       return (origWrite as any)(chunk, ...args);
     };
 
     (res as any).end = function (chunk: any, ...args: any[]) {
       if (chunk) {
-        bytesOut += Buffer.isBuffer(chunk)
-          ? chunk.length
-          : Buffer.byteLength(String(chunk));
+        bytesOut += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk));
+        appendResponse(chunk);
       }
       recordMetrics();
       return (origEnd as any)(chunk, ...args);
@@ -1044,7 +1061,6 @@ app.delete("/api/keys/:id", async (req, res) => {
   const id = req.params.id as string;
   const revoked = revokeDynamicKey(id);
   await revokeKeyInMongo(id);
-  statsTracker.removeKey(id);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1095,7 +1111,7 @@ app.get("/stats/api", async (req, res) => {
     Boolean(owner) ||
     Boolean(
       clientKey &&
-      (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+      (isAuthorizedApiKey(clientKey) || (await verifyAccessToken(clientKey)).valid),
     );
 
   if (!isAuth) {
@@ -1379,7 +1395,7 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
         Boolean(
           clientKey &&
             (isAuthorizedApiKey(clientKey) ||
-              verifyAccessToken(clientKey).valid),
+              (await verifyAccessToken(clientKey)).valid),
         );
       if (!isAuth) {
         res
@@ -1481,7 +1497,7 @@ app.get("/store/download", async (req, res) => {
     Boolean(owner) ||
     Boolean(
       clientKey &&
-      (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+      (isAuthorizedApiKey(clientKey) || (await verifyAccessToken(clientKey)).valid),
     );
   if (!isAuth) {
     res.status(401).type("text/plain").send("Unauthorized.");

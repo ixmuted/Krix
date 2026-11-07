@@ -54,6 +54,8 @@ const registeredClients = new Map<string, OAuthClient>();
 const activeAuthCodes = new Map<string, AuthCodeEntry>();
 const issuedTokens = new Map<string, IssuedTokenEntry>();
 const refreshTokens = new Map<string, IssuedTokenEntry>();
+const revokedClientIds = new Set<string>();
+const revokedTokenIds = new Set<string>();
 
 const OAUTH_FILE = path.resolve(process.cwd(), "data", ".krix_oauth.json");
 
@@ -63,6 +65,8 @@ function saveOAuthToDisk(): void {
     const payload = {
       clients: Array.from(registeredClients.entries()),
       tokens: Array.from(issuedTokens.entries()),
+      revokedClientIds: Array.from(revokedClientIds),
+      revokedTokenIds: Array.from(revokedTokenIds),
     };
     fs.writeFileSync(OAUTH_FILE, JSON.stringify(payload, null, 2), "utf-8");
   } catch {}
@@ -79,6 +83,12 @@ export function loadOAuthFromDisk(): void {
         for (const [id, client] of sorted) {
           registeredClients.set(id, client);
         }
+      }
+      if (Array.isArray(data.revokedClientIds)) {
+        for (const id of data.revokedClientIds) if (typeof id === "string") revokedClientIds.add(id);
+      }
+      if (Array.isArray(data.revokedTokenIds)) {
+        for (const id of data.revokedTokenIds) if (typeof id === "string") revokedTokenIds.add(id);
       }
       if (Array.isArray(data.tokens)) {
         for (const [tok, entry] of data.tokens) {
@@ -98,7 +108,12 @@ loadOAuthFromDisk();
 export async function loadOAuthFromMongo(): Promise<void> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
-  if (!db) return;
+  if (!db) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB is configured but unavailable; OAuth client was not persisted.");
+    }
+    return;
+  }
   try {
     const col = db.collection("oauth_clients");
     const docs = await col.find({}).toArray();
@@ -106,7 +121,10 @@ export async function loadOAuthFromMongo(): Promise<void> {
       const clientId =
         d.clientId || d.client_id || (d._id ? String(d._id) : "");
       if (d.revoked) {
-        if (clientId) registeredClients.delete(clientId);
+        if (clientId) {
+          registeredClients.delete(clientId);
+          revokedClientIds.add(clientId);
+        }
       } else if (clientId) {
         registeredClients.set(clientId, {
           clientId,
@@ -131,6 +149,8 @@ export async function loadOAuthFromMongo(): Promise<void> {
       const clientId = td.clientId || td.client_id;
       if (td.revoked) {
         if (token) issuedTokens.delete(token);
+        const revokedRefresh = td.refreshToken || td.refresh_token;
+        if (revokedRefresh) refreshTokens.delete(revokedRefresh);
       } else if (token && clientId) {
         const entry: IssuedTokenEntry = {
           token,
@@ -155,16 +175,27 @@ export async function loadOAuthFromMongo(): Promise<void> {
     }
   } catch (err: any) {
     console.error("[mongo-oauth] loadOAuthFromMongo error:", err?.message);
+    throw err;
   }
 }
-loadOAuthFromMongo().catch(() => {});
+loadOAuthFromMongo().catch((err) => {
+  if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+    console.error("[mongo-oauth] initial restore failed:", err?.message || err);
+  }
+});
 
 export async function syncOAuthClientToMongo(
   client: OAuthClient,
 ): Promise<void> {
   await ensureMongoAuth().catch(() => {});
+  revokedClientIds.delete(client.clientId);
   const db = getMongoDb();
-  if (!db) return;
+  if (!db) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB is configured but unavailable; OAuth client was not persisted.");
+    }
+    return;
+  }
   try {
     const col = db.collection("oauth_clients");
     await col.updateOne(
@@ -174,26 +205,31 @@ export async function syncOAuthClientToMongo(
     );
   } catch (err: any) {
     console.error("[mongo-oauth] syncOAuthClientToMongo error:", err?.message);
+    throw err;
   }
 }
 
 export async function revokeOAuthClientInMongo(
   clientId: string,
-): Promise<void> {
+): Promise<boolean> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
-  if (!db) return;
+  if (!db) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB unavailable; cannot confirm OAuth client revocation.");
+    }
+    return false;
+  }
   try {
     const col = db.collection("oauth_clients");
-    await col.updateOne(
+    const result = await col.updateOne(
       { clientId },
       { $set: { revoked: true, revokedAt: Date.now() } },
     );
+    return result.matchedCount > 0 || result.upsertedCount > 0;
   } catch (err: any) {
-    console.error(
-      "[mongo-oauth] revokeOAuthClientInMongo error:",
-      err?.message,
-    );
+    console.error("[mongo-oauth] revokeOAuthClientInMongo error:", err?.message);
+    throw err;
   }
 }
 
@@ -203,7 +239,12 @@ export async function syncOAuthTokenToMongo(
 ): Promise<void> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
-  if (!db) return;
+  if (!db) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB is configured but unavailable; OAuth token was not persisted.");
+    }
+    return;
+  }
   try {
     const col = db.collection("oauth_tokens");
     await col.updateOne(
@@ -213,30 +254,48 @@ export async function syncOAuthTokenToMongo(
     );
   } catch (err: any) {
     console.error("[mongo-oauth] syncOAuthTokenToMongo error:", err?.message);
+    throw err;
   }
 }
 
-export function recordIssuedToken(entry: IssuedTokenEntry): void {
+export async function recordIssuedToken(entry: IssuedTokenEntry): Promise<void> {
+  // Persist first; do not issue credentials that cannot be restored after restart.
+  await syncOAuthTokenToMongo(entry.token, entry);
   issuedTokens.set(entry.token, entry);
-  if (entry.refreshToken) {
-    refreshTokens.set(entry.refreshToken, entry);
+  if (entry.refreshToken) refreshTokens.set(entry.refreshToken, entry);
+  for (const raw of [entry.token, entry.refreshToken]) {
+    if (!raw) continue;
+    try {
+      const normalized = raw.startsWith("krix_rf_") ? raw.slice("krix_rf_".length) :
+        raw.startsWith("krix_rs_") ? raw.slice("krix_rs_".length) :
+        raw.startsWith("krix_tok_") ? raw.slice("krix_tok_".length) : raw;
+      const payload = JSON.parse(Buffer.from(normalized.split(".")[1], "base64url").toString("utf8"));
+      if (payload.jti) revokedTokenIds.delete(String(payload.jti));
+    } catch {}
   }
+  revokedClientIds.delete(entry.clientId);
   saveOAuthToDisk();
-  syncOAuthTokenToMongo(entry.token, entry).catch(() => {});
 }
 
-export async function revokeOAuthTokenInMongo(clientId: string): Promise<void> {
+export async function revokeOAuthTokenInMongo(clientId: string): Promise<boolean> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
-  if (!db) return;
+  if (!db) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB unavailable; cannot confirm OAuth token revocation.");
+    }
+    return false;
+  }
   try {
     const col = db.collection("oauth_tokens");
-    await col.updateMany(
+    const result = await col.updateMany(
       { clientId },
       { $set: { revoked: true, revokedAt: Date.now() } },
     );
+    return result.matchedCount > 0;
   } catch (err: any) {
     console.error("[mongo-oauth] revokeOAuthTokenInMongo error:", err?.message);
+    throw err;
   }
 }
 
@@ -390,76 +449,115 @@ function signRefreshToken(payload: Record<string, unknown>): string {
   return `krix_rf_${h64}.${p64}.${sig}`;
 }
 
-export function verifyAccessToken(tokenString?: string | null): {
+export async function verifyAccessToken(tokenString?: string | null): Promise<{
   valid: boolean;
   payload?: any;
-} {
+}> {
   if (!tokenString) return { valid: false };
 
   let token = tokenString.trim();
-  if (token.startsWith("krix_rs_")) {
-    token = token.slice("krix_rs_".length);
-  } else if (token.startsWith("krix_tok_")) {
-    token = token.slice("krix_tok_".length);
-  }
+  if (token.startsWith("krix_rs_")) token = token.slice("krix_rs_".length);
+  else if (token.startsWith("krix_tok_")) token = token.slice("krix_tok_".length);
 
   const parts = token.split(".");
-  if (parts.length === 3) {
+  if (parts.length !== 3) return { valid: false };
+
+  try {
     const [h64, p64, sig64] = parts;
+    const header = JSON.parse(Buffer.from(h64, "base64url").toString("utf-8"));
+    let signatureValid = false;
+    if (header.alg === "RS256") {
+      const rsa = getRsaKeyPair();
+      const verifier = crypto.createVerify("RSA-SHA256");
+      verifier.update(`${h64}.${p64}`);
+      signatureValid = verifier.verify(rsa.publicKey, sig64, "base64url");
+    } else if (header.alg === "HS256") {
+      const expectedSig = crypto.createHmac("sha256", getSigningSecret())
+        .update(`${h64}.${p64}`).digest("base64url");
+      signatureValid = safeEqual(sig64, expectedSig);
+    }
+    if (!signatureValid) return { valid: false };
+
+    const payload = JSON.parse(Buffer.from(p64, "base64url").toString("utf-8"));
+    if (typeof payload.exp !== "number" || Date.now() / 1000 >= payload.exp) {
+      return { valid: false };
+    }
+    // Require a token identifier and a matching issued-token record. A valid
+    // signature alone is never sufficient after revocation.
+    if (typeof payload.jti !== "string" || !payload.jti) return { valid: false };
+    if (revokedTokenIds.has(payload.jti) || revokedClientIds.has(String(payload.client_id || ""))) {
+      return { valid: false };
+    }
+
+    const memoryEntry = issuedTokens.get(tokenString) || issuedTokens.get(token);
+
+    await ensureMongoAuth().catch(() => {});
+    const db = getMongoDb();
+    if (db) {
+      const tokenDoc = await db.collection("oauth_tokens").findOne({
+        token: { $in: [tokenString, token] },
+        revoked: { $ne: true },
+      });
+      if (!tokenDoc) return { valid: false };
+      const clientId = tokenDoc.clientId || tokenDoc.client_id || payload.client_id;
+      if (!clientId) return { valid: false };
+      const clientDoc = await db.collection("oauth_clients").findOne({ clientId });
+      if (!clientDoc || clientDoc.revoked === true) return { valid: false };
+      return { valid: true, payload };
+    }
+
+    // Without MongoDB, only accept tokens present in the process's persisted
+    // local cache. This keeps local development functional but avoids trusting
+    // arbitrary self-signed/old JWTs.
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      return { valid: false };
+    }
+    if (!memoryEntry || Date.now() >= memoryEntry.expiresAt) return { valid: false };
+    if (revokedClientIds.has(memoryEntry.clientId) || !registeredClients.has(memoryEntry.clientId)) return { valid: false };
+    return { valid: true, payload };
+  } catch (error: any) {
+    console.error("[oauth] access-token verification failed:", error?.message || error);
+    return { valid: false };
+  }
+}
+
+async function revokeOAuthTokenRecord(token: string): Promise<void> {
+  const normalized = token.startsWith("krix_rs_") || token.startsWith("krix_tok_")
+    ? token.slice(token.indexOf("_", 5) + 1)
+    : token;
+  const accessEntry = issuedTokens.get(token) || issuedTokens.get(normalized);
+  const refreshEntry = refreshTokens.get(token);
+  const family = accessEntry || refreshEntry;
+  for (const raw of [token, family?.token, family?.refreshToken]) {
+    if (!raw) continue;
     try {
-      const header = JSON.parse(
-        Buffer.from(h64, "base64url").toString("utf-8"),
-      );
-      if (header.alg === "RS256") {
-        const rsa = getRsaKeyPair();
-        const verifier = crypto.createVerify("RSA-SHA256");
-        verifier.update(`${h64}.${p64}`);
-        const isValid = verifier.verify(rsa.publicKey, sig64, "base64url");
-        if (isValid) {
-          const payload = JSON.parse(
-            Buffer.from(p64, "base64url").toString("utf-8"),
-          );
-          if (
-            typeof payload.exp !== "number" ||
-            Date.now() / 1000 < payload.exp
-          ) {
-            return { valid: true, payload };
-          }
-        }
-      } else if (header.alg === "HS256") {
-        const expectedSig = crypto
-          .createHmac("sha256", getSigningSecret())
-          .update(`${h64}.${p64}`)
-          .digest("base64url");
-        if (safeEqual(sig64, expectedSig)) {
-          const payload = JSON.parse(
-            Buffer.from(p64, "base64url").toString("utf-8"),
-          );
-          if (
-            typeof payload.exp !== "number" ||
-            Date.now() / 1000 < payload.exp
-          ) {
-            return { valid: true, payload };
-          }
-        }
-      }
+      const stripped = raw.startsWith("krix_rf_") ? raw.slice("krix_rf_".length) :
+        raw.startsWith("krix_rs_") ? raw.slice("krix_rs_".length) :
+        raw.startsWith("krix_tok_") ? raw.slice("krix_tok_".length) : raw;
+      const payload = JSON.parse(Buffer.from(stripped.split(".")[1], "base64url").toString("utf8"));
+      if (payload.jti) revokedTokenIds.add(String(payload.jti));
     } catch {}
   }
 
-  // Fallback: Check memory cache
-  const record = issuedTokens.get(tokenString);
-  if (record && Date.now() < record.expiresAt) {
-    return {
-      valid: true,
-      payload: {
-        sub: record.ownerEmail,
-        client_id: record.clientId,
-        scope: record.scope,
-      },
-    };
+  if (family) {
+    issuedTokens.delete(family.token);
+    if (family.refreshToken) refreshTokens.delete(family.refreshToken);
+    if (family.token) issuedTokens.delete(family.token);
   }
+  issuedTokens.delete(token);
+  refreshTokens.delete(token);
+  saveOAuthToDisk();
 
-  return { valid: false };
+  await ensureMongoAuth().catch(() => {});
+  const db = getMongoDb();
+  if (db) {
+    await db.collection("oauth_tokens").updateMany(
+      { $or: [{ token: { $in: [token, normalized] } }, { refreshToken: token }] },
+      { $set: { revoked: true, revokedAt: Date.now(), updatedAt: Date.now() } },
+    );
+  } else if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+    throw new Error("MongoDB unavailable; token revocation could not be persisted.");
+  }
 }
 
 export function createMcpOAuthRouter(): Router {
@@ -642,7 +740,7 @@ export function createMcpOAuthRouter(): Router {
       };
       registeredClients.set(clientId, client);
       saveOAuthToDisk();
-      syncOAuthClientToMongo(client).catch(() => {});
+      syncOAuthClientToMongo(client).catch((error) => console.error("[mongo-oauth] client rename persistence failed:", error?.message || error));
 
       res.status(201).json({
         client_id: clientId,
@@ -1036,7 +1134,7 @@ export function createMcpOAuthRouter(): Router {
     "/oauth/token",
     express.urlencoded({ extended: false }),
     express.json({ limit: "16kb" }),
-    (req: Request, res: Response): void => {
+    async (req: Request, res: Response): Promise<void> => {
       const grantType = req.body.grant_type;
 
       // 1. Authorization Code Grant (PKCE)
@@ -1140,7 +1238,12 @@ export function createMcpOAuthRouter(): Router {
           refreshExpiresAt: Date.now() + 30 * 86400 * 1000,
         };
 
-        recordIssuedToken(tokenRecord);
+        try {
+          await recordIssuedToken(tokenRecord);
+        } catch (error: any) {
+          res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth token storage is unavailable; no token was issued." });
+          return;
+        }
 
         const effectiveClientId = clientId || entry.clientId;
         if (effectiveClientId) {
@@ -1168,7 +1271,12 @@ export function createMcpOAuthRouter(): Router {
             clientRecord.redirectUris.push(entry.redirectUri);
           }
           saveOAuthToDisk();
-          syncOAuthClientToMongo(clientRecord).catch(() => {});
+          try {
+            await syncOAuthClientToMongo(clientRecord);
+          } catch (error: any) {
+            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth client storage is unavailable." });
+            return;
+          }
         }
 
         res.json({
@@ -1241,7 +1349,12 @@ export function createMcpOAuthRouter(): Router {
           expiresAt: Date.now() + 86400 * 1000,
           refreshExpiresAt: 0,
         };
-        recordIssuedToken(tokenRecord);
+        try {
+          await recordIssuedToken(tokenRecord);
+        } catch (error: any) {
+          res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth token storage is unavailable; no token was issued." });
+          return;
+        }
 
         if (clientId) {
           const clientName = clientId.toLowerCase().includes("gemini")
@@ -1257,7 +1370,12 @@ export function createMcpOAuthRouter(): Router {
           };
           registeredClients.set(clientId, clientRecord);
           saveOAuthToDisk();
-          syncOAuthClientToMongo(clientRecord).catch(() => {});
+          try {
+            await syncOAuthClientToMongo(clientRecord);
+          } catch (error: any) {
+            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth client storage is unavailable." });
+            return;
+          }
         }
 
         res.json({
@@ -1288,7 +1406,10 @@ export function createMcpOAuthRouter(): Router {
                 );
                 if (
                   typeof payload.exp === "number" &&
-                  Date.now() / 1000 < payload.exp
+                  Date.now() / 1000 < payload.exp &&
+                  typeof payload.jti === "string" &&
+                  !revokedTokenIds.has(payload.jti) &&
+                  !revokedClientIds.has(String(payload.client_id || ""))
                 ) {
                   record = {
                     token: "",
@@ -1314,7 +1435,60 @@ export function createMcpOAuthRouter(): Router {
           return;
         }
 
+        await ensureMongoAuth().catch(() => {});
+        const oauthDb = getMongoDb();
+        if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+          if (!oauthDb) {
+            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth authorization storage is unavailable." });
+            return;
+          }
+          try {
+            const storedGrant = await oauthDb.collection("oauth_tokens").findOne({
+              refreshToken: rawRefresh,
+              revoked: { $ne: true },
+            });
+            const activeClient = await oauthDb.collection("oauth_clients").findOne({
+              clientId: record.clientId,
+              revoked: { $ne: true },
+            });
+            if (!storedGrant || !activeClient || revokedClientIds.has(record.clientId)) {
+              res.status(400).json({ error: "invalid_grant", error_description: "Refresh token has been revoked or its client is no longer authorized." });
+              return;
+            }
+          } catch (error: any) {
+            console.error("[oauth] refresh authorization lookup failed:", error?.message || error);
+            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth authorization storage is unavailable." });
+            return;
+          }
+        } else {
+          if (revokedClientIds.has(record.clientId)) {
+            res.status(400).json({ error: "invalid_grant", error_description: "This OAuth client authorization has been revoked." });
+            return;
+          }
+          // A valid server-signed refresh token can restore its client record in
+          // local-development mode when no database is configured.
+          if (!registeredClients.has(record.clientId)) {
+            registeredClients.set(record.clientId, {
+              clientId: record.clientId,
+              clientSecret: "",
+              clientName: record.clientId.toLowerCase().includes("gemini")
+                ? "Google Gemini" : `Client (${record.clientId.slice(0, 16)})`,
+              redirectUris: [],
+              createdAt: Date.now(),
+            });
+            saveOAuthToDisk();
+          }
+        }
+
         // Rotate tokens
+        if (record.token) {
+          try {
+            await revokeOAuthTokenRecord(record.token);
+          } catch (error: any) {
+            res.status(503).json({ error: "temporarily_unavailable", error_description: "Could not safely rotate the refresh token. Retry later." });
+            return;
+          }
+        }
         issuedTokens.delete(record.token);
         refreshTokens.delete(rawRefresh);
 
@@ -1345,7 +1519,12 @@ export function createMcpOAuthRouter(): Router {
           refreshExpiresAt: Date.now() + 30 * 86400 * 1000,
         };
 
-        recordIssuedToken(updated);
+        try {
+          await recordIssuedToken(updated);
+        } catch (error: any) {
+          res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth token storage is unavailable; token rotation was not completed." });
+          return;
+        }
 
         res.json({
           access_token: newAccess,
@@ -1371,40 +1550,52 @@ export function createMcpOAuthRouter(): Router {
     "/oauth/revoke",
     express.urlencoded({ extended: false }),
     express.json({ limit: "8kb" }),
-    (req: Request, res: Response): void => {
-      const token = String(req.body.token || "");
-      if (token) {
-        issuedTokens.delete(token);
-        refreshTokens.delete(token);
+    async (req: Request, res: Response): Promise<void> => {
+      const token = String(req.body.token || "").trim();
+      try {
+        if (token) await revokeOAuthTokenRecord(token);
+        // RFC 7009 intentionally returns 200 for unknown tokens too.
+        res.status(200).json({ revoked: true });
+      } catch (error: any) {
+        console.error("[oauth] token revocation persistence failed:", error?.message || error);
+        res.status(503).json({ error: "temporarily_unavailable", error_description: "Revocation could not be persisted. Retry the request." });
       }
-      res.status(200).json({ revoked: true });
     },
   );
 
   // ---------------------------------------------------------------------------
   // Owner Active OAuth Authorizations Management
   // ---------------------------------------------------------------------------
-  router.get("/oauth/authorizations", (req: Request, res: Response): void => {
+  router.get("/oauth/authorizations", async (req: Request, res: Response): Promise<void> => {
     const owner = parseOwnerCookie(req);
     if (!owner) {
       res.status(401).json({ error: "Unauthorized." });
       return;
     }
-    res.json({ authorizations: listActiveOAuthAuthorizations() });
+    try {
+      await loadOAuthFromMongo();
+      res.json({ authorizations: listActiveOAuthAuthorizations() });
+    } catch (error: any) {
+      res.status(503).json({ error: "OAuth authorization storage is unavailable." });
+    }
   });
 
   router.delete(
     "/oauth/authorizations/:clientId",
-    (req: Request, res: Response): void => {
+    async (req: Request, res: Response): Promise<void> => {
       const owner = parseOwnerCookie(req);
       if (!owner) {
         res.status(401).json({ error: "Unauthorized." });
         return;
       }
       const clientId = String(req.params.clientId || "");
-      const success = revokeOAuthAuthorization(clientId);
-      statsTracker.removeKey(clientId);
-      res.json({ success });
+      try {
+        const success = await revokeOAuthAuthorization(clientId);
+        res.json({ success });
+      } catch (error: any) {
+        console.error("[oauth] authorization revocation failed:", error?.message || error);
+        res.status(503).json({ success: false, error: "Revocation could not be persisted. Retry when MongoDB is available." });
+      }
     },
   );
 
@@ -1454,72 +1645,52 @@ export function getOAuthClient(clientId: string): OAuthClient | undefined {
 }
 
 export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
+  // An OAuth client registration alone is not an active authorization.
+  // Show only clients that still have a live access or refresh-token grant.
   const result = new Map<string, ActiveOAuthInfo>();
-  for (const client of registeredClients.values()) {
-    result.set(client.clientId, {
-      clientId: client.clientId,
-      clientName:
-        client.clientName ||
-        (client.clientId.toLowerCase().includes("gemini")
-          ? "Google Gemini"
-          : client.clientId),
-      scope: "mcp:tools mcp:sandbox",
-      ownerEmail: process.env.OWNER_EMAIL || "owner",
-      createdAt: client.createdAt || Date.now(),
-    });
-  }
+  const now = Date.now();
   for (const entry of issuedTokens.values()) {
-    const isUnexpired =
-      !entry.refreshExpiresAt ||
-      Date.now() < entry.refreshExpiresAt ||
-      (entry.expiresAt && Date.now() < entry.expiresAt + 30 * 86400 * 1000);
-    if (isUnexpired) {
-      const existing = result.get(entry.clientId);
-      if (existing) {
-        existing.lastUsedAt = Math.max(
-          existing.lastUsedAt || 0,
-          entry.expiresAt - 86400 * 1000,
-        );
-      } else {
-        result.set(entry.clientId, {
-          clientId: entry.clientId,
-          clientName: entry.clientId.toLowerCase().includes("gemini")
-            ? "Google Gemini"
-            : `Client (${entry.clientId.slice(0, 16)})`,
-          scope: entry.scope || "mcp:tools",
-          ownerEmail: entry.ownerEmail || process.env.OWNER_EMAIL || "owner",
-          createdAt: entry.expiresAt
-            ? entry.expiresAt - 86400 * 1000
-            : Date.now(),
-          lastUsedAt: Date.now(),
-        });
-      }
+    if (revokedClientIds.has(entry.clientId)) continue;
+    const accessLive = entry.expiresAt > now;
+    const refreshLive = entry.refreshExpiresAt > now;
+    if (!accessLive && !refreshLive) continue;
+
+    const client = registeredClients.get(entry.clientId);
+    const existing = result.get(entry.clientId);
+    const info: ActiveOAuthInfo = {
+      clientId: entry.clientId,
+      clientName: client?.clientName ||
+        (entry.clientId.toLowerCase().includes("gemini")
+          ? "Google Gemini"
+          : `Client (${entry.clientId.slice(0, 16)})`),
+      scope: entry.scope || "mcp:tools",
+      ownerEmail: entry.ownerEmail || process.env.OWNER_EMAIL || "owner",
+      createdAt: client?.createdAt || entry.expiresAt - 86400 * 1000,
+      lastUsedAt: entry.expiresAt - 86400 * 1000,
+    };
+    if (!existing || (info.lastUsedAt || 0) > (existing.lastUsedAt || 0)) {
+      result.set(entry.clientId, info);
     }
   }
-  const list = Array.from(result.values());
+
   const deduplicated = new Map<string, ActiveOAuthInfo>();
-  for (const item of list) {
+  for (const item of result.values()) {
     const normKey = (item.clientName || item.clientId).trim().toLowerCase();
     const existing = deduplicated.get(normKey);
-    if (!existing) {
+    if (!existing || (item.lastUsedAt || 0) > (existing.lastUsedAt || 0)) {
       deduplicated.set(normKey, item);
-    } else {
-      const existingScore = Math.max(existing.lastUsedAt || 0, existing.createdAt || 0);
-      const itemScore = Math.max(item.lastUsedAt || 0, item.createdAt || 0);
-      if (itemScore > existingScore) {
-        deduplicated.set(normKey, item);
-      }
     }
   }
   return Array.from(deduplicated.values());
 }
 
-export function revokeOAuthAuthorization(clientId: string): boolean {
+export async function revokeOAuthAuthorization(clientId: string): Promise<boolean> {
   let found = false;
   if (registeredClients.has(clientId)) {
     registeredClients.delete(clientId);
     found = true;
   }
+  revokedClientIds.add(clientId);
   for (const [token, entry] of issuedTokens.entries()) {
     if (entry.clientId === clientId) {
       issuedTokens.delete(token);
@@ -1532,12 +1703,11 @@ export function revokeOAuthAuthorization(clientId: string): boolean {
       found = true;
     }
   }
-  if (found) {
-    saveOAuthToDisk();
-    revokeOAuthClientInMongo(clientId).catch(() => {});
-    revokeOAuthTokenInMongo(clientId).catch(() => {});
-  }
-  return found;
+  saveOAuthToDisk();
+  // Always write a tombstone, even if the in-memory cache was cold after a restart.
+  const clientPersisted = await revokeOAuthClientInMongo(clientId);
+  const tokensPersisted = await revokeOAuthTokenInMongo(clientId);
+  return found || clientPersisted || tokensPersisted;
 }
 
 export function renameOAuthClient(
@@ -1569,7 +1739,7 @@ export function renameOAuthClient(
   }
   client.clientName = cleanName;
   saveOAuthToDisk();
-  syncOAuthClientToMongo(client).catch(() => {});
+  syncOAuthClientToMongo(client).catch((error) => console.error("[mongo-oauth] client rename persistence failed:", error?.message || error));
   return client;
 }
 
@@ -1578,4 +1748,6 @@ export function resetOAuthStateForTesting(): void {
   activeAuthCodes.clear();
   issuedTokens.clear();
   refreshTokens.clear();
+  revokedClientIds.clear();
+  revokedTokenIds.clear();
 }

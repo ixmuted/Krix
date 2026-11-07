@@ -19,6 +19,7 @@ export interface KeyMetrics {
   lastClientIp: string;
   lastUserAgent: string;
   toolCalls: Record<string, number>;
+  toolMetrics?: Record<string, ToolUsageMetrics>;
   daily: Record<string, number>;
   dailyErrors?: Record<string, number>;
   weekly: Record<string, number>;
@@ -56,6 +57,16 @@ export interface SystemHealthStats {
   uptimeSec: number;
   nodeVersion: string;
   platform: string;
+}
+
+interface ToolUsageMetrics {
+  totalCalls: number;
+  successCount: number;
+  errorCount: number;
+  totalDurationMs: number;
+  daily: Record<string, number>;
+  weekly: Record<string, number>;
+  monthly: Record<string, number>;
 }
 
 export interface ToolDetailMeta {
@@ -132,6 +143,7 @@ export interface StatsSummary {
 export class StatsTracker {
   private keys = new Map<string, KeyMetrics>();
   private globalTools: Record<string, number> = {};
+  private toolMetrics: Record<string, ToolUsageMetrics> = {};
   private globalProtocol: Record<string, number> = {};
   private globalDaily: Record<
     string,
@@ -178,6 +190,7 @@ export class StatsTracker {
   private activeHttpSessions = 0;
   private filePath = path.resolve(process.cwd(), "data", ".krix_stats.json");
   private saveTimeout: NodeJS.Timeout | null = null;
+  private persistQueue: Promise<void> = Promise.resolve();
   private mongoClient: MongoClient | null = null;
   private mongoDb: Db | null = null;
   private mongoConnected = false;
@@ -200,24 +213,34 @@ export class StatsTracker {
     const sharedDb = getMongoDb();
     if (sharedDb) {
       this.mongoDb = sharedDb;
-      this.mongoConnected = true;
       fileShareRegistry.setMongoDb(sharedDb);
-      await this.loadFromMongo();
+      try {
+        await this.loadFromMongo();
+        this.mongoConnected = true;
+      } catch (error) {
+        this.mongoConnected = false;
+        throw error;
+      }
       return;
     }
     if (!this.mongoInitPromise) {
       this.mongoInitPromise = this.initMongo();
     }
-    await this.mongoInitPromise;
+    try {
+      await this.mongoInitPromise;
+    } catch (error) {
+      this.mongoInitPromise = null;
+      throw error;
+    }
   }
 
   private async initMongo(): Promise<void> {
     const sharedDb = getMongoDb();
     if (sharedDb) {
       this.mongoDb = sharedDb;
-      this.mongoConnected = true;
       fileShareRegistry.setMongoDb(sharedDb);
       await this.loadFromMongo();
+      this.mongoConnected = true;
       return;
     }
     const uri =
@@ -238,8 +261,11 @@ export class StatsTracker {
       this.mongoConnected = true;
       fileShareRegistry.setMongoDb(this.mongoDb);
       await this.loadFromMongo();
-    } catch {
+    } catch (error: any) {
       this.mongoConnected = false;
+      this.mongoDb = null;
+      console.error("[stats] MongoDB initialization failed:", error?.message || error);
+      throw error;
     }
   }
 
@@ -410,6 +436,7 @@ export class StatsTracker {
         lastClientIp: "",
         lastUserAgent: "",
         toolCalls: {},
+        toolMetrics: {},
         daily: {},
         weekly: {},
         monthly: {},
@@ -471,6 +498,22 @@ export class StatsTracker {
         this.globalDaily[date].tools++;
         this.globalWeekly[week].tools++;
         this.globalMonthly[month].tools++;
+        const tool = this.toolMetrics[toolName] || (this.toolMetrics[toolName] = {
+          totalCalls: 0, successCount: 0, errorCount: 0, totalDurationMs: 0,
+          daily: {}, weekly: {}, monthly: {},
+        });
+        const keyTool = (entry.toolMetrics ||= {})[toolName] || ((entry.toolMetrics ||= {})[toolName] = {
+          totalCalls: 0, successCount: 0, errorCount: 0, totalDurationMs: 0,
+          daily: {}, weekly: {}, monthly: {},
+        });
+        for (const metric of [tool, keyTool]) {
+          metric.totalCalls++;
+          if (isError) metric.errorCount++; else metric.successCount++;
+          metric.totalDurationMs += durationMs;
+          metric.daily[date] = (metric.daily[date] || 0) + 1;
+          metric.weekly[week] = (metric.weekly[week] || 0) + 1;
+          metric.monthly[month] = (metric.monthly[month] || 0) + 1;
+        }
       } else {
         this.globalProtocol[toolName] =
           (this.globalProtocol[toolName] || 0) + 1;
@@ -743,6 +786,19 @@ export class StatsTracker {
             )) {
               canonical.toolCalls[t] = (canonical.toolCalls[t] || 0) + cnt;
             }
+            for (const [toolName, metrics] of Object.entries(existingMetrics.toolMetrics || {})) {
+              const target = (canonical.toolMetrics ||= {})[toolName] || ((canonical.toolMetrics ||= {})[toolName] = {
+                totalCalls: 0, successCount: 0, errorCount: 0, totalDurationMs: 0,
+                daily: {}, weekly: {}, monthly: {},
+              });
+              target.totalCalls += metrics.totalCalls || 0;
+              target.successCount += metrics.successCount || 0;
+              target.errorCount += metrics.errorCount || 0;
+              target.totalDurationMs += metrics.totalDurationMs || 0;
+              for (const [d, count] of Object.entries(metrics.daily || {})) target.daily[d] = (target.daily[d] || 0) + count;
+              for (const [w, count] of Object.entries(metrics.weekly || {})) target.weekly[w] = (target.weekly[w] || 0) + count;
+              for (const [m, count] of Object.entries(metrics.monthly || {})) target.monthly[m] = (target.monthly[m] || 0) + count;
+            }
             for (const [d, cnt] of Object.entries(
               existingMetrics.daily || {},
             )) {
@@ -765,27 +821,8 @@ export class StatsTracker {
       }
     }
 
-    // Prune any deleted/revoked dynamic API keys so they never show up in stats or tools
-    if (dynamicKeys && Array.isArray(dynamicKeys)) {
-      const activeDynamicIds = new Set(dynamicKeys.map((k) => k.id));
-      for (const [keyId, metric] of Array.from(this.keys.entries())) {
-        if (metric.type === "api_key" && !activeDynamicIds.has(keyId)) {
-          this.keys.delete(keyId);
-          changed = true;
-        }
-      }
-    }
-
-    // Prune any deleted/revoked OAuth clients so they never show up in stats or tools
-    if (oauthClients && Array.isArray(oauthClients)) {
-      const activeOAuthIds = new Set(oauthClients.map((c) => c.clientId));
-      for (const [keyId, metric] of Array.from(this.keys.entries())) {
-        if (metric.type === "oauth" && !activeOAuthIds.has(keyId)) {
-          this.keys.delete(keyId);
-          changed = true;
-        }
-      }
-    }
+    // Historical usage is retained after a key/client is revoked or deleted.
+    // This keeps audit and analytics history intact across dashboard refreshes.
 
     if (changed) {
       this.scheduleSave();
@@ -1566,20 +1603,45 @@ export class StatsTracker {
       }
     }
 
+    const activeToolMetrics = isFiltered ? (matchedKey?.toolMetrics || {}) : this.toolMetrics;
     const toolsCatalog: ToolDetailMeta[] = knownTools.map((t) => {
       const calls = cleanToolDistribution[t.name] || 0;
+      const toolMetric = activeToolMetrics[t.name];
       return {
         name: t.name,
         category: t.category,
         description: t.description,
         totalCalls: calls,
-        successRate: calls > 0 ? 100 : 0,
-        avgDurationMs: calls > 0 ? avgDurationMs : 0,
-        daily: {},
-        weekly: {},
-        monthly: {},
+        successRate: toolMetric?.totalCalls
+          ? Math.round((toolMetric.successCount / toolMetric.totalCalls) * 100)
+          : 0,
+        avgDurationMs: toolMetric?.totalCalls
+          ? Math.round(toolMetric.totalDurationMs / toolMetric.totalCalls)
+          : 0,
+        daily: toolMetric?.daily || {},
+        weekly: toolMetric?.weekly || {},
+        monthly: toolMetric?.monthly || {},
       };
     });
+    const catalogNames = new Set(toolsCatalog.map((tool) => tool.name));
+    for (const [name, metrics] of Object.entries(activeToolMetrics)) {
+      if (catalogNames.has(name)) continue;
+      toolsCatalog.push({
+        name,
+        category: "Inspection",
+        description: "Tool usage recorded from MCP calls.",
+        totalCalls: metrics.totalCalls,
+        successRate: metrics.totalCalls
+          ? Math.round((metrics.successCount / metrics.totalCalls) * 100)
+          : 0,
+        avgDurationMs: metrics.totalCalls
+          ? Math.round(metrics.totalDurationMs / metrics.totalCalls)
+          : 0,
+        daily: metrics.daily,
+        weekly: metrics.weekly,
+        monthly: metrics.monthly,
+      });
+    }
 
     return {
       totalRequests,
@@ -1619,56 +1681,66 @@ export class StatsTracker {
     if (this.saveTimeout) return;
     this.saveTimeout = setTimeout(() => {
       this.saveTimeout = null;
-      this.save();
-    }, 2000);
+      void this.persist().catch((error) => {
+        console.error("[stats] scheduled persistence failed:", error?.message || error);
+        this.saveTimeout = setTimeout(() => {
+          this.saveTimeout = null;
+          this.scheduleSave();
+        }, 5000);
+        this.saveTimeout.unref?.();
+      });
+    }, 1500);
+    this.saveTimeout.unref?.();
   }
 
-  private save(): void {
-    // 1. Save to local disk fallback
-    try {
-      fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-      const data = {
-        keys: Array.from(this.keys.entries()),
-        globalTools: this.globalTools,
-        globalProtocol: this.globalProtocol,
-        globalDaily: this.globalDaily,
-        globalWeekly: this.globalWeekly,
-        globalMonthly: this.globalMonthly,
-        statusCodes: this.statusCodes,
-        clientEcosystems: this.clientEcosystems,
-        recentErrors: this.recentErrors,
-        hourlyCounts: this.hourlyCounts,
-        dayOfWeekCounts: this.dayOfWeekCounts,
-      };
-      fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), "utf-8");
-    } catch {}
+  private snapshot() {
+    return {
+      _id: "global_stats" as any,
+      keys: Array.from(this.keys.entries()),
+      globalTools: this.globalTools,
+      toolMetrics: this.toolMetrics,
+      globalProtocol: this.globalProtocol,
+      globalDaily: this.globalDaily,
+      globalWeekly: this.globalWeekly,
+      globalMonthly: this.globalMonthly,
+      statusCodes: this.statusCodes,
+      clientEcosystems: this.clientEcosystems,
+      recentErrors: this.recentErrors,
+      recentTimestamps: this.recentTimestamps,
+      recentDurations: this.recentDurations,
+      hourlyCounts: this.hourlyCounts,
+      dayOfWeekCounts: this.dayOfWeekCounts,
+      updatedAt: new Date(),
+    };
+  }
 
-    // 2. Save to MongoDB if available
-    if (this.mongoConnected && this.mongoDb) {
-      const coll = this.mongoDb.collection("krix_stats");
-      const mongoDoc = {
-        _id: "global_stats" as any,
-        keys: Array.from(this.keys.entries()),
-        globalTools: this.globalTools,
-        globalProtocol: this.globalProtocol,
-        globalDaily: this.globalDaily,
-        globalWeekly: this.globalWeekly,
-        globalMonthly: this.globalMonthly,
-        statusCodes: this.statusCodes,
-        clientEcosystems: this.clientEcosystems,
-        recentErrors: this.recentErrors,
-        hourlyCounts: this.hourlyCounts,
-        dayOfWeekCounts: this.dayOfWeekCounts,
-        updatedAt: new Date(),
-      };
-      coll
-        .updateOne(
+  private persist(): Promise<void> {
+    const writeSnapshot = async (): Promise<void> => {
+      const data = this.snapshot();
+      // Keep the local fallback, but MongoDB remains the durable source of truth
+      // whenever configured and connected.
+      try {
+        fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+        fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), "utf-8");
+      } catch (error: any) {
+        console.error("[stats] local fallback write failed:", error?.message || error);
+      }
+
+      if (this.mongoConnected && this.mongoDb) {
+        await this.mongoDb.collection("krix_stats").updateOne(
           { _id: "global_stats" as any },
-          { $set: mongoDoc },
+          { $set: data },
           { upsert: true },
-        )
-        .catch(() => {});
-    }
+        );
+      } else if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+        throw new Error("MongoDB is configured but unavailable; statistics were only written to local fallback.");
+      }
+    };
+
+    // Serialize snapshots so a slower earlier write cannot overwrite a newer one.
+    const next = this.persistQueue.then(writeSnapshot, writeSnapshot);
+    this.persistQueue = next.catch(() => {});
+    return next;
   }
 
   public async flush(): Promise<void> {
@@ -1676,32 +1748,10 @@ export class StatsTracker {
       clearTimeout(this.saveTimeout);
       this.saveTimeout = null;
     }
-    this.save();
-    if (this.mongoConnected && this.mongoDb) {
-      try {
-        const coll = this.mongoDb.collection("krix_stats");
-        const mongoDoc = {
-          _id: "global_stats" as any,
-          keys: Array.from(this.keys.entries()),
-          globalTools: this.globalTools,
-          globalProtocol: this.globalProtocol,
-          globalDaily: this.globalDaily,
-          globalWeekly: this.globalWeekly,
-          globalMonthly: this.globalMonthly,
-          statusCodes: this.statusCodes,
-          clientEcosystems: this.clientEcosystems,
-          recentErrors: this.recentErrors,
-          hourlyCounts: this.hourlyCounts,
-          dayOfWeekCounts: this.dayOfWeekCounts,
-          updatedAt: new Date(),
-        };
-        await coll.updateOne(
-          { _id: "global_stats" as any },
-          { $set: mongoDoc },
-          { upsert: true },
-        );
-      } catch {}
-    }
+    await this.ensureMongo().catch((error) => {
+      console.error("[stats] MongoDB unavailable during flush:", error?.message || error);
+    });
+    await this.persist();
   }
 
   private loadFromFile(): void {
@@ -1713,6 +1763,7 @@ export class StatsTracker {
           this.keys = new Map(data.keys);
         }
         if (data.globalTools) this.globalTools = data.globalTools;
+        if (data.toolMetrics) this.toolMetrics = data.toolMetrics;
         if (data.globalProtocol) this.globalProtocol = data.globalProtocol;
         if (data.globalDaily) this.globalDaily = data.globalDaily;
         if (data.globalWeekly) this.globalWeekly = data.globalWeekly;
@@ -1722,6 +1773,10 @@ export class StatsTracker {
           this.clientEcosystems = data.clientEcosystems;
         if (Array.isArray(data.recentErrors))
           this.recentErrors = data.recentErrors;
+        if (Array.isArray(data.recentTimestamps))
+          this.recentTimestamps = data.recentTimestamps.filter((t: number) => Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000);
+        if (Array.isArray(data.recentDurations))
+          this.recentDurations = data.recentDurations.filter((n: number) => Number.isFinite(n)).slice(-200);
         if (Array.isArray(data.hourlyCounts))
           this.hourlyCounts = data.hourlyCounts;
         if (data.dayOfWeekCounts) this.dayOfWeekCounts = data.dayOfWeekCounts;
@@ -1760,11 +1815,20 @@ export class StatsTracker {
     try {
       const coll = this.mongoDb.collection("krix_stats");
       const doc = await coll.findOne({ _id: "global_stats" as any });
+      if (!doc) {
+        await coll.updateOne(
+          { _id: "global_stats" as any },
+          { $set: this.snapshot() },
+          { upsert: true },
+        );
+        return;
+      }
       if (doc) {
         if (Array.isArray(doc.keys)) {
           this.keys = new Map(doc.keys);
         }
         if (doc.globalTools) this.globalTools = doc.globalTools;
+        if (doc.toolMetrics) this.toolMetrics = doc.toolMetrics;
         if (doc.globalProtocol) this.globalProtocol = doc.globalProtocol;
         if (doc.globalDaily) this.globalDaily = doc.globalDaily;
         if (doc.globalWeekly) this.globalWeekly = doc.globalWeekly;
@@ -1773,12 +1837,19 @@ export class StatsTracker {
         if (doc.clientEcosystems) this.clientEcosystems = doc.clientEcosystems;
         if (Array.isArray(doc.recentErrors))
           this.recentErrors = doc.recentErrors;
+        if (Array.isArray(doc.recentTimestamps))
+          this.recentTimestamps = doc.recentTimestamps.filter((t: number) => Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000);
+        if (Array.isArray(doc.recentDurations))
+          this.recentDurations = doc.recentDurations.filter((n: number) => Number.isFinite(n)).slice(-200);
         if (Array.isArray(doc.hourlyCounts))
           this.hourlyCounts = doc.hourlyCounts;
         if (doc.dayOfWeekCounts) this.dayOfWeekCounts = doc.dayOfWeekCounts;
         this.purgeProtocolAndLegacyKeys();
       }
-    } catch {}
+    } catch (error: any) {
+      console.error("[stats] MongoDB restore failed:", error?.message || error);
+      throw error;
+    }
   }
 }
 
