@@ -10,7 +10,8 @@
       "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["48x48"],
+      "sizes": "48x48",
+      "purpose": "any maskable",
       "theme": "light"
     },
     {
@@ -18,7 +19,8 @@
       "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["48x48"],
+      "sizes": "48x48",
+      "purpose": "any maskable",
       "theme": "dark"
     },
     {
@@ -26,7 +28,8 @@
       "url": "https://krix.onrender.com/icon-48.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["48x48"],
+      "sizes": "48x48",
+      "purpose": "any maskable",
       "theme": "light"
     },
     {
@@ -34,7 +37,8 @@
       "url": "https://krix.onrender.com/icon-48.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["48x48"],
+      "sizes": "48x48",
+      "purpose": "any maskable",
       "theme": "dark"
     },
     {
@@ -42,28 +46,32 @@
       "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-128.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["128x128"]
+      "sizes": "128x128",
+      "purpose": "any maskable"
     },
     {
       "src": "https://krix.onrender.com/icon-128.png",
       "url": "https://krix.onrender.com/icon-128.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["128x128"]
+      "sizes": "128x128",
+      "purpose": "any maskable"
     },
     {
       "src": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png",
       "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["320x320"]
+      "sizes": "512x512",
+      "purpose": "any maskable"
     },
     {
       "src": "https://krix.onrender.com/logo.png",
       "url": "https://krix.onrender.com/logo.png",
       "mimeType": "image/png",
       "type": "image/png",
-      "sizes": ["320x320"]
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ]
 }

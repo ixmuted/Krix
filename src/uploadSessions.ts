@@ -34,6 +34,9 @@ import {
   renderFooter,
   getBaseStyles,
   renderSvg,
+  renderGoogleLogoSvg,
+  renderAuthRequiredCard,
+  renderRecaptchaScript,
   escapeHtml,
 } from "./views.js";
 
@@ -285,7 +288,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' 'unsafe-inline'; connect-src 'self'; img-src 'self' https: data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+      `default-src 'none'; script-src 'nonce-${nonce}' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'nonce-${nonce}' 'unsafe-inline'; frame-src https://www.google.com/recaptcha/; connect-src 'self' https://www.google.com/recaptcha/; img-src 'self' https: data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
     );
     res.send(
       renderUploadPage(nonce, {
@@ -733,6 +736,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       gap: 6px;
     }
   </style>
+  ${renderRecaptchaScript(nonce)}
   <script nonce="${nonce}">
     (function() {
       const saved = localStorage.getItem('qw-theme');
@@ -743,7 +747,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   </script>
 </head>
 <body>
-  ${renderHeader("upload", info.owner || null)}
+  ${renderHeader("upload", info.owner || null, nonce)}
 
   <div class="wrapper">
     <div style="margin: 20px 0 24px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -752,7 +756,6 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
             Sandbox Uploads
           </h1>
-          <span class="badge" id="sessionBadge">${isOwner ? "Owner Session" : "Guest"}</span>
         </div>
         <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
           Upload workspace files, datasets, and scripts directly to your shared sandbox.
@@ -767,33 +770,17 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
     </div>
 
     <!-- Login Section for Unauthenticated Guests -->
-    <div class="card" id="login" ${isOwner ? "hidden" : ""} style="padding:32px; max-width:540px; margin:0 auto 24px auto;">
-      <h2 style="font-size:16px; font-weight:600; color:var(--fg); margin-bottom:8px;">Authentication Required</h2>
-      <p style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;">
-        Sign in with Google as the verified owner to manage and upload sandbox files. Files land in <code>${info.folder}/</code> and are instantly accessible to your AI.
-      </p>
-
-      <a href="/auth/google?returnTo=/upload" style="text-decoration:none; display:block;">
-        <button class="btn primary" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          Sign in with Google (Owner)
-        </button>
-      </a>
-
-      <details style="margin-top:20px; font-size:12px; color:var(--accents-5);">
+    <div id="login" ${isOwner ? "hidden" : ""}>
+      ${renderAuthRequiredCard("Upload", "/upload")}
+      <details style="margin: -20px auto 28px auto; max-width:540px; font-size:12px; color:var(--accents-5); text-align:center;">
         <summary style="cursor:pointer; user-select:none;">Alternative: authenticate with MCP API key</summary>
-        <form id="loginForm" autocomplete="off" style="margin-top:12px;">
+        <form id="loginForm" autocomplete="off" style="margin-top:12px; text-align:left; padding:16px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg);">
           <label for="key" style="display:block; font-size:12px; margin-bottom:6px; color:var(--fg); font-weight:500;">MCP API key</label>
           <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter API key" class="input" style="width:100%; margin-bottom:12px;">
           <button class="btn" id="start" type="submit" style="width:100%;">Open Upload Session</button>
         </form>
+        <div class="err" id="loginErr" role="alert" style="color:var(--error); font-size:12px; margin-top:10px;"></div>
       </details>
-      <div class="err" id="loginErr" role="alert" style="color:var(--error); font-size:12px; margin-top:10px;"></div>
     </div>
 
     <!-- Active Upload & File Management Grid -->

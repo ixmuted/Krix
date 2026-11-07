@@ -52,13 +52,13 @@
       "src": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png",
       "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png",
       "mimeType": "image/png",
-      "sizes": ["320x320"]
+      "sizes": ["512x512"]
     },
     {
       "src": "https://krix.onrender.com/logo.png",
       "url": "https://krix.onrender.com/logo.png",
       "mimeType": "image/png",
-      "sizes": ["320x320"]
+      "sizes": ["512x512"]
     }
   ],
   "mcpServers": {

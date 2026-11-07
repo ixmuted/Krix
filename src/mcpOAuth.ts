@@ -6,6 +6,8 @@ import {
   parseOwnerCookie,
   getPublicBaseUrl,
   isAuthorizedApiKey,
+  getMongoDb,
+  ensureMongoAuth,
 } from "./googleAuth.js";
 import { safeEqual, registerSecret } from "./security.js";
 
@@ -51,6 +53,162 @@ const registeredClients = new Map<string, OAuthClient>();
 const activeAuthCodes = new Map<string, AuthCodeEntry>();
 const issuedTokens = new Map<string, IssuedTokenEntry>();
 const refreshTokens = new Map<string, IssuedTokenEntry>();
+
+const OAUTH_FILE = path.resolve(process.cwd(), "data", ".krix_oauth.json");
+
+function saveOAuthToDisk(): void {
+  try {
+    fs.mkdirSync(path.dirname(OAUTH_FILE), { recursive: true });
+    const payload = {
+      clients: Array.from(registeredClients.entries()),
+      tokens: Array.from(issuedTokens.entries()),
+    };
+    fs.writeFileSync(OAUTH_FILE, JSON.stringify(payload, null, 2), "utf-8");
+  } catch {}
+}
+
+export function loadOAuthFromDisk(): void {
+  try {
+    if (fs.existsSync(OAUTH_FILE)) {
+      const data = JSON.parse(fs.readFileSync(OAUTH_FILE, "utf-8"));
+      if (Array.isArray(data.clients)) {
+        for (const [id, client] of data.clients) {
+          registeredClients.set(id, client);
+        }
+      }
+      if (Array.isArray(data.tokens)) {
+        for (const [tok, entry] of data.tokens) {
+          if (Date.now() < entry.expiresAt) {
+            issuedTokens.set(tok, entry);
+            if (entry.refreshToken) {
+              refreshTokens.set(entry.refreshToken, entry);
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+}
+loadOAuthFromDisk();
+
+export async function loadOAuthFromMongo(): Promise<void> {
+  await ensureMongoAuth().catch(() => {});
+  const db = getMongoDb();
+  if (!db) return;
+  try {
+    const col = db.collection("oauth_clients");
+    const docs = await col.find({}).toArray();
+    for (const d of docs) {
+      if (d.revoked) {
+        registeredClients.delete(d.clientId);
+      } else if (d.clientId) {
+        registeredClients.set(d.clientId, {
+          clientId: d.clientId,
+          clientSecret: d.clientSecret,
+          clientName: d.clientName || d.clientId,
+          redirectUris: d.redirectUris || [],
+          createdAt: d.createdAt || Date.now(),
+        });
+      }
+    }
+
+    const tokCol = db.collection("oauth_tokens");
+    const tokDocs = await tokCol.find({}).toArray();
+    for (const td of tokDocs) {
+      if (td.revoked) {
+        issuedTokens.delete(td.token);
+      } else if (td.token && td.expiresAt && Date.now() < td.expiresAt) {
+        const entry: IssuedTokenEntry = {
+          token: td.token,
+          refreshToken: td.refreshToken || "",
+          clientId: td.clientId,
+          ownerEmail: td.ownerEmail,
+          scope: td.scope,
+          expiresAt: td.expiresAt,
+          refreshExpiresAt: td.refreshExpiresAt,
+        };
+        issuedTokens.set(td.token, entry);
+        if (entry.refreshToken) {
+          refreshTokens.set(entry.refreshToken, entry);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error("[mongo-oauth] loadOAuthFromMongo error:", err?.message);
+  }
+}
+loadOAuthFromMongo().catch(() => {});
+
+export async function syncOAuthClientToMongo(client: OAuthClient): Promise<void> {
+  await ensureMongoAuth().catch(() => {});
+  const db = getMongoDb();
+  if (!db) return;
+  try {
+    const col = db.collection("oauth_clients");
+    await col.updateOne(
+      { clientId: client.clientId },
+      { $set: { ...client, revoked: false, updatedAt: Date.now() } },
+      { upsert: true },
+    );
+  } catch (err: any) {
+    console.error("[mongo-oauth] syncOAuthClientToMongo error:", err?.message);
+  }
+}
+
+export async function revokeOAuthClientInMongo(clientId: string): Promise<void> {
+  await ensureMongoAuth().catch(() => {});
+  const db = getMongoDb();
+  if (!db) return;
+  try {
+    const col = db.collection("oauth_clients");
+    await col.updateOne(
+      { clientId },
+      { $set: { revoked: true, revokedAt: Date.now() } },
+    );
+  } catch (err: any) {
+    console.error("[mongo-oauth] revokeOAuthClientInMongo error:", err?.message);
+  }
+}
+
+export async function syncOAuthTokenToMongo(token: string, entry: IssuedTokenEntry): Promise<void> {
+  await ensureMongoAuth().catch(() => {});
+  const db = getMongoDb();
+  if (!db) return;
+  try {
+    const col = db.collection("oauth_tokens");
+    await col.updateOne(
+      { token },
+      { $set: { ...entry, revoked: false, updatedAt: Date.now() } },
+      { upsert: true },
+    );
+  } catch (err: any) {
+    console.error("[mongo-oauth] syncOAuthTokenToMongo error:", err?.message);
+  }
+}
+
+export function recordIssuedToken(entry: IssuedTokenEntry): void {
+  issuedTokens.set(entry.token, entry);
+  if (entry.refreshToken) {
+    refreshTokens.set(entry.refreshToken, entry);
+  }
+  saveOAuthToDisk();
+  syncOAuthTokenToMongo(entry.token, entry).catch(() => {});
+}
+
+export async function revokeOAuthTokenInMongo(clientId: string): Promise<void> {
+  await ensureMongoAuth().catch(() => {});
+  const db = getMongoDb();
+  if (!db) return;
+  try {
+    const col = db.collection("oauth_tokens");
+    await col.updateMany(
+      { clientId },
+      { $set: { revoked: true, revokedAt: Date.now() } },
+    );
+  } catch (err: any) {
+    console.error("[mongo-oauth] revokeOAuthTokenInMongo error:", err?.message);
+  }
+}
 
 function getSigningSecret(): string {
   return (
@@ -288,10 +446,12 @@ export function createMcpOAuthRouter(): Router {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
       res.json({
+        resource_name: "Krix",
         resource: `${base}/mcp`,
         authorization_servers: [base],
         scopes_supported: ["mcp:tools", "mcp:sandbox", "mcp:admin"],
         bearer_methods_supported: ["header"],
+        resource_documentation: `${base}`,
       });
     },
   );
@@ -326,6 +486,11 @@ export function createMcpOAuthRouter(): Router {
         registration_endpoint: `${base}/oauth/register`,
         revocation_endpoint: `${base}/oauth/revoke`,
         jwks_uri: `${base}/.well-known/jwks.json`,
+        logo_uri: `${base}/logo.png`,
+        service_documentation: `${base}`,
+        client_name: "Krix",
+        client_uri: `${base}`,
+        ui_locales_supported: ["en"],
         response_types_supported: ["code"],
         code_challenge_methods_supported: ["S256"],
         grant_types_supported: [
@@ -375,6 +540,8 @@ export function createMcpOAuthRouter(): Router {
         createdAt: Date.now(),
       };
       registeredClients.set(clientId, client);
+      saveOAuthToDisk();
+      syncOAuthClientToMongo(client).catch(() => {});
 
       res.status(201).json({
         client_id: clientId,
@@ -852,8 +1019,7 @@ export function createMcpOAuthRouter(): Router {
           refreshExpiresAt: Date.now() + 30 * 86400 * 1000,
         };
 
-        issuedTokens.set(accessToken, tokenRecord);
-        refreshTokens.set(refreshToken, tokenRecord);
+        recordIssuedToken(tokenRecord);
 
         res.json({
           access_token: accessToken,
@@ -925,7 +1091,7 @@ export function createMcpOAuthRouter(): Router {
           expiresAt: Date.now() + 86400 * 1000,
           refreshExpiresAt: 0,
         };
-        issuedTokens.set(accessToken, tokenRecord);
+        recordIssuedToken(tokenRecord);
 
         res.json({
           access_token: accessToken,
@@ -1012,8 +1178,7 @@ export function createMcpOAuthRouter(): Router {
           refreshExpiresAt: Date.now() + 30 * 86400 * 1000,
         };
 
-        issuedTokens.set(newAccess, updated);
-        refreshTokens.set(newRefresh, updated);
+        recordIssuedToken(updated);
 
         res.json({
           access_token: newAccess,
@@ -1140,6 +1305,11 @@ export function revokeOAuthAuthorization(clientId: string): boolean {
       refreshTokens.delete(token);
       found = true;
     }
+  }
+  if (found) {
+    saveOAuthToDisk();
+    revokeOAuthClientInMongo(clientId).catch(() => {});
+    revokeOAuthTokenInMongo(clientId).catch(() => {});
   }
   return found;
 }

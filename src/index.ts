@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { pipeline } from "node:stream/promises";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -37,6 +38,7 @@ import {
   registerFileRoutes,
   startFileSweeper,
   stopFileStore,
+  getFileStore,
 } from "./fileShare.js";
 import {
   registerUploadRoutes,
@@ -59,6 +61,7 @@ import {
   createMcpOAuthRouter,
   verifyAccessToken,
   listActiveOAuthAuthorizations,
+  loadOAuthFromMongo,
 } from "./mcpOAuth.js";
 import { statsTracker } from "./stats.js";
 import {
@@ -66,6 +69,8 @@ import {
   renderStatsPage,
   renderApiKeysPage,
   renderToolsPage,
+  renderStorePage,
+  type StoredFileInfo,
 } from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
 import { createLimiter, rateLimitMiddleware, clientIp } from "./rateLimit.js";
@@ -200,7 +205,7 @@ function createMasterServer(
 
   const primaryIconUrl = serverIcons[0]?.src ?? GITHUB_ICON_48_URL;
   const primaryLogoUrl =
-    serverIcons.find((i) => i.sizes?.includes("320x320"))?.src ??
+    serverIcons.find((i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"))?.src ??
     GITHUB_LOGO_URL;
   (server.server as any)._serverInfo.icon = primaryIconUrl;
   (server.server as any)._serverInfo.iconUrl = primaryIconUrl;
@@ -625,6 +630,8 @@ app.all(
 // Static assets and discovery manifests (for Gemini, browser tabs, and MCP discovery)
 const staticAssetPaths = [
   "/logo.png",
+  "/icon-512.png",
+  "/icon-192.png",
   "/icon-128.png",
   "/icon-64.png",
   "/icon-48.png",
@@ -638,6 +645,8 @@ const staticAssetPaths = [
   "/server.json",
   "/.well-known/mcp.json",
   "/gemini-extension.json",
+  "/mcp/server-card",
+  "/server-card",
 ];
 
 app.options(staticAssetPaths, (_req, res) => {
@@ -652,6 +661,8 @@ app.options(staticAssetPaths, (_req, res) => {
 app.get(
   [
     "/logo.png",
+    "/icon-512.png",
+    "/icon-192.png",
     "/icon-128.png",
     "/icon-64.png",
     "/icon-48.png",
@@ -788,10 +799,10 @@ app.get("/gemini-extension.json", (req, res) => {
     icon: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
     iconUrl: getServerIcons(base)[0]?.src ?? GITHUB_ICON_48_URL,
     logo:
-      getServerIcons(base).find((i) => i.sizes?.includes("320x320"))?.src ??
+      getServerIcons(base).find((i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"))?.src ??
       GITHUB_LOGO_URL,
     logoUrl:
-      getServerIcons(base).find((i) => i.sizes?.includes("320x320"))?.src ??
+      getServerIcons(base).find((i) => i.sizes?.includes("512x512") || i.sizes?.includes("320x320"))?.src ??
       GITHUB_LOGO_URL,
     icons: getServerIcons(base),
     mcpServers: {
@@ -805,6 +816,35 @@ app.get("/gemini-extension.json", (req, res) => {
         },
       },
     },
+  });
+});
+
+app.get(["/mcp/server-card", "/server-card"], (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.json({
+    $schema:
+      "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/server-card.json",
+    name: "krix",
+    title: "Krix",
+    version: "1.1.0",
+    description:
+      "Remote GitHub discovery, Render management, and sandboxed execution.",
+    websiteUrl: "https://github.com/imunmuted/Krix",
+    icons: getServerIcons(base),
+    remotes: [
+      {
+        type: "sse",
+        url: `${base}/sse`,
+      },
+      {
+        type: "streamable-http",
+        url: `${base}/mcp`,
+      },
+    ],
   });
 });
 
@@ -832,7 +872,10 @@ app.get(["/", "/home"], async (req, res) => {
 });
 
 app.get(["/api", "/keys"], async (req, res) => {
-  await ensureMongoAuth().catch(() => {});
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+  ]);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
@@ -864,7 +907,10 @@ app.get(["/api", "/keys"], async (req, res) => {
 });
 
 app.get("/api/keys", async (req, res) => {
-  await ensureMongoAuth().catch(() => {});
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+  ]);
   const owner = parseOwnerCookie(req);
   if (!owner) {
     res
@@ -876,7 +922,10 @@ app.get("/api/keys", async (req, res) => {
 });
 
 app.post("/api/keys", express.json(), async (req, res) => {
-  await ensureMongoAuth().catch(() => {});
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+  ]);
   const owner = parseOwnerCookie(req);
   if (!owner) {
     res
@@ -915,20 +964,28 @@ app.delete("/api/keys/:id", async (req, res) => {
 });
 
 app.get("/tools", async (req, res) => {
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+  ]);
+  statsTracker.syncKnownKeys(listDynamicKeys(), listActiveOAuthAuthorizations());
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
+  const isOwner = Boolean(owner);
+  const selectedKeyId =
+    typeof req.query.key === "string" ? req.query.key.trim() : undefined;
   const authKey = computeAuthKey(
     DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
   );
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root);
+  const summary = statsTracker.getSummary(root, selectedKeyId);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(
     renderToolsPage({
       base,
-      isOwner: Boolean(owner),
+      isOwner,
       owner,
       tools: summary.toolsCatalog,
       summary,
@@ -943,7 +1000,7 @@ app.get("/stats/api", async (req, res) => {
     Boolean(owner) ||
     Boolean(
       clientKey &&
-      (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+        (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
     );
 
   if (!isAuth) {
@@ -953,23 +1010,240 @@ app.get("/stats/api", async (req, res) => {
     return;
   }
 
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+  ]);
+  statsTracker.syncKnownKeys(listDynamicKeys(), listActiveOAuthAuthorizations());
+  const selectedKeyId =
+    typeof req.query.key === "string" ? req.query.key.trim() : undefined;
   const authKey = computeAuthKey(
     DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
   );
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root);
+  const summary = statsTracker.getSummary(root, selectedKeyId);
   res.setHeader("Cache-Control", "no-store");
   res.json(summary);
 });
 
 app.get("/stats", async (req, res) => {
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+  ]);
+  statsTracker.syncKnownKeys(listDynamicKeys(), listActiveOAuthAuthorizations());
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  const isOwner = Boolean(owner);
+  const selectedKeyId =
+    typeof req.query.key === "string" ? req.query.key.trim() : undefined;
+
+  const authKey = computeAuthKey(
+    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+  );
+  const root = sandboxRootForAuthKey(authKey);
+  statsTracker.setActiveSessions(transports.size);
+  const summary = statsTracker.getSummary(root, selectedKeyId);
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderStatsPage({
+      base,
+      isOwner,
+      owner,
+      summary,
+    }),
+  );
+});
+
+// Dedicated Store Page & Download Endpoints
+app.get("/store", async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner);
 
-  if (!isOwner) {
-    res.redirect("/auth/google?returnTo=/stats");
+  if (!owner) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(
+      renderStorePage({
+        base,
+        isOwner: false,
+        owner: null,
+        files: [],
+      }),
+    );
+    return;
+  }
+
+  try {
+    const authKey = computeAuthKey(
+      DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
+    );
+    const root = sandboxRootForAuthKey(authKey);
+    const fileStore = getFileStore();
+
+    const [storeResult, usage] = await Promise.all([
+      fileStore
+        .listByOwner("*", { limit: 100, status: "all" })
+        .catch(() => ({ files: [], totalCount: 0 })),
+      fileStore.usage("*").catch(() => undefined),
+    ]);
+
+    const files: StoredFileInfo[] = storeResult.files.map((f) => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      contentType: f.contentType,
+      createdAt: f.createdAt,
+      expiresAt: f.expiresAt,
+      source: "store" as const,
+      downloadUrl: `${base}/store/download/${f.id}`,
+      permanent: !f.expiresAt,
+    }));
+
+    const uploadDir = path.join(root, UPLOAD_DIR);
+    if (fs.existsSync(uploadDir)) {
+      try {
+        const entries = fs.readdirSync(uploadDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile()) {
+            const filePath = path.join(uploadDir, entry.name);
+            const stat = fs.statSync(filePath);
+            files.push({
+              id: `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`,
+              name: entry.name,
+              size: stat.size,
+              contentType: "application/octet-stream",
+              createdAt: stat.birthtime || stat.mtime,
+              expiresAt: null,
+              source: "sandbox" as const,
+              downloadUrl: `${base}/store/download?file=${encodeURIComponent(entry.name)}`,
+              permanent: false,
+            });
+          }
+        }
+      } catch {}
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(
+      renderStorePage({
+        base,
+        isOwner: true,
+        owner,
+        files,
+        usage,
+      }),
+    );
+  } catch (err: any) {
+    res.status(500).send("Error loading store: " + err.message);
+  }
+});
+
+app.get("/store/api/files", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const authKey = computeAuthKey(
+    DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
+  );
+  const root = sandboxRootForAuthKey(authKey);
+  const fileStore = getFileStore();
+
+  const [storeResult, usage] = await Promise.all([
+    fileStore
+      .listByOwner("*", { limit: 100, status: "all" })
+      .catch(() => ({ files: [], totalCount: 0 })),
+    fileStore.usage("*").catch(() => undefined),
+  ]);
+
+  const files: StoredFileInfo[] = storeResult.files.map((f) => ({
+    id: f.id,
+    name: f.name,
+    size: f.size,
+    contentType: f.contentType,
+    createdAt: f.createdAt,
+    expiresAt: f.expiresAt,
+    source: "store" as const,
+    downloadUrl: `${base}/store/download/${f.id}`,
+    permanent: !f.expiresAt,
+  }));
+
+  const uploadDir = path.join(root, UPLOAD_DIR);
+  if (fs.existsSync(uploadDir)) {
+    try {
+      const entries = fs.readdirSync(uploadDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          const filePath = path.join(uploadDir, entry.name);
+          const stat = fs.statSync(filePath);
+          files.push({
+            id: `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`,
+            name: entry.name,
+            size: stat.size,
+            contentType: "application/octet-stream",
+            createdAt: stat.birthtime || stat.mtime,
+            expiresAt: null,
+            source: "sandbox" as const,
+            downloadUrl: `${base}/store/download?file=${encodeURIComponent(entry.name)}`,
+            permanent: false,
+          });
+        }
+      }
+    } catch {}
+  }
+
+  res.json({ files, usage });
+});
+
+app.get("/store/download/:id", async (req, res) => {
+  const id = req.params.id;
+  try {
+    const file = await getFileStore().openById("*", id);
+    if (!file) {
+      res.status(404).type("text/plain").send("File not found or expired.");
+      return;
+    }
+    res.setHeader("Content-Type", file.contentType || "application/octet-stream");
+    res.setHeader("Content-Length", String(file.size));
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(file.name)}"`,
+    );
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    await pipeline(file.stream, res);
+  } catch (e: any) {
+    if (!res.headersSent)
+      res.status(500).type("text/plain").send("Download error: " + e.message);
+  }
+});
+
+app.get("/store/download", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  const clientKey = extractClientKey(req);
+  const isAuth =
+    Boolean(owner) ||
+    Boolean(
+      clientKey &&
+        (isAuthorizedApiKey(clientKey) || verifyAccessToken(clientKey).valid),
+    );
+  if (!isAuth) {
+    res.status(401).type("text/plain").send("Unauthorized.");
+    return;
+  }
+
+  const filename = typeof req.query.file === "string" ? req.query.file : "";
+  if (
+    !filename ||
+    filename.includes("..") ||
+    filename.includes("/") ||
+    filename.includes("\\")
+  ) {
+    res.status(400).type("text/plain").send("Invalid filename.");
     return;
   }
 
@@ -977,18 +1251,65 @@ app.get("/stats", async (req, res) => {
     DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
   );
   const root = sandboxRootForAuthKey(authKey);
-  statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root);
+  const filePath = path.join(root, UPLOAD_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).type("text/plain").send("File not found.");
+    return;
+  }
+  res.download(filePath, filename);
+});
 
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(
-    renderStatsPage({
-      base,
-      isOwner: true,
-      owner,
-      summary,
-    }),
+app.post("/store/permanent/:id", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id;
+  const ok = await getFileStore().makePermanent("*", id);
+  if (ok) res.json({ success: true, permanent: true });
+  else res.status(404).json({ error: "File not found." });
+});
+
+app.delete("/store/files/:id", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id;
+  const ok = await getFileStore().deleteOwned("*", id);
+  if (ok) res.json({ success: true, deleted: id });
+  else res.status(404).json({ error: "File not found." });
+});
+
+app.delete("/store/sandbox-file", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const name = typeof req.query.name === "string" ? req.query.name : "";
+  if (
+    !name ||
+    name.includes("..") ||
+    name.includes("/") ||
+    name.includes("\\")
+  ) {
+    res.status(400).json({ error: "Invalid filename." });
+    return;
+  }
+  const authKey = computeAuthKey(
+    DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
   );
+  const root = sandboxRootForAuthKey(authKey);
+  const filePath = path.join(root, UPLOAD_DIR, name);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    res.json({ success: true, deleted: name });
+  } else {
+    res.status(404).json({ error: "File not found." });
+  }
 });
 
 // Body-parser and other middleware errors: never leak internals.

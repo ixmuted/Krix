@@ -5,6 +5,7 @@ export interface McpIcon {
   src: string;
   url?: string;
   mimeType: string;
+  type?: string;
   sizes?: string[];
   theme?: "light" | "dark";
 }
@@ -26,12 +27,16 @@ export const GITHUB_RAW_BASE_URL =
   "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets";
 export const GITHUB_ICON_48_URL = `${GITHUB_RAW_BASE_URL}/icon-48.png`;
 export const GITHUB_ICON_128_URL = `${GITHUB_RAW_BASE_URL}/icon-128.png`;
+export const GITHUB_ICON_192_URL = `${GITHUB_RAW_BASE_URL}/icon-192.png`;
+export const GITHUB_ICON_512_URL = `${GITHUB_RAW_BASE_URL}/icon-512.png`;
 export const GITHUB_LOGO_URL = `${GITHUB_RAW_BASE_URL}/logo.png`;
 export const GITHUB_ICON_24_URL = `${GITHUB_RAW_BASE_URL}/icon-24.png`;
 
 export const RENDER_PUBLIC_URL = "https://krix.onrender.com";
 export const RENDER_ICON_48_URL = `${RENDER_PUBLIC_URL}/icon-48.png`;
 export const RENDER_ICON_128_URL = `${RENDER_PUBLIC_URL}/icon-128.png`;
+export const RENDER_ICON_192_URL = `${RENDER_PUBLIC_URL}/icon-192.png`;
+export const RENDER_ICON_512_URL = `${RENDER_PUBLIC_URL}/icon-512.png`;
 export const RENDER_LOGO_URL = `${RENDER_PUBLIC_URL}/logo.png`;
 export const RENDER_ICON_24_URL = `${RENDER_PUBLIC_URL}/icon-24.png`;
 
@@ -48,6 +53,7 @@ export function getServerIcons(
       src: GITHUB_ICON_48_URL,
       url: GITHUB_ICON_48_URL,
       mimeType: "image/png",
+      type: "image/png",
       sizes: ["48x48"],
       theme: "light",
     },
@@ -55,6 +61,7 @@ export function getServerIcons(
       src: GITHUB_ICON_48_URL,
       url: GITHUB_ICON_48_URL,
       mimeType: "image/png",
+      type: "image/png",
       sizes: ["48x48"],
       theme: "dark",
     },
@@ -63,6 +70,7 @@ export function getServerIcons(
       src: RENDER_ICON_48_URL,
       url: RENDER_ICON_48_URL,
       mimeType: "image/png",
+      type: "image/png",
       sizes: ["48x48"],
       theme: "light",
     },
@@ -70,6 +78,7 @@ export function getServerIcons(
       src: RENDER_ICON_48_URL,
       url: RENDER_ICON_48_URL,
       mimeType: "image/png",
+      type: "image/png",
       sizes: ["48x48"],
       theme: "dark",
     },
@@ -78,25 +87,29 @@ export function getServerIcons(
       src: GITHUB_ICON_128_URL,
       url: GITHUB_ICON_128_URL,
       mimeType: "image/png",
+      type: "image/png",
       sizes: ["128x128"],
     },
     {
       src: RENDER_ICON_128_URL,
       url: RENDER_ICON_128_URL,
       mimeType: "image/png",
+      type: "image/png",
       sizes: ["128x128"],
     },
     {
       src: GITHUB_LOGO_URL,
       url: GITHUB_LOGO_URL,
       mimeType: "image/png",
-      sizes: ["320x320"],
+      type: "image/png",
+      sizes: ["512x512"],
     },
     {
       src: RENDER_LOGO_URL,
       url: RENDER_LOGO_URL,
       mimeType: "image/png",
-      sizes: ["320x320"],
+      type: "image/png",
+      sizes: ["512x512"],
     },
   ];
 
@@ -112,6 +125,7 @@ export function getServerIcons(
         src: `${base}/icon-48.png`,
         url: `${base}/icon-48.png`,
         mimeType: "image/png",
+        type: "image/png",
         sizes: ["48x48"],
         theme: "light",
       },
@@ -119,6 +133,7 @@ export function getServerIcons(
         src: `${base}/icon-48.png`,
         url: `${base}/icon-48.png`,
         mimeType: "image/png",
+        type: "image/png",
         sizes: ["48x48"],
         theme: "dark",
       },
@@ -126,13 +141,29 @@ export function getServerIcons(
         src: `${base}/icon-128.png`,
         url: `${base}/icon-128.png`,
         mimeType: "image/png",
+        type: "image/png",
         sizes: ["128x128"],
+      },
+      {
+        src: `${base}/icon-192.png`,
+        url: `${base}/icon-192.png`,
+        mimeType: "image/png",
+        type: "image/png",
+        sizes: ["192x192"],
+      },
+      {
+        src: `${base}/icon-512.png`,
+        url: `${base}/icon-512.png`,
+        mimeType: "image/png",
+        type: "image/png",
+        sizes: ["512x512"],
       },
       {
         src: `${base}/logo.png`,
         url: `${base}/logo.png`,
         mimeType: "image/png",
-        sizes: ["320x320"],
+        type: "image/png",
+        sizes: ["512x512"],
       },
     ];
     const seen = new Set<string>();

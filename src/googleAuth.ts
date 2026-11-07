@@ -47,33 +47,40 @@ export function generateClientId(): string {
 let mongoDb: Db | null = null;
 let mongoInitPromise: Promise<void> | null = null;
 
+export function getMongoDb(): Db | null {
+  return mongoDb;
+}
+
 export async function ensureMongoAuth(): Promise<void> {
-  if (mongoDb) return;
   const uri =
     process.env.MONGODB_URI ||
     process.env.MONGO_URL ||
     process.env.DATABASE_URL;
   if (!uri) return;
 
-  if (!mongoInitPromise) {
-    mongoInitPromise = (async () => {
-      try {
-        const client = new MongoClient(uri, {
-          serverSelectionTimeoutMS: 5000,
-          connectTimeoutMS: 5000,
-          appName: "krix-auth",
-        });
-        await client.connect();
-        const dbName =
-          process.env.MONGODB_DB_NAME || process.env.MONGODB_DB || "krix";
-        mongoDb = client.db(dbName);
-        await loadKeysFromMongo();
-      } catch (err: any) {
-        console.error("[mongo-auth] connection error:", err?.message);
-      }
-    })();
+  if (!mongoDb) {
+    if (!mongoInitPromise) {
+      mongoInitPromise = (async () => {
+        try {
+          const client = new MongoClient(uri, {
+            serverSelectionTimeoutMS: 5000,
+            connectTimeoutMS: 5000,
+            appName: "krix-auth",
+          });
+          await client.connect();
+          const dbName =
+            process.env.MONGODB_DB_NAME || process.env.MONGODB_DB || "krix";
+          mongoDb = client.db(dbName);
+          await loadKeysFromMongo();
+        } catch (err: any) {
+          console.error("[mongo-auth] connection error:", err?.message);
+        }
+      })();
+    }
+    await mongoInitPromise;
+  } else {
+    await loadKeysFromMongo().catch(() => {});
   }
-  await mongoInitPromise;
 }
 ensureMongoAuth().catch(() => {});
 

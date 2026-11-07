@@ -211,7 +211,7 @@ describe('Icons and Asset Metadata', () => {
       assert.equal(sIcon.mimeType, gIcon.mimeType, `Icon ${i} mimeType must match`);
       assert.equal(sIcon.mimeType, mIcon.mimeType, `Icon ${i} mimeType must match`);
       assert.deepEqual(sIcon.sizes, gIcon.sizes, `Icon ${i} sizes must match`);
-      assert.deepEqual(sIcon.sizes, mIcon.sizes, `Icon ${i} sizes must match`);
+      assert.deepEqual(sIcon.sizes, Array.isArray(mIcon.sizes) ? mIcon.sizes : [mIcon.sizes], `Icon ${i} sizes must match`);
       assert.equal(sIcon.theme, gIcon.theme, `Icon ${i} theme must match`);
       assert.equal(sIcon.theme, mIcon.theme, `Icon ${i} theme must match`);
 

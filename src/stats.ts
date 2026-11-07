@@ -104,6 +104,7 @@ export interface StatsSummary {
     peakDay: string | null;
   };
   toolsCatalog: ToolDetailMeta[];
+  selectedKeyId?: string;
   lastUpdated: number;
 }
 
@@ -238,22 +239,27 @@ export class StatsTracker {
     toolName?: string;
     isActualTool?: boolean;
     durationMs: number;
-    isError: boolean;
+    isError?: boolean;
     statusCode?: number;
     errorMessage?: string;
-    bytesIn: number;
-    bytesOut: number;
+    bytesIn?: number;
+    bytesOut?: number;
     ip?: string;
     userAgent?: string;
   }): void {
+    const isError =
+      typeof params.isError === "boolean"
+        ? params.isError
+        : params.statusCode !== undefined
+          ? params.statusCode >= 400
+          : false;
     const {
       keyId,
       durationMs,
-      isError,
       statusCode = isError ? 500 : 200,
       errorMessage,
-      bytesIn,
-      bytesOut,
+      bytesIn = 0,
+      bytesOut = 0,
       toolName,
       isActualTool = Boolean(
         toolName &&
@@ -493,10 +499,83 @@ export class StatsTracker {
     };
   }
 
-  public getSummary(sandboxRoot?: string): StatsSummary {
+  public syncKnownKeys(
+    dynamicKeys?: Array<{ id: string; label?: string; clientId?: string }>,
+    oauthClients?: Array<{ clientId: string; clientName?: string }>,
+  ): void {
+    if (dynamicKeys && Array.isArray(dynamicKeys)) {
+      for (const k of dynamicKeys) {
+        if (!k.id) continue;
+        if (!this.keys.has(k.id)) {
+          this.keys.set(k.id, {
+            keyId: k.id,
+            label: k.label || `API Key (${k.id.slice(0, 8)})`,
+            type: "api_key",
+            totalRequests: 0,
+            successCount: 0,
+            errorCount: 0,
+            totalDurationMs: 0,
+            avgDurationMs: 0,
+            bytesIn: 0,
+            bytesOut: 0,
+            lastActiveAt: 0,
+            lastClientIp: "",
+            lastUserAgent: "",
+            toolCalls: {},
+            daily: {},
+            weekly: {},
+            monthly: {},
+          });
+        }
+      }
+    }
+    if (oauthClients && Array.isArray(oauthClients)) {
+      for (const c of oauthClients) {
+        if (!c.clientId) continue;
+        if (!this.keys.has(c.clientId)) {
+          this.keys.set(c.clientId, {
+            keyId: c.clientId,
+            label: c.clientName || `OAuth Client (${c.clientId.slice(0, 8)})`,
+            type: "oauth",
+            totalRequests: 0,
+            successCount: 0,
+            errorCount: 0,
+            totalDurationMs: 0,
+            avgDurationMs: 0,
+            bytesIn: 0,
+            bytesOut: 0,
+            lastActiveAt: 0,
+            lastClientIp: "",
+            lastUserAgent: "",
+            toolCalls: {},
+            daily: {},
+            weekly: {},
+            monthly: {},
+          });
+        }
+      }
+    }
+  }
+
+  public getSummary(
+    sandboxRoot?: string,
+    targetKeyId?: string,
+  ): StatsSummary {
     const keys = Array.from(this.keys.values()).sort(
       (a, b) => b.totalRequests - a.totalRequests,
     );
+    const isFiltered = Boolean(targetKeyId && targetKeyId !== "all");
+    const matchedKey = isFiltered
+      ? keys.find(
+          (k) =>
+            k.keyId === targetKeyId ||
+            k.keyId.toLowerCase() === targetKeyId?.toLowerCase() ||
+            k.label.toLowerCase() === targetKeyId?.toLowerCase() ||
+            k.keyId.startsWith(targetKeyId!) ||
+            targetKeyId!.startsWith(k.keyId),
+        ) || null
+      : null;
+
     let totalRequests = 0;
     let totalSuccess = 0;
     let totalErrors = 0;
@@ -504,13 +583,24 @@ export class StatsTracker {
     let totalBytesIn = 0;
     let totalBytesOut = 0;
 
-    for (const k of keys) {
-      totalRequests += k.totalRequests;
-      totalSuccess += k.successCount;
-      totalErrors += k.errorCount;
-      totalDuration += k.totalDurationMs;
-      totalBytesIn += k.bytesIn;
-      totalBytesOut += k.bytesOut;
+    if (isFiltered) {
+      if (matchedKey) {
+        totalRequests = matchedKey.totalRequests;
+        totalSuccess = matchedKey.successCount;
+        totalErrors = matchedKey.errorCount;
+        totalDuration = matchedKey.totalDurationMs;
+        totalBytesIn = matchedKey.bytesIn;
+        totalBytesOut = matchedKey.bytesOut;
+      }
+    } else {
+      for (const k of keys) {
+        totalRequests += k.totalRequests;
+        totalSuccess += k.successCount;
+        totalErrors += k.errorCount;
+        totalDuration += k.totalDurationMs;
+        totalBytesIn += k.bytesIn;
+        totalBytesOut += k.bytesOut;
+      }
     }
 
     const overallSuccessRate =
@@ -575,11 +665,14 @@ export class StatsTracker {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(nowTime.getTime() - i * 24 * 60 * 60 * 1000);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const entry = this.globalDaily[key] || { requests: 0, tools: 0 };
+      const reqCount = isFiltered
+        ? (matchedKey?.daily[key] || 0)
+        : (this.globalDaily[key]?.requests || 0);
+      const toolCount = isFiltered ? 0 : (this.globalDaily[key]?.tools || 0);
       dailyTimeline.push({
         date: key,
-        requests: entry.requests,
-        tools: entry.tools,
+        requests: reqCount,
+        tools: toolCount,
       });
     }
 
@@ -591,12 +684,15 @@ export class StatsTracker {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(nowTime.getTime() - i * 7 * 24 * 60 * 60 * 1000);
       const { week } = this.getDateKeys(d);
-      const entry = this.globalWeekly[week] || { requests: 0, tools: 0 };
+      const reqCount = isFiltered
+        ? (matchedKey?.weekly[week] || 0)
+        : (this.globalWeekly[week]?.requests || 0);
+      const toolCount = isFiltered ? 0 : (this.globalWeekly[week]?.tools || 0);
       if (!weeklyTimeline.some((w) => w.week === week)) {
         weeklyTimeline.push({
           week,
-          requests: entry.requests,
-          tools: entry.tools,
+          requests: reqCount,
+          tools: toolCount,
         });
       }
     }
@@ -616,11 +712,14 @@ export class StatsTracker {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(nowTime.getFullYear(), nowTime.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const entry = this.globalMonthly[key] || { requests: 0, tools: 0 };
+      const reqCount = isFiltered
+        ? (matchedKey?.monthly[key] || 0)
+        : (this.globalMonthly[key]?.requests || 0);
+      const toolCount = isFiltered ? 0 : (this.globalMonthly[key]?.tools || 0);
       monthlyTimeline.push({
         month: key,
-        requests: entry.requests,
-        tools: entry.tools,
+        requests: reqCount,
+        tools: toolCount,
       });
     }
 
@@ -1172,8 +1271,12 @@ export class StatsTracker {
       },
     ];
 
+    const activeToolsSource = isFiltered
+      ? (matchedKey ? matchedKey.toolCalls : {})
+      : this.globalTools;
+
     const cleanToolDistribution: Record<string, number> = {};
-    for (const [k, v] of Object.entries(this.globalTools)) {
+    for (const [k, v] of Object.entries(activeToolsSource)) {
       if (
         ![
           "mcp_request",
@@ -1234,6 +1337,7 @@ export class StatsTracker {
         peakDay,
       },
       toolsCatalog,
+      selectedKeyId: isFiltered ? (matchedKey?.keyId || targetKeyId) : "all",
       lastUpdated: Date.now(),
     };
   }

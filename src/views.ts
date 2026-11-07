@@ -91,6 +91,10 @@ export function renderSvg(
   }
 }
 
+export function renderGoogleLogoSvg(size = 18): string {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3h3.88c2.27-2.09 3.66-5.17 3.66-9.09z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.09C3.26 21.37 7.34 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.32c-.25-.72-.38-1.49-.38-2.32s.13-1.6.38-2.32V6.59H1.24C.45 8.16 0 9.93 0 12s.45 3.84 1.24 5.41l4.04-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.63 1.24 6.59l4.04 3.09c.95-2.83 3.6-4.93 6.72-4.93z"/></svg>`;
+}
+
 export function getBaseStyles(): string {
   return `
     :root {
@@ -730,6 +734,158 @@ export function getBaseStyles(): string {
       .grid-3 { grid-template-columns: 1fr; }
       .grid-2 { grid-template-columns: 1fr; }
     }
+    /* reCAPTCHA v3 floating badge hiding per Google Terms */
+    .grecaptcha-badge {
+      visibility: hidden !important;
+    }
+
+    /* Profile Dropdown & Overflow Prevention */
+    .profile-dropdown-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .profile-trigger-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px 4px 6px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--fg);
+      cursor: pointer;
+      max-width: 220px;
+      transition: all 0.15s ease;
+    }
+    .profile-trigger-btn:hover {
+      border-color: var(--accents-4);
+      background: var(--accents-2);
+    }
+    .profile-trigger-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .profile-trigger-avatar-fallback {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--fg);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .profile-trigger-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+      font-size: 12px;
+      max-width: 120px;
+    }
+    .profile-dropdown-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: 240px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+      padding: 8px;
+      display: none;
+      z-index: 1000;
+      text-align: left;
+    }
+    .profile-dropdown-menu.open {
+      display: block;
+    }
+    .profile-menu-header {
+      padding: 8px 10px 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+    }
+    .profile-menu-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--fg);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+      display: block;
+    }
+    .profile-menu-email {
+      font-size: 11px;
+      color: var(--accents-5);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+      display: block;
+      margin-top: 2px;
+    }
+    .profile-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: none;
+      border: none;
+      font-size: 13px;
+      color: var(--fg);
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      font-family: inherit;
+    }
+    .profile-menu-item:hover {
+      background: var(--accents-1);
+    }
+    .profile-menu-item.danger {
+      color: var(--error);
+    }
+    .profile-menu-item.danger:hover {
+      background: rgba(235, 87, 87, 0.08);
+    }
+
+    /* Modal Backdrop and Box */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-card, .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 440px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+    }
+
     @media (max-width: 640px) {
       .grid-4 { grid-template-columns: 1fr; }
       .nav-inner { padding: 0 14px; }
@@ -740,9 +896,27 @@ export function getBaseStyles(): string {
   `;
 }
 
+export function renderRecaptchaScript(nonce?: string): string {
+  const siteKey =
+    process.env.RECAPTCHA_SITE_KEY ||
+    process.env.GOOGLE_RECAPTCHA_SITE_KEY ||
+    "6Ld_sample_krix_recaptcha_key";
+  return `
+    <script src="https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}"${nonce ? ` nonce="${nonce}"` : ""}></script>
+    <script${nonce ? ` nonce="${nonce}"` : ""}>
+      if (typeof grecaptcha !== 'undefined') {
+        grecaptcha.ready(function() {
+          // Google reCAPTCHA v3 active
+        });
+      }
+    </script>
+  `;
+}
+
 export function renderHeader(
   activeNav: string,
   owner: OwnerProfile | null,
+  nonce?: string,
 ): string {
   const isOwner = Boolean(owner);
   return `
@@ -758,6 +932,7 @@ export function renderHeader(
         <nav class="nav-pills">
           <a href="/home" class="nav-pill ${activeNav === "home" ? "active" : ""}">Home</a>
           <a href="/upload" class="nav-pill ${activeNav === "upload" ? "active" : ""}">Upload</a>
+          <a href="/store" class="nav-pill ${activeNav === "store" ? "active" : ""}">Store</a>
           <a href="/stats" class="nav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
           <a href="/tools" class="nav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
           <a href="/api" class="nav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
@@ -785,19 +960,95 @@ export function renderHeader(
           ${
             isOwner
               ? `
-            <div class="user-pill">
-              ${owner?.picture ? `<img src="${encodeURI(owner.picture)}" alt="">` : ""}
-              <span>${encodeURIComponent(owner?.name || owner?.email || "Owner")}</span>
+            <div class="profile-dropdown-wrap" id="headerProfileDropdownWrap">
+              <button type="button" class="profile-trigger-btn" id="headerProfileTrigger" onclick="toggleProfileDropdown(event)" aria-expanded="false" aria-haspopup="true">
+                ${owner?.picture ? `<img src="${escapeHtml(owner.picture)}" class="profile-trigger-avatar" alt="Avatar">` : `<span class="profile-trigger-avatar-fallback">${escapeHtml((owner?.name || owner?.email || "O").charAt(0).toUpperCase())}</span>`}
+                <span class="profile-trigger-name" title="${escapeHtml(owner?.name || owner?.email || "Owner")}">${escapeHtml(owner?.name || owner?.email || "Owner")}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="profile-dropdown-menu" id="headerProfileMenu" role="menu">
+                <div class="profile-menu-header">
+                  <span class="profile-menu-name" title="${escapeHtml(owner?.name || "Server Owner")}">${escapeHtml(owner?.name || "Server Owner")}</span>
+                  <span class="profile-menu-email" title="${escapeHtml(owner?.email || "")}">${escapeHtml(owner?.email || "")}</span>
+                  <span class="badge success" style="margin-top:6px; font-size:10px;">Authenticated Owner</span>
+                </div>
+                <button type="button" class="profile-menu-item danger" onclick="openSignOutModal()" role="menuitem">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                  <span>Sign out</span>
+                </button>
+              </div>
             </div>
-            <a href="/auth/logout" class="btn" style="font-size:12px; padding:6px 12px;">Sign out</a>
           `
               : `
-            <a href="/auth/google?returnTo=/home" class="btn primary" style="font-size:12px; padding:6px 14px;">Sign in with Google</a>
+            <a href="/auth/google?returnTo=/${activeNav || "home"}" class="btn primary" style="font-size:12px; padding:6px 14px; display:inline-flex; align-items:center; gap:8px;">
+              ${renderGoogleLogoSvg(16)}
+              <span>Sign in with Google</span>
+            </a>
           `
           }
         </div>
       </div>
     </header>
+
+    <!-- Sign Out Confirmation Modal -->
+    <div class="modal-backdrop" id="headerSignOutModal" onclick="handleSignOutModalBackdrop(event)">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="signOutModalTitle">
+        <h3 id="signOutModalTitle" style="font-size:16px; font-weight:600; margin-bottom:8px; color:var(--fg);">Sign Out</h3>
+        <p style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;">Are you sure you want to sign out of your Krix owner session?</p>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn" onclick="closeSignOutModal()">Cancel</button>
+          <a href="/auth/logout" class="btn primary" style="background:#e00; border-color:#e00; color:#fff;">Confirm Sign Out</a>
+        </div>
+      </div>
+    </div>
+
+    <script${nonce ? ` nonce="${nonce}"` : ""}>
+      function toggleProfileDropdown(ev) {
+        if (ev) ev.stopPropagation();
+        const menu = document.getElementById('headerProfileMenu');
+        const trigger = document.getElementById('headerProfileTrigger');
+        if (!menu) return;
+        const isOpen = menu.classList.contains('open');
+        if (isOpen) {
+          menu.classList.remove('open');
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        } else {
+          menu.classList.add('open');
+          if (trigger) trigger.setAttribute('aria-expanded', 'true');
+        }
+      }
+      function openSignOutModal() {
+        const menu = document.getElementById('headerProfileMenu');
+        if (menu) menu.classList.remove('open');
+        const modal = document.getElementById('headerSignOutModal');
+        if (modal) modal.classList.add('open');
+      }
+      function closeSignOutModal() {
+        const modal = document.getElementById('headerSignOutModal');
+        if (modal) modal.classList.remove('open');
+      }
+      function handleSignOutModalBackdrop(ev) {
+        if (ev.target && ev.target.id === 'headerSignOutModal') {
+          closeSignOutModal();
+        }
+      }
+      document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('headerProfileDropdownWrap');
+        const menu = document.getElementById('headerProfileMenu');
+        if (wrap && menu && !wrap.contains(e.target)) {
+          menu.classList.remove('open');
+          const trigger = document.getElementById('headerProfileTrigger');
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+      window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeSignOutModal();
+          const menu = document.getElementById('headerProfileMenu');
+          if (menu) menu.classList.remove('open');
+        }
+      });
+    </script>
   `;
 }
 
@@ -805,15 +1056,39 @@ export function renderFooter(): string {
   return `
     <footer>
       <div>Krix</div>
-      <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
         <a href="/home">Home</a>
         <a href="/upload">Upload</a>
+        <a href="/store">Store</a>
         <a href="/stats">Stats</a>
         <a href="/tools">Tools</a>
         <a href="/api">API Keys</a>
         <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener">Contact (quickwitty.onrender.com)</a>
       </div>
     </footer>
+    <div class="recaptcha-notice" style="margin-top:14px; font-size:11px; color:var(--accents-5); text-align:center; line-height:1.5;">
+      This site is protected by reCAPTCHA and the Google
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and
+      <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.
+    </div>
+  `;
+}
+
+export function renderAuthRequiredCard(pageTitle: string, returnUrl: string): string {
+  return `
+    <div class="card" style="text-align:center; padding:48px 24px; max-width:540px; margin:40px auto;">
+      <div style="width:48px; height:48px; border-radius:50%; background:var(--accents-1); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; color:var(--fg);">
+        ${renderSvg("shield", 22)}
+      </div>
+      <h2 style="font-size:18px; font-weight:600; color:var(--fg); margin-bottom:8px;">Authentication Required</h2>
+      <p style="font-size:13px; color:var(--accents-5); max-width:420px; margin:0 auto 24px; line-height:1.5;">
+        You must sign in as the verified service owner to access the ${escapeHtml(pageTitle)} page.
+      </p>
+      <a href="/auth/google?returnTo=${encodeURIComponent(returnUrl)}" class="btn primary" style="padding:8px 18px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">
+        ${renderGoogleLogoSvg(18)}
+        <span>Sign in with Google</span>
+      </a>
+    </div>
   `;
 }
 
@@ -838,6 +1113,7 @@ export function renderHomePage(params: {
   <style>
     ${getBaseStyles()}
   </style>
+  ${renderRecaptchaScript()}
   <script>
     (function() {
       const saved = localStorage.getItem('qw-theme');
@@ -1091,6 +1367,7 @@ export function renderApiKeysPage(params: {
     }
     tr:last-child td { border-bottom: none; }
   </style>
+  ${renderRecaptchaScript()}
   <script>
     (function() {
       const saved = localStorage.getItem('qw-theme');
@@ -1121,15 +1398,7 @@ export function renderApiKeysPage(params: {
 
     ${
       !isOwner
-        ? `
-      <div class="card" style="text-align:center; padding:40px 20px;">
-        <h2 style="font-size:18px; font-weight:600; margin-bottom:8px;">Authentication Required</h2>
-        <p style="font-size:13px; color:var(--accents-5); max-width:480px; margin:0 auto 20px;">
-          You must sign in as the verified service owner to generate or revoke API keys.
-        </p>
-        <a href="/auth/google?returnTo=/api" class="btn primary">Sign in with Google</a>
-      </div>
-    `
+        ? renderAuthRequiredCard("API Keys", "/api")
         : `
       <!-- Create Key Card -->
       <div class="card" style="margin-bottom:24px;">
@@ -1138,9 +1407,9 @@ export function renderApiKeysPage(params: {
           Assign a recognizable label (e.g., "MacBook Claude", "Workstation Cursor") to isolate telemetry.
         </p>
 
-        <form id="createKeyForm" onsubmit="handleCreateKey(event)" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="keyLabelInput" placeholder="Key Name (e.g. Claude Desktop, min 4 characters)" minlength="4" required style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
-          <button type="submit" class="btn primary" id="createKeyBtn">Generate Key</button>
+        <form id="createKeyForm" onsubmit="event.preventDefault(); handleCreateKey(event); return false;" action="javascript:void(0);" method="post" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="keyLabelInput" placeholder="Key Name (e.g. Claude Desktop, min 4 characters)" minlength="4" required onkeydown="if (event.key === 'Enter') { event.preventDefault(); handleCreateKey(event); }" style="flex:1; min-width:240px; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px;">
+          <button type="button" class="btn primary" id="createKeyBtn" onclick="handleCreateKey(event)">Generate Key</button>
         </form>
 
         <div id="newKeyBanner" style="display:none; margin-top:16px; padding:16px; background:rgba(0,112,243,0.06); border:1px solid rgba(0,112,243,0.3); border-radius:8px;">
@@ -1446,17 +1715,22 @@ export function renderApiKeysPage(params: {
     });
 
     async function handleCreateKey(ev) {
-      ev.preventDefault();
+      if (ev) {
+        ev.preventDefault();
+        if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      }
       const btn = document.getElementById('createKeyBtn');
       const input = document.getElementById('keyLabelInput');
-      const labelVal = (input.value || '').trim();
+      const labelVal = (input ? input.value : '').trim();
       if (labelVal.length < 4) {
         showToast('Key name must be at least 4 characters long.', 'error');
-        return;
+        return false;
       }
 
-      btn.disabled = true;
-      btn.textContent = 'Generating';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Generating';
+      }
 
       try {
         const res = await fetch('/api/keys', {
@@ -1465,7 +1739,7 @@ export function renderApiKeysPage(params: {
           body: JSON.stringify({ label: labelVal })
         });
         const data = await res.json();
-        if (data.key) {
+        if (res.ok && data.key) {
           document.getElementById('newKeyBanner').style.display = 'block';
           document.getElementById('newKeyField').value = data.key;
           document.getElementById('newClientIdField').value = data.clientId || '';
@@ -1563,6 +1837,14 @@ export function renderApiKeysPage(params: {
       }
     });
 
+    const createForm = document.getElementById('createKeyForm');
+    if (createForm) {
+      createForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleCreateKey(e);
+      });
+    }
+
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
@@ -1588,7 +1870,39 @@ export function renderToolsPage(params: {
   tools: ToolDetailMeta[];
   summary: StatsSummary;
 }): string {
-  const { base, owner, tools, summary } = params;
+  const { base, isOwner, owner, tools, summary } = params;
+
+  if (!isOwner) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tools Directory - Krix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style>
+    ${getBaseStyles()}
+  </style>
+  ${renderRecaptchaScript()}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("tools", owner)}
+  <div class="wrapper">
+    ${renderAuthRequiredCard("Tools Directory", "/tools")}
+  </div>
+  ${renderFooter()}
+</body>
+</html>`;
+  }
 
   const counts = {
     All: tools.length,
@@ -1628,6 +1942,7 @@ export function renderToolsPage(params: {
       flex-wrap: wrap;
     }
   </style>
+  ${renderRecaptchaScript()}
   <script>
     (function() {
       const saved = localStorage.getItem('qw-theme');
@@ -1663,14 +1978,52 @@ export function renderToolsPage(params: {
 
     <!-- Search & Category Filters -->
     <div class="filter-bar">
-      <div class="search-input-wrap" style="max-width:420px;">
-        ${renderSvg("search", 15)}
-        <input
-          type="text"
-          id="toolSearchInput"
-          placeholder="Search tools by name, description, or category"
-          oninput="filterTools()"
-        />
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1;">
+        <div class="search-input-wrap" style="max-width:360px; flex:1;">
+          ${renderSvg("search", 15)}
+          <input
+            type="text"
+            id="toolSearchInput"
+            placeholder="Search tools by name, description, or category"
+            oninput="filterTools()"
+          />
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="keySelector" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
+          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:7px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:200px;">
+            <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
+            ${
+              summary.keys && summary.keys.length > 0
+                ? `
+              <optgroup label="API Keys">
+                ${summary.keys
+                  .filter((k) => k.type === "api_key" || k.type === "master")
+                  .map(
+                    (k) => `
+                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
+                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                  </option>
+                `,
+                  )
+                  .join("")}
+              </optgroup>
+              <optgroup label="OAuth Authorizations">
+                ${summary.keys
+                  .filter((k) => k.type === "oauth")
+                  .map(
+                    (k) => `
+                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
+                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                  </option>
+                `,
+                  )
+                  .join("")}
+              </optgroup>
+            `
+                : ""
+            }
+          </select>
+        </div>
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -1736,6 +2089,14 @@ export function renderToolsPage(params: {
   ${renderFooter()}
 
   <script>
+    function onKeyFilterChange(selectEl) {
+      const val = selectEl.value;
+      const url = new URL(window.location.href);
+      if (val) url.searchParams.set('key', val);
+      else url.searchParams.delete('key');
+      window.location.href = url.toString();
+    }
+
     let currentCategory = 'All';
 
     function setCategoryFilter(category, btn) {
@@ -1800,7 +2161,39 @@ export function renderStatsPage(params: {
   owner: OwnerProfile | null;
   summary: StatsSummary;
 }): string {
-  const { base, owner, summary } = params;
+  const { base, isOwner, owner, summary } = params;
+
+  if (!isOwner) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Krix Analytics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style>
+    ${getBaseStyles()}
+  </style>
+  ${renderRecaptchaScript()}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("stats", owner)}
+  <div class="wrapper">
+    ${renderAuthRequiredCard("Usage & Analytics", "/stats")}
+  </div>
+  ${renderFooter()}
+</body>
+</html>`;
+  }
 
   const hasPeakTraffic =
     summary.peakTraffic.peakHourUtc !== null && summary.totalRequests > 0;
@@ -1885,6 +2278,7 @@ export function renderStatsPage(params: {
       cursor: pointer;
     }
   </style>
+  ${renderRecaptchaScript()}
   <script>
     (function() {
       const saved = localStorage.getItem('qw-theme');
@@ -1909,7 +2303,43 @@ export function renderStatsPage(params: {
         </p>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="keySelector" style="font-size:12px; color:var(--accents-5); font-weight:500; white-space:nowrap;">Key:</label>
+          <select id="keySelector" onchange="onKeyFilterChange(this)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg); color:var(--fg); font-size:12px; max-width:210px;">
+            <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
+            ${
+              summary.keys && summary.keys.length > 0
+                ? `
+              <optgroup label="API Keys">
+                ${summary.keys
+                  .filter((k) => k.type === "api_key" || k.type === "master")
+                  .map(
+                    (k) => `
+                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
+                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                  </option>
+                `,
+                  )
+                  .join("")}
+              </optgroup>
+              <optgroup label="OAuth Authorizations">
+                ${summary.keys
+                  .filter((k) => k.type === "oauth")
+                  .map(
+                    (k) => `
+                  <option value="${escapeHtml(k.keyId)}" ${summary.selectedKeyId === k.keyId ? "selected" : ""}>
+                    ${escapeHtml(k.label)} (${escapeHtml(k.keyId)})
+                  </option>
+                `,
+                  )
+                  .join("")}
+              </optgroup>
+            `
+                : ""
+            }
+          </select>
+        </div>
         <div class="live-indicator" id="liveIndicator">
           <span class="live-dot" id="liveDot"></span>
           <span>Live (3s)</span>
@@ -2369,10 +2799,19 @@ export function renderStatsPage(params: {
     formatPeakWindow();
     convertLocalTimestamps();
 
+    function onKeyFilterChange(selectEl) {
+      const val = selectEl.value;
+      const url = new URL(window.location.href);
+      if (val) url.searchParams.set('key', val);
+      else url.searchParams.delete('key');
+      window.location.href = url.toString();
+    }
+
     // Live 3s Polling
     async function pollLiveStats() {
       try {
-        const res = await fetch('/stats/api');
+        const currentKey = new URLSearchParams(window.location.search).get('key');
+        const res = await fetch('/stats/api' + (currentKey ? '?key=' + encodeURIComponent(currentKey) : ''));
         if (!res.ok) return;
         const s = await res.json();
         if (!s) return;
@@ -2416,6 +2855,423 @@ export function renderStatsPage(params: {
     }
 
     setInterval(pollLiveStats, 3000);
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
+      updateThemeIcon(isDark);
+    }
+
+    function updateThemeIcon(isDark) {
+      document.getElementById('themeIconSun').style.display = isDark ? 'block' : 'none';
+      document.getElementById('themeIconMoon').style.display = isDark ? 'none' : 'block';
+    }
+
+    const initialDark = document.documentElement.classList.contains('dark');
+    updateThemeIcon(initialDark);
+  </script>
+</body>
+</html>`;
+}
+
+export interface StoredFileInfo {
+  id: string;
+  name: string;
+  size: number;
+  contentType: string;
+  createdAt: Date | string | number;
+  expiresAt: Date | string | null;
+  source: "store" | "sandbox";
+  downloadUrl: string;
+  permanent: boolean;
+}
+
+export function renderStorePage(params: {
+  base: string;
+  isOwner: boolean;
+  owner: OwnerProfile | null;
+  files: StoredFileInfo[];
+  usage?: {
+    count: number;
+    bytes: number;
+    permanentCount: number;
+    expiredCount: number;
+  };
+}): string {
+  const { base, isOwner, owner, files, usage } = params;
+
+  if (!isOwner) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sandbox Store - Krix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style>
+    ${getBaseStyles()}
+  </style>
+  ${renderRecaptchaScript()}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("store", owner)}
+  <div class="wrapper">
+    ${renderAuthRequiredCard("Store", "/store")}
+  </div>
+  ${renderFooter()}
+</body>
+</html>`;
+  }
+
+  const totalFiles = files.length;
+  const totalBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
+  const permanentFiles = files.filter((f) => f.permanent || !f.expiresAt).length;
+  const expiringFiles = totalFiles - permanentFiles;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sandbox &amp; Cloud Store - Krix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+  <style>
+    ${getBaseStyles()}
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      color: var(--accents-5);
+      font-weight: 600;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--fg);
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .file-source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 12px;
+    }
+    .file-source-badge.store {
+      background: rgba(0, 112, 243, 0.08);
+      color: #0070f3;
+      border: 1px solid rgba(0, 112, 243, 0.2);
+    }
+    .file-source-badge.sandbox {
+      background: var(--accents-1);
+      color: var(--accents-6);
+      border: 1px solid var(--border);
+    }
+  </style>
+  ${renderRecaptchaScript()}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("store", owner)}
+
+  <div class="wrapper">
+    <!-- Header -->
+    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
+          Sandbox &amp; Cloud Store
+        </h1>
+        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
+          View, download, and manage persistent and temporary files stored in Krix.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <a href="/upload" class="btn primary">Upload New File</a>
+        <a href="/home" class="btn">Back to Home</a>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Cards -->
+    <div class="grid-4">
+      <div class="card">
+        <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Total Stored Files</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${totalFiles}</div>
+        <div style="font-size:12px; color:var(--accents-5);">Across cloud store &amp; sandbox</div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Storage Used</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${formatBytes(totalBytes)}</div>
+        <div style="font-size:12px; color:var(--accents-5);">${usage ? (usage.bytes / 1024 / 1024).toFixed(1) + " MB in Cloud Store" : "Direct access"}</div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Permanent Files</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${permanentFiles}</div>
+        <div style="font-size:12px; color:var(--accents-5);">Never automatically deleted</div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:12px; font-weight:600; color:var(--accents-5); text-transform:uppercase;">Auto-Expiring Files</div>
+        <div style="font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin:4px 0; color:var(--fg);">${expiringFiles}</div>
+        <div style="font-size:12px; color:var(--accents-5);">Scheduled for cleanup</div>
+      </div>
+    </div>
+
+    <!-- Files Table Card -->
+    <div class="card" style="margin-top:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Stored Files</h2>
+          <span class="badge" id="storeCountBadge">${files.length} files</span>
+        </div>
+        <div class="search-input-wrap" style="width:100%; max-width:320px;">
+          ${renderSvg("search", 15)}
+          <input type="text" id="storeSearchInput" placeholder="Search files by name or type" oninput="filterStoreFiles()">
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table id="storeTable">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Location</th>
+              <th>Size</th>
+              <th>Created</th>
+              <th>Retention</th>
+              <th>Direct URL</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="storeTableBody">
+            ${
+              files.length > 0
+                ? files
+                    .map((f) => {
+                      const isPerm = f.permanent || !f.expiresAt;
+                      const dateStr = f.createdAt ? new Date(f.createdAt).toLocaleDateString() : "N/A";
+                      const expiresStr = isPerm ? "Permanent" : (f.expiresAt ? new Date(f.expiresAt).toLocaleDateString() : "60m TTL");
+                      return `
+              <tr class="store-file-row" id="file-row-${escapeHtml(f.id)}" data-name="${escapeHtml(f.name.toLowerCase())}" data-type="${escapeHtml(f.contentType.toLowerCase())}">
+                <td>
+                  <div style="font-weight:600; font-family:ui-monospace, monospace; color:var(--fg);">${escapeHtml(f.name)}</div>
+                  <div style="font-size:11px; color:var(--accents-5);">${escapeHtml(f.contentType)}</div>
+                </td>
+                <td>
+                  <span class="file-source-badge ${f.source === "store" ? "store" : "sandbox"}">
+                    ${f.source === "store" ? "Cloud Store" : "Sandbox"}
+                  </span>
+                </td>
+                <td><span style="font-variant-numeric:tabular-nums;">${formatBytes(f.size)}</span></td>
+                <td><span style="font-size:12px; color:var(--accents-5);">${dateStr}</span></td>
+                <td>
+                  <span class="badge ${isPerm ? "success" : ""}" id="retention-badge-${escapeHtml(f.id)}">
+                    ${expiresStr}
+                  </span>
+                </td>
+                <td>
+                  <button type="button" class="btn" onclick="copyFileUrl('${escapeHtml(f.downloadUrl)}')" style="font-size:11px; padding:3px 8px;">
+                    ${renderSvg("copy", 12)} Copy URL
+                  </button>
+                </td>
+                <td>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <a href="${escapeHtml(f.downloadUrl)}" download class="btn" style="font-size:11px; padding:3px 8px;">
+                      ${renderSvg("download", 12)} Download
+                    </a>
+                    ${
+                      !isPerm && f.source === "store"
+                        ? `
+                      <button type="button" class="btn" id="perm-btn-${escapeHtml(f.id)}" onclick="makeFilePermanent('${escapeHtml(f.id)}')" style="font-size:11px; padding:3px 8px;">
+                        Keep Permanent
+                      </button>
+                    `
+                        : ""
+                    }
+                    <button type="button" class="btn" onclick="openDeleteFileModal('${escapeHtml(f.id)}', '${escapeHtml(f.name)}', '${f.source}')" style="font-size:11px; padding:3px 8px; color:var(--error);">
+                      ${renderSvg("trash", 12)}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `;
+                    })
+                    .join("")
+                : `
+              <tr id="emptyStoreRow">
+                <td colspan="7" style="text-align:center; padding:32px 16px; color:var(--accents-5);">
+                  No stored files found. Upload files via the <a href="/upload" style="color:var(--accent);">Upload page</a> or use the <code>sandbox_store</code> tool.
+                </td>
+              </tr>
+            `
+            }
+          </tbody>
+        </table>
+        <div id="noStoreMatch" style="display:none; text-align:center; padding:32px; color:var(--accents-5);">
+          No files match your search query.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="storeModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="storeModalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Delete</h3>
+      <p id="storeModalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeStoreModal()">Cancel</button>
+        <button type="button" id="storeModalConfirmBtn" class="btn" style="background:#e00; color:#fff; border-color:#e00;">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Geist Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  ${renderFooter()}
+
+  <script>
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      const icon = type === 'error'
+        ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e00" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0070f3" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      toast.innerHTML = icon + '<span>' + message.replace(/</g, '&lt;') + '</span>';
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+      }, 3500);
+    }
+
+    function copyFileUrl(url) {
+      if (!url) return;
+      const full = url.startsWith('http') ? url : window.location.origin + url;
+      navigator.clipboard.writeText(full);
+      showToast('File URL copied to clipboard', 'success');
+    }
+
+    function filterStoreFiles() {
+      const q = (document.getElementById('storeSearchInput').value || '').trim().toLowerCase();
+      const rows = document.querySelectorAll('#storeTableBody tr.store-file-row');
+      let visible = 0;
+      rows.forEach(r => {
+        const name = r.getAttribute('data-name') || '';
+        const type = r.getAttribute('data-type') || '';
+        const match = !q || name.includes(q) || type.includes(q);
+        r.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      const noMatch = document.getElementById('noStoreMatch');
+      if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
+    }
+
+    async function makeFilePermanent(id) {
+      try {
+        const res = await fetch('/store/permanent/' + encodeURIComponent(id), { method: 'POST' });
+        if (res.ok) {
+          const badge = document.getElementById('retention-badge-' + id);
+          if (badge) {
+            badge.textContent = 'Permanent';
+            badge.classList.add('success');
+          }
+          const btn = document.getElementById('perm-btn-' + id);
+          if (btn) btn.remove();
+          showToast('File marked as permanent', 'success');
+        } else {
+          showToast('Failed to mark permanent', 'error');
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+    }
+
+    let activeModalAction = null;
+    function openDeleteFileModal(id, name, source) {
+      document.getElementById('storeModalTitle').textContent = 'Delete File';
+      document.getElementById('storeModalDesc').textContent = 'Are you sure you want to delete "' + name + '"? This will remove it from ' + (source === 'store' ? 'cloud store' : 'sandbox storage') + '.';
+      activeModalAction = async () => {
+        closeStoreModal();
+        try {
+          const endpoint = source === 'store'
+            ? '/store/files/' + encodeURIComponent(id)
+            : '/store/sandbox-file?name=' + encodeURIComponent(name);
+          const res = await fetch(endpoint, { method: 'DELETE' });
+          if (res.ok) {
+            const row = document.getElementById('file-row-' + id);
+            if (row) row.remove();
+            showToast('File deleted successfully', 'success');
+            const remaining = document.querySelectorAll('#storeTableBody tr.store-file-row').length;
+            const badge = document.getElementById('storeCountBadge');
+            if (badge) badge.textContent = remaining + ' files';
+            if (remaining === 0) {
+              const tbody = document.getElementById('storeTableBody');
+              if (tbody) {
+                tbody.innerHTML = '<tr id="emptyStoreRow"><td colspan="7" style="text-align:center; padding:32px 16px; color:var(--accents-5);">No stored files found.</td></tr>';
+              }
+            }
+            filterStoreFiles();
+          } else {
+            showToast('Failed to delete file', 'error');
+          }
+        } catch (e) {
+          showToast('Network error: ' + e.message, 'error');
+        }
+      };
+      document.getElementById('storeModalConfirmBtn').onclick = activeModalAction;
+      const m = document.getElementById('storeModal');
+      if (m) {
+        m.removeAttribute('hidden');
+        m.classList.add('open');
+      }
+    }
+
+    function closeStoreModal() {
+      const modal = document.getElementById('storeModal');
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
+      activeModalAction = null;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeStoreModal();
+    });
 
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');

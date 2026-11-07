@@ -21,3 +21,4 @@ storage/
 
 # Agents
 .agents/
+.cgcignore

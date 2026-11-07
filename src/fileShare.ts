@@ -80,6 +80,7 @@ export interface FileStore {
   deleteManyOwned(ownerKey: string, ids: string[]): Promise<number>;
   deleteFilteredOwned(ownerKey: string, filter: { expiredOnly?: boolean; search?: string }): Promise<number>;
   deleteAllOwned(ownerKey: string): Promise<number>;
+  makePermanent(ownerKey: string, id: string): Promise<boolean>;
   sweepExpired(): Promise<number>;
   close(): Promise<void>;
 }
@@ -157,16 +158,26 @@ class MongoFileStore implements FileStore {
     if (!/^[a-f0-9]{24}$/i.test(id)) return null;
     const { bucket } = await this.init();
     const _id = new ObjectId(id);
-    const doc = await bucket.find({ _id, 'metadata.ownerKey': ownerKey }).limit(1).next();
+    const filter = ownerKey === '*' ? { _id } : { _id, 'metadata.ownerKey': ownerKey };
+    const doc = await bucket.find(filter).limit(1).next();
     if (!doc) return null;
     return { ...MongoFileStore.toMeta(doc), stream: bucket.openDownloadStream(doc._id) as unknown as Readable };
+  }
+
+  async makePermanent(ownerKey: string, id: string): Promise<boolean> {
+    if (!/^[a-f0-9]{24}$/i.test(id)) return false;
+    const { db } = await this.init();
+    const _id = new ObjectId(id);
+    const filter = ownerKey === '*' ? { _id } : { _id, 'metadata.ownerKey': ownerKey };
+    const res = await db.collection(`${BUCKET}.files`).updateOne(filter, { $set: { 'metadata.expiresAt': null } });
+    return (res.modifiedCount ?? 0) > 0 || (res.matchedCount ?? 0) > 0;
   }
 
   async listByOwner(ownerKey: string, options: ListOwnerOptions = {}): Promise<{ files: StoredFileMeta[]; totalCount: number }> {
     const { bucket } = await this.init();
     const now = new Date();
     const status = options.status || 'active';
-    const query: Record<string, any> = { 'metadata.ownerKey': ownerKey };
+    const query: Record<string, any> = ownerKey === '*' ? {} : { 'metadata.ownerKey': ownerKey };
 
     if (status === 'active') {
       query.$or = [{ 'metadata.expiresAt': null }, { 'metadata.expiresAt': { $gt: now } }];
@@ -502,13 +513,14 @@ export interface ShareInput {
   dir?: string;
   ttlHours?: number;
   never?: boolean;
+  permanent?: boolean;
 }
 
 export async function shareFile(
   sessionId: string,
   input: ShareInput,
   baseUrl: string
-): Promise<{ id: string; name: string; sizeBytes: number; contentType: string; downloadUrl: string; expiresAt: string; expiresInHours: number | null; permanent: boolean }> {
+): Promise<{ id: string; name: string; sizeBytes: number; contentType: string; downloadUrl: string; storeUrl: string; expiresAt: string; expiresInHours: number | null; permanent: boolean }> {
   const ownerKey = getAuthKeyForSession(sessionId);
   if (!uploadLimiter.hit(ownerKey)) throw new Error('Upload rate limit reached (20/min). Wait a moment and retry.');
 
@@ -551,7 +563,7 @@ export async function shareFile(
     throw new Error(`MongoDB storage is full (byte quota reached: ${currentMb}MB / ${maxMb}MB used). Cannot add ${fileMb}MB file. Delete old/large files with sandbox_store action:delete (use action:list with sortBy: 'size' to find largest files).`);
   }
 
-  const isNever = input.never === true || input.ttlHours === 0 || input.ttlHours === -1;
+  const isNever = input.never === true || input.permanent === true || input.ttlHours === 0 || input.ttlHours === -1;
   const ttl = isNever ? 0 : Math.min(Math.max(1, Math.floor(input.ttlHours ?? fileConfig.ttlHours)), 720);
   const expiresAt = isNever ? null : new Date(Date.now() + ttl * 3600 * 1000);
   const token = crypto.randomBytes(32).toString('base64url');
@@ -565,6 +577,7 @@ export async function shareFile(
     sizeBytes: data.length,
     contentType,
     downloadUrl: `${base}/files/${token}/${encodeURIComponent(name)}`,
+    storeUrl: `${base}/store/download/${meta.id}`,
     expiresAt: expiresAt ? expiresAt.toISOString() : 'never',
     expiresInHours: isNever ? null : ttl,
     permanent: isNever
@@ -842,7 +855,7 @@ export function registerFileTools(server: any, sessionId: string, registry: Reco
       '- download: download any file/image from across the internet into the sandbox. Supports `view: true` to display images inline, and `extractMedia: true` to discover downloadable image/media links from webpages.\n' +
       '- view: inspect a file from the sandbox or store directly. Automatically returns native MCP image blocks for images (so they display inline in chat) and clean text for documents/code.',
     inputSchema: {
-      action: z.enum(['share', 'list', 'delete', 'download', 'view']),
+      action: z.enum(['share', 'list', 'delete', 'download', 'view', 'make_permanent']),
       sandboxPath: z.string().max(1024).optional().describe('share/view: path of a file inside the sandbox.'),
       dir: z.string().max(1024).optional().describe('share/download/view: sandbox base directory.'),
       filename: z.string().max(255).optional().describe('share/download: file name.'),
@@ -850,6 +863,7 @@ export function registerFileTools(server: any, sessionId: string, registry: Reco
       content_b64: z.string().optional().describe('share: inline base64 data.'),
       ttlHours: z.number().int().min(0).max(720).optional().describe('share: hours until auto-deletion (default 72, 0 for never).'),
       never: z.boolean().optional().describe('share: store permanently without auto-deletion.'),
+      permanent: z.boolean().optional().describe('share: store permanently without auto-deletion.'),
       url: z.string().url().max(2048).optional().describe('download: HTTP/HTTPS URL from any website or API to fetch into sandbox.'),
       extractMedia: z.boolean().optional().describe('download: if URL is an HTML page, extract all image, video, and download links found on the page.'),
       view: z.boolean().optional().describe('download/share: if true and the file is an image, renders the image block directly in the tool response.'),
@@ -860,7 +874,7 @@ export function registerFileTools(server: any, sessionId: string, registry: Reco
       limit: z.number().int().min(1).max(100).optional().default(20).describe('list: pagination limit.'),
       offset: z.number().int().min(0).optional().default(0).describe('list: pagination offset.'),
       compact: z.boolean().optional().default(true).describe('list: return token-efficient compact summary.'),
-      id: z.string().regex(/^[a-fA-F0-9]{24}$/, 'id must be a 24-character hex file id').optional().describe('delete/view: ID of the stored file.'),
+      id: z.string().regex(/^[a-fA-F0-9]{24}$/, 'id must be a 24-character hex file id').optional().describe('delete/view/make_permanent: ID of the stored file.'),
       ids: z.array(z.string().regex(/^[a-fA-F0-9]{24}$/)).optional().describe('delete: batch list of file IDs to delete.'),
       expiredOnly: z.boolean().optional().describe('delete: delete all expired files owned by user.'),
       all: z.boolean().optional().describe('delete: delete every file you shared.')
@@ -878,6 +892,13 @@ export function registerFileTools(server: any, sessionId: string, registry: Reco
             return formatImageResponse(imgData, out.contentType, { ...out, note: 'Give downloadUrl to the user for external sharing.' });
           }
           return formatOptimizedResponse({ ...out, note: 'Give downloadUrl to the user. It is private to whoever has the link.' }, 4000);
+        }
+
+        case 'make_permanent': {
+          if (!args.id) throw new Error('make_permanent requires id.');
+          const ok = await getFileStore().makePermanent(ownerKey, args.id);
+          if (!ok) throw new Error('File not found or not owned by you.');
+          return formatOptimizedResponse({ success: true, id: args.id, permanent: true, message: 'File marked as permanent (will never expire).' });
         }
 
         case 'list': {
@@ -906,6 +927,7 @@ export function registerFileTools(server: any, sessionId: string, registry: Reco
             expiredFiles: usage.expiredCount
           };
 
+          const base = (process.env.PUBLIC_BASE_URL?.trim() || getBaseUrl()).replace(/\/+$/, '');
           if (args.compact !== false) {
             return formatOptimizedResponse({
               total: result.totalCount,
@@ -916,7 +938,8 @@ export function registerFileTools(server: any, sessionId: string, registry: Reco
                 name: f.name,
                 size: f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)}MB` : `${Math.round(f.size / 1024)}KB`,
                 type: f.contentType,
-                expires: f.expiresAt ? f.expiresAt.toISOString().slice(0, 16).replace('T', ' ') : 'never'
+                expires: f.expiresAt ? f.expiresAt.toISOString().slice(0, 16).replace('T', ' ') : 'never',
+                storeUrl: `${base}/store/download/${f.id}`
               }))
             }, 6000);
           }
