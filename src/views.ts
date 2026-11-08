@@ -1363,7 +1363,7 @@ export function renderHeader(
               <button type="button" class="profile-trigger-btn" id="headerProfileTrigger" onclick="toggleProfileDropdown(event)" aria-expanded="false" aria-haspopup="true">
                 ${owner?.picture ? `<img src="${escapeHtml(owner.picture)}" class="profile-trigger-avatar" alt="Avatar">` : `<span class="profile-trigger-avatar-fallback">${escapeHtml((owner?.name || owner?.email || "O").charAt(0).toUpperCase())}</span>`}
                 <span class="profile-trigger-name" title="${escapeHtml(owner?.name || owner?.email || "Owner")}">${escapeHtml(owner?.name || owner?.email || "Owner")}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                ${renderKrixGraphic("chevronDown", 14)}
               </button>
               <div class="profile-dropdown-menu" id="headerProfileMenu" role="menu">
                 <div class="profile-menu-header">
@@ -1513,50 +1513,29 @@ export function renderFooter(): string {
   return `
     <div class="krix-progress-line" id="krixScrollProgress" aria-hidden="true"></div>
     <footer class="krix-footer">
-      <div class="krix-footer-main">
-        <div class="krix-footer-brand">
-          <a href="/home" class="brand-wrap" style="display:inline-flex;">
-            <span class="brand-avatar"><img src="/icon-48.png?v=2" alt="Krix"></span><span>Krix</span>
-          </a>
-          <p>A focused workspace for connected developer tools, file handling and managed agent access.</p>
-          <div class="krix-footer-socials">
-            <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer" aria-label="Krix on GitHub" title="GitHub">${renderKrixGraphic("github", 16)}</a>
-            <a href="/tools" aria-label="Tool directory" title="Tool directory">${renderKrixGraphic("terminal", 16)}</a>
-            <a href="/settings" aria-label="Security settings" title="Security settings">${renderKrixGraphic("shield", 16)}</a>
-          </div>
-        </div>
-        <div>
-          <div class="krix-footer-title">Workspace</div>
-          <div class="krix-footer-links">
-            <a href="/home">Home</a><a href="/upload">Upload</a><a href="/store">Store</a><a href="/stats">Statistics</a><a href="/tools">Tools</a>
-          </div>
-        </div>
-        <div>
-          <div class="krix-footer-title">Manage</div>
-          <div class="krix-footer-links">
-            <a href="/api">API Keys</a><a href="/settings">Settings</a><a href="https://quickwitty.onrender.com/contacts" target="_blank" rel="noopener noreferrer">Contact</a><a href="#shortcutsModal" onclick="openShortcutsModal();return false;">Keyboard shortcuts</a>
-          </div>
-        </div>
-        <div>
-          <div class="krix-footer-title">Project</div>
-          <div class="krix-footer-links">
-            <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer">Source code</a><a href="/healthz" target="_blank" rel="noopener noreferrer">Service status</a><a href="/mcp/server-card" target="_blank" rel="noopener noreferrer">MCP server card</a>
-          </div>
-        </div>
-      </div>
       <div class="krix-footer-bottom"><div class="krix-footer-bottom-inner">
-        <span>© ${new Date().getFullYear()} Krix. Developer workspace.</span>
+        <a href="/home" class="brand-wrap" aria-label="Krix home" style="display:inline-flex;gap:8px;text-decoration:none;color:var(--fg);">
+          <span class="brand-avatar"><img src="/icon-48.png?v=2" alt=""></span><strong>Krix</strong>
+        </a>
+        <nav class="krix-footer-icon-nav" aria-label="Footer navigation">
+          <a href="/home" title="Home" aria-label="Home">${renderKrixGraphic("home", 17)}</a>
+          <a href="/upload" title="Upload" aria-label="Upload">${renderKrixGraphic("upload", 17)}</a>
+          <a href="/store" title="Store" aria-label="Store">${renderKrixGraphic("database", 17)}</a>
+          <a href="/stats" title="Usage & analytics" aria-label="Usage and analytics">${renderKrixGraphic("chart", 17)}</a>
+          <a href="/tools" title="Tools" aria-label="Tools">${renderKrixGraphic("terminal", 17)}</a>
+          <a href="/api" title="API keys" aria-label="API keys">${renderKrixGraphic("key", 17)}</a>
+          <a href="/settings" title="Settings" aria-label="Settings">${renderKrixGraphic("settings", 17)}</a>
+        </nav>
         <div class="krix-footer-controls">
-          <span class="footer-theme-label">Appearance</span>
           <div class="footer-theme-switch" role="group" aria-label="Appearance">
-            <button type="button" onclick="setKrixTheme('system')" title="System theme" aria-label="System theme">${renderKrixGraphic("monitor", 14)}</button>
-            <button type="button" onclick="setKrixTheme('light')" title="Light theme" aria-label="Light theme">${renderKrixGraphic("sun", 14)}</button>
-            <button type="button" onclick="setKrixTheme('dark')" title="Dark theme" aria-label="Dark theme">${renderKrixGraphic("moon", 14)}</button>
+            <button type="button" onclick="setKrixTheme('system')" title="System theme" aria-label="System theme">${renderKrixGraphic("monitor", 15)}</button>
+            <button type="button" onclick="setKrixTheme('light')" title="Light theme" aria-label="Light theme">${renderKrixGraphic("sun", 15)}</button>
+            <button type="button" onclick="setKrixTheme('dark')" title="Dark theme" aria-label="Dark theme">${renderKrixGraphic("moon", 15)}</button>
           </div>
-          <button type="button" class="footer-btn" onclick="openShortcutsModal()" title="View keyboard shortcuts (?)">${renderKrixGraphic("command", 13)} Shortcuts</button>
-          <button type="button" class="footer-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Back to top">${renderKrixGraphic("arrowUp", 14)}</button>
+          <button type="button" class="footer-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Back to top">${renderKrixGraphic("arrowUp", 15)}</button>
         </div>
       </div></div>
+      <div class="krix-footer-copyright">© ${new Date().getFullYear()} Krix</div>
     </footer>
     <div class="recaptcha-notice" style="font-size:11px; color:var(--accents-5); text-align:center; line-height:1.5;">
       This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.
@@ -1849,36 +1828,25 @@ export function renderHomePage(params: {
           <div class="endpoint-label">Streamable HTTP MCP Endpoint URL</div>
           <div class="endpoint-row">
             <input type="text" id="mcpUrlInput" value="${base}/mcp" readonly>
-            <button class="btn" onclick="copyMcpUrl()" id="copyUrlBtn">Copy URL</button>
+            <button type="button" class="icon-btn copy-endpoint-btn" onclick="copyMcpUrl()" id="copyUrlBtn" aria-label="Copy MCP endpoint URL" title="Copy MCP endpoint URL">${renderKrixGraphic("copy", 17)}</button>
           </div>
         </div>
 
         <div class="tab-bar">
-          <button class="tab active" onclick="showTab('claude')">Claude Desktop</button>
-          <button class="tab" onclick="showTab('gemini')">Gemini</button>
-          <button class="tab" onclick="showTab('cursor')">Cursor</button>
-          <button class="tab" onclick="showTab('antigravity')">Antigravity</button>
-          <button class="tab" onclick="showTab('chatgpt')">ChatGPT</button>
-          <button class="tab" onclick="showTab('oauth')">OAuth</button>
+          <button class="tab active" data-client="claude" aria-selected="true" onclick="showTab('claude')">Claude</button>
+          <button class="tab" data-client="gemini" aria-selected="false" onclick="showTab('gemini')">Gemini Apps</button>
+          <button class="tab" data-client="cursor" aria-selected="false" onclick="showTab('cursor')">Cursor</button>
+          <button class="tab" data-client="antigravity" aria-selected="false" onclick="showTab('antigravity')">Antigravity</button>
+          <button class="tab" data-client="chatgpt" aria-selected="false" onclick="showTab('chatgpt')">ChatGPT</button>
+          <button class="tab" data-client="oauth" aria-selected="false" onclick="showTab('oauth')">OAuth</button>
         </div>
 
+        <div class="client-instructions" id="clientInstructions" aria-live="polite"></div>
         <div class="code-view" id="codebox">
-          <button class="copy-btn" onclick="copySnippet()">Copy</button>
+          <button type="button" class="copy-btn" onclick="copySnippet()" aria-label="Copy selected client setup" title="Copy configuration">${renderKrixGraphic("copy", 17)}</button>
           <code id="snippet"></code>
         </div>
 
-        <!-- Key Management Box -->
-        <div style="margin-top:16px; padding:14px; background:var(--card-sub); border:1px solid var(--border); border-radius:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:13px; font-weight:600; color:var(--fg);">
-              API Keys
-            </div>
-            <a href="/api" class="btn" style="font-size:11px; padding:4px 8px;">Manage API Keys &rarr;</a>
-          </div>
-          <div style="font-size:12px; color:var(--accents-5); margin-top:4px;">
-            ${isOwner ? `Signed in as owner. Active keys: <strong>${dynamicKeys.length}</strong>` : "Sign in with Google to generate and manage API keys."}
-          </div>
-        </div>
       </section>
     </div>
   </div>
@@ -1887,73 +1855,85 @@ export function renderHomePage(params: {
 
   <script>
     const baseUrl = '${base}';
-    let activeKey = '${dynamicKeys.length > 0 ? dynamicKeys[0].id : "$MCP_API_KEY"}';
-
+    const mcpEndpoint = baseUrl + '/mcp';
+    let activeKey = '$MCP_API_KEY';
+    const clientHelp = {
+      claude: '<ol><li>Open Claude on the web and go to <strong>Customize → Connectors</strong>.</li><li>Select <strong>+ Add</strong> → <strong>Add custom connector</strong>.</li><li>Name the connection <strong>Krix</strong>, paste the endpoint URL above, and continue.</li><li>Review the detected authentication method, then complete sign-in or consent. The remote connector is account-managed and also appears in Claude Desktop; do not add it to <code>claude_desktop_config.json</code>.</li><li>In a chat, enable Krix from the <strong>+</strong> menu → <strong>Connectors</strong>.</li></ol><p class="client-note">Claude remote connectors are available on supported Free, Pro, Max, Team, and Enterprise plans. Free accounts are limited to one custom connector.</p><a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" target="_blank" rel="noopener noreferrer">Claude remote connector guide</a>',
+      gemini: '<ol><li>On a computer, open <strong>gemini.google.com</strong>. Custom apps must be added from the Gemini web app; after connecting, the app can also be used in Gemini mobile.</li><li>Open <strong>Settings &amp; help → Connected Apps</strong>. Under <strong>Custom apps</strong>, choose <strong>Add a custom app</strong> (or use the add-app field).</li><li>Paste the Krix MCP endpoint URL above. If the server does not support Dynamic Client Registration, open <strong>Advanced features → Show more</strong> and enter the credentials requested by Gemini.</li><li>Select <strong>Next</strong> and complete the on-screen authorization. In a chat, type <code>@</code> and select Krix.</li></ol><p class="client-note">Google currently requires age 18+, US availability, a personal Google Account, English, and Keep Activity enabled. Work or school accounts are not supported.</p><a href="https://support.google.com/gemini/answer/17209137" target="_blank" rel="noopener noreferrer">Google: Connect and manage custom apps</a>',
+      cursor: '<ol><li>Create or open <code>.cursor/mcp.json</code> in your project, or <code>~/.cursor/mcp.json</code> for all projects.</li><li>Add the Krix entry shown below inside <code>mcpServers</code>.</li><li>Create an API key in Krix → API Keys, copy it when it is shown, and replace <code>$MCP_API_KEY</code> in the Authorization value.</li><li>Save the file. Open Cursor Settings → MCP (or Customize) and enable/reload Krix.</li></ol><a href="https://cursor.com/docs/mcp" target="_blank" rel="noopener noreferrer">Cursor MCP documentation</a>',
+      antigravity: '<ol><li>Open Antigravity → MCP Servers → Manage MCP Servers, then view the raw configuration.</li><li>Alternatively edit the global file <code>~/.gemini/config/mcp_config.json</code> or workspace file <code>.agents/mcp_config.json</code>.</li><li>Add the Krix entry shown below inside <code>mcpServers</code>. Antigravity remote Streamable HTTP entries use <code>serverUrl</code>.</li><li>Create an API key in Krix → API Keys, copy it when it is shown, and replace <code>$MCP_API_KEY</code> in the Authorization value. Save and reload Krix.</li></ol><a href="https://antigravity.google/docs/mcp" target="_blank" rel="noopener noreferrer">Antigravity MCP configuration reference</a>',
+      chatgpt: '<ol><li>Open ChatGPT <strong>Settings → Apps &amp; Connectors → Advanced settings</strong> and enable <strong>Developer mode</strong>, if your plan or workspace exposes it.</li><li>Choose <strong>Create app</strong>, enter a name and the Krix HTTPS MCP endpoint URL, and select the authentication method offered by the setup flow.</li><li>Run <strong>Scan tools</strong>, review the discovered tools and their permissions, then create the app. Enable it from a chat when needed.</li></ol><p class="client-note">Plan-gated: full MCP, including write/modify actions, is currently available to Business and Enterprise/Edu. Pro users can connect custom MCP servers with read/fetch permissions in Developer mode. Admin or workspace policies may also restrict access.</p><a href="https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt" target="_blank" rel="noopener noreferrer">OpenAI: Connect custom MCP servers</a>',
+      oauth: '<ol><li>Use the Krix HTTPS MCP endpoint in a client that supports remote MCP over Streamable HTTP.</li><li>Choose OAuth when the client offers it; complete sign-in and consent in the browser.</li><li>For manual API-key authentication, choose Bearer token and provide a key created in Krix.</li></ol><p>Discovery: <code>/.well-known/oauth-protected-resource</code> and <code>/.well-known/oauth-authorization-server</code>.</p>'
+    };
     function getSnippets() {
-      const keyDisp = activeKey || '$MCP_API_KEY';
+      const token = activeKey || '$MCP_API_KEY';
       return {
-        claude: JSON.stringify({
-          mcpServers: {
-            krix: {
-              type: "streamable-http",
-              url: baseUrl + "/mcp",
-              headers: {
-                Authorization: "Bearer " + keyDisp
-              }
-            }
-          }
-        }, null, 2),
-        gemini: "// Google Gemini MCP Connection\\n// 1. Settings -> Connected Apps -> Connect to an MCP server\\n// 2. Server URL: " + baseUrl + "/mcp\\n// 3. Click 'Next' and approve with your Google owner account\\n// Note: Redirect URI & Additional settings are handled automatically",
+        claude: mcpEndpoint,
+        gemini: mcpEndpoint,
         cursor: JSON.stringify({
-          name: "krix",
-          type: "streamable-http",
-          url: baseUrl + "/mcp",
-          headers: {
-            Authorization: "Bearer " + keyDisp
-          }
+          mcpServers: { krix: { url: mcpEndpoint, headers: { Authorization: 'Bearer ' + token } } }
         }, null, 2),
         antigravity: JSON.stringify({
-          mcpServers: {
-            krix: {
-              url: baseUrl + "/mcp",
-              headers: {
-                Authorization: "Bearer " + keyDisp
-              }
-            }
-          }
+          mcpServers: { krix: { serverUrl: mcpEndpoint, headers: { Authorization: 'Bearer ' + token } } }
         }, null, 2),
-        chatgpt: "// ChatGPT Developer Actions Configuration\\n// MCP Endpoint: " + baseUrl + "/mcp\\n// Auth: Bearer Token (" + keyDisp + ")",
-        oauth: "// Universal OAuth 2.1 Discovery (RFC 9728 & RFC 8414)\\n// Endpoint: " + baseUrl + "/mcp\\n// Authorize: " + baseUrl + "/oauth/authorize\\n// Token: " + baseUrl + "/oauth/token"
+        chatgpt: mcpEndpoint,
+        oauth: JSON.stringify({
+          mcpEndpoint,
+          authorization: baseUrl + '/oauth/authorize',
+          token: baseUrl + '/oauth/token',
+          protectedResourceMetadata: baseUrl + '/.well-known/oauth-protected-resource',
+          authorizationServerMetadata: baseUrl + '/.well-known/oauth-authorization-server'
+        }, null, 2)
       };
     }
-
     let curTab = 'claude';
     function showTab(name) {
       curTab = name;
-      document.querySelectorAll('.tab-bar .tab').forEach(b => b.classList.remove('active'));
-      const activeBtn = Array.from(document.querySelectorAll('.tab-bar .tab')).find(b => b.textContent.toLowerCase().includes(name));
-      if (activeBtn) activeBtn.classList.add('active');
-      const snippets = getSnippets();
-      document.getElementById('snippet').textContent = snippets[name] || '';
+      document.querySelectorAll('.tab-bar .tab').forEach(b => {
+        const active = b.dataset.client === name;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', String(active));
+      });
+      const instructions = document.getElementById('clientInstructions');
+      const snippet = document.getElementById('snippet');
+      if (instructions) instructions.innerHTML = clientHelp[name] || '';
+      if (snippet) snippet.textContent = getSnippets()[name] || '';
+      const codebox = document.getElementById('codebox');
+      if (codebox) codebox.style.display = ['cursor','antigravity','oauth'].includes(name) ? 'block' : 'none';
     }
     showTab('claude');
-
-    function copyMcpUrl() {
-      const inp = document.getElementById('mcpUrlInput');
-      inp.select();
-      navigator.clipboard.writeText(inp.value);
-      const btn = document.getElementById('copyUrlBtn');
-      btn.textContent = 'Copied';
-      setTimeout(() => { btn.textContent = 'Copy URL'; }, 1500);
+    async function copyTextToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed'; helper.style.opacity = '0';
+      document.body.appendChild(helper); helper.select();
+      const copied = document.execCommand('copy');
+      helper.remove();
+      if (!copied) throw new Error('Clipboard access was denied by this browser.');
+    }
+    async function showCopiedState(button) {
+      if (!button) return;
+      const original = button.innerHTML;
+      button.innerHTML = '<span class="copy-state-icon">${renderKrixGraphic("check", 17)}</span>';
+      button.classList.add('is-copied');
+      window.setTimeout(() => { button.innerHTML = original; button.classList.remove('is-copied'); }, 1200);
+    }
+    async function copyMcpUrl() {
+      const button = document.getElementById('copyUrlBtn');
+      try { await copyTextToClipboard(mcpEndpoint); await showCopiedState(button); }
+      catch (error) { window.alert(error.message || 'Could not copy the MCP URL.'); }
+    }
+    async function copySnippet() {
+      const button = document.querySelector('.copy-btn');
+      try { await copyTextToClipboard(document.getElementById('snippet').textContent || ''); await showCopiedState(button); }
+      catch (error) { window.alert(error.message || 'Could not copy this configuration.'); }
     }
 
-    function copySnippet() {
-      const txt = document.getElementById('snippet').textContent;
-      navigator.clipboard.writeText(txt);
-      const btn = document.querySelector('.copy-btn');
-      btn.textContent = 'Copied';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-    }
   </script>
 </body>
 </html>`;
@@ -2156,7 +2136,7 @@ export function renderApiKeysPage(params: {
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
                   <td style="text-align:right;">
                     <div class="kebab-wrap">
-                      <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-key-${escapeHtml(id)}" aria-label="Key Actions">⋮</button>
+                      <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-key-${escapeHtml(id)}" aria-label="Key Actions">${renderKrixGraphic("more", 17)}</button>
                       <div class="kebab-dropdown" id="kebab-key-${escapeHtml(id)}">
                         ${canReveal ? `
                         <button type="button" class="kebab-item" onclick="copyKeySecret('${escapeHtml(id)}', 'API Key')">
@@ -2205,8 +2185,8 @@ export function renderApiKeysPage(params: {
         <div class="pagination-bar" id="keysPaginationBar">
           <span id="keysPageIndicator">Showing keys</span>
           <div class="pagination-controls">
-            <button type="button" class="pagination-btn" id="keysPrevBtn" onclick="changeKeysPage(-1)">Previous</button>
-            <button type="button" class="pagination-btn" id="keysNextBtn" onclick="changeKeysPage(1)">Next</button>
+            <button type="button" class="pagination-btn" id="keysPrevBtn" onclick="changeKeysPage(-1)" aria-label="Previous API keys" title="Previous">${renderKrixGraphic("chevronLeft", 17)}</button>
+            <button type="button" class="pagination-btn" id="keysNextBtn" onclick="changeKeysPage(1)" aria-label="Next API keys" title="Next">${renderKrixGraphic("chevronRight", 17)}</button>
           </div>
         </div>
       </div>
@@ -2246,7 +2226,7 @@ export function renderApiKeysPage(params: {
                   <td style="font-size:12px; color:var(--accents-5);">${escapeHtml(a.scope || "mcp:tools")}</td>
                   <td style="text-align:right;">
                     <div class="kebab-wrap">
-                      <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-oauth-${escapeHtml(a.clientId)}" aria-label="OAuth Actions">⋮</button>
+                      <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-oauth-${escapeHtml(a.clientId)}" aria-label="OAuth Actions">${renderKrixGraphic("more", 17)}</button>
                       <div class="kebab-dropdown" id="kebab-oauth-${escapeHtml(a.clientId)}">
                         <button type="button" class="kebab-item" onclick="copyKeyText('${escapeHtml(a.clientId)}', 'Client ID')">
                           ${renderSvg("copy", 14)} <span>Copy Client ID</span>
@@ -2284,8 +2264,8 @@ export function renderApiKeysPage(params: {
         <div class="pagination-bar" id="oauthPaginationBar">
           <span id="oauthPageIndicator">Showing authorizations</span>
           <div class="pagination-controls">
-            <button type="button" class="pagination-btn" id="oauthPrevBtn" onclick="changeOAuthPage(-1)">Previous</button>
-            <button type="button" class="pagination-btn" id="oauthNextBtn" onclick="changeOAuthPage(1)">Next</button>
+            <button type="button" class="pagination-btn" id="oauthPrevBtn" onclick="changeOAuthPage(-1)" aria-label="Previous OAuth authorizations" title="Previous">${renderKrixGraphic("chevronLeft", 17)}</button>
+            <button type="button" class="pagination-btn" id="oauthNextBtn" onclick="changeOAuthPage(1)" aria-label="Next OAuth authorizations" title="Next">${renderKrixGraphic("chevronRight", 17)}</button>
           </div>
         </div>
       </div>
@@ -2732,13 +2712,19 @@ export function renderApiKeysPage(params: {
       dropdown.style.overflowY = 'auto';
       dropdown.classList.add('open');
 
+      dropdown.style.width = 'max-content';
+      dropdown.style.minWidth = 'min(210px, calc(100vw - 16px))';
+      dropdown.style.maxWidth = 'calc(100vw - 16px)';
+      dropdown.style.boxSizing = 'border-box';
       const rect = trigger.getBoundingClientRect();
-      const menuWidth = dropdown.offsetWidth;
-      const menuHeight = dropdown.offsetHeight;
-      const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+      const viewportWidth = Math.max(240, document.documentElement.clientWidth || window.innerWidth);
+      const menuWidth = Math.min(dropdown.getBoundingClientRect().width || 210, viewportWidth - 16);
+      const menuHeight = Math.min(dropdown.offsetHeight, window.innerHeight - 16);
+      dropdown.style.width = menuWidth + 'px';
+      const left = Math.max(8, Math.min(rect.right - menuWidth, viewportWidth - menuWidth - 8));
       let top = rect.bottom + 6;
       if (top + menuHeight > window.innerHeight - 8) top = rect.top - menuHeight - 6;
-      top = Math.max(8, Math.min(top, window.innerHeight - Math.min(menuHeight, window.innerHeight - 16) - 8));
+      top = Math.max(8, Math.min(top, window.innerHeight - menuHeight - 8));
       dropdown.style.left = left + 'px';
       dropdown.style.top = top + 'px';
     }
@@ -2851,7 +2837,7 @@ export function renderApiKeysPage(params: {
               '<td><span class="local-date">' + new Date().toLocaleDateString() + '</span></td>' +
               '<td style="text-align:right;">' +
               '<div class="kebab-wrap">' +
-              '<button type="button" class="kebab-btn" aria-label="Key Actions">⋮</button>' +
+              '<button type="button" class="kebab-btn" aria-label="Key Actions">${renderKrixGraphic("more", 17)}</button>' +
               '<div class="kebab-dropdown">' +
               (data.revealable ? '<button type="button" class="kebab-item kebab-copy-key">Copy Key</button>' : '') +
               (safeCId ? '<button type="button" class="kebab-item kebab-copy-cid">Copy Client ID</button>' : '') +
@@ -3175,7 +3161,7 @@ export function renderToolsPage(params: {
           <input
             type="text"
             id="toolSearchInput"
-            placeholder=""
+            placeholder="Search tools by name or description"
             value=""
             autocomplete="off"
             spellcheck="false"
@@ -3251,8 +3237,8 @@ export function renderToolsPage(params: {
     <div class="pagination-bar" id="toolsPaginationBar" style="margin-top:24px;">
       <span id="toolsPageIndicator">Showing tools</span>
       <div class="pagination-controls">
-        <button type="button" class="pagination-btn" id="toolsPrevBtn" onclick="changeToolsPage(-1)">Previous</button>
-        <button type="button" class="pagination-btn" id="toolsNextBtn" onclick="changeToolsPage(1)">Next</button>
+        <button type="button" class="pagination-btn" id="toolsPrevBtn" onclick="changeToolsPage(-1)" aria-label="Previous tools" title="Previous">${renderKrixGraphic("chevronLeft", 17)}</button>
+        <button type="button" class="pagination-btn" id="toolsNextBtn" onclick="changeToolsPage(1)" aria-label="Next tools" title="Next">${renderKrixGraphic("chevronRight", 17)}</button>
       </div>
     </div>
   </div>
@@ -3599,9 +3585,9 @@ export function renderStatsPage(params: {
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <!-- 10-Day Desktop Chunk Slider -->
           <div id="dailyChunkNav" style="display:inline-flex; align-items:center; gap:4px;">
-            <button type="button" class="btn secondary" id="btnPrevDailyChunk" style="font-size:11px; padding:3px 8px; height:28px;" onclick="changeDailyChunk(-1)">&larr; Prev 10d</button>
+            <button type="button" class="pagination-btn" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)">${renderKrixGraphic("chevronLeft", 17)}</button>
             <span id="lblDailyChunkRange" style="font-size:11px; font-variant-numeric:tabular-nums; color:var(--accents-5); padding:0 4px;">Days 21–30</span>
-            <button type="button" class="btn secondary" id="btnNextDailyChunk" style="font-size:11px; padding:3px 8px; height:28px;" onclick="changeDailyChunk(1)">Next 10d &rarr;</button>
+            <button type="button" class="pagination-btn" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)">${renderKrixGraphic("chevronRight", 17)}</button>
           </div>
 
           <!-- Smart Year Filter -->
@@ -3611,15 +3597,15 @@ export function renderStatsPage(params: {
           </select>
 
           <div style="display:flex; gap:4px;">
-            <button class="tab active" id="btnDaily" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('daily')">Daily (30d)</button>
-            <button class="tab" id="btnWeekly" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('weekly')">Weekly (12w)</button>
-            <button class="tab" id="btnMonthly" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('monthly')">Monthly (12m)</button>
+            <button class="tab" id="btnDaily" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('daily')">Day</button>
+            <button class="tab" id="btnWeekly" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('weekly')">Week</button>
+            <button class="tab" id="btnMonthly" style="padding:4px 10px; font-size:12px;" onclick="setTimeline('monthly')">Month</button>
           </div>
         </div>
       </div>
 
       <div style="overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%;">
-        <div id="timelineChart" class="chart-container" style="min-width:640px;">
+        <div id="timelineChart" class="chart-container" style="width:100%;min-width:0;">
           <!-- Responsive SVG rendered below -->
         </div>
       </div>
@@ -3813,7 +3799,7 @@ export function renderStatsPage(params: {
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
-          <span class="badge" id="statsKeyCountBadge">${summary.keys.length} keys</span>
+          <span class="stats-key-count" id="statsKeyCountBadge"><strong>${summary.keys.length}</strong><span>API keys</span></span>
         </div>
         <div class="search-input-wrap" style="width:280px; max-width:100%;">
           ${renderSvg("search", 14)}
@@ -3897,8 +3883,8 @@ export function renderStatsPage(params: {
       <div class="pagination-bar" id="statsPaginationBar">
         <span id="statsPageIndicator">Showing keys</span>
         <div class="pagination-controls">
-          <button type="button" class="pagination-btn" id="statsPrevBtn" onclick="changeStatsPage(-1)">Previous</button>
-          <button type="button" class="pagination-btn" id="statsNextBtn" onclick="changeStatsPage(1)">Next</button>
+          <button type="button" class="pagination-btn" id="statsPrevBtn" onclick="changeStatsPage(-1)" aria-label="Previous analytics page" title="Previous">${renderKrixGraphic("chevronLeft", 17)}</button>
+          <button type="button" class="pagination-btn" id="statsNextBtn" onclick="changeStatsPage(1)" aria-label="Next analytics page" title="Next">${renderKrixGraphic("chevronRight", 17)}</button>
         </div>
       </div>
     </div>
@@ -3911,15 +3897,29 @@ export function renderStatsPage(params: {
     let weeklyData = ${JSON.stringify(summary.weeklyTimeline)};
     let monthlyData = ${JSON.stringify(summary.monthlyTimeline)};
 
-    let currentTimeline = 'daily';
+    const timelineOptions = [
+      { key: 'daily', data: dailyData, button: 'btnDaily' },
+      { key: 'weekly', data: weeklyData, button: 'btnWeekly' },
+      { key: 'monthly', data: monthlyData, button: 'btnMonthly' }
+    ];
+    let currentTimeline = (timelineOptions.find(item => Array.isArray(item.data) && item.data.length > 0) || timelineOptions[0]).key;
     let dailyChunkIndex = -1;
 
+    timelineOptions.forEach(item => {
+      const button = document.getElementById(item.button);
+      if (button) button.hidden = !Array.isArray(item.data) || item.data.length === 0;
+    });
+    const yearFilterControl = document.getElementById('yearFilter');
+    if (yearFilterControl && (!Array.isArray(${JSON.stringify(summary.availableYears)} ) || ${summary.availableYears.length} <= 1)) yearFilterControl.hidden = true;
+    timelineOptions.forEach(item => {
+      const button = document.getElementById(item.button);
+      if (button) button.classList.toggle('active', item.key === currentTimeline);
+    });
+
     function changeDailyChunk(delta) {
-      let data = dailyData;
       const filterYear = document.getElementById('yearFilter')?.value;
-      if (filterYear && filterYear !== 'all') {
-        data = data.filter(d => d.date.startsWith(filterYear));
-      }
+      let data = dailyData;
+      if (filterYear && filterYear !== 'all') data = data.filter(d => String(d.date || '').startsWith(filterYear));
       const totalChunks = Math.max(1, Math.ceil(data.length / 10));
       if (dailyChunkIndex === -1) dailyChunkIndex = totalChunks - 1;
       dailyChunkIndex = Math.max(0, Math.min(totalChunks - 1, dailyChunkIndex + delta));
@@ -3927,113 +3927,97 @@ export function renderStatsPage(params: {
     }
 
     function setTimeline(mode) {
+      const item = timelineOptions.find(option => option.key === mode);
+      if (!item || !Array.isArray(item.data) || item.data.length === 0) return;
       currentTimeline = mode;
-      document.getElementById('btnDaily').classList.toggle('active', mode === 'daily');
-      document.getElementById('btnWeekly').classList.toggle('active', mode === 'weekly');
-      document.getElementById('btnMonthly').classList.toggle('active', mode === 'monthly');
+      timelineOptions.forEach(option => {
+        const button = document.getElementById(option.button);
+        if (button) button.classList.toggle('active', option.key === mode);
+      });
       renderChart();
     }
 
     function renderChart() {
       const container = document.getElementById('timelineChart');
       const chunkNav = document.getElementById('dailyChunkNav');
-      let data = [];
-      let labelKey = 'date';
-
-      if (currentTimeline === 'daily') {
-        data = dailyData;
-        labelKey = 'date';
-      } else if (currentTimeline === 'weekly') {
-        data = weeklyData;
-        labelKey = 'week';
-      } else {
-        data = monthlyData;
-        labelKey = 'month';
-      }
-
-      // Smart year filter
+      if (!container) return;
+      let data = currentTimeline === 'daily' ? dailyData : currentTimeline === 'weekly' ? weeklyData : monthlyData;
+      const labelKey = currentTimeline === 'daily' ? 'date' : currentTimeline === 'weekly' ? 'week' : 'month';
       const filterYear = document.getElementById('yearFilter')?.value;
-      if (filterYear && filterYear !== 'all') {
-        data = data.filter(d => d[labelKey].startsWith(filterYear));
-      }
+      if (filterYear && filterYear !== 'all') data = data.filter(d => String(d[labelKey] || '').startsWith(filterYear));
 
       if (currentTimeline === 'daily') {
-        if (chunkNav) chunkNav.style.display = 'inline-flex';
         const totalChunks = Math.max(1, Math.ceil(data.length / 10));
-        if (dailyChunkIndex === -1 || dailyChunkIndex >= totalChunks) {
-          dailyChunkIndex = totalChunks - 1;
-        }
+        if (dailyChunkIndex === -1 || dailyChunkIndex >= totalChunks) dailyChunkIndex = totalChunks - 1;
         const startIdx = dailyChunkIndex * 10;
         const endIdx = Math.min(startIdx + 10, data.length);
-        const chunkData = data.slice(startIdx, endIdx);
-
-        const lbl = document.getElementById('lblDailyChunkRange');
-        if (lbl) lbl.textContent = 'Days ' + (startIdx + 1) + '–' + endIdx;
-        const btnPrev = document.getElementById('btnPrevDailyChunk');
-        const btnNext = document.getElementById('btnNextDailyChunk');
-        if (btnPrev) btnPrev.disabled = dailyChunkIndex <= 0;
-        if (btnNext) btnNext.disabled = dailyChunkIndex >= totalChunks - 1;
-
-        data = chunkData;
-      } else {
-        if (chunkNav) chunkNav.style.display = 'none';
-      }
+        const range = document.getElementById('lblDailyChunkRange');
+        const previous = document.getElementById('btnPrevDailyChunk');
+        const next = document.getElementById('btnNextDailyChunk');
+        if (range) range.textContent = data.length ? (startIdx + 1) + '–' + endIdx : 'No days';
+        if (previous) previous.disabled = dailyChunkIndex <= 0;
+        if (next) next.disabled = dailyChunkIndex >= totalChunks - 1;
+        if (chunkNav) chunkNav.style.display = data.length > 10 ? 'inline-flex' : 'none';
+        data = data.slice(startIdx, endIdx);
+      } else if (chunkNav) chunkNav.style.display = 'none';
 
       if (!data || data.length === 0) {
-        container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; width:100%; height:160px; color:var(--accents-5);">No activity data for this selection</div>';
+        container.innerHTML = '<div class="timeline-empty">No activity data for this selection</div>';
         return;
       }
 
-      const maxVal = data.reduce(function(m, d) { return Math.max(m, d.requests); }, 1);
-      const step = Math.max(54, Math.floor(740 / Math.max(1, data.length)));
-      const width = Math.max(740, data.length * step);
-      const height = 170;
-      const chartHeight = 120;
-      const padTop = 15;
-      const barWidth = Math.max(18, Math.min(36, step * 0.55));
-
-      let svgHtml = '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" style="height:170px; min-width:' + width + 'px;" preserveAspectRatio="xMinYMin meet">';
-      svgHtml += '<line x1="0" y1="' + (chartHeight + padTop) + '" x2="' + width + '" y2="' + (chartHeight + padTop) + '" stroke="var(--border)" stroke-width="1" />';
-
+      const totals = data.map(d => Math.max(0, Number(d.requests) || 0));
+      const maxVal = Math.max(1, ...totals);
+      const width = Math.max(280, Math.floor(container.clientWidth || container.getBoundingClientRect().width || 320));
+      const height = 190;
+      const pad = { top: 12, right: 8, bottom: 34, left: 38 };
+      const plotWidth = Math.max(1, width - pad.left - pad.right);
+      const plotHeight = height - pad.top - pad.bottom;
+      const slot = plotWidth / data.length;
+      const barWidth = Math.max(7, Math.min(28, slot * .52));
+      let svg = '<svg role="img" aria-label="Activity requests by ' + currentTimeline + ' period" width="100%" height="190" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" style="display:block;width:100%;height:190px;">';
+      svg += '<defs>';
       data.forEach((d, i) => {
-        const total = d.requests || 0;
-        const errCount = d.errors || 0;
-        const succCount = d.success !== undefined ? d.success : Math.max(0, total - errCount);
-        const barHeight = Math.max(4, Math.round((total / maxVal) * chartHeight));
-        const x = i * step + (step - barWidth) / 2;
-        const rawLabel = d[labelKey];
-        const displayLabel = rawLabel.includes('-') ? rawLabel.split('-').slice(1).join('/') : rawLabel;
-
-        svgHtml += '<g>';
-        svgHtml += '<title>' + rawLabel + ': ' + total + ' requests (' + succCount + ' working, ' + errCount + ' errors, ' + (d.tools || 0) + ' tool calls)</title>';
-
-        if (total === 0) {
-          svgHtml += '<rect x="' + x + '" y="' + (padTop + chartHeight - 3) + '" width="' + barWidth + '" height="3" rx="1.5" ry="1.5" fill="var(--accents-2)" />';
-        } else if (errCount > 0 && succCount > 0) {
-          const errHeight = Math.max(2, Math.round((errCount / total) * barHeight));
-          const succHeight = Math.max(2, barHeight - errHeight);
-          const yErr = padTop + (chartHeight - barHeight);
-          const ySucc = yErr + errHeight;
-
-          svgHtml += '<rect x="' + x + '" y="' + yErr + '" width="' + barWidth + '" height="' + errHeight + '" rx="3" ry="3" fill="#ef4444" style="transition:all 0.2s ease; cursor:pointer;" />';
-          svgHtml += '<rect x="' + x + '" y="' + ySucc + '" width="' + barWidth + '" height="' + succHeight + '" rx="3" ry="3" fill="#10b981" style="transition:all 0.2s ease; cursor:pointer;" />';
-        } else if (errCount > 0) {
-          const y = padTop + (chartHeight - barHeight);
-          svgHtml += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="3" ry="3" fill="#ef4444" style="transition:all 0.2s ease; cursor:pointer;" />';
-        } else {
-          const y = padTop + (chartHeight - barHeight);
-          svgHtml += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="3" ry="3" fill="#10b981" style="transition:all 0.2s ease; cursor:pointer;" />';
-        }
-
-        svgHtml += '<text x="' + (x + barWidth / 2) + '" y="' + (chartHeight + padTop + 18) + '" text-anchor="middle" font-size="10" fill="var(--accents-5)" font-family="sans-serif">' + displayLabel + '</text>';
-        svgHtml += '</g>';
+        const total = Math.max(0, Number(d.requests) || 0);
+        const errors = Math.min(total, Math.max(0, Number(d.errors) || 0));
+        const ratio = total ? errors / total : 0;
+        const split = Math.max(0, Math.min(100, ratio * 100));
+        svg += '<linearGradient id="timelineBar' + i + '" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#ef4444"/><stop offset="' + split + '%" stop-color="#ef4444"/><stop offset="' + split + '%" stop-color="#10b981"/><stop offset="100%" stop-color="#10b981"/></linearGradient>';
       });
-
-      svgHtml += '</svg>';
-      container.innerHTML = svgHtml;
+      svg += '</defs>';
+      [0, .25, .5, .75, 1].forEach(ratio => {
+        const y = pad.top + plotHeight - ratio * plotHeight;
+        const value = Math.round(maxVal * ratio);
+        svg += '<line x1="' + pad.left + '" y1="' + y + '" x2="' + (width - pad.right) + '" y2="' + y + '" stroke="var(--border)" stroke-width="1"/>';
+        svg += '<text x="' + (pad.left - 7) + '" y="' + (y + 3.5) + '" fill="var(--accents-5)" text-anchor="end" font-size="9">' + value + '</text>';
+      });
+      data.forEach((d, i) => {
+        const total = Math.max(0, Number(d.requests) || 0);
+        const errors = Math.min(total, Math.max(0, Number(d.errors) || 0));
+        const success = d.success !== undefined ? Math.max(0, Number(d.success) || 0) : Math.max(0, total - errors);
+        const barHeight = total ? Math.max(2, (total / maxVal) * plotHeight) : 0;
+        const x = pad.left + i * slot + (slot - barWidth) / 2;
+        const y = pad.top + plotHeight - barHeight;
+        const raw = String(d[labelKey] || '');
+        const display = raw.includes('-') ? raw.split('-').slice(1).join('/') : raw;
+        const label = display.length > 8 ? display.slice(0, 8) : display;
+        if (total > 0) {
+          svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barWidth.toFixed(1) + '" height="' + barHeight.toFixed(1) + '" rx="3" fill="url(#timelineBar' + i + ')"/>';
+        } else {
+          svg += '<line x1="' + x.toFixed(1) + '" y1="' + (pad.top + plotHeight) + '" x2="' + (x + barWidth).toFixed(1) + '" y2="' + (pad.top + plotHeight) + '" stroke="var(--accents-3)" stroke-width="2"/>';
+        }
+        svg += '<text x="' + (x + barWidth / 2).toFixed(1) + '" y="' + (height - 12) + '" text-anchor="middle" font-size="9" fill="var(--accents-5)">' + label + '</text>';
+        svg += '<title>' + raw.replace(/&/g, '&amp;').replace(/</g, '&lt;') + ': ' + total + ' requests (' + success + ' successful, ' + errors + ' errors)</title>';
+      });
+      svg += '</svg>';
+      container.innerHTML = svg;
     }
-
     renderChart();
+    if (window.ResizeObserver) {
+      const timelineResizeObserver = new ResizeObserver(() => renderChart());
+      const timelineNode = document.getElementById('timelineChart');
+      if (timelineNode && timelineNode.parentElement) timelineResizeObserver.observe(timelineNode.parentElement);
+    } else window.addEventListener('resize', renderChart);
 
     function formatPeakWindow() {
       const el = document.getElementById('valPeakTime');
@@ -4207,7 +4191,7 @@ export function renderStatsPage(params: {
       if (prevBtn) prevBtn.disabled = statsCurrentPage <= 1;
       if (nextBtn) nextBtn.disabled = statsCurrentPage >= totalPages;
       const bar = document.getElementById('statsPaginationBar');
-      if (bar) bar.style.display = (total > STATS_PER_PAGE || (statsFilterQuery && total === 0)) ? 'flex' : 'none';
+      if (bar) bar.style.display = total > STATS_PER_PAGE ? 'flex' : 'none';
     }
 
     function changeStatsPage(delta) {
@@ -4599,8 +4583,8 @@ export function renderStorePage(params: {
       <div class="pagination-bar" id="storePaginationBar">
         <span id="storePageIndicator">Showing files</span>
         <div class="pagination-controls">
-          <button type="button" class="pagination-btn" id="storePrevBtn" onclick="changeStorePage(-1)">Previous</button>
-          <button type="button" class="pagination-btn" id="storeNextBtn" onclick="changeStorePage(1)">Next</button>
+          <button type="button" class="pagination-btn" id="storePrevBtn" onclick="changeStorePage(-1)" aria-label="Previous store page" title="Previous">${renderKrixGraphic("chevronLeft", 17)}</button>
+          <button type="button" class="pagination-btn" id="storeNextBtn" onclick="changeStorePage(1)" aria-label="Next store page" title="Next">${renderKrixGraphic("chevronRight", 17)}</button>
         </div>
       </div>
     </div>
@@ -4749,13 +4733,19 @@ export function renderStorePage(params: {
       menu.style.overflowY = 'auto';
       menu.classList.add('open');
 
+      menu.style.width = 'max-content';
+      menu.style.minWidth = 'min(210px, calc(100vw - 16px))';
+      menu.style.maxWidth = 'calc(100vw - 16px)';
+      menu.style.boxSizing = 'border-box';
       const rect = trigger.getBoundingClientRect();
-      const menuWidth = menu.offsetWidth;
-      const menuHeight = menu.offsetHeight;
-      const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+      const viewportWidth = Math.max(240, document.documentElement.clientWidth || window.innerWidth);
+      const menuWidth = Math.min(menu.getBoundingClientRect().width || 210, viewportWidth - 16);
+      const menuHeight = Math.min(menu.offsetHeight, window.innerHeight - 16);
+      menu.style.width = menuWidth + 'px';
+      const left = Math.max(8, Math.min(rect.right - menuWidth, viewportWidth - menuWidth - 8));
       let top = rect.bottom + 6;
       if (top + menuHeight > window.innerHeight - 8) top = rect.top - menuHeight - 6;
-      top = Math.max(8, Math.min(top, window.innerHeight - Math.min(menuHeight, window.innerHeight - 16) - 8));
+      top = Math.max(8, Math.min(top, window.innerHeight - menuHeight - 8));
       menu.style.left = left + 'px';
       menu.style.top = top + 'px';
     }
@@ -5099,80 +5089,33 @@ export function renderNotFoundPage(params: {
   pathname?: string;
   nonce?: string;
 }): string {
-  const { base, isOwner, owner, pathname = "", nonce } = params;
+  const nonce = params.nonce;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>404 Not Found</title>
+  <title>404 · Page not found</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
-    ${getBaseStyles()}
-    .notfound-card {
-      max-width: 520px;
-      margin: 80px auto;
-      text-align: center;
-      padding: 40px 24px;
-    }
-    .notfound-badge {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      padding: 3px 10px;
-      border-radius: 20px;
-      background: var(--accents-1);
-      border: 1px solid var(--border);
-      color: var(--accents-5);
-      margin-bottom: 16px;
-    }
-    .notfound-code {
-      font-size: 64px;
-      font-weight: 800;
-      letter-spacing: -2px;
-      line-height: 1;
-      color: var(--fg);
-      margin-bottom: 8px;
-    }
+    * { box-sizing:border-box; }
+    html,body { min-height:100%;margin:0;background:#000;color:#fafafa;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body { min-height:100svh;display:grid;place-items:center;padding:24px;background:#000; }
+    .not-found { width:min(100%,460px);text-align:center;padding:clamp(24px,6vw,44px);border:1px solid #292929;border-radius:10px;background:#050505; }
+    .not-found-code { margin:0 0 12px;font-size:clamp(64px,18vw,92px);line-height:.95;letter-spacing:-.075em;font-weight:750; }
+    .not-found-message { margin:0 0 24px;color:#a1a1aa;font-size:15px;line-height:1.6; }
+    .not-found-home { width:100%;min-height:46px;display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border:1px solid #fafafa;border-radius:7px;background:#fafafa;color:#09090b;text-decoration:none;font-size:14px;font-weight:650; }
+    .not-found-home:focus-visible { outline:2px solid #a1a1aa;outline-offset:3px; }
+    @media (prefers-reduced-motion:no-preference) { .not-found-home { transition:background-color .15s ease,color .15s ease; } .not-found-home:hover { background:#d4d4d8;border-color:#d4d4d8; } }
   </style>
-  ${renderRecaptchaScript(nonce)}
-  <script${nonce ? ` nonce="${nonce}"` : ""}>
-    (function() {
-      const saved = localStorage.getItem('qw-theme');
-      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-      }
-    })();
-  </script>
 </head>
 <body>
-  ${renderHeader("home", owner, nonce)}
-
-  <div class="wrapper">
-    <div class="card notfound-card">
-      <div class="notfound-badge">404 Error</div>
-      <div class="notfound-code">404</div>
-      <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; color:var(--fg); margin-bottom:8px;">
-        Page Not Found
-      </h1>
-      <p style="font-size:14px; color:var(--accents-5); line-height:1.6; margin-bottom:24px;">
-        The requested URL <code style="font-family:ui-monospace, monospace; background:var(--code-bg); padding:2px 6px; border-radius:4px; font-size:13px; color:var(--fg); word-break:break-all;">${escapeHtml(pathname)}</code> does not exist or has been moved.
-      </p>
-
-      <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
-        <a href="/home" class="btn primary">Back to Home</a>
-        <a href="/tools" class="btn">Browse Tools</a>
-        <a href="/upload" class="btn">Sandbox Upload</a>
-        <a href="/store" class="btn">View Store</a>
-      </div>
-    </div>
-  </div>
-
-  ${renderFooter()}
+  <main class="not-found" aria-labelledby="notFoundTitle">
+    <h1 class="not-found-code" id="notFoundTitle">404</h1>
+    <p class="not-found-message">This page doesn't exist.</p>
+    <a class="not-found-home" href="/home">Back to home</a>
+  </main>
 </body>
 </html>`;
 }
@@ -5580,19 +5523,17 @@ export function renderSettingsPage(params: {
           </span>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px;">
-          <select id="settingKeySelector" onchange="onSettingKeyChange(this)" style="font-size:13px; padding:7px 12px; border-radius:6px; min-width:240px; background:var(--input-bg); color:var(--fg); border:1px solid var(--border);">
-            ${keys
-              .map(
-                (k) => `
-              <option value="${escapeHtml(k.id)}" ${k.id === selectedKeyId ? "selected" : ""}>
-                ${escapeHtml(k.label || k.id)} ${k.prefix ? `(${escapeHtml(k.prefix)})` : ""}
-              </option>
-            `,
-              )
-              .join("")}
+        <div class="setting-key-select-wrap">
+          <select id="settingKeySelector" onchange="onSettingKeyChange(this)" aria-label="Target API key" class="setting-key-native">
+            ${keys.map(k => `<option value="${escapeHtml(k.id)}" ${k.id === selectedKeyId ? "selected" : ""}>${escapeHtml(k.label || k.id)}${k.prefix ? ` (${escapeHtml(k.prefix)})` : ""}</option>`).join("")}
           </select>
-          <span class="badge" title="Isolated sandbox filesystem root">Sandbox: ${escapeHtml(keySettings.sandboxId)}</span>
+          <button type="button" class="setting-key-trigger" id="settingKeyTrigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleSettingKeyMenu()">
+            <span id="settingKeySelectedLabel">${escapeHtml((keys.find(k => k.id === selectedKeyId)?.label || keys.find(k => k.id === selectedKeyId)?.id || 'Select a key'))}</span>
+            ${renderKrixGraphic("chevronDown", 16)}
+          </button>
+          <div class="setting-key-menu" id="settingKeyMenu" role="listbox" aria-label="API keys">
+            ${keys.map(k => `<button type="button" role="option" aria-selected="${k.id === selectedKeyId}" class="setting-key-option" data-key-id="${escapeHtml(k.id)}" onclick="selectSettingKey('${escapeHtml(k.id)}')"><span>${escapeHtml(k.label || k.id)}</span><small>${escapeHtml(k.prefix || k.id.slice(0, 8))}</small></button>`).join("")}
+          </div>
         </div>
       </div>
     </div>
@@ -5620,7 +5561,7 @@ export function renderSettingsPage(params: {
               id="customGithubInput"
               name="githubToken"
               value=""
-              placeholder="${keySettings.customGitHubToken ? `Saved credential · ${maskedGitHub}` : "Enter a GitHub token"}"
+              placeholder="Enter a new token to replace the saved credential"
               autocomplete="off"
               spellcheck="false"
             >
@@ -5633,8 +5574,8 @@ export function renderSettingsPage(params: {
               </button>
             </div>
           </div>
-          <span style="font-size:11px; color:var(--accents-5); margin-top:4px; display:block;">
-            ${keySettings.customGitHubToken ? `Credential connected · <code>${maskedGitHub}</code>. Saved secrets are not returned to the browser. Use Remove to revoke this stored credential.` : "No GitHub token saved for this key. Add a token to enable GitHub access."}
+          <span id="githubCredentialStatus" class="credential-status" style="font-size:11px; color:var(--accents-5); margin-top:7px; display:block;">
+            ${keySettings.customGitHubToken ? `Saved GitHub credential · <code>${maskedGitHub}</code>. The secret itself stays server-side.` : "No GitHub token saved for this key. Add a token to enable GitHub access."}
           </span>
           ${keySettings.customGitHubToken ? `<button type="button" class="credential-remove-btn" onclick="deleteCredential('github')">${renderKrixGraphic("trash", 13)} Remove GitHub credential</button>` : ""}
         </div>
@@ -5647,7 +5588,7 @@ export function renderSettingsPage(params: {
               id="customRenderInput"
               name="renderToken"
               value=""
-              placeholder="${keySettings.customRenderToken ? `Saved credential · ${maskedRender}` : "Enter a Render API key"}"
+              placeholder="Enter a new key to replace the saved credential"
               autocomplete="off"
               spellcheck="false"
             >
@@ -5660,8 +5601,8 @@ export function renderSettingsPage(params: {
               </button>
             </div>
           </div>
-          <span style="font-size:11px; color:var(--accents-5); margin-top:4px; display:block;">
-            ${keySettings.customRenderToken ? `Credential connected · <code>${maskedRender}</code>. Saved secrets are not returned to the browser. Use Remove to revoke this stored credential.` : "No Render key saved for this key. Add a key to enable Render access."}
+          <span id="renderCredentialStatus" class="credential-status" style="font-size:11px; color:var(--accents-5); margin-top:7px; display:block;">
+            ${keySettings.customRenderToken ? `Saved Render credential · <code>${maskedRender}</code>. The secret itself stays server-side.` : "No Render key saved for this key. Add a key to enable Render access."}
           </span>
           ${keySettings.customRenderToken ? `<button type="button" class="credential-remove-btn" onclick="deleteCredential('render')">${renderKrixGraphic("trash", 13)} Remove Render credential</button>` : ""}
         </div>
@@ -5759,6 +5700,13 @@ export function renderSettingsPage(params: {
           })
           .join("")}
       </div>
+      <div class="tool-permission-pagination" id="toolPermissionPagination" hidden>
+        <span id="toolPermissionPageLabel" aria-live="polite"></span>
+        <div class="pagination-controls">
+          <button type="button" class="pagination-btn" id="toolPermissionPrev" aria-label="Previous tools" onclick="changeToolPermissionPage(-1)">${renderKrixGraphic("chevronLeft", 17)}</button>
+          <button type="button" class="pagination-btn" id="toolPermissionNext" aria-label="Next tools" onclick="changeToolPermissionPage(1)">${renderKrixGraphic("chevronRight", 17)}</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -5781,6 +5729,27 @@ export function renderSettingsPage(params: {
       setTimeout(() => { el.style.display = 'none'; }, 3000);
     }
 
+    function toggleSettingKeyMenu() {
+      const menu = document.getElementById('settingKeyMenu');
+      const trigger = document.getElementById('settingKeyTrigger');
+      if (!menu || !trigger) return;
+      const opening = !menu.classList.contains('open');
+      document.querySelectorAll('.setting-key-menu.open').forEach(el => el.classList.remove('open'));
+      menu.classList.toggle('open', opening);
+      trigger.setAttribute('aria-expanded', String(opening));
+    }
+    function selectSettingKey(id) {
+      const select = document.getElementById('settingKeySelector');
+      if (!select) return;
+      select.value = id;
+      onSettingKeyChange(select);
+    }
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.setting-key-select-wrap')) {
+        document.getElementById('settingKeyMenu')?.classList.remove('open');
+        document.getElementById('settingKeyTrigger')?.setAttribute('aria-expanded', 'false');
+      }
+    });
     function onSettingKeyChange(selectEl) {
       const val = selectEl.value;
       const url = new URL(window.location.href);
@@ -5844,8 +5813,8 @@ export function renderSettingsPage(params: {
         const data = await res.json();
         if (data.ok) {
           showToast('Credentials saved successfully');
-          if (data.maskedGitHub) ghInput.placeholder = data.maskedGitHub;
-          if (data.maskedRender) rndInput.placeholder = data.maskedRender;
+          if (data.maskedGitHub) document.getElementById('githubCredentialStatus').innerHTML = 'Saved GitHub credential · <code>' + data.maskedGitHub + '</code>. The secret itself stays server-side.';
+          if (data.maskedRender) document.getElementById('renderCredentialStatus').innerHTML = 'Saved Render credential · <code>' + data.maskedRender + '</code>. The secret itself stays server-side.';
           ghInput.value = '';
           rndInput.value = '';
         } else {
@@ -5952,22 +5921,44 @@ export function renderSettingsPage(params: {
       filterToolRows();
     }
 
-    function filterToolRows() {
-      const q = (document.getElementById('toolSearchInput').value || '').trim().toLowerCase();
-      const rows = document.querySelectorAll('#toolsListContainer .tool-perm-row');
-      rows.forEach(r => {
+    const TOOL_PERMISSION_PAGE_SIZE = 20;
+    let toolPermissionPage = 0;
+    function renderToolPermissionPage() {
+      const q = (document.getElementById('toolSearchInput')?.value || '').trim().toLowerCase();
+      const rows = Array.from(document.querySelectorAll('#toolsListContainer .tool-perm-row'));
+      const matched = rows.filter(r => {
         const name = r.getAttribute('data-name') || '';
         const cat = r.getAttribute('data-category') || '';
         const desc = r.getAttribute('data-desc') || '';
-
         const catMatches = activeToolCat === 'All' ||
           (activeToolCat === 'Code Graph' && (cat === 'Code Graph' || cat === 'Search')) ||
           cat.toLowerCase() === activeToolCat.toLowerCase();
-        const textMatches = !q || name.includes(q) || desc.includes(q) || cat.toLowerCase().includes(q);
-
-        r.style.display = (catMatches && textMatches) ? 'flex' : 'none';
+        return catMatches && (!q || name.includes(q) || desc.includes(q) || cat.toLowerCase().includes(q));
       });
+      const totalPages = Math.max(1, Math.ceil(matched.length / TOOL_PERMISSION_PAGE_SIZE));
+      toolPermissionPage = Math.max(0, Math.min(toolPermissionPage, totalPages - 1));
+      const start = toolPermissionPage * TOOL_PERMISSION_PAGE_SIZE;
+      const visible = new Set(matched.slice(start, start + TOOL_PERMISSION_PAGE_SIZE));
+      rows.forEach(row => { row.style.display = visible.has(row) ? 'flex' : 'none'; });
+      const pager = document.getElementById('toolPermissionPagination');
+      const label = document.getElementById('toolPermissionPageLabel');
+      const prev = document.getElementById('toolPermissionPrev');
+      const next = document.getElementById('toolPermissionNext');
+      if (pager) pager.hidden = matched.length <= TOOL_PERMISSION_PAGE_SIZE;
+      if (label) label.textContent = matched.length ? 'Showing ' + (start + 1) + '–' + Math.min(start + TOOL_PERMISSION_PAGE_SIZE, matched.length) + ' of ' + matched.length + ' tools' : 'No matching tools';
+      if (prev) prev.disabled = toolPermissionPage <= 0;
+      if (next) next.disabled = toolPermissionPage >= totalPages - 1;
     }
+    function changeToolPermissionPage(delta) {
+      toolPermissionPage += delta;
+      renderToolPermissionPage();
+      document.getElementById('toolsListContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function filterToolRows() {
+      toolPermissionPage = 0;
+      renderToolPermissionPage();
+    }
+    renderToolPermissionPage();
   </script>
 </body>
 </html>`;

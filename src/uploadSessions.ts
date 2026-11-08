@@ -872,6 +872,22 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
       align-items: center;
       gap: 6px;
     }
+    .file-item,.drop-zone,.switch-wrap { background:var(--card-bg) !important;border:1px solid var(--border) !important;box-shadow:none !important;backdrop-filter:none !important; }
+    .file-item { border-radius:8px !important; }
+    .drop-zone { border-radius:9px !important; }
+    .file-actions button,.file-actions a { min-width:40px;min-height:40px; }
+    @media (max-width:760px) {
+      .wrapper { width:calc(100% - 20px) !important; }
+      .grid-2 { grid-template-columns:minmax(0,1fr) !important; }
+      .file-item { align-items:flex-start;flex-wrap:wrap; }
+      .file-info { width:100%; }
+      .file-actions { width:100%;justify-content:flex-end; }
+      #list { max-height:none !important;padding-bottom:0 !important;margin-bottom:0 !important; }
+      .drop-zone { min-height:180px;padding:22px 14px !important; }
+      .pagination-bar { flex-direction:column;align-items:stretch; }
+      .pagination-controls { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%; }
+      .pagination-controls button { width:100%; }
+    }
   </style>
   ${renderRecaptchaScript(nonce)}
   <script nonce="${nonce}">
@@ -909,7 +925,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Upload Workspace Files</h2>
-            <span class="badge">${info.maxFileMb} MB per file</span>
+            
           </div>
 
           <!-- Redesigned Keep Storage Toggle Switch (Permanent Storage) -->
@@ -937,7 +953,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
               Drag and drop files here, or click to browse
             </div>
             <div style="font-size:12px; color:var(--accents-5);">
-              Up to ${info.maxFiles} files &middot; ${info.maxFileMb} MB each &middot; ${info.maxTotalMb} MB total
+              Up to ${info.maxFiles} files &middot; ${info.maxTotalMb} MB total
             </div>
           </div>
           <input id="picker" type="file" multiple hidden>
@@ -974,8 +990,8 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           <div class="pagination-bar" id="uploadPaginationBar" style="display:none; margin-top:14px;">
             <span id="uploadPageIndicator">Showing files</span>
             <div class="pagination-controls">
-              <button type="button" class="pagination-btn" id="uploadPrevBtn" onclick="changeUploadPage(-1)">Previous</button>
-              <button type="button" class="pagination-btn" id="uploadNextBtn" onclick="changeUploadPage(1)">Next</button>
+              <button type="button" class="pagination-btn" id="uploadPrevBtn" onclick="changeUploadPage(-1)" aria-label="Previous upload page" title="Previous"><span style="display:inline-flex;transform:rotate(180deg);">${renderSvg("arrow-right", 17)}</span></button>
+              <button type="button" class="pagination-btn" id="uploadNextBtn" onclick="changeUploadPage(1)" aria-label="Next upload page" title="Next">${renderSvg("arrow-right", 17)}</button>
             </div>
           </div>
 
@@ -1310,7 +1326,7 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
           kebabBtn.type = 'button';
           kebabBtn.className = 'kebab-btn';
           kebabBtn.setAttribute('aria-label', 'File Actions');
-          kebabBtn.textContent = '⋮';
+          kebabBtn.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'; kebabBtn.setAttribute('aria-label', 'More file actions');
 
           const dropdown = document.createElement('div');
           dropdown.className = 'kebab-dropdown';
