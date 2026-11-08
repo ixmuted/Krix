@@ -150,12 +150,15 @@ export function getSessionContext(sessionId: string): SessionContext {
       process.env.ENABLE_RENDER === "true" ||
       process.env.ENABLE_RENDER_TOOLS === "true";
 
+    // Arbitrary code execution is opt-in. Disable it on Render's shared web-service
+    // runtime; use a separate disposable container/VM service for untrusted tenants.
+    const onRender = process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
     const enableSandbox =
-      enableAll ||
-      (process.env.ENABLE_SANDBOX !== "false" &&
-        process.env.ENABLE_SANDBOX_TOOLS !== "false" &&
-        process.env.DISABLE_SANDBOX !== "true" &&
-        process.env.DISABLE_SANDBOX_TOOLS !== "true");
+      process.env.ENABLE_SANDBOX === "true" &&
+      (!onRender || (process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" && process.env.SANDBOX_REQUIRE_ISOLATION === "false")) &&
+      process.env.ENABLE_SANDBOX_TOOLS !== "false" &&
+      process.env.DISABLE_SANDBOX !== "true" &&
+      process.env.DISABLE_SANDBOX_TOOLS !== "true";
 
     const enableFiles =
       enableAll || process.env.ENABLE_FILE_SHARING !== "false";

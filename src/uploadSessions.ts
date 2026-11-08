@@ -27,8 +27,11 @@ import { safeFileName } from "./fileShare.js";
 import {
   parseOwnerCookie,
   isAuthorizedApiKey,
+  findAuthorizedApiKey,
+  listDynamicKeys,
   type OwnerProfile,
 } from "./googleAuth.js";
+import { getKeySettings, isOwnerEmail } from "./userSettings.js";
 import {
   renderHeader,
   renderFooter,
@@ -332,9 +335,13 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
           : {};
       const key = typeof body.apiKey === "string" ? body.apiKey : "";
 
-      const isOwner = Boolean(owner);
-      const isKeyAuthorized =
-        isAuthorizedApiKey(key) || safeEqual(key, opts.apiKey);
+      const isOwner = Boolean(owner && isOwnerEmail(owner.email));
+      const apiKeyEntry = findAuthorizedApiKey(key);
+      const isPrimaryKey = Boolean(key && safeEqual(key, opts.apiKey));
+      const isKeyAuthorized = isAuthorizedApiKey(key) || isPrimaryKey;
+      const onRenderService = process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
+      const renderSandboxOptIn = process.env.ENABLE_SANDBOX === "true" && process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" && process.env.SANDBOX_REQUIRE_ISOLATION === "false";
+      const authenticatedOwnerKey = isOwner || apiKeyEntry?.role === "owner" || isPrimaryKey;
 
       if (!isOwner && !isKeyAuthorized) {
         if (!failedKeyLimiter.hit(ip, 0)) {
@@ -356,6 +363,11 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       }
       failedKeyLimiter.reset(ip);
 
+      if (onRenderService && (!renderSandboxOptIn || !authenticatedOwnerKey)) {
+        json(res, 403, { error: "On Render, workspace uploads are available only to the configured owner after explicit owner-only sandbox opt-in." });
+        return;
+      }
+
       try {
         assertSandboxAllowed();
       } catch (e: any) {
@@ -375,16 +387,20 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         return;
       }
 
-      const clientToken =
-        typeof body.githubToken === "string"
-          ? body.githubToken.trim().slice(0, 512)
-          : "";
-      const authKey = computeAuthKey(
-        clientToken ||
-          opts.defaultGithubToken ||
-          (owner ? `owner_${owner.email}` : ""),
-      );
-      const root = sandboxRootForAuthKey(authKey);
+      // Uploads must land in the same sandbox root used by the MCP session.
+      // Never derive workspace ownership from a shared provider token.
+      let sandboxKeyId = "primary-key";
+      if (apiKeyEntry?.id) sandboxKeyId = apiKeyEntry.id;
+      else if (owner && !isOwner) {
+        const userKey = listDynamicKeys(owner.email)[0];
+        if (!userKey) {
+          json(res, 409, { error: "Create an API key for this account before opening a sandbox upload session." });
+          return;
+        }
+        sandboxKeyId = userKey.id;
+      }
+      const sandboxId = getKeySettings(sandboxKeyId).sandboxId;
+      const root = sandboxRootForAuthKey(sandboxId);
       try {
         await ensureSandboxRoot(root);
         await sbxMkdirp(root, path.join(root, UPLOAD_DIR));
@@ -874,19 +890,15 @@ export function renderUploadPage(nonce: string, info: PageInfo): string {
   ${renderHeader("upload", info.owner || null, nonce)}
 
   <div class="wrapper">
-    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    <div class="page-heading">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-          Sandbox Uploads
-        </h1>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:4px; line-height:1.5;">
-          Upload workspace files, datasets, and scripts directly to your shared sandbox.
-        </p>
+        <span class="krix-eyebrow">Workspace storage</span>
+        <h1>Sandbox uploads</h1>
+        <p>Upload workspace files, datasets and scripts to the sandbox assigned to this account.</p>
       </div>
-
-      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div class="page-actions">
         <a href="/store" class="btn">View Store</a>
-        <a href="/home" class="btn primary">Back to Home</a>
+        <a href="/home" class="btn primary">Home</a>
       </div>
     </div>
 

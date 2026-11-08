@@ -62,6 +62,18 @@ function isolationRequired(): boolean {
 
 /** Throws unless the sandbox may run in the current deployment (fail closed in production). */
 export function assertSandboxAllowed(): void {
+  // Render does not provide a per-request VM boundary. Permit only an explicitly
+  // acknowledged owner-only mode; MCP registration separately blocks non-owner keys.
+  if (process.env.RENDER === "true" || process.env.RENDER_SERVICE_ID) {
+    const renderOwnerOnlyOptIn =
+      process.env.ENABLE_SANDBOX === "true" &&
+      process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
+      process.env.SANDBOX_REQUIRE_ISOLATION === "false";
+    if (!renderOwnerOnlyOptIn) {
+      throw new Error("Sandbox execution on Render is disabled by default. For trusted owner-only use, explicitly set ENABLE_SANDBOX=true, SANDBOX_RENDER_OWNER_ONLY_ACK=true and SANDBOX_REQUIRE_ISOLATION=false. This is not a per-user container boundary.");
+    }
+    return;
+  }
   const iso = getIsolation();
   if (iso.enforced || !isolationRequired()) return;
   throw new Error(

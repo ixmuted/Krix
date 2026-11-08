@@ -2,7 +2,8 @@ import type { OwnerProfile, GeneratedKeyEntry } from "./googleAuth.js";
 import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 import type { ActiveOAuthInfo } from "./mcpOAuth.js";
 import type { KeySettings, UserQuotaConfig } from "./userSettings.js";
-import { maskSecret } from "./userSettings.js";
+import { maskSecret, getDefaultToolRiskLevel } from "./userSettings.js";
+import { getKrixDesignCss, renderKrixGraphic } from "./uiEnhancements.js";
 
 export function escapeHtml(str: string): string {
   if (!str) return "";
@@ -1285,7 +1286,7 @@ export function getBaseStyles(): string {
       .endpoint-row input { width: 100% !important; min-width: 0 !important; }
       footer { flex-direction: column; gap: 12px; text-align: center; }
     }
-  `;
+  ` + getKrixDesignCss();
 }
 
 export function renderRecaptchaScript(nonce?: string): string {
@@ -1327,12 +1328,12 @@ export function renderHeader(
           <a href="/store" class="nav-pill ${activeNav === "store" ? "active" : ""}">Store</a>
           <a href="/stats" class="nav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
           <a href="/tools" class="nav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
-          <a href="/api" class="nav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
-          <a href="/settings" class="nav-pill ${activeNav === "settings" ? "active" : ""}">Settings</a>
-          <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="nav-pill">Contact</a>
         </nav>
 
         <div class="nav-right">
+          <button type="button" class="krix-command-trigger" id="krixCommandTrigger" onclick="openKrixCommandPalette()" aria-label="Open command search" title="Search Krix · Ctrl+K">
+            ${renderKrixGraphic("search", 15)}<span>Search</span><kbd>Ctrl K</kbd>
+          </button>
           <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Theme: System (Auto) · Click to switch" aria-label="Toggle Theme">
             <svg id="themeIconSystem" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -1369,6 +1370,10 @@ export function renderHeader(
                   <span class="profile-menu-name" title="${escapeHtml(owner?.name || "Server Owner")}">${escapeHtml(owner?.name || "Server Owner")}</span>
                   <span class="profile-menu-email" title="${escapeHtml(owner?.email || "")}">${escapeHtml(owner?.email || "")}</span>
                 </div>
+                <a href="/api" class="profile-menu-item" role="menuitem">${renderKrixGraphic("key", 15)}<span>API Keys</span></a>
+                <a href="/settings" class="profile-menu-item" role="menuitem">${renderKrixGraphic("settings", 15)}<span>Settings</span></a>
+                <a href="https://quickwitty.onrender.com/contacts" target="_blank" rel="noopener noreferrer" class="profile-menu-item" role="menuitem">${renderKrixGraphic("mail", 15)}<span>Contact</span></a>
+                <div class="profile-menu-divider"></div>
                 <button type="button" class="profile-menu-item danger" onclick="openSignOutModal()" role="menuitem">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                   <span>Sign out</span>
@@ -1386,17 +1391,13 @@ export function renderHeader(
         </div>
       </div>
 
-      <!-- Mobile-only Horizontally Scrollable Navigation Sub-bar -->
-      <nav class="mobile-subnav" aria-label="Mobile Navigation">
-        <div class="mobile-subnav-scroll">
-          <a href="/home" class="mobile-subnav-pill ${activeNav === "home" ? "active" : ""}">Home</a>
-          <a href="/upload" class="mobile-subnav-pill ${activeNav === "upload" ? "active" : ""}">Upload</a>
-          <a href="/store" class="mobile-subnav-pill ${activeNav === "store" ? "active" : ""}">Store</a>
-          <a href="/stats" class="mobile-subnav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
-          <a href="/tools" class="mobile-subnav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
-          <a href="/api" class="mobile-subnav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
-          <a href="/settings" class="mobile-subnav-pill ${activeNav === "settings" ? "active" : ""}">Settings</a>
-          <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="mobile-subnav-pill">Contact</a>
+      <nav class="mobile-icon-nav" aria-label="Primary navigation">
+        <div class="mobile-icon-nav-inner">
+          <a href="/home" class="mobile-icon-link ${activeNav === "home" ? "active" : ""}" aria-label="Home" title="Home">${renderKrixGraphic("home", 19)}</a>
+          <a href="/upload" class="mobile-icon-link ${activeNav === "upload" ? "active" : ""}" aria-label="Upload" title="Upload">${renderKrixGraphic("upload", 19)}</a>
+          <a href="/store" class="mobile-icon-link ${activeNav === "store" ? "active" : ""}" aria-label="Store" title="Store">${renderKrixGraphic("database", 19)}</a>
+          <a href="/stats" class="mobile-icon-link ${activeNav === "stats" ? "active" : ""}" aria-label="Stats" title="Stats">${renderKrixGraphic("chart", 19)}</a>
+          <a href="/tools" class="mobile-icon-link ${activeNav === "tools" ? "active" : ""}" aria-label="Tools" title="Tools">${renderKrixGraphic("terminal", 19)}</a>
         </div>
       </nav>
     </header>
@@ -1510,119 +1511,154 @@ export function renderHeader(
 
 export function renderFooter(): string {
   return `
-    <footer>
-      <div style="font-weight:700; color:var(--fg); display:flex; align-items:center; gap:8px;">
-        <span>Krix</span>
+    <div class="krix-progress-line" id="krixScrollProgress" aria-hidden="true"></div>
+    <footer class="krix-footer">
+      <div class="krix-footer-main">
+        <div class="krix-footer-brand">
+          <a href="/home" class="brand-wrap" style="display:inline-flex;">
+            <span class="brand-avatar"><img src="/icon-48.png?v=2" alt="Krix"></span><span>Krix</span>
+          </a>
+          <p>A focused workspace for connected developer tools, file handling and managed agent access.</p>
+          <div class="krix-footer-socials">
+            <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer" aria-label="Krix on GitHub" title="GitHub">${renderKrixGraphic("github", 16)}</a>
+            <a href="/tools" aria-label="Tool directory" title="Tool directory">${renderKrixGraphic("terminal", 16)}</a>
+            <a href="/settings" aria-label="Security settings" title="Security settings">${renderKrixGraphic("shield", 16)}</a>
+          </div>
+        </div>
+        <div>
+          <div class="krix-footer-title">Workspace</div>
+          <div class="krix-footer-links">
+            <a href="/home">Home</a><a href="/upload">Upload</a><a href="/store">Store</a><a href="/stats">Statistics</a><a href="/tools">Tools</a>
+          </div>
+        </div>
+        <div>
+          <div class="krix-footer-title">Manage</div>
+          <div class="krix-footer-links">
+            <a href="/api">API Keys</a><a href="/settings">Settings</a><a href="https://quickwitty.onrender.com/contacts" target="_blank" rel="noopener noreferrer">Contact</a><a href="#shortcutsModal" onclick="openShortcutsModal();return false;">Keyboard shortcuts</a>
+          </div>
+        </div>
+        <div>
+          <div class="krix-footer-title">Project</div>
+          <div class="krix-footer-links">
+            <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer">Source code</a><a href="/healthz" target="_blank" rel="noopener noreferrer">Service status</a><a href="/mcp/server-card" target="_blank" rel="noopener noreferrer">MCP server card</a>
+          </div>
+        </div>
       </div>
-      <div class="footer-links" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-        <a href="/home" class="footer-btn">Home</a>
-        <a href="/upload" class="footer-btn">Upload</a>
-        <a href="/store" class="footer-btn">Store</a>
-        <a href="/stats" class="footer-btn">Stats</a>
-        <a href="/tools" class="footer-btn">Tools</a>
-        <a href="/api" class="footer-btn">API Keys</a>
-        <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="footer-btn">Contact</a>
-        <button type="button" class="footer-btn" onclick="openShortcutsModal()" title="View Keyboard Shortcuts (?)">
-          Shortcuts <span class="kbd-badge">?</span>
-        </button>
-      </div>
+      <div class="krix-footer-bottom"><div class="krix-footer-bottom-inner">
+        <span>© ${new Date().getFullYear()} Krix. Developer workspace.</span>
+        <div class="krix-footer-controls">
+          <span class="footer-theme-label">Appearance</span>
+          <div class="footer-theme-switch" role="group" aria-label="Appearance">
+            <button type="button" onclick="setKrixTheme('system')" title="System theme" aria-label="System theme">${renderKrixGraphic("monitor", 14)}</button>
+            <button type="button" onclick="setKrixTheme('light')" title="Light theme" aria-label="Light theme">${renderKrixGraphic("sun", 14)}</button>
+            <button type="button" onclick="setKrixTheme('dark')" title="Dark theme" aria-label="Dark theme">${renderKrixGraphic("moon", 14)}</button>
+          </div>
+          <button type="button" class="footer-btn" onclick="openShortcutsModal()" title="View keyboard shortcuts (?)">${renderKrixGraphic("command", 13)} Shortcuts</button>
+          <button type="button" class="footer-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Back to top">${renderKrixGraphic("arrowUp", 14)}</button>
+        </div>
+      </div></div>
     </footer>
-    <div class="recaptcha-notice" style="margin-top:14px; font-size:11px; color:var(--accents-5); text-align:center; line-height:1.5;">
-      This site is protected by reCAPTCHA and the Google
-      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and
-      <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.
+    <div class="recaptcha-notice" style="font-size:11px; color:var(--accents-5); text-align:center; line-height:1.5;">
+      This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.
     </div>
-
-    <!-- Global Keyboard Shortcuts Modal -->
+    <div class="krix-command-backdrop" id="krixCommandPalette" hidden onclick="handleKrixCommandBackdrop(event)" aria-hidden="true">
+      <section class="krix-command-panel" role="dialog" aria-modal="true" aria-labelledby="krixCommandTitle">
+        <div class="krix-command-head"><span class="krix-command-mark">${renderKrixGraphic("command", 16)}</span><div><h2 id="krixCommandTitle">Command search</h2><p>Navigate and open workspace sections</p></div><kbd>ESC</kbd></div>
+        <div class="krix-command-input-wrap">${renderKrixGraphic("search", 17)}<input id="krixCommandInput" type="search" placeholder="Search pages and actions…" autocomplete="off" spellcheck="false" aria-label="Search Krix commands"><span class="kbd-badge">↵</span></div>
+        <div class="krix-command-label">NAVIGATION</div>
+        <div class="krix-command-results" id="krixCommandResults" role="listbox" aria-label="Krix commands"></div>
+        <div class="krix-command-foot"><span>Use ↑ ↓ to move</span><span>Enter to open</span><span>Ctrl K to close</span></div>
+      </section>
+    </div>
     <div class="modal-backdrop" id="shortcutsModal" onclick="handleShortcutsBackdrop(event)">
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" style="max-width:400px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-          <h3 id="shortcutsModalTitle" style="font-size:16px; font-weight:700; color:var(--fg); margin:0;">Keyboard Shortcuts</h3>
-          <button type="button" class="kebab-btn" onclick="closeShortcutsModal()" style="width:26px; height:26px;">&times;</button>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:18px;">
-          <div class="shortcut-row"><span>Go to Home</span><span class="kbd-badge">H</span></div>
-          <div class="shortcut-row"><span>Go to Upload</span><span class="kbd-badge">U</span></div>
-          <div class="shortcut-row"><span>Go to Store</span><span class="kbd-badge">S</span></div>
-          <div class="shortcut-row"><span>Go to Stats</span><span class="kbd-badge">Y</span></div>
-          <div class="shortcut-row"><span>Go to Tools</span><span class="kbd-badge">T</span></div>
-          <div class="shortcut-row"><span>Go to API Keys</span><span class="kbd-badge">A</span></div>
-          <div class="shortcut-row"><span>Quick Search</span><span class="kbd-badge">/</span></div>
-          <div class="shortcut-row"><span>Toggle Theme</span><span class="kbd-badge">Shift + D</span></div>
-          <div class="shortcut-row"><span>Close Modal</span><span class="kbd-badge">Esc</span></div>
-        </div>
-        <div style="text-align:right;">
-          <button type="button" class="btn primary" onclick="closeShortcutsModal()" style="font-size:12px; padding:6px 14px;">Got it</button>
-        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h3 id="shortcutsModalTitle" style="font-size:16px;font-weight:700;color:var(--fg);margin:0;">Keyboard Shortcuts</h3><button type="button" class="kebab-btn" onclick="closeShortcutsModal()" style="width:30px;height:30px;">&times;</button></div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:18px;">
+          <div class="shortcut-row"><span>Go to Home</span><span class="kbd-badge">H</span></div><div class="shortcut-row"><span>Go to Upload</span><span class="kbd-badge">U</span></div><div class="shortcut-row"><span>Go to Store</span><span class="kbd-badge">S</span></div><div class="shortcut-row"><span>Go to Stats</span><span class="kbd-badge">Y</span></div><div class="shortcut-row"><span>Go to Tools</span><span class="kbd-badge">T</span></div><div class="shortcut-row"><span>Go to API Keys</span><span class="kbd-badge">A</span></div><div class="shortcut-row"><span>Quick Search</span><span class="kbd-badge">/</span></div><div class="shortcut-row"><span>Toggle Theme</span><span class="kbd-badge">Shift + D</span></div><div class="shortcut-row"><span>Close Modal</span><span class="kbd-badge">Esc</span></div>
+        </div><div style="text-align:right;"><button type="button" class="btn primary" onclick="closeShortcutsModal()" style="font-size:12px;padding:7px 14px;">Got it</button></div>
       </div>
     </div>
-
     <script>
-      function openShortcutsModal() {
-        const m = document.getElementById('shortcutsModal');
-        if (m) {
-          m.removeAttribute('hidden');
-          m.classList.add('open');
-        }
+      const krixCommands = [
+        { label:'Home', detail:'Workspace overview', href:'/home', icon:'home', terms:'dashboard overview' },
+        { label:'Upload', detail:'Add files to your workspace', href:'/upload', icon:'upload', terms:'files datasets' },
+        { label:'Store', detail:'Manage stored files', href:'/store', icon:'database', terms:'cloud storage files' },
+        { label:'Statistics', detail:'Usage and activity', href:'/stats', icon:'chart', terms:'metrics analytics' },
+        { label:'Tools', detail:'Browse available tools', href:'/tools', icon:'terminal', terms:'mcp integrations' },
+        { label:'API Keys', detail:'Manage your API keys', href:'/api', icon:'key', terms:'tokens credentials' },
+        { label:'Settings', detail:'Integrations and permissions', href:'/settings', icon:'settings', terms:'configuration security' },
+        { label:'Contact', detail:'Contact and support', href:'https://quickwitty.onrender.com/contacts', icon:'mail', terms:'help support', external:true },
+        { label:'Keyboard shortcuts', detail:'View available shortcuts', action:'shortcuts', icon:'command', terms:'keys hotkeys' }
+      ];
+      let krixCommandIndex = 0;
+      function renderKrixCommands(query) {
+        const host = document.getElementById('krixCommandResults'); if (!host) return;
+        const q = String(query || '').trim().toLowerCase();
+        const filtered = krixCommands.filter(c => !q || (c.label+' '+c.detail+' '+c.terms).toLowerCase().includes(q));
+        krixCommandIndex = Math.min(krixCommandIndex, Math.max(0, filtered.length - 1));
+        host.replaceChildren();
+        filtered.forEach((item, index) => {
+          const button = document.createElement('button'); button.type='button'; button.className='krix-command-option'+(index===krixCommandIndex?' active':''); button.setAttribute('role','option'); button.setAttribute('aria-selected',index===krixCommandIndex?'true':'false');
+          const icon = document.createElement('span'); icon.className='krix-command-option-icon'; icon.innerHTML = item.icon==='home'?'⌂':item.icon==='upload'?'↑':item.icon==='database'?'▤':item.icon==='chart'?'⌁':item.icon==='terminal'?'›_':item.icon==='key'?'⌘':item.icon==='settings'?'⚙':item.icon==='mail'?'✉':'?';
+          const body = document.createElement('span'); body.className='krix-command-option-body';
+          const title = document.createElement('strong'); title.textContent=item.label;
+          const detail = document.createElement('small'); detail.textContent=item.detail;
+          body.append(title, detail); const enter = document.createElement('span'); enter.className='krix-command-enter'; enter.textContent='↵'; button.append(icon, body, enter);
+          button.addEventListener('mouseenter',()=>{krixCommandIndex=index;renderKrixCommands(query);});
+          button.addEventListener('click',()=>runKrixCommand(item)); host.append(button);
+        });
+        if (!filtered.length) { const empty=document.createElement('div');empty.className='krix-command-empty';empty.textContent='No matching commands';host.append(empty); }
+        host.dataset.count=String(filtered.length);
       }
-      function closeShortcutsModal() {
-        const m = document.getElementById('shortcutsModal');
-        if (m) {
-          m.classList.remove('open');
-          m.setAttribute('hidden', '');
-        }
-      }
-      function handleShortcutsBackdrop(e) {
-        if (e.target.id === 'shortcutsModal') closeShortcutsModal();
-      }
-
-      window.addEventListener('keydown', (e) => {
-        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
-        const isEditing = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
-
-        if (e.key === 'Escape') {
-          closeShortcutsModal();
-          return;
-        }
-
-        if (isEditing) return;
-
-        if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
-          e.preventDefault();
-          openShortcutsModal();
-          return;
-        }
-
-        if (e.key === '/') {
-          const searchInput = document.getElementById('toolSearchInput') ||
-                              document.getElementById('storeSearchInput') ||
-                              document.getElementById('keySearchInput') ||
-                              document.getElementById('fileFilter');
-          if (searchInput) {
-            e.preventDefault();
-            searchInput.focus();
-            searchInput.select();
-          }
-          return;
-        }
-
-        if (e.shiftKey && (e.key === 'D' || e.key === 'd')) {
-          e.preventDefault();
-          if (typeof toggleTheme === 'function') toggleTheme();
-          return;
-        }
-
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          switch (e.key.toLowerCase()) {
-            case 'h': window.location.href = '/home'; break;
-            case 'u': window.location.href = '/upload'; break;
-            case 's': window.location.href = '/store'; break;
-            case 'y': window.location.href = '/stats'; break;
-            case 't': window.location.href = '/tools'; break;
-            case 'a': window.location.href = '/api'; break;
-          }
-        }
-      });
+      function runKrixCommand(item) { closeKrixCommandPalette(); if(item.action==='shortcuts'){openShortcutsModal();return;} if(item.href){if(item.external)window.open(item.href,'_blank','noopener,noreferrer');else window.location.href=item.href;} }
+      function openKrixCommandPalette() { const modal=document.getElementById('krixCommandPalette');const input=document.getElementById('krixCommandInput');if(!modal)return;modal.hidden=false;modal.setAttribute('aria-hidden','false');requestAnimationFrame(()=>{modal.classList.add('open');if(input){input.value='';renderKrixCommands('');input.focus();}}); }
+      function closeKrixCommandPalette() { const modal=document.getElementById('krixCommandPalette');if(!modal)return;modal.classList.remove('open');modal.hidden=true;modal.setAttribute('aria-hidden','true'); }
+      function handleKrixCommandBackdrop(e) { if(e.target && e.target.id==='krixCommandPalette')closeKrixCommandPalette(); }
+      function setKrixTheme(theme) { localStorage.setItem('qw-theme',theme); if(typeof applyTheme==='function')applyTheme(theme); }
+      const krixCommandInput=document.getElementById('krixCommandInput');
+      if(krixCommandInput){ krixCommandInput.addEventListener('input',()=>{krixCommandIndex=0;renderKrixCommands(krixCommandInput.value);}); krixCommandInput.addEventListener('keydown',(e)=>{const host=document.getElementById('krixCommandResults');const count=Number(host?.dataset.count||0);if(e.key==='ArrowDown'&&count){e.preventDefault();krixCommandIndex=(krixCommandIndex+1)%count;renderKrixCommands(krixCommandInput.value);}else if(e.key==='ArrowUp'&&count){e.preventDefault();krixCommandIndex=(krixCommandIndex-1+count)%count;renderKrixCommands(krixCommandInput.value);}else if(e.key==='Enter'&&count){e.preventDefault();const filtered=krixCommands.filter(c=>!krixCommandInput.value.trim()||(c.label+' '+c.detail+' '+c.terms).toLowerCase().includes(krixCommandInput.value.trim().toLowerCase()));if(filtered[krixCommandIndex])runKrixCommand(filtered[krixCommandIndex]);}else if(e.key==='Escape'){closeKrixCommandPalette();}}); }
+      window.openKrixCommandPalette=openKrixCommandPalette;
+      function openShortcutsModal(){const m=document.getElementById('shortcutsModal');if(m){m.removeAttribute('hidden');m.classList.add('open');}}
+      function closeShortcutsModal(){const m=document.getElementById('shortcutsModal');if(m){m.classList.remove('open');m.setAttribute('hidden','');}}
+      function handleShortcutsBackdrop(e){if(e.target.id==='shortcutsModal')closeShortcutsModal();}
+      window.addEventListener('keydown',(e)=>{const tag=(document.activeElement?.tagName||'').toLowerCase();const editing=tag==='input'||tag==='textarea'||document.activeElement?.isContentEditable;const commandOpen=!!document.getElementById('krixCommandPalette')&&!document.getElementById('krixCommandPalette').hidden;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();const m=document.getElementById('krixCommandPalette');if(m&&!m.hidden)closeKrixCommandPalette();else openKrixCommandPalette();return;}if(e.key==='Escape'){closeKrixCommandPalette();closeShortcutsModal();return;}if(editing||commandOpen)return;if(e.key==='?'||(e.key==='/'&&e.shiftKey)){e.preventDefault();openShortcutsModal();return;}if(e.key==='/'){const el=document.getElementById('toolSearchInput')||document.getElementById('storeSearchInput')||document.getElementById('keySearchInput')||document.getElementById('fileFilter');if(el){e.preventDefault();el.focus();el.select();}return;}if(e.shiftKey&&(e.key==='D'||e.key==='d')){e.preventDefault();if(typeof toggleTheme==='function')toggleTheme();return;}if(!e.ctrlKey&&!e.metaKey&&!e.altKey){const routes={h:'/home',u:'/upload',s:'/store',y:'/stats',t:'/tools',a:'/api'};const dest=routes[e.key.toLowerCase()];if(dest)window.location.href=dest;}});
+      (function initKrixMotionAndProgress(){
+        const progress=document.getElementById('krixScrollProgress');
+        let frame=0;
+        const updateProgress=()=>{
+          if(frame)return;
+          frame=requestAnimationFrame(()=>{
+            frame=0;
+            if(!progress)return;
+            const max=document.documentElement.scrollHeight-window.innerHeight;
+            const ratio=max>0?Math.min(1,Math.max(0,window.scrollY/max)):0;
+            progress.style.width=(ratio*100).toFixed(2)+'%';
+          });
+        };
+        window.addEventListener('scroll',updateProgress,{passive:true});
+        window.addEventListener('resize',updateProgress,{passive:true});
+        updateProgress();
+        if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+        if(!('IntersectionObserver' in window))return;
+        const targets=document.querySelectorAll('.page-heading,.visual-card,.grid-4 > .card,.grid-2 > .card');
+        const presets=['fade-up','scale-in','fade-left','fade-right','blur-in','flip-in','pop-in','roll-in'];
+        const observer=new IntersectionObserver((entries)=>{
+          entries.forEach((entry)=>{
+            if(!entry.isIntersecting)return;
+            const el=entry.target;
+            el.classList.remove('krix-reveal-pending');
+            el.classList.add('krix-reveal-visible','motion-'+presets[Number(el.dataset.krixRevealIndex||0)%presets.length]);
+            observer.unobserve(el);
+          });
+        },{threshold:.08,rootMargin:'0px 0px -24px 0px'});
+        targets.forEach((el,index)=>{
+          if(el.dataset.krixRevealReady)return;
+          el.dataset.krixRevealReady='1';
+          el.dataset.krixRevealIndex=String(index);
+          el.classList.add('krix-reveal-pending');
+          observer.observe(el);
+        });
+      })();
     </script>
   `;
 }
@@ -1743,17 +1779,14 @@ export function renderHomePage(params: {
 
   <div class="wrapper">
     <!-- Hero Banner -->
-    <div style="margin: 20px 0 32px 0; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+    <div class="page-heading">
       <div>
-        <h1 style="font-size:26px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); margin-bottom:6px;">
-          Krix
-        </h1>
-        <p style="font-size:14px; color:var(--accents-5); max-width:620px; line-height:1.5;">
-          Isolated execution sandbox and tools.
-        </p>
+        <span class="krix-eyebrow">Developer workspace</span>
+        <h1>Krix</h1>
+        <p>Connected tools, managed files and controlled agent access in one workspace.</p>
       </div>
 
-      <div style="display:flex; gap:10px;">
+      <div class="page-actions">
         <a href="/upload" class="btn primary">Upload Files</a>
         <a href="/stats" class="btn">View Stats</a>
       </div>
@@ -1953,6 +1986,28 @@ export function renderApiKeysPage(params: {
       border-collapse: collapse;
       font-size: 13px;
     }
+    .table-scroll-container { overflow-x:auto; }
+    .kebab-wrap { position:relative; display:inline-flex; z-index:2; }
+    .kebab-dropdown { z-index:50; right:0; left:auto; max-width:min(240px, calc(100vw - 48px)); }
+    .key-row:has(.kebab-dropdown[style*="display: block"]) { position:relative; z-index:10; }
+    @media (max-width: 640px) {
+      .table-scroll-container { margin:0; padding:0; overflow:visible !important; }
+      #keysTable { min-width:0 !important; table-layout:fixed; }
+      #keysTable thead { display:none; }
+      #keysTable tbody { display:grid; gap:9px; }
+      #keysTable tbody tr.key-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); }
+      #keysTable tbody tr.key-row td { min-width:0; padding:4px 2px; border:0; overflow-wrap:anywhere; }
+      #keysTable tbody tr.key-row td:nth-child(1) { grid-column:1; grid-row:1; }
+      #keysTable tbody tr.key-row td:nth-child(2) { grid-column:1/-1; grid-row:2; }
+      #keysTable tbody tr.key-row td:nth-child(3) { grid-column:1; grid-row:3; }
+      #keysTable tbody tr.key-row td:nth-child(4) { grid-column:1; grid-row:4; font-size:11px; }
+      #keysTable tbody tr.key-row td:nth-child(5) { grid-column:2; grid-row:1; align-self:start; }
+      #keysTable .key-display-scroll { width:auto !important; min-width:0 !important; max-width:calc(100vw - 120px) !important; }
+      #keysTable tbody tr:not(.key-row) { display:block; }
+      .kebab-dropdown { position:fixed; right:16px; left:auto; }
+      #oauthTableBody tr { display:grid; grid-template-columns:1fr auto; gap:4px; padding:10px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px; }
+      #oauthTableBody td { border:0; padding:4px; min-width:0; overflow-wrap:anywhere; }
+    }
     th {
       text-align: left;
       padding: 10px 12px;
@@ -1982,17 +2037,14 @@ export function renderApiKeysPage(params: {
   ${renderHeader("api", owner)}
 
   <div class="wrapper">
-    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div class="page-heading">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-          API Keys Management
-        </h1>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
-          Generate on-demand keys for Claude Desktop, Cursor, Gemini, and custom agents.
-        </p>
+        <span class="krix-eyebrow">Identity and access</span>
+        <h1>API Keys</h1>
+        <p>Create, inspect and manage credentials for your MCP clients and custom agents.</p>
       </div>
 
-      <div style="display:flex; gap:8px;">
+      <div class="page-actions">
         <a href="/home" class="btn">Back to Home</a>
       </div>
     </div>
@@ -2018,7 +2070,7 @@ export function renderApiKeysPage(params: {
 
         <div id="newKeyBanner" style="display:none; margin-top:16px; padding:16px; background:rgba(0,112,243,0.06); border:1px solid rgba(0,112,243,0.3); border-radius:8px;">
           <div style="font-size:13px; font-weight:600; color:#0070f3; margin-bottom:4px;">New Key Generated Successfully</div>
-          <div style="font-size:12px; color:var(--accents-5); margin-bottom:12px;">Copy your secret key and 12-character client ID now. Both are safely stored and always viewable below.</div>
+          <div style="font-size:12px; color:var(--accents-5); margin-bottom:12px;">Copy your secret key now. With KEY_ENCRYPTION_SECRET configured, you can reveal your own key later; older hash-only keys must be replaced.</div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; gap:8px; align-items:center;">
               <span style="font-size:12px; color:var(--accents-5); width:75px; flex-shrink:0;">API Key:</span>
@@ -2055,8 +2107,8 @@ export function renderApiKeysPage(params: {
           </div>
         </div>
 
-        <div class="table-scroll-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:90px; margin-bottom:-90px;">
-          <table id="keysTable" style="table-layout: fixed; width: 100%;">
+        <div class="table-scroll-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch; position:relative; isolation:isolate; padding-bottom:8px; margin-bottom:0;">
+          <table id="keysTable" style="table-layout:auto; width:100%; min-width:760px;">
             <thead>
               <tr>
                 <th style="width: 24%; min-width: 140px;">Label</th>
@@ -2076,7 +2128,10 @@ export function renderApiKeysPage(params: {
                           k.prefix || (k as any).key?.slice(0, 16) || "";
                         const id = k.id || "";
                         const cId = (k as any).clientId || "";
-                        const fullKey = (k as any).key || prefix || id;
+                        const isOwnKey = Boolean(owner?.email && k.email?.toLowerCase() === owner.email.toLowerCase());
+                        const hasSecret = Boolean((k as any).keyEncrypted);
+                        const canReveal = hasSecret && isOwnKey;
+                        const fullKey = "";
                         return `
                 <tr id="row-${escapeHtml(id)}" class="key-row" data-label="${escapeHtml(label.toLowerCase())}" data-client-id="${escapeHtml(cId.toLowerCase())}" data-prefix="${escapeHtml(prefix.toLowerCase())}" data-id="${escapeHtml(id.toLowerCase())}">
                   <td style="overflow:hidden; text-overflow:ellipsis;">
@@ -2092,14 +2147,10 @@ export function renderApiKeysPage(params: {
                   <td style="width: 32%; min-width: 240px;">
                     <div style="display:flex; align-items:center; gap:8px;">
                       <div class="key-display-scroll" style="width:145px; min-width:145px; max-width:145px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">
-                        <code id="key-val-${escapeHtml(id)}" data-full="${escapeHtml(fullKey)}" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block; box-sizing:border-box;">••••••••••••••••</code>
+                        <code id="key-val-${escapeHtml(id)}" data-revealed="false" data-revealable="${canReveal ? "true" : "false"}" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:7px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block; box-sizing:border-box;">${canReveal ? "••••••••••••••••" : (hasSecret ? "Not available to this account" : "Reissue key to enable secure reveal")}</code>
                       </div>
-                      <button type="button" class="btn icon-btn" id="reveal-btn-${escapeHtml(id)}" onclick="toggleKeyReveal('${escapeHtml(id)}')" title="Reveal API Key" aria-label="Reveal API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">
-                        ${renderSvg("eye", 14)}
-                      </button>
-                      <button type="button" class="btn icon-btn" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')" title="Copy API Key" aria-label="Copy API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">
-                        ${renderSvg("copy", 14)}
-                      </button>
+                      ${canReveal ? `<button type="button" class="btn icon-btn" id="reveal-btn-${escapeHtml(id)}" onclick="toggleKeyReveal('${escapeHtml(id)}')" title="Reveal API Key" aria-label="Reveal API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">${renderSvg("eye", 14)}</button>` : ""}
+                      ${canReveal ? `<button type="button" class="btn icon-btn" onclick="copyKeySecret('${escapeHtml(id)}', 'API Key')" title="Copy API Key" aria-label="Copy API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">${renderSvg("copy", 14)}</button>` : ""}
                     </div>
                   </td>
                   <td><span class="local-date" data-ts="${k.createdAt}">${new Date(k.createdAt).toLocaleDateString()}</span></td>
@@ -2107,9 +2158,10 @@ export function renderApiKeysPage(params: {
                     <div class="kebab-wrap">
                       <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-key-${escapeHtml(id)}" aria-label="Key Actions">⋮</button>
                       <div class="kebab-dropdown" id="kebab-key-${escapeHtml(id)}">
-                        <button type="button" class="kebab-item" onclick="copyKeyText('${escapeHtml(fullKey)}', 'API Key')">
+                        ${canReveal ? `
+                        <button type="button" class="kebab-item" onclick="copyKeySecret('${escapeHtml(id)}', 'API Key')">
                           ${renderSvg("copy", 14)} <span>Copy Key</span>
-                        </button>
+                        </button>` : ""}
                         ${
                           cId
                             ? `
@@ -2119,9 +2171,10 @@ export function renderApiKeysPage(params: {
                         `
                             : ""
                         }
+                        ${isOwnKey ? `
                         <button type="button" class="kebab-item" onclick="openRenameKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
                           ${renderSvg("edit", 14)} <span>Rename</span>
-                        </button>
+                        </button>` : ""}
                         <div class="kebab-divider"></div>
                         <button type="button" class="kebab-item danger" onclick="openDeleteKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
                           ${renderSvg("trash", 14)} <span>Delete Key</span>
@@ -2171,8 +2224,8 @@ export function renderApiKeysPage(params: {
           </div>
         </div>
 
-        <div class="table-scroll-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:120px; margin-bottom:-120px;">
-          <table style="table-layout: fixed; width: 100%;">
+        <div class="table-scroll-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch; position:relative; isolation:isolate; padding-bottom:8px; margin-bottom:0;">
+          <table style="table-layout:auto; width:100%; min-width:680px;">
             <thead>
               <tr>
                 <th style="width: 28%; min-width: 140px;">Application</th>
@@ -2393,29 +2446,43 @@ export function renderApiKeysPage(params: {
       if (noMatch) noMatch.style.display = (visible === 0 && rows.length > 0) ? 'block' : 'none';
     }
 
-    function toggleKeyReveal(id) {
+    async function fetchKeySecret(id) {
+      const res = await fetch('/api/keys/' + encodeURIComponent(id) + '/secret', { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.key) throw new Error(data.error || 'Unable to reveal this key.');
+      return data.key;
+    }
+
+    async function toggleKeyReveal(id) {
       const el = document.getElementById('key-val-' + id);
       const btn = document.getElementById('reveal-btn-' + id);
       if (!el) return;
       const isRevealed = el.getAttribute('data-revealed') === 'true';
-      const full = el.getAttribute('data-full') || '';
       if (isRevealed) {
         el.textContent = '••••••••••••••••';
+        el.removeAttribute('data-full');
         el.setAttribute('data-revealed', 'false');
-        if (btn) {
-          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-          btn.title = 'Reveal API Key';
-          btn.setAttribute('aria-label', 'Reveal API Key');
-        }
-      } else {
-        el.textContent = full;
-        el.setAttribute('data-revealed', 'true');
-        if (btn) {
-          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
-          btn.title = 'Hide API Key';
-          btn.setAttribute('aria-label', 'Hide API Key');
-        }
+        if (btn) { btn.innerHTML = '${renderSvg("eye", 14)}'; btn.title = 'Reveal API Key'; btn.setAttribute('aria-label','Reveal API Key'); }
+        return;
       }
+      if (btn) btn.disabled = true;
+      try {
+        const secret = await fetchKeySecret(id);
+        el.textContent = secret;
+        el.setAttribute('data-full', secret);
+        el.setAttribute('data-revealed', 'true');
+        if (btn) { btn.innerHTML = '${renderSvg("eye-off", 14)}'; btn.title = 'Hide API Key'; btn.setAttribute('aria-label','Hide API Key'); }
+      } catch (error) {
+        showToast(error.message || 'Could not reveal key', 'error');
+      } finally { if (btn) btn.disabled = false; }
+    }
+
+    async function copyKeySecret(id, label) {
+      try {
+        const secret = await fetchKeySecret(id);
+        await navigator.clipboard.writeText(secret);
+        showToast((label || 'API key') + ' copied to clipboard', 'success');
+      } catch (error) { showToast(error.message || 'Could not copy key', 'error'); }
     }
 
     function copyKeyText(text, label) {
@@ -2775,10 +2842,10 @@ export function renderApiKeysPage(params: {
               '<td>' +
               '<div style="display:flex; align-items:center; gap:8px;">' +
               '<div class="key-display-scroll" style="max-width:180px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">' +
-              '<code id="key-val-' + safeId + '" data-revealed="false" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block;">••••••••••••••••</code>' +
+              '<code id="key-val-' + safeId + '" data-revealed="false" data-revealable="' + (data.revealable ? 'true' : 'false') + '" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:4px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block;">••••••••••••••••</code>' +
               '</div>' +
-              '<button type="button" class="btn icon-btn reveal-key-btn" id="reveal-btn-' + safeId + '" title="Reveal API Key" aria-label="Reveal API Key" style="padding:4px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>' +
-              '<button type="button" class="btn icon-btn copy-key-btn" title="Copy API Key" aria-label="Copy API Key" style="padding:4px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
+              (data.revealable ? '<button type="button" class="btn icon-btn reveal-key-btn" id="reveal-btn-' + safeId + '" title="Reveal API Key" aria-label="Reveal API Key" style="padding:4px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>' +
+              '<button type="button" class="btn icon-btn copy-key-btn" title="Copy API Key" aria-label="Copy API Key" style="padding:4px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' : '') +
               '</div>' +
               '</td>' +
               '<td><span class="local-date">' + new Date().toLocaleDateString() + '</span></td>' +
@@ -2786,7 +2853,7 @@ export function renderApiKeysPage(params: {
               '<div class="kebab-wrap">' +
               '<button type="button" class="kebab-btn" aria-label="Key Actions">⋮</button>' +
               '<div class="kebab-dropdown">' +
-              '<button type="button" class="kebab-item kebab-copy-key">Copy Key</button>' +
+              (data.revealable ? '<button type="button" class="kebab-item kebab-copy-key">Copy Key</button>' : '') +
               (safeCId ? '<button type="button" class="kebab-item kebab-copy-cid">Copy Client ID</button>' : '') +
               '<button type="button" class="kebab-item kebab-rename-key">Rename</button>' +
               '<div class="kebab-divider"></div>' +
@@ -2798,14 +2865,14 @@ export function renderApiKeysPage(params: {
             const copyCidBtn = tr.querySelector('.copy-cid-btn');
             if (copyCidBtn) copyCidBtn.onclick = function() { copyKeyText(data.clientId, 'Client ID'); };
             const codeEl = tr.querySelector('#key-val-' + safeId);
-            if (codeEl) codeEl.setAttribute('data-full', fullKey);
+            if (codeEl) codeEl.setAttribute('data-revealable', data.revealable ? 'true' : 'false');
             const revealBtn = tr.querySelector('.reveal-key-btn');
             if (revealBtn) revealBtn.onclick = function() { toggleKeyReveal(data.id); };
             const copyKeyBtn = tr.querySelector('.copy-key-btn');
-            if (copyKeyBtn) copyKeyBtn.onclick = function() { copyKeyText(fullKey, 'API Key'); };
+            if (copyKeyBtn) copyKeyBtn.onclick = function() { copyKeySecret(data.id, 'API Key'); };
             
             const kebabCopyKey = tr.querySelector('.kebab-copy-key');
-            if (kebabCopyKey) kebabCopyKey.onclick = function() { copyKeyText(fullKey, 'API Key'); };
+            if (kebabCopyKey) kebabCopyKey.onclick = function() { copyKeySecret(data.id, 'API Key'); };
             const kebabCopyCid = tr.querySelector('.kebab-copy-cid');
             if (kebabCopyCid) kebabCopyCid.onclick = function() { copyKeyText(data.clientId, 'Client ID'); };
             const kebabRename = tr.querySelector('.kebab-rename-key');
@@ -3086,20 +3153,14 @@ export function renderToolsPage(params: {
   ${renderHeader("tools", owner)}
 
   <div class="wrapper">
-    <div style="margin: 20px 0 24px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div class="page-heading">
       <div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-            Tools Directory
-          </h1>
-          <span class="badge">${tools.length} tools</span>
-        </div>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
-          Individual specifications and invocation telemetry for all ${tools.length} MCP tools.
-        </p>
+        <span class="krix-eyebrow">Connected capabilities</span>
+        <div class="page-title-line"><h1>Tools</h1><span class="badge">${tools.length} tools</span></div>
+        <p>Explore the available MCP tools, permissions and invocation telemetry.</p>
       </div>
 
-      <div style="display:flex; gap:8px;">
+      <div class="page-actions">
         <a href="/api" class="btn">API Keys</a>
         <a href="/stats" class="btn">View Stats</a>
         <a href="/home" class="btn primary">Back to Home</a>
@@ -3458,17 +3519,14 @@ export function renderStatsPage(params: {
 
   <div class="wrapper">
     <!-- Header -->
-    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div class="page-heading">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg);">
-          Usage &amp; Analytics
-        </h1>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:2px;">
-          Live telemetry, tool invocations, and shared sandbox quotas.
-        </p>
+        <span class="krix-eyebrow">Service telemetry</span>
+        <h1>Usage &amp; Analytics</h1>
+        <p>Usage, tool invocations and quota data scoped to the selected account key.</p>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div class="page-actions">
         ${renderCustomKeySelector(summary, "keySelector")}
         <div class="live-indicator" id="liveIndicator">
           <span class="live-dot" id="liveDot"></span>
@@ -4387,17 +4445,14 @@ export function renderStorePage(params: {
 
   <div class="wrapper">
     <!-- Header -->
-    <div style="margin: 20px 0 28px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    <div class="page-heading">
       <div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.5px; color:var(--fg); font-family:inherit;">
-          Sandbox &amp; Cloud Store
-        </h1>
-        <p style="font-size:13px; color:var(--accents-5); margin-top:4px; line-height:1.5; font-family:inherit;">
-          View, download, and manage persistent and temporary files stored in Krix.
-        </p>
+        <span class="krix-eyebrow">Cloud and workspace storage</span>
+        <h1>Sandbox &amp; Cloud Store</h1>
+        <p>Manage persistent and temporary files associated with this account.</p>
       </div>
 
-      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div class="page-actions">
         <a href="/upload" class="btn primary">Upload New File</a>
         <a href="/home" class="btn">Back to Home</a>
       </div>
@@ -5183,8 +5238,7 @@ export function renderSettingsPage(params: {
 </html>`;
   }
 
-  const role = userQuota.role;
-  const isServerOwner = role === "owner";
+  const isServerOwner = userQuota.role === "owner";
   const maskedGitHub = maskSecret(keySettings.customGitHubToken);
   const maskedRender = maskSecret(keySettings.customRenderToken);
 
@@ -5193,9 +5247,12 @@ export function renderSettingsPage(params: {
 
   const isToolActive = (t: ToolDetailMeta): boolean => {
     if (disabledSet.has(t.name)) return false;
-    if (enabledSet.has(t.name)) return true;
-    if (t.category === "Code Graph" || t.category === "Search") return false; // Disabled by default
-    return true; // Core, GitHub, Render, Sandbox, Files enabled by default
+    const explicit = enabledSet.has(t.name);
+    const categoryDefault = t.category !== "Code Graph" && t.category !== "Search";
+    const risk = keySettings.toolRiskLevels?.[t.name] || getDefaultToolRiskLevel(t.name, t.category);
+    const acknowledged = keySettings.riskAcknowledgedTools?.includes(t.name) || false;
+    if ((risk === "high" || risk === "critical") && !acknowledged) return false;
+    return explicit || categoryDefault;
   };
 
   const codeGraphCount = toolsCatalog.filter(
@@ -5274,7 +5331,10 @@ export function renderSettingsPage(params: {
       align-items: center;
     }
     .secret-input-wrap input {
-      padding-right: 76px;
+      padding-right: 84px;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       font-family: ui-monospace, monospace;
       font-size: 13px;
     }
@@ -5445,8 +5505,9 @@ export function renderSettingsPage(params: {
   ${renderHeader("settings", owner, nonce)}
 
   <div class="wrapper">
-    <div class="settings-header">
+    <div class="settings-header page-heading">
       <div>
+        <span class="krix-eyebrow">Account controls</span>
         <h1 class="settings-title">Account & Key Settings</h1>
         <p class="settings-desc">
           Configure per-user credentials, isolated sandboxes, and granular tool permissions for every API key and OAuth client.
@@ -5454,15 +5515,18 @@ export function renderSettingsPage(params: {
       </div>
 
       <div style="display:flex; align-items:center; gap:8px;">
-        <span class="tier-badge ${isServerOwner ? "owner" : "member"}">
-          ${isServerOwner ? "Server Owner" : "Standard Member (1/10th Limits)"}
-        </span>
         <a href="/tools" class="btn" style="font-size:12px;">Browse Tools</a>
       </div>
     </div>
 
+    <nav class="settings-tabs" aria-label="Settings sections">
+      <a href="#resources">Overview</a>
+      <a href="#integrations">Integrations</a>
+      <a href="#permissions">Tool permissions</a>
+    </nav>
+
     <!-- Resource Allocation & Quotas Card -->
-    <div class="card" style="margin-bottom:24px;">
+    <div id="resources" class="card" style="margin-bottom:24px;">
       <div class="section-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
@@ -5475,16 +5539,16 @@ export function renderSettingsPage(params: {
       <p class="section-desc">
         ${
           isServerOwner
-            ? "As the server owner, your keys operate with full hardware capacity, 300MB+ sandbox storage, and unrestricted process limits."
-            : "Standard member account: your isolated sandbox has a 50MB storage ceiling and 1/10th compute, memory, and rate limits to ensure reliable multi-user distribution."
+            ? "Your account's configured sandbox and request limits are shown below."
+            : "Your account has an isolated sandbox with the configured storage and request limits shown below."
         }
       </p>
 
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px;">
         <div class="resource-stat-box">
-          <span class="resource-stat-label">Storage Ceiling</span>
-          <span class="resource-stat-value">${userQuota.storageMb} MB</span>
-          <span class="resource-stat-sub">${isServerOwner ? "Uncapped storage" : "1/10th distributed quota"}</span>
+          <span class="resource-stat-label">Total Storage Quota</span>
+          <span class="resource-stat-value">${userQuota.maxTotalMb} MB</span>
+          <span class="resource-stat-sub">Across stored files and workspace data</span>
         </div>
         <div class="resource-stat-box">
           <span class="resource-stat-label">File Upload Max</span>
@@ -5494,7 +5558,7 @@ export function renderSettingsPage(params: {
         <div class="resource-stat-box">
           <span class="resource-stat-label">Process Capacity</span>
           <span class="resource-stat-value">${userQuota.ulimitProc} PIDs</span>
-          <span class="resource-stat-sub">${userQuota.ulimitFile} ulimit file size</span>
+          <span class="resource-stat-sub">Configured process limit</span>
         </div>
         <div class="resource-stat-box">
           <span class="resource-stat-label">Rate Limiter</span>
@@ -5534,7 +5598,7 @@ export function renderSettingsPage(params: {
     </div>
 
     <!-- Custom API Credentials Card -->
-    <div class="card" style="margin-bottom:24px;">
+    <div id="integrations" class="card" style="margin-bottom:24px;">
       <div class="section-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -5547,6 +5611,7 @@ export function renderSettingsPage(params: {
       </p>
 
       <form id="credentialsForm" onsubmit="saveCredentials(event)">
+        <div class="credentials-grid">
         <div class="field-group">
           <label class="field-label" for="customGithubInput">GitHub Personal Access Token (PAT)</label>
           <div class="secret-input-wrap">
@@ -5554,19 +5619,24 @@ export function renderSettingsPage(params: {
               type="password"
               id="customGithubInput"
               name="githubToken"
-              placeholder="${keySettings.customGitHubToken ? maskedGitHub : "ghp_•••••••••••• or github_pat_••••••••••••"}"
+              value=""
+              placeholder="${keySettings.customGitHubToken ? `Saved credential · ${maskedGitHub}` : "Enter a GitHub token"}"
               autocomplete="off"
               spellcheck="false"
             >
             <div class="secret-actions">
+              <button type="button" class="icon-btn" onclick="copySecretField('customGithubInput')" title="Copy token" aria-label="Copy GitHub token">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="13" height="13" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg>
+              </button>
               <button type="button" class="icon-btn" onclick="toggleInputVisibility('customGithubInput')" title="Show / Hide token" aria-label="Toggle GitHub token visibility">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               </button>
             </div>
           </div>
           <span style="font-size:11px; color:var(--accents-5); margin-top:4px; display:block;">
-            ${keySettings.customGitHubToken ? `Current token: <code>${maskedGitHub}</code> &middot; Leave blank to keep existing, or clear to use default.` : "Leave blank to use instance default GitHub integration."}
+            ${keySettings.customGitHubToken ? `Credential connected · <code>${maskedGitHub}</code>. Saved secrets are not returned to the browser. Use Remove to revoke this stored credential.` : "No GitHub token saved for this key. Add a token to enable GitHub access."}
           </span>
+          ${keySettings.customGitHubToken ? `<button type="button" class="credential-remove-btn" onclick="deleteCredential('github')">${renderKrixGraphic("trash", 13)} Remove GitHub credential</button>` : ""}
         </div>
 
         <div class="field-group">
@@ -5576,22 +5646,28 @@ export function renderSettingsPage(params: {
               type="password"
               id="customRenderInput"
               name="renderToken"
-              placeholder="${keySettings.customRenderToken ? maskedRender : "rnd_••••••••••••"}"
+              value=""
+              placeholder="${keySettings.customRenderToken ? `Saved credential · ${maskedRender}` : "Enter a Render API key"}"
               autocomplete="off"
               spellcheck="false"
             >
             <div class="secret-actions">
+              <button type="button" class="icon-btn" onclick="copySecretField('customRenderInput')" title="Copy key" aria-label="Copy Render key">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="13" height="13" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg>
+              </button>
               <button type="button" class="icon-btn" onclick="toggleInputVisibility('customRenderInput')" title="Show / Hide token" aria-label="Toggle Render API key visibility">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               </button>
             </div>
           </div>
           <span style="font-size:11px; color:var(--accents-5); margin-top:4px; display:block;">
-            ${keySettings.customRenderToken ? `Current key: <code>${maskedRender}</code> &middot; Leave blank to keep existing, or clear to use default.` : "Leave blank to use instance default Render integration."}
+            ${keySettings.customRenderToken ? `Credential connected · <code>${maskedRender}</code>. Saved secrets are not returned to the browser. Use Remove to revoke this stored credential.` : "No Render key saved for this key. Add a key to enable Render access."}
           </span>
+          ${keySettings.customRenderToken ? `<button type="button" class="credential-remove-btn" onclick="deleteCredential('render')">${renderKrixGraphic("trash", 13)} Remove Render credential</button>` : ""}
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        </div>
+        <div class="credentials-form-actions">
           <button type="submit" class="btn primary" id="saveCredsBtn" style="font-size:12px; padding:6px 16px;">
             Save Credentials
           </button>
@@ -5600,7 +5676,7 @@ export function renderSettingsPage(params: {
     </div>
 
     <!-- Granular Tool Permissions Card -->
-    <div class="card" style="margin-bottom:32px;">
+    <div id="permissions" class="card" style="margin-bottom:32px;">
       <div class="section-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="16 18 22 12 16 6"></polyline>
@@ -5609,9 +5685,13 @@ export function renderSettingsPage(params: {
         <span>Granular Tool Permissions & Code Graph</span>
       </div>
       <p class="section-desc">
-        Select which tools are enabled for this key. <strong>Code Graph Context (29 tools)</strong> and <strong>Web Search</strong> are disabled by default for maximum security; toggle individual tools below to enable them for your agent.
+        Select which tools are enabled for this key. <strong>Code Graph Context (${codeGraphCount} tools)</strong> and <strong>Web Search</strong> are disabled by default for maximum security; toggle individual tools below to enable them for your agent.
       </p>
 
+      <div class="visual-card" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+        <span class="graphic-tile accent">${renderKrixGraphic("shield", 21)}</span>
+        <div><div class="visual-card-title" style="margin:0;">Per-tool risk policy</div><div class="visual-card-desc">High and Critical tools remain unavailable until you explicitly acknowledge the risk. The server enforces this policy for this key.</div></div>
+      </div>
       <div class="tools-manager-bar">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <input
@@ -5648,10 +5728,11 @@ export function renderSettingsPage(params: {
         ${toolsCatalog
           .map((t) => {
             const active = isToolActive(t);
-            const isCodeGraph =
-              t.category === "Code Graph" || t.category === "Search";
+            const isCodeGraph = t.category === "Code Graph" || t.category === "Search";
+            const riskLevel = keySettings.toolRiskLevels?.[t.name] || getDefaultToolRiskLevel(t.name, t.category);
+            const riskAcknowledged = keySettings.riskAcknowledgedTools?.includes(t.name) || false;
             return `
-          <div class="tool-perm-row" data-name="${escapeHtml(t.name.toLowerCase())}" data-category="${escapeHtml(t.category)}" data-desc="${escapeHtml(t.description.toLowerCase())}">
+          <div class="tool-perm-row" data-name="${escapeHtml(t.name.toLowerCase())}" data-category="${escapeHtml(t.category)}" data-desc="${escapeHtml(t.description.toLowerCase())}" data-risk="${riskLevel}">
             <div class="tool-perm-info">
               <div class="tool-perm-name">
                 <span>${escapeHtml(t.name)}</span>
@@ -5663,10 +5744,16 @@ export function renderSettingsPage(params: {
               </div>
             </div>
 
-            <label class="toggle-switch" title="Toggle ${escapeHtml(t.name)}">
-              <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
-              <span class="toggle-slider"></span>
-            </label>
+            <div class="tool-risk-control">
+              <span class="risk-pill risk-${riskLevel}" title="Current risk tier">${riskLevel.toUpperCase()}${(riskLevel === "high" || riskLevel === "critical") && !riskAcknowledged ? " · ACK NEEDED" : ""}</span>
+              <select class="tool-risk-select" data-risk-tool="${escapeHtml(t.name)}" aria-label="Risk tier for ${escapeHtml(t.name)}" onchange="onToolRiskChange(this, '${escapeHtml(t.name)}')">
+                ${(["safe","low","moderate","high","critical"] as const).map((level) => `<option value="${level}" ${riskLevel === level ? "selected" : ""}>${level.charAt(0).toUpperCase()+level.slice(1)} risk</option>`).join("")}
+              </select>
+              <label class="toggle-switch" title="Toggle ${escapeHtml(t.name)}">
+                <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
           </div>
         `;
           })
@@ -5707,6 +5794,34 @@ export function renderSettingsPage(params: {
       el.type = el.type === 'password' ? 'text' : 'password';
     }
 
+    async function copySecretField(id) {
+      const el = document.getElementById(id);
+      if (!el || !el.value) {
+        alert('Enter a new credential before copying it. Saved credentials are never exposed again.');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(el.value);
+      } catch {
+        el.focus();
+        el.select();
+        document.execCommand('copy');
+        el.setSelectionRange(0, 0);
+      }
+    }
+
+    async function deleteCredential(provider) {
+      const label = provider === 'github' ? 'GitHub' : 'Render';
+      if (!window.confirm('Remove the saved ' + label + ' credential from this API key? Existing tool access using this credential will stop.')) return;
+      try {
+        const res = await fetch('/settings/api/credentials/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({keyId:currentKeyId,provider}) });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Credential removal failed.');
+        showToast(label + ' credential removed');
+        setTimeout(() => window.location.reload(), 450);
+      } catch (error) { showToast(error.message || 'Credential removal failed', true); }
+    }
+
     async function saveCredentials(e) {
       e.preventDefault();
       const btn = document.getElementById('saveCredsBtn');
@@ -5742,6 +5857,25 @@ export function renderSettingsPage(params: {
         btn.disabled = false;
         btn.textContent = 'Save Credentials';
       }
+    }
+
+    async function onToolRiskChange(selectEl, toolName) {
+      const riskLevel = selectEl.value;
+      const needsAck = riskLevel === 'high' || riskLevel === 'critical';
+      if (needsAck && !window.confirm('This classification permits a high-impact tool. You must explicitly acknowledge that calls can modify or disrupt external resources. Continue?')) {
+        window.location.reload(); return;
+      }
+      selectEl.disabled = true;
+      try {
+        const res = await fetch('/settings/api/tool-risk', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({keyId:currentKeyId,toolName,riskLevel,acknowledgeHighRisk:needsAck}) });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update risk policy.');
+        showToast(toolName + ' risk tier updated');
+        setTimeout(() => window.location.reload(), 350);
+      } catch (error) {
+        showToast(error.message || 'Risk policy update failed', true);
+        window.location.reload();
+      } finally { selectEl.disabled = false; }
     }
 
     async function onToolToggle(checkboxEl, toolName) {

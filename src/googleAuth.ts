@@ -14,6 +14,8 @@ import {
   getOwnerEmail,
   getKeySettings,
   getOrCreateUser,
+  generateSandboxId,
+  updateKeyCredentials,
 } from "./userSettings.js";
 
 export interface OwnerProfile {
@@ -28,6 +30,9 @@ export interface GeneratedKeyEntry {
   id: string;
   clientId: string;
   key: string;
+  keyHash?: string;
+  /** AES-256-GCM envelope for owner-initiated key reveal; never return in list APIs. */
+  keyEncrypted?: string;
   prefix: string;
   label: string;
   email?: string;
@@ -82,13 +87,16 @@ export async function ensureMongoAuth(): Promise<void> {
           mongoDb = client.db(dbName);
           await loadKeysFromMongo();
         } catch (err: any) {
-          console.error("[mongo-auth] connection error:", err?.message);
+          mongoDb = null;
+          mongoInitPromise = null;
+          console.error("[mongo-auth] connection or key-migration failure:", err?.message);
+          throw err;
         }
       })();
     }
     await mongoInitPromise;
   } else {
-    await loadKeysFromMongo().catch(() => {});
+    await loadKeysFromMongo();
   }
 }
 ensureMongoAuth().catch(() => {});
@@ -108,12 +116,16 @@ export async function loadKeysFromMongo(): Promise<void> {
           (d._id
             ? String(d._id)
             : `kx_${crypto.randomBytes(6).toString("hex")}`);
-        const rawKey = d.key || d.apiKey || d.prefix || "";
+        const legacyRawKey = d.key || d.apiKey || "";
+        const keyHash = d.keyHash || (legacyRawKey ? hashApiKey(legacyRawKey) : undefined);
+        const encryptedLegacyKey = legacyRawKey ? encryptApiKey(legacyRawKey) : undefined;
         const entry: GeneratedKeyEntry = {
           id,
           clientId: d.clientId || generateClientId(),
-          key: rawKey,
-          prefix: d.prefix || (rawKey ? rawKey.slice(0, 16) : id),
+          key: "", // API key secrets are never returned by list APIs.
+          keyHash,
+          keyEncrypted: d.keyEncrypted || encryptedLegacyKey,
+          prefix: d.prefix || (legacyRawKey ? legacyRawKey.slice(0, 16) : id),
           label: d.label || d.name || "Personal Key",
           email: d.email,
           role: d.role,
@@ -121,34 +133,66 @@ export async function loadKeysFromMongo(): Promise<void> {
           lastUsedAt: d.lastUsedAt,
         };
         dynamicApiKeys.set(id, entry);
-        if (entry.key) {
-          registerSecret(entry.key);
+        if (legacyRawKey) {
+          registerSecret(legacyRawKey);
+          // Remove a legacy plaintext value only after its encrypted replacement
+          // has been generated. This avoids destructive migration in dev setups
+          // that have not configured KEY_ENCRYPTION_SECRET yet.
+          if (encryptedLegacyKey) {
+            const legacyFilter = d.id ? { id: d.id } : { _id: d._id };
+            await col.updateOne(legacyFilter, {
+              $set: { keyHash, keyEncrypted: encryptedLegacyKey },
+              $unset: { key: "", apiKey: "" },
+            });
+          }
         }
       }
     }
   } catch (err: any) {
     console.error("[mongo-auth] loadKeysFromMongo error:", err?.message);
+    throw err;
   }
 }
 
 export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
   await ensureMongoAuth();
-  if (!mongoDb) return;
+  if (!mongoDb) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB is configured but unavailable; API key persistence failed.");
+    }
+    return;
+  }
   try {
     const col = mongoDb.collection("api_keys");
+    const { key: _rawSecret, ...metadata } = entry;
     await col.updateOne(
       { id: entry.id },
-      { $set: { ...entry, revoked: false, updatedAt: Date.now() } },
+      {
+        $set: {
+          ...metadata,
+          keyHash: entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined),
+          keyEncrypted: entry.keyEncrypted || (_rawSecret ? encryptApiKey(_rawSecret) : undefined),
+          revoked: false,
+          updatedAt: Date.now(),
+        },
+        $unset: { key: "", apiKey: "" },
+      },
       { upsert: true },
     );
   } catch (err: any) {
     console.error("[mongo-auth] syncKeyToMongo error:", err?.message);
+    throw err;
   }
 }
 
 export async function revokeKeyInMongo(id: string): Promise<void> {
   await ensureMongoAuth();
-  if (!mongoDb) return;
+  if (!mongoDb) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+      throw new Error("MongoDB is configured but unavailable; API key revocation cannot be confirmed.");
+    }
+    return;
+  }
   try {
     const col = mongoDb.collection("api_keys");
     await col.updateOne(
@@ -157,6 +201,7 @@ export async function revokeKeyInMongo(id: string): Promise<void> {
     );
   } catch (err: any) {
     console.error("[mongo-auth] revokeKeyInMongo error:", err?.message);
+    throw err;
   }
 }
 
@@ -164,14 +209,18 @@ function saveKeysToDisk(): void {
   try {
     fs.mkdirSync(path.dirname(KEYS_FILE), { recursive: true });
     const payload = {
-      keys: Array.from(dynamicApiKeys.entries()),
+      keys: Array.from(dynamicApiKeys.entries()).map(([id, entry]) => {
+        const { key: _rawSecret, ...metadata } = entry;
+        return [id, { ...metadata, keyHash: entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined), keyEncrypted: entry.keyEncrypted || (_rawSecret ? encryptApiKey(_rawSecret) : undefined), key: "" }];
+      }),
       revoked: Array.from(revokedKeyIds),
     };
     fs.writeFileSync(KEYS_FILE, JSON.stringify(payload, null, 2), "utf-8");
   } catch {}
 }
 
-function loadKeysFromDisk(): void {
+function loadKeysFromDisk(): boolean {
+  let canRewrite = true;
   try {
     if (fs.existsSync(KEYS_FILE)) {
       const data = JSON.parse(fs.readFileSync(KEYS_FILE, "utf-8"));
@@ -180,17 +229,32 @@ function loadKeysFromDisk(): void {
           if (!entry.clientId) {
             entry.clientId = generateClientId();
           }
+          const legacyRawKey = entry.key || "";
+          const encryptedLegacyKey = legacyRawKey ? encryptApiKey(legacyRawKey) : undefined;
+          entry.keyHash = entry.keyHash || (legacyRawKey ? hashApiKey(legacyRawKey) : undefined);
+          entry.keyEncrypted = entry.keyEncrypted || encryptedLegacyKey;
+          if (legacyRawKey && !encryptedLegacyKey && !entry.keyEncrypted) canRewrite = false;
+          entry.key = "";
           dynamicApiKeys.set(id, entry);
-          if (entry.key) registerSecret(entry.key);
+          if (legacyRawKey) registerSecret(legacyRawKey);
         }
       }
       if (Array.isArray(data.revoked)) {
         for (const r of data.revoked) revokedKeyIds.add(r);
       }
     }
-  } catch {}
+  } catch {
+    return false;
+  }
+  return canRewrite;
 }
-loadKeysFromDisk();
+const canRewriteLegacyKeyFile = loadKeysFromDisk();
+// Rewrite local records only after legacy secret material has been encrypted.
+if (canRewriteLegacyKeyFile) saveKeysToDisk();
+
+function hashApiKey(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
 
 function getSessionSecret(): string {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
@@ -206,8 +270,12 @@ function getSessionSecret(): string {
     fs.mkdirSync(path.dirname(SECRET_FILE), { recursive: true });
     fs.writeFileSync(SECRET_FILE, gen, "utf-8");
     return gen;
-  } catch {
-    return "krix-default-session-secret-change-in-prod";
+  } catch (error) {
+    // Never fall back to a known signing key. A predictable cookie secret
+    // would let an attacker forge authenticated sessions.
+    throw new Error(
+      `Unable to load or persist the session signing secret: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -344,6 +412,41 @@ export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
   return findAuthorizedApiKey(candidateKey) !== null;
 }
 
+function apiKeyCipher(): Buffer {
+  const secret = process.env.KEY_ENCRYPTION_SECRET || "";
+  if (Buffer.byteLength(secret) < 32) {
+    throw new Error("KEY_ENCRYPTION_SECRET must contain at least 32 bytes to enable API key reveal.");
+  }
+  return crypto.createHash("sha256").update(secret, "utf8").digest();
+}
+
+function encryptApiKey(secret: string): string | undefined {
+  if (!process.env.KEY_ENCRYPTION_SECRET || Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET) < 32) return undefined;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", apiKeyCipher(), iv);
+  const ciphertext = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1.${iv.toString("base64url")}.${tag.toString("base64url")}.${ciphertext.toString("base64url")}`;
+}
+
+function decryptApiKey(envelope?: string): string | null {
+  if (!envelope || !envelope.startsWith("v1.")) return null;
+  try {
+    const [, ivPart, tagPart, dataPart] = envelope.split(".");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", apiKeyCipher(), Buffer.from(ivPart, "base64url"));
+    decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
+    return Buffer.concat([decipher.update(Buffer.from(dataPart, "base64url")), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** Reveal is deliberately limited to the account that created the key. */
+export function getDynamicKeySecret(id: string, email: string): string | null {
+  const entry = dynamicApiKeys.get(id);
+  if (!entry || revokedKeyIds.has(id) || !entry.email || entry.email.toLowerCase() !== email.trim().toLowerCase()) return null;
+  return decryptApiKey(entry.keyEncrypted);
+}
 export function createDynamicKey(
   label: string = "Personal Key",
   email?: string,
@@ -392,6 +495,8 @@ export function createDynamicKey(
     id,
     clientId,
     key: raw,
+    keyHash: hashApiKey(raw),
+    keyEncrypted: encryptApiKey(raw),
     prefix: raw.slice(0, 16),
     label: cleanLabel,
     email: effectiveEmail,
@@ -401,8 +506,13 @@ export function createDynamicKey(
   dynamicApiKeys.set(id, entry);
   saveKeysToDisk();
   syncKeyToMongo(entry).catch(() => {});
-  // Initialize key settings
-  getKeySettings(id);
+  // Persist the account association and a distinct sandbox ID for this key.
+  const settings = getKeySettings(id);
+  settings.email = effectiveEmail.trim().toLowerCase();
+  settings.role = role;
+  settings.sandboxId = generateSandboxId(id, role === "owner");
+  settings.updatedAt = Date.now();
+  updateKeyCredentials(id, effectiveEmail);
   return entry;
 }
 
@@ -416,8 +526,7 @@ export function listDynamicKeys(userEmail?: string): GeneratedKeyEntry[] {
     if (revokedKeyIds.has(entry.id)) continue;
     if (
       userEmail &&
-      !isOwner &&
-      (!entry.email || entry.email.toLowerCase() !== userEmail.toLowerCase())
+      (!entry.email || entry.email.trim().toLowerCase() !== userEmail.trim().toLowerCase())
     ) {
       continue;
     }
@@ -795,8 +904,9 @@ export function createGoogleAuthRouter(): Router {
   router.delete(
     "/keys/:id",
     requireOwnerAuth,
-    (req: Request, res: Response): void => {
+    async (req: Request, res: Response): Promise<void> => {
       const id = req.params.id as string;
+      await revokeKeyInMongo(id);
       const deleted = revokeDynamicKey(id);
       res.json({ success: deleted });
     },

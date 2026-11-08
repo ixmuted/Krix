@@ -59,6 +59,7 @@ import {
   syncKeyToMongo,
   revokeKeyInMongo,
   getMongoDb,
+  getDynamicKeySecret,
 } from "./googleAuth.js";
 import { fileShareRegistry } from "./fileShareRegistry.js";
 import {
@@ -81,6 +82,7 @@ import {
   type StoredFileInfo,
 } from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
+import { browserOriginGuard, createSecurityAuditMiddleware, validateProductionSecurityConfig } from "./securityControls.js";
 import { createLimiter, rateLimitMiddleware, clientIp } from "./rateLimit.js";
 import {
   TOOL_CATEGORY,
@@ -101,8 +103,12 @@ import {
   getKeySettings,
   getUserQuota,
   updateKeyCredentials,
+  removeKeyCredential,
   updateKeyTools,
   toggleKeyTool,
+  updateKeyToolRiskLevel,
+  isToolEnabledForKey,
+  syncKeySettingsToMongo,
   getUserRole,
   isOwnerEmail,
   maskSecret,
@@ -257,23 +263,19 @@ function createMasterServer(
   tagCategory(registry, categoryOf, "codegraph");
 
   const ctx = getSessionContext(sessionId);
+  const policyKeyId = keySettings?.keyId || "primary-key";
+  const onRenderService = process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
+  const renderSandboxOwnerOptIn =
+    process.env.ENABLE_SANDBOX === "true" &&
+    process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
+    process.env.SANDBOX_REQUIRE_ISOLATION === "false" &&
+    keySettings?.role === "owner" &&
+    isOwnerEmail(keySettings?.email);
   for (const [name, handle] of Object.entries(registry)) {
     const cat = categoryOf[name];
-    const isCustomDisabled = keySettings?.disabledTools?.includes(name);
-    const isCustomEnabled = keySettings?.enabledTools?.includes(name);
-
-    if (isCustomDisabled) {
-      handle.disable();
-    } else if (isCustomEnabled) {
-      handle.enable();
-    } else if (cat === "codegraph" || cat === "search") {
-      // Code Graph and Search tools remain disabled by default unless explicitly enabled
-      handle.disable();
-    } else if (ctx.enabledCategories.has(cat)) {
-      handle.enable();
-    } else {
-      handle.disable();
-    }
+    const sandboxAllowedHere = cat !== "sandbox" || !onRenderService || renderSandboxOwnerOptIn;
+    if (sandboxAllowedHere && isToolEnabledForKey(policyKeyId, name, cat, ctx.enabledCategories)) handle.enable();
+    else handle.disable();
   }
 
   // Ensure every tool returned to MCP clients (like Gemini) includes icons metadata (matching GitHub MCP Server)
@@ -335,6 +337,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Fail closed on insecure production configuration before serving requests.
+validateProductionSecurityConfig();
+
 // Coarse global limiter (cheap protection for every route, including unauthenticated ones).
 app.use(
   rateLimitMiddleware(
@@ -345,6 +350,10 @@ app.use(
     "Rate limit exceeded.",
   ),
 );
+
+// Browser CSRF/origin protection and metadata-only security audit trail.
+app.use(browserOriginGuard);
+app.use(createSecurityAuditMiddleware(getMongoDb));
 
 app.get("/healthz", (_req, res) => {
   res.json({ ok: true });
@@ -442,6 +451,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction): Pr
       (req as any).clientAuth = {
         keyId: dynEntry.id,
         label: dynEntry.label,
+        email: dynEntry.email,
         type: "api_key",
       };
       next();
@@ -454,6 +464,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction): Pr
       (req as any).clientAuth = {
         keyId: "primary-key",
         label: "Primary Key",
+        email: process.env.OWNER_EMAIL || process.env.GOOGLE_ALLOWED_EMAIL || "owner@localhost",
         type: "master_key",
       };
       next();
@@ -509,20 +520,25 @@ app.all(
     };
     const keyId = clientAuth.keyId || "primary-key";
     const keySettings = getKeySettings(keyId);
+    const clientEmail = String(clientAuth.email || "").trim().toLowerCase();
+    if (clientEmail && (!keySettings.email || keySettings.email === "anonymous")) {
+      keySettings.email = clientEmail;
+      keySettings.role = isOwnerEmail(clientEmail) ? "owner" : "user";
+    }
 
     const githubToken =
       (typeof req.headers["x-github-token"] === "string"
         ? req.headers["x-github-token"]
         : "") ||
       keySettings.customGitHubToken ||
-      DEFAULT_GITHUB_PAT ||
+      (keyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") ||
       "";
     const renderToken =
       (typeof req.headers["x-render-token"] === "string"
         ? req.headers["x-render-token"]
         : "") ||
       keySettings.customRenderToken ||
-      DEFAULT_RENDER_API_KEY;
+      (keyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
     registerSecret(githubToken);
     registerSecret(renderToken);
     const sessionId =
@@ -632,7 +648,8 @@ app.all(
           return;
         }
         // A session is bound to the identity that created it.
-        if (getAuthKeyForSession(sessionId) !== computeAuthKey(githubToken)) {
+        const sessionIdentity = `user_${(keySettings.email || `key_${keyId}`).toLowerCase()}`;
+        if (getAuthKeyForSession(sessionId) !== computeAuthKey(sessionIdentity)) {
           jsonRpcError(
             res,
             403,
@@ -673,7 +690,8 @@ app.all(
       }
 
       const newSessionId = crypto.randomUUID();
-      registerSessionAuth(newSessionId, githubToken);
+      const sessionIdentity = `user_${(keySettings.email || `key_${keyId}`).toLowerCase()}`;
+      registerSessionAuth(newSessionId, sessionIdentity);
 
       const effectiveSandboxId =
         keySettings.sandboxId ||
@@ -952,11 +970,11 @@ app.get(["/", "/home"], async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
   );
   const root = sandboxRootForAuthKey(authKey);
   const uploads = await listUploadedFiles(root);
-  const dynamicKeys = listDynamicKeys();
+  const dynamicKeys = owner ? listDynamicKeys(owner.email) : [];
   const isOwner = Boolean(owner);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -981,29 +999,51 @@ app.get(["/api", "/keys"], async (req, res) => {
   if (db) fileShareRegistry.setMongoDb(db);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
-  const isOwner = Boolean(owner);
-  const dynamicKeys = listDynamicKeys();
-  const oauthAuthorizations = listActiveOAuthAuthorizations();
+  // A signed-in account is not automatically the instance owner. Keep the
+  // administrative view strictly tied to the configured owner identity.
+  const isAdminOwner = Boolean(owner && isOwnerEmail(owner.email));
+  const canManageKeys = Boolean(owner);
+  const dynamicKeys = owner
+    ? (isAdminOwner ? listDynamicKeys() : listDynamicKeys(owner.email))
+    : [];
+  const oauthAuthorizations = owner
+    ? listActiveOAuthAuthorizations().filter((item: any) =>
+        isAdminOwner
+          ? true
+          : item.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+      )
+    : [];
 
   if (
     req.headers.accept?.includes("application/json") &&
     !req.headers.accept?.includes("text/html")
   ) {
-    if (!isOwner) {
+    if (!owner) {
       res.status(401).json({ error: "Unauthorized." });
       return;
     }
-    res.json({ keys: dynamicKeys, oauthAuthorizations });
+    res.json({
+      keys: dynamicKeys.map(({ key: _secret, ...metadata }) => metadata),
+      oauthAuthorizations: oauthAuthorizations.map((item: any) => ({
+        clientId: item.clientId,
+        clientName: item.clientName,
+        ownerEmail: item.ownerEmail,
+        createdAt: item.createdAt,
+        lastUsedAt: item.lastUsedAt,
+      })),
+    });
     return;
   }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.send(
     renderApiKeysPage({
       base,
-      isOwner,
+      isOwner: canManageKeys,
       owner,
-      keys: dynamicKeys,
+      // Key secrets are never embedded in server-rendered markup.
+      keys: dynamicKeys.map((entry) => ({ ...entry, key: "" })),
       oauthAuthorizations,
     }),
   );
@@ -1024,7 +1064,10 @@ app.get("/api/keys", async (req, res) => {
       .json({ error: "Unauthorized. Sign in as owner to list keys." });
     return;
   }
-  res.json({ keys: listDynamicKeys() });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    keys: listDynamicKeys(owner.email).map(({ key: _secret, ...metadata }) => metadata),
+  });
 });
 
 app.post("/api/keys", express.json(), async (req, res) => {
@@ -1042,7 +1085,7 @@ app.post("/api/keys", express.json(), async (req, res) => {
       .json({ error: "Unauthorized. Sign in as owner to create keys." });
     return;
   }
-  if (listDynamicKeys().length >= 30) {
+  if (listDynamicKeys(owner.email).length >= 30) {
     res.status(400).json({
       error:
         "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
@@ -1057,17 +1100,62 @@ app.post("/api/keys", express.json(), async (req, res) => {
       .json({ error: "Key name must be at least 4 characters long." });
     return;
   }
+  let createdKeyId = "";
   try {
-    const entry = createDynamicKey(label);
+    // Bind every newly created key to the authenticated Google account.
+    // Omitting this email previously caused multi-user accounts to inherit
+    // the configured owner identity.
+    const entry = createDynamicKey(label, owner.email);
+    createdKeyId = entry.id;
     await syncKeyToMongo(entry);
     statsTracker.syncKnownKeys(
       listDynamicKeys(),
       listActiveOAuthAuthorizations(),
     );
-    res.status(201).json(entry);
+    res.status(201).json({
+      id: entry.id,
+      clientId: entry.clientId,
+      key: entry.key,
+      prefix: entry.prefix,
+      label: entry.label,
+      createdAt: entry.createdAt,
+      revealable: Boolean(entry.keyEncrypted),
+    });
   } catch (err: any) {
-    res.status(400).json({ error: err.message || "Failed to create API key." });
+    // A key that could not be durably recorded must never be handed to the client.
+    if (createdKeyId) revokeDynamicKey(createdKeyId);
+    res.status(503).json({ error: "API key creation could not be persisted. Try again after storage is healthy." });
   }
+});
+
+const keyRevealLimiter = createLimiter({ windowMs: 60_000, max: 8 });
+app.get("/api/keys/:id/secret", async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Sign in to reveal your API key." });
+    return;
+  }
+  const id = String(req.params.id || "");
+  const limiterId = `${owner.email.toLowerCase()}:${clientIp(req)}`;
+  if (!keyRevealLimiter.hit(limiterId, 0)) {
+    res.setHeader("Retry-After", String(keyRevealLimiter.retryAfterSec(limiterId) || 60));
+    res.status(429).json({ error: "Too many key reveal attempts. Try again shortly." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, id)) {
+    res.status(403).json({ error: "You can only reveal keys assigned to your account." });
+    return;
+  }
+  const secret = getDynamicKeySecret(id, owner.email);
+  if (!secret) {
+    res.status(409).json({ error: "This key was created before encrypted recovery was enabled. Create a replacement key to enable reveal and copy." });
+    return;
+  }
+  res.setHeader("Cache-Control", "no-store, no-cache, private, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.json({ key: secret });
 });
 
 app.patch("/api/keys/:id", express.json(), async (req, res) => {
@@ -1078,6 +1166,10 @@ app.patch("/api/keys/:id", express.json(), async (req, res) => {
     return;
   }
   const id = req.params.id as string;
+  if (!userOwnsKey(owner.email, id)) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
   const label =
     typeof req.body?.label === "string" ? req.body.label.trim() : "";
   if (!label || label.length < 4) {
@@ -1088,6 +1180,7 @@ app.patch("/api/keys/:id", express.json(), async (req, res) => {
   }
   try {
     const entry = renameDynamicKey(id, label);
+    await syncKeyToMongo(entry);
     statsTracker.syncKnownKeys(
       listDynamicKeys(),
       listActiveOAuthAuthorizations(),
@@ -1106,8 +1199,12 @@ app.delete("/api/keys/:id", async (req, res) => {
     return;
   }
   const id = req.params.id as string;
-  const revoked = revokeDynamicKey(id);
+  if (!isOwnerEmail(owner.email) && !userOwnsKey(owner.email, id)) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
   await revokeKeyInMongo(id);
+  const revoked = revokeDynamicKey(id);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1129,17 +1226,35 @@ app.get("/tools", async (req, res) => {
   );
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
-  const isOwner = Boolean(owner);
-  const selectedKeyId =
+  if (!owner) {
+    res.status(401).send("Sign in to view tool usage.");
+    return;
+  }
+  const isOwner = isOwnerEmail(owner.email);
+  let selectedKeyId =
     typeof req.query.key === "string" ? req.query.key.trim() : undefined;
+  if (selectedKeyId && (!owner || !userOwnsKey(owner.email, selectedKeyId))) {
+    res.status(403).send("Forbidden");
+    return;
+  }
+  if (!selectedKeyId) {
+    selectedKeyId =
+      listDynamicKeys(owner.email)[0]?.id ||
+      listActiveOAuthAuthorizations().find(
+        (authorization) =>
+          authorization.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+      )?.clientId ||
+      (isOwnerEmail(owner.email) ? "primary-key" : "no-keys");
+  }
   const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
   );
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root, selectedKeyId);
+  const summary = statsTracker.getSummary(root, selectedKeyId, isOwner);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.send(
     renderToolsPage({
       base,
@@ -1181,12 +1296,42 @@ app.get("/stats/api", async (req, res) => {
   );
   const selectedKeyId =
     typeof req.query.key === "string" ? req.query.key.trim() : undefined;
+  const apiEntry = clientKey ? findAuthorizedApiKey(clientKey) : null;
+  if (selectedKeyId && (
+    owner
+      ? !userOwnsKey(owner.email, selectedKeyId)
+      : !apiEntry || apiEntry.id !== selectedKeyId
+  )) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
   const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+    owner ? `user_${owner.email.toLowerCase()}` : `key_${apiEntry?.id || "anonymous"}`,
   );
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root, selectedKeyId);
+  const scopedKeyId =
+    selectedKeyId ||
+    apiEntry?.id ||
+    (owner
+      ? listDynamicKeys(owner.email)[0]?.id ||
+        listActiveOAuthAuthorizations().find(
+          (authorization) =>
+            authorization.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+        )?.clientId ||
+        (isOwnerEmail(owner.email) ? "primary-key" : "no-keys")
+      : clientKey === MCP_API_KEY
+        ? "primary-key"
+        : undefined);
+  if (!scopedKeyId) {
+    res.status(403).json({ error: "Unable to resolve the API key's usage scope." });
+    return;
+  }
+  const summary = statsTracker.getSummary(
+    root,
+    scopedKeyId,
+    owner ? isOwnerEmail(owner.email) : clientKey === MCP_API_KEY,
+  );
   res.setHeader("Cache-Control", "no-store");
   res.json(summary);
 });
@@ -1205,18 +1350,35 @@ app.get("/stats", async (req, res) => {
   );
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
-  const isOwner = Boolean(owner);
+  if (!owner) {
+    res.status(401).send("Sign in to view your usage statistics.");
+    return;
+  }
+  const isOwner = isOwnerEmail(owner.email);
   const selectedKeyId =
     typeof req.query.key === "string" ? req.query.key.trim() : undefined;
+  if (selectedKeyId && !userOwnsKey(owner.email, selectedKeyId)) {
+    res.status(403).send("Forbidden");
+    return;
+  }
+  const scopedKeyId =
+    selectedKeyId ||
+    listDynamicKeys(owner.email)[0]?.id ||
+    listActiveOAuthAuthorizations().find(
+      (authorization) =>
+        authorization.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+    )?.clientId ||
+    (isOwner ? "primary-key" : "no-keys");
 
   const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
   );
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root, selectedKeyId);
+  const summary = statsTracker.getSummary(root, scopedKeyId, isOwner);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.send(
     renderStatsPage({
       base,
@@ -1229,8 +1391,7 @@ app.get("/stats", async (req, res) => {
 
 // Dedicated Settings Page & Management Endpoints
 function userOwnsKey(email: string, keyId: string): boolean {
-  if (isOwnerEmail(email)) return true;
-  if (keyId === "primary-key") return false;
+  if (keyId === "primary-key") return isOwnerEmail(email);
   const userKeys = listDynamicKeys(email);
   if (userKeys.some((k) => k.id === keyId)) return true;
   const activeOAuths = listActiveOAuthAuthorizations();
@@ -1284,12 +1445,12 @@ app.get("/settings", async (req, res) => {
   if (isOwner) {
     keys.push({
       id: "primary-key",
-      label: "Primary Master Key (Owner)",
+      label: "Primary API Key",
       prefix: "MCP_API_KEY",
       role: "owner",
       email: owner.email,
     });
-    for (const k of listDynamicKeys()) {
+    for (const k of listDynamicKeys(owner.email)) {
       keys.push({
         id: k.id,
         label: k.label,
@@ -1299,6 +1460,7 @@ app.get("/settings", async (req, res) => {
       });
     }
     for (const oa of listActiveOAuthAuthorizations()) {
+      if (oa.ownerEmail?.toLowerCase() !== owner.email.toLowerCase()) continue;
       keys.push({
         id: oa.clientId,
         label: `OAuth: ${oa.clientName}`,
@@ -1351,12 +1513,13 @@ app.get("/settings", async (req, res) => {
   }
 
   const userRole = isOwner ? "owner" : "user";
-  const userQuota = getUserQuota(keySettings.role || userRole);
-  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
+  const userQuota = getUserQuota(userRole);
+  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
   const root = sandboxRootForAuthKey(authKey);
-  const summary = statsTracker.getSummary(root, selectedKeyId);
+  const summary = statsTracker.getSummary(root, selectedKeyId, isOwner);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.send(
     renderSettingsPage({
       base,
@@ -1398,6 +1561,8 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
       typeof githubToken === "string" ? githubToken : undefined,
       typeof renderToken === "string" ? renderToken : undefined,
     );
+    await syncKeySettingsToMongo(updated);
+    res.setHeader("Cache-Control", "no-store");
 
     res.json({
       ok: true,
@@ -1408,6 +1573,31 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
     res
       .status(500)
       .json({ ok: false, error: err?.message || "Failed to save credentials." });
+  }
+});
+
+app.post("/settings/api/credentials/delete", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId, provider } = req.body || {};
+  if (typeof keyId !== "string" || !["github", "render"].includes(provider)) {
+    res.status(400).json({ ok: false, error: "Invalid credential deletion request." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, keyId)) {
+    res.status(403).json({ ok: false, error: "You cannot manage credentials for this key." });
+    return;
+  }
+  try {
+    const updated = removeKeyCredential(keyId, provider);
+    await syncKeySettingsToMongo(updated);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, provider, deleted: true });
+  } catch {
+    res.status(503).json({ ok: false, error: "Credential deletion could not be persisted." });
   }
 });
 
@@ -1447,6 +1637,36 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
     res
       .status(500)
       .json({ ok: false, error: err?.message || "Failed to toggle tool." });
+  }
+});
+
+app.post("/settings/api/tool-risk", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId, toolName, riskLevel, acknowledgeHighRisk } = req.body || {};
+  if (typeof keyId !== "string" || typeof toolName !== "string" || !toolName.trim()) {
+    res.status(400).json({ ok: false, error: "Invalid tool risk request." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, keyId)) {
+    res.status(403).json({ ok: false, error: "You cannot change policies for this key." });
+    return;
+  }
+  try {
+    const updated = updateKeyToolRiskLevel(
+      keyId,
+      toolName,
+      riskLevel,
+      acknowledgeHighRisk === true,
+    );
+    await syncKeySettingsToMongo(updated);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, riskLevel: updated.toolRiskLevels?.[toolName], acknowledged: updated.riskAcknowledgedTools?.includes(toolName) || false });
+  } catch (err: any) {
+    res.status(400).json({ ok: false, error: err?.message || "Could not update tool risk." });
   }
 });
 
@@ -1504,10 +1724,9 @@ app.get("/settings/api/data", async (req, res) => {
   }
 
   const keySettings = getKeySettings(keyId);
-  const userQuota = getUserQuota(
-    keySettings.role || (isOwner ? "owner" : "user"),
-  );
+  const userQuota = getUserQuota(isOwner ? "owner" : "user");
 
+  res.setHeader("Cache-Control", "no-store");
   res.json({
     ok: true,
     keySettings: {
@@ -1544,16 +1763,16 @@ app.get("/store", async (req, res) => {
 
   try {
     const authKey = computeAuthKey(
-      DEFAULT_GITHUB_PAT || `owner_${owner.email}`,
+      `user_${owner.email.toLowerCase()}`,
     );
     const root = sandboxRootForAuthKey(authKey);
     const fileStore = getFileStore();
 
     const [storeResult, usage] = await Promise.all([
       fileStore
-        .listByOwner("*", { limit: 100, status: "all" })
+        .listByOwner(authKey, { limit: 100, status: "all" })
         .catch(() => ({ files: [], totalCount: 0 })),
-      fileStore.usage("*").catch(() => undefined),
+      fileStore.usage(authKey).catch(() => undefined),
     ]);
 
     const files: StoredFileInfo[] = storeResult.files.map((f) => {
@@ -1636,15 +1855,15 @@ app.get("/store/api/files", async (req, res) => {
   const dbFiles = getMongoDb();
   if (dbFiles) fileShareRegistry.setMongoDb(dbFiles);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
+  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
   const root = sandboxRootForAuthKey(authKey);
   const fileStore = getFileStore();
 
   const [storeResult, usage] = await Promise.all([
     fileStore
-      .listByOwner("*", { limit: 100, status: "all" })
+      .listByOwner(authKey, { limit: 100, status: "all" })
       .catch(() => ({ files: [], totalCount: 0 })),
-    fileStore.usage("*").catch(() => undefined),
+    fileStore.usage(authKey).catch(() => undefined),
   ]);
 
   const files: StoredFileInfo[] = storeResult.files.map((f) => {
@@ -1855,7 +2074,7 @@ app.get("/store/download", async (req, res) => {
   }
 
   const authKey = computeAuthKey(
-    DEFAULT_GITHUB_PAT || (owner ? `owner_${owner.email}` : ""),
+    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
   );
   const root = sandboxRootForAuthKey(authKey);
   const filePath = path.join(root, UPLOAD_DIR, filename);
@@ -1943,7 +2162,7 @@ app.delete("/store/sandbox-file", async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
+  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
   const root = sandboxRootForAuthKey(authKey);
   const filePath = path.join(root, UPLOAD_DIR, name);
   if (fs.existsSync(filePath)) {
@@ -1979,7 +2198,7 @@ app.post("/upload/rename", express.json(), async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
+  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
   const root = sandboxRootForAuthKey(authKey);
   const oldPath = path.join(root, UPLOAD_DIR, oldName);
   const newPath = path.join(root, UPLOAD_DIR, newName);
@@ -2057,18 +2276,26 @@ app.use((req: Request, res: Response): void => {
 });
 
 const PORT = Number(process.env.PORT) || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Krix Active on Port ${PORT}`);
-  logIsolationStatus();
-  if (process.env.MONGODB_URI) startFileSweeper();
-  else
-    console.warn(
-      "ℹ️  MONGODB_URI is not set: sandbox_store share/list/delete will report that file storage is not configured (download still works).",
-    );
-});
-server.requestTimeout = 120_000;
-server.headersTimeout = 30_000;
-server.keepAliveTimeout = 65_000;
+let server: ReturnType<typeof app.listen> | undefined;
+
+async function startServer(): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    await ensureMongoAuth();
+    if (!getMongoDb()) {
+      throw new Error("MongoDB must be reachable before Krix can accept production traffic.");
+    }
+  }
+  server = app.listen(PORT, () => {
+    console.log(`Krix active on port ${PORT}`);
+    logIsolationStatus();
+    if (getMongoDb()) startFileSweeper();
+    else
+      console.warn("MongoDB is not configured: durable file sharing is unavailable.");
+  });
+  server.requestTimeout = 120_000;
+  server.headersTimeout = 30_000;
+  server.keepAliveTimeout = 65_000;
+}
 
 let shuttingDown = false;
 async function shutdown() {
@@ -2083,11 +2310,16 @@ async function shutdown() {
   await shutdownUploadSessions().catch(() => {});
   await stopFileStore().catch(() => {});
   await statsTracker.flush().catch(() => {});
-  server.close(() => process.exit(0));
+  if (server) server.close(() => process.exit(0));
+  else process.exit(0);
 }
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+startServer().catch((err) => {
+  console.error("[startup] refusing to serve with unsafe or unavailable production dependencies:", sanitizeOutput(String(err?.message || err)).slice(0, 500));
+  process.exit(1);
+});
 process.on("unhandledRejection", (reason) => {
   console.error(
     "[process] unhandledRejection:",
