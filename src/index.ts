@@ -77,6 +77,7 @@ import {
   renderToolsPage,
   renderStorePage,
   renderNotFoundPage,
+  renderSettingsPage,
   type StoredFileInfo,
 } from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
@@ -86,6 +87,8 @@ import {
   ToolCategory,
   getSessionContext,
   registerSessionAuth,
+  registerSessionSandboxId,
+  getSandboxIdForSession,
   getAuthKeyForSession,
   computeAuthKey,
   safeEqual,
@@ -93,6 +96,19 @@ import {
   sanitizeOutput,
   sandboxRootForAuthKey,
 } from "./security.js";
+import { registerCodeGraphTools } from "./codeGraphTools.js";
+import {
+  getKeySettings,
+  getUserQuota,
+  updateKeyCredentials,
+  updateKeyTools,
+  toggleKeyTool,
+  getUserRole,
+  isOwnerEmail,
+  maskSecret,
+  generateSandboxId,
+  type KeySettings,
+} from "./userSettings.js";
 
 const DEFAULT_GITHUB_PAT =
   process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_PAT;
@@ -187,6 +203,7 @@ function createMasterServer(
   renderToken: string | undefined,
   sessionId: string,
   req: Request,
+  keySettings?: KeySettings,
 ) {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const serverIcons = getServerIcons(base);
@@ -236,10 +253,23 @@ function createMasterServer(
   registerFileTools(server, sessionId, registry, () => publicBase);
   tagCategory(registry, categoryOf, "files");
 
+  registerCodeGraphTools(server, sessionId, registry);
+  tagCategory(registry, categoryOf, "codegraph");
+
   const ctx = getSessionContext(sessionId);
   for (const [name, handle] of Object.entries(registry)) {
     const cat = categoryOf[name];
-    if (ctx.enabledCategories.has(cat)) {
+    const isCustomDisabled = keySettings?.disabledTools?.includes(name);
+    const isCustomEnabled = keySettings?.enabledTools?.includes(name);
+
+    if (isCustomDisabled) {
+      handle.disable();
+    } else if (isCustomEnabled) {
+      handle.enable();
+    } else if (cat === "codegraph" || cat === "search") {
+      // Code Graph and Search tools remain disabled by default unless explicitly enabled
+      handle.disable();
+    } else if (ctx.enabledCategories.has(cat)) {
       handle.enable();
     } else {
       handle.disable();
@@ -472,16 +502,27 @@ app.all(
       console.error("[stats] startup restore before MCP request failed:", error?.message || error);
     });
     const startTime = Date.now();
+    const clientAuth = (req as any).clientAuth || {
+      keyId: "primary-key",
+      label: "Primary Key",
+      type: "master_key",
+    };
+    const keyId = clientAuth.keyId || "primary-key";
+    const keySettings = getKeySettings(keyId);
+
     const githubToken =
       (typeof req.headers["x-github-token"] === "string"
         ? req.headers["x-github-token"]
         : "") ||
+      keySettings.customGitHubToken ||
       DEFAULT_GITHUB_PAT ||
       "";
     const renderToken =
       (typeof req.headers["x-render-token"] === "string"
         ? req.headers["x-render-token"]
-        : "") || DEFAULT_RENDER_API_KEY;
+        : "") ||
+      keySettings.customRenderToken ||
+      DEFAULT_RENDER_API_KEY;
     registerSecret(githubToken);
     registerSecret(renderToken);
     const sessionId =
@@ -634,6 +675,11 @@ app.all(
       const newSessionId = crypto.randomUUID();
       registerSessionAuth(newSessionId, githubToken);
 
+      const effectiveSandboxId =
+        keySettings.sandboxId ||
+        (keyId === "primary-key" ? "owner" : `sbx_${keyId}`);
+      registerSessionSandboxId(newSessionId, effectiveSandboxId);
+
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => newSessionId,
         onsessioninitialized: (id) => {
@@ -653,6 +699,7 @@ app.all(
         renderToken,
         newSessionId,
         req,
+        keySettings,
       );
       await masterServer.connect(transport);
       await transport.handleRequest(req, res, body);
@@ -1178,6 +1225,298 @@ app.get("/stats", async (req, res) => {
       summary,
     }),
   );
+});
+
+// Dedicated Settings Page & Management Endpoints
+function userOwnsKey(email: string, keyId: string): boolean {
+  if (isOwnerEmail(email)) return true;
+  if (keyId === "primary-key") return false;
+  const userKeys = listDynamicKeys(email);
+  if (userKeys.some((k) => k.id === keyId)) return true;
+  const activeOAuths = listActiveOAuthAuthorizations();
+  if (
+    activeOAuths.some(
+      (oa) =>
+        oa.clientId === keyId &&
+        oa.ownerEmail?.toLowerCase() === email.toLowerCase(),
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+app.get("/settings", async (req, res) => {
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
+  ]);
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  const isOwner = Boolean(owner && isOwnerEmail(owner.email));
+
+  if (!owner) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(
+      renderSettingsPage({
+        base,
+        isOwner: false,
+        owner: null,
+        keys: [],
+        selectedKeyId: "primary-key",
+        keySettings: getKeySettings("primary-key"),
+        toolsCatalog: statsTracker.getSummary("/tmp").toolsCatalog,
+        userQuota: getUserQuota("user"),
+      }),
+    );
+    return;
+  }
+
+  const keys: Array<{
+    id: string;
+    label?: string;
+    prefix?: string;
+    role?: string;
+    email?: string;
+  }> = [];
+
+  if (isOwner) {
+    keys.push({
+      id: "primary-key",
+      label: "Primary Master Key (Owner)",
+      prefix: "MCP_API_KEY",
+      role: "owner",
+      email: owner.email,
+    });
+    for (const k of listDynamicKeys()) {
+      keys.push({
+        id: k.id,
+        label: k.label,
+        prefix: k.prefix,
+        role: k.role || (isOwnerEmail(k.email) ? "owner" : "user"),
+        email: k.email,
+      });
+    }
+    for (const oa of listActiveOAuthAuthorizations()) {
+      keys.push({
+        id: oa.clientId,
+        label: `OAuth: ${oa.clientName}`,
+        prefix: oa.clientId.slice(0, 16),
+        role: "owner",
+        email: oa.ownerEmail,
+      });
+    }
+  } else {
+    let userKeys = listDynamicKeys(owner.email);
+    if (userKeys.length === 0) {
+      const newKey = createDynamicKey("Personal Key", owner.email);
+      userKeys = [newKey];
+    }
+    for (const k of userKeys) {
+      keys.push({
+        id: k.id,
+        label: k.label,
+        prefix: k.prefix,
+        role: "user",
+        email: owner.email,
+      });
+    }
+    for (const oa of listActiveOAuthAuthorizations()) {
+      if (oa.ownerEmail?.toLowerCase() === owner.email.toLowerCase()) {
+        keys.push({
+          id: oa.clientId,
+          label: `OAuth: ${oa.clientName}`,
+          prefix: oa.clientId.slice(0, 16),
+          role: "user",
+          email: owner.email,
+        });
+      }
+    }
+  }
+
+  let selectedKeyId =
+    typeof req.query.key === "string" ? req.query.key.trim() : "";
+  const validKey = keys.find((k) => k.id === selectedKeyId);
+  if (!validKey) {
+    selectedKeyId = keys[0]?.id || (isOwner ? "primary-key" : "default-key");
+  }
+
+  const keySettings = getKeySettings(selectedKeyId);
+  if (!keySettings.sandboxId) {
+    keySettings.sandboxId = generateSandboxId(
+      selectedKeyId,
+      isOwner && selectedKeyId === "primary-key",
+    );
+  }
+
+  const userRole = isOwner ? "owner" : "user";
+  const userQuota = getUserQuota(keySettings.role || userRole);
+  const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || `owner_${owner.email}`);
+  const root = sandboxRootForAuthKey(authKey);
+  const summary = statsTracker.getSummary(root, selectedKeyId);
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderSettingsPage({
+      base,
+      isOwner,
+      owner,
+      keys,
+      selectedKeyId,
+      keySettings,
+      toolsCatalog: summary.toolsCatalog,
+      userQuota,
+    }),
+  );
+});
+
+app.post("/settings/api/credentials", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId, githubToken, renderToken } = req.body || {};
+
+  if (!keyId || typeof keyId !== "string") {
+    res.status(400).json({ ok: false, error: "Invalid keyId." });
+    return;
+  }
+
+  if (!userOwnsKey(owner.email, keyId)) {
+    res
+      .status(403)
+      .json({ ok: false, error: "Forbidden: You do not have permission to manage this key." });
+    return;
+  }
+
+  try {
+    const updated = updateKeyCredentials(
+      keyId,
+      owner.email,
+      typeof githubToken === "string" ? githubToken : undefined,
+      typeof renderToken === "string" ? renderToken : undefined,
+    );
+
+    res.json({
+      ok: true,
+      maskedGitHub: maskSecret(updated.customGitHubToken),
+      maskedRender: maskSecret(updated.customRenderToken),
+    });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ ok: false, error: err?.message || "Failed to save credentials." });
+  }
+});
+
+app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId, toolName, enabled } = req.body || {};
+
+  if (
+    !keyId ||
+    typeof keyId !== "string" ||
+    !toolName ||
+    typeof toolName !== "string"
+  ) {
+    res.status(400).json({ ok: false, error: "Invalid parameters." });
+    return;
+  }
+
+  if (!userOwnsKey(owner.email, keyId)) {
+    res
+      .status(403)
+      .json({ ok: false, error: "Forbidden: You do not have permission to manage this key." });
+    return;
+  }
+
+  try {
+    const updated = toggleKeyTool(keyId, toolName, Boolean(enabled));
+    res.json({
+      ok: true,
+      enabledTools: updated.enabledTools,
+      disabledTools: updated.disabledTools,
+    });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ ok: false, error: err?.message || "Failed to toggle tool." });
+  }
+});
+
+app.post("/settings/api/tools", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId, enabledTools, disabledTools } = req.body || {};
+
+  if (!keyId || typeof keyId !== "string") {
+    res.status(400).json({ ok: false, error: "Invalid keyId." });
+    return;
+  }
+
+  if (!userOwnsKey(owner.email, keyId)) {
+    res
+      .status(403)
+      .json({ ok: false, error: "Forbidden: You do not have permission to manage this key." });
+    return;
+  }
+
+  try {
+    const updated = updateKeyTools(
+      keyId,
+      Array.isArray(enabledTools) ? enabledTools : [],
+      Array.isArray(disabledTools) ? disabledTools : [],
+    );
+    res.json({
+      ok: true,
+      enabledTools: updated.enabledTools,
+      disabledTools: updated.disabledTools,
+    });
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ ok: false, error: err?.message || "Failed to update tools." });
+  }
+});
+
+app.get("/settings/api/data", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const isOwner = isOwnerEmail(owner.email);
+  const keyId =
+    typeof req.query.key === "string" ? req.query.key.trim() : "primary-key";
+
+  if (!userOwnsKey(owner.email, keyId)) {
+    res.status(403).json({ ok: false, error: "Forbidden." });
+    return;
+  }
+
+  const keySettings = getKeySettings(keyId);
+  const userQuota = getUserQuota(
+    keySettings.role || (isOwner ? "owner" : "user"),
+  );
+
+  res.json({
+    ok: true,
+    keySettings: {
+      ...keySettings,
+      customGitHubToken: maskSecret(keySettings.customGitHubToken),
+      customRenderToken: maskSecret(keySettings.customRenderToken),
+    },
+    userQuota,
+  });
 });
 
 // Dedicated Store Page & Download Endpoints

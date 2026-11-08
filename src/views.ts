@@ -1,6 +1,8 @@
 import type { OwnerProfile, GeneratedKeyEntry } from "./googleAuth.js";
 import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 import type { ActiveOAuthInfo } from "./mcpOAuth.js";
+import type { KeySettings, UserQuotaConfig } from "./userSettings.js";
+import { maskSecret } from "./userSettings.js";
 
 export function escapeHtml(str: string): string {
   if (!str) return "";
@@ -1326,6 +1328,7 @@ export function renderHeader(
           <a href="/stats" class="nav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
           <a href="/tools" class="nav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
           <a href="/api" class="nav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
+          <a href="/settings" class="nav-pill ${activeNav === "settings" ? "active" : ""}">Settings</a>
           <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="nav-pill">Contact</a>
         </nav>
 
@@ -1392,6 +1395,7 @@ export function renderHeader(
           <a href="/stats" class="mobile-subnav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
           <a href="/tools" class="mobile-subnav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
           <a href="/api" class="mobile-subnav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
+          <a href="/settings" class="mobile-subnav-pill ${activeNav === "settings" ? "active" : ""}">Settings</a>
           <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="mobile-subnav-pill">Contact</a>
         </div>
       </nav>
@@ -2880,9 +2884,16 @@ export function renderApiKeysPage(params: {
 </html>`;
 }
 
-function renderCustomKeySelector(summary: any, selectId = "keySelector"): string {
-  const selectedKey = summary.keys?.find((k: any) => (k.keyId || k.id) === summary.selectedKeyId);
-  const selectedLabel = selectedKey ? (selectedKey.label || selectedKey.keyId || selectedKey.id) : "All Keys & OAuth";
+function renderCustomKeySelector(
+  summary: any,
+  selectId = "keySelector",
+): string {
+  const selectedKey = summary.keys?.find(
+    (k: any) => (k.keyId || k.id) === summary.selectedKeyId,
+  );
+  const selectedLabel = selectedKey
+    ? selectedKey.label || selectedKey.keyId || selectedKey.id
+    : "All Keys & OAuth";
   const apiKeys = (summary.keys || []).filter(
     (k: any) => k.type === "api_key" || k.type === "master" || !k.type,
   );
@@ -3026,6 +3037,9 @@ export function renderToolsPage(params: {
     Render: tools.filter((t) => t.category === "Render").length,
     GitHub: tools.filter((t) => t.category === "GitHub").length,
     Files: tools.filter((t) => t.category === "Files").length,
+    "Code Graph": tools.filter(
+      (t) => t.category === "Code Graph" || t.category === "Search",
+    ).length,
   };
 
   return `<!DOCTYPE html>
@@ -3126,6 +3140,9 @@ export function renderToolsPage(params: {
           </button>
           <button type="button" class="pill-btn" data-cat="Files" onclick="setCategoryFilter('Files', this)">
             Files (${counts.Files})
+          </button>
+          <button type="button" class="pill-btn" data-cat="Code Graph" onclick="setCategoryFilter('Code Graph', this)">
+            Code Graph (${counts["Code Graph"]})
           </button>
         </div>
         <span id="toolMatchCount" style="font-size:12px; color:var(--accents-5); font-weight:500;">
@@ -5101,6 +5118,723 @@ export function renderNotFoundPage(params: {
   </div>
 
   ${renderFooter()}
+</body>
+</html>`;
+}
+
+export function renderSettingsPage(params: {
+  base: string;
+  isOwner: boolean;
+  owner: OwnerProfile | null;
+  keys: Array<{
+    id: string;
+    label?: string;
+    prefix?: string;
+    role?: string;
+    email?: string;
+  }>;
+  selectedKeyId: string;
+  keySettings: KeySettings;
+  toolsCatalog: ToolDetailMeta[];
+  userQuota: UserQuotaConfig;
+  nonce?: string;
+}): string {
+  const {
+    base,
+    isOwner,
+    owner,
+    keys,
+    selectedKeyId,
+    keySettings,
+    toolsCatalog,
+    userQuota,
+    nonce,
+  } = params;
+
+  if (!owner) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <style>
+    ${getBaseStyles()}
+  </style>
+  ${renderRecaptchaScript()}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("settings", owner, nonce)}
+  <div class="wrapper">
+    ${renderAuthRequiredCard("Settings & Key Management", "/settings")}
+  </div>
+  ${renderFooter()}
+</body>
+</html>`;
+  }
+
+  const role = userQuota.role;
+  const isServerOwner = role === "owner";
+  const maskedGitHub = maskSecret(keySettings.customGitHubToken);
+  const maskedRender = maskSecret(keySettings.customRenderToken);
+
+  const enabledSet = new Set(keySettings.enabledTools || []);
+  const disabledSet = new Set(keySettings.disabledTools || []);
+
+  const isToolActive = (t: ToolDetailMeta): boolean => {
+    if (disabledSet.has(t.name)) return false;
+    if (enabledSet.has(t.name)) return true;
+    if (t.category === "Code Graph" || t.category === "Search") return false; // Disabled by default
+    return true; // Core, GitHub, Render, Sandbox, Files enabled by default
+  };
+
+  const codeGraphCount = toolsCatalog.filter(
+    (t) => t.category === "Code Graph" || t.category === "Search",
+  ).length;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <style>
+    ${getBaseStyles()}
+
+    .settings-header {
+      margin: 20px 0 28px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .settings-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--fg);
+    }
+    .settings-desc {
+      font-size: 13px;
+      color: var(--accents-5);
+      margin-top: 2px;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    @media (min-width: 900px) {
+      .settings-grid-split {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--fg);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-desc {
+      font-size: 12px;
+      color: var(--accents-5);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .field-group {
+      margin-bottom: 16px;
+    }
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accents-6);
+      margin-bottom: 6px;
+    }
+    .secret-input-wrap {
+      display: flex;
+      position: relative;
+      align-items: center;
+    }
+    .secret-input-wrap input {
+      padding-right: 76px;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+    }
+    .secret-actions {
+      position: absolute;
+      right: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .icon-btn {
+      background: none;
+      border: none;
+      padding: 6px;
+      color: var(--accents-4);
+      cursor: pointer;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s ease, background-color 0.15s ease;
+    }
+    .icon-btn:hover {
+      color: var(--fg);
+      background-color: var(--accents-2);
+    }
+
+    /* Geist Switch Toggle */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--accents-2);
+      border: 1px solid var(--border);
+      transition: .15s ease;
+      border-radius: 20px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--accents-5);
+      transition: .15s ease;
+      border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+      background-color: var(--fg);
+      border-color: var(--fg);
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(16px);
+      background-color: var(--bg);
+    }
+
+    .tools-manager-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .tool-perm-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      transition: background-color 0.1s ease;
+    }
+    .tool-perm-row:hover {
+      background-color: var(--accents-1);
+    }
+    .tool-perm-row:last-child {
+      border-bottom: none;
+    }
+    .tool-perm-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .tool-perm-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tool-perm-desc {
+      font-size: 12px;
+      color: var(--accents-5);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tier-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tier-badge.owner {
+      background: var(--fg);
+      color: var(--bg);
+    }
+    .tier-badge.member {
+      background: var(--accents-2);
+      color: var(--accents-7);
+      border: 1px solid var(--border);
+    }
+    .resource-stat-box {
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .resource-stat-label {
+      font-size: 11px;
+      color: var(--accents-5);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .resource-stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--fg);
+    }
+    .resource-stat-sub {
+      font-size: 11px;
+      color: var(--accents-4);
+    }
+  </style>
+  ${renderRecaptchaScript()}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("settings", owner, nonce)}
+
+  <div class="wrapper">
+    <div class="settings-header">
+      <div>
+        <h1 class="settings-title">Account & Key Settings</h1>
+        <p class="settings-desc">
+          Configure per-user credentials, isolated sandboxes, and granular tool permissions for every API key and OAuth client.
+        </p>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="tier-badge ${isServerOwner ? "owner" : "member"}">
+          ${isServerOwner ? "Server Owner" : "Standard Member (1/10th Limits)"}
+        </span>
+        <a href="/tools" class="btn" style="font-size:12px;">Browse Tools</a>
+      </div>
+    </div>
+
+    <!-- Resource Allocation & Quotas Card -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+          <line x1="6" y1="6" x2="6.01" y2="6"></line>
+          <line x1="6" y1="18" x2="6.01" y2="18"></line>
+        </svg>
+        <span>Hardware & Quota Distribution</span>
+      </div>
+      <p class="section-desc">
+        ${
+          isServerOwner
+            ? "As the server owner, your keys operate with full hardware capacity, 300MB+ sandbox storage, and unrestricted process limits."
+            : "Standard member account: your isolated sandbox has a 50MB storage ceiling and 1/10th compute, memory, and rate limits to ensure reliable multi-user distribution."
+        }
+      </p>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px;">
+        <div class="resource-stat-box">
+          <span class="resource-stat-label">Storage Ceiling</span>
+          <span class="resource-stat-value">${userQuota.storageMb} MB</span>
+          <span class="resource-stat-sub">${isServerOwner ? "Uncapped storage" : "1/10th distributed quota"}</span>
+        </div>
+        <div class="resource-stat-box">
+          <span class="resource-stat-label">File Upload Max</span>
+          <span class="resource-stat-value">${userQuota.maxFileMb} MB</span>
+          <span class="resource-stat-sub">Per file limit</span>
+        </div>
+        <div class="resource-stat-box">
+          <span class="resource-stat-label">Process Capacity</span>
+          <span class="resource-stat-value">${userQuota.ulimitProc} PIDs</span>
+          <span class="resource-stat-sub">${userQuota.ulimitFile} ulimit file size</span>
+        </div>
+        <div class="resource-stat-box">
+          <span class="resource-stat-label">Rate Limiter</span>
+          <span class="resource-stat-value">${userQuota.rateLimitPerMin} req/min</span>
+          <span class="resource-stat-sub">${userQuota.maxOutputBytes / 1024} KB max output</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Key / Client Selector Bar -->
+    <div class="card" style="margin-bottom:24px; padding:16px 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <label for="settingKeySelector" style="font-size:13px; font-weight:600; color:var(--fg); display:block; margin-bottom:2px;">
+            Target API Key or Client
+          </label>
+          <span style="font-size:12px; color:var(--accents-5);">
+            Select which API key or OAuth authorization you are configuring:
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <select id="settingKeySelector" onchange="onSettingKeyChange(this)" style="font-size:13px; padding:7px 12px; border-radius:6px; min-width:240px; background:var(--input-bg); color:var(--fg); border:1px solid var(--border);">
+            ${keys
+              .map(
+                (k) => `
+              <option value="${escapeHtml(k.id)}" ${k.id === selectedKeyId ? "selected" : ""}>
+                ${escapeHtml(k.label || k.id)} ${k.prefix ? `(${escapeHtml(k.prefix)})` : ""}
+              </option>
+            `,
+              )
+              .join("")}
+          </select>
+          <span class="badge" title="Isolated sandbox filesystem root">Sandbox: ${escapeHtml(keySettings.sandboxId)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom API Credentials Card -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Per-Key Custom Credentials</span>
+      </div>
+      <p class="section-desc">
+        Optionally configure custom GitHub Personal Access Tokens and Render API keys for this specific key. When an agent calls Krix with this key, it automatically authenticates against your personal accounts instead of server defaults.
+      </p>
+
+      <form id="credentialsForm" onsubmit="saveCredentials(event)">
+        <div class="field-group">
+          <label class="field-label" for="customGithubInput">GitHub Personal Access Token (PAT)</label>
+          <div class="secret-input-wrap">
+            <input
+              type="password"
+              id="customGithubInput"
+              name="githubToken"
+              placeholder="${keySettings.customGitHubToken ? maskedGitHub : "ghp_•••••••••••• or github_pat_••••••••••••"}"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <div class="secret-actions">
+              <button type="button" class="icon-btn" onclick="toggleInputVisibility('customGithubInput')" title="Show / Hide token" aria-label="Toggle GitHub token visibility">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+          <span style="font-size:11px; color:var(--accents-5); margin-top:4px; display:block;">
+            ${keySettings.customGitHubToken ? `Current token: <code>${maskedGitHub}</code> &middot; Leave blank to keep existing, or clear to use default.` : "Leave blank to use instance default GitHub integration."}
+          </span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="customRenderInput">Render Cloud API Key</label>
+          <div class="secret-input-wrap">
+            <input
+              type="password"
+              id="customRenderInput"
+              name="renderToken"
+              placeholder="${keySettings.customRenderToken ? maskedRender : "rnd_••••••••••••"}"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <div class="secret-actions">
+              <button type="button" class="icon-btn" onclick="toggleInputVisibility('customRenderInput')" title="Show / Hide token" aria-label="Toggle Render API key visibility">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+          <span style="font-size:11px; color:var(--accents-5); margin-top:4px; display:block;">
+            ${keySettings.customRenderToken ? `Current key: <code>${maskedRender}</code> &middot; Leave blank to keep existing, or clear to use default.` : "Leave blank to use instance default Render integration."}
+          </span>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+          <button type="submit" class="btn primary" id="saveCredsBtn" style="font-size:12px; padding:6px 16px;">
+            Save Credentials
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Granular Tool Permissions Card -->
+    <div class="card" style="margin-bottom:32px;">
+      <div class="section-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+        <span>Granular Tool Permissions & Code Graph</span>
+      </div>
+      <p class="section-desc">
+        Select which tools are enabled for this key. <strong>Code Graph Context (29 tools)</strong> and <strong>Web Search</strong> are disabled by default for maximum security; toggle individual tools below to enable them for your agent.
+      </p>
+
+      <div class="tools-manager-bar">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <input
+            type="search"
+            id="toolSearchInput"
+            placeholder="Search tools by name or description…"
+            oninput="filterToolRows()"
+            style="font-size:12px; padding:6px 12px; border-radius:6px; min-width:240px; background:var(--input-bg); color:var(--fg); border:1px solid var(--border);"
+          >
+          <div class="pill-group">
+            <button type="button" class="pill-btn active" data-filter="All" onclick="setToolCatFilter('All', this)">All (${toolsCatalog.length})</button>
+            <button type="button" class="pill-btn" data-filter="Code Graph" onclick="setToolCatFilter('Code Graph', this)">Code Graph (${codeGraphCount})</button>
+            <button type="button" class="pill-btn" data-filter="Sandbox" onclick="setToolCatFilter('Sandbox', this)">Sandbox</button>
+            <button type="button" class="pill-btn" data-filter="Render" onclick="setToolCatFilter('Render', this)">Render</button>
+            <button type="button" class="pill-btn" data-filter="GitHub" onclick="setToolCatFilter('GitHub', this)">GitHub</button>
+            <button type="button" class="pill-btn" data-filter="Files" onclick="setToolCatFilter('Files', this)">Files</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="btn" onclick="batchToggleCodeGraph(true)" style="font-size:11px; padding:4px 10px;">
+            Enable Code Graph (${codeGraphCount})
+          </button>
+          <button type="button" class="btn" onclick="batchToggleCodeGraph(false)" style="font-size:11px; padding:4px 10px;">
+            Disable Code Graph
+          </button>
+          <button type="button" class="btn" onclick="resetToolDefaults()" style="font-size:11px; padding:4px 10px;">
+            Reset Defaults
+          </button>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:8px; overflow:hidden;" id="toolsListContainer">
+        ${toolsCatalog
+          .map((t) => {
+            const active = isToolActive(t);
+            const isCodeGraph =
+              t.category === "Code Graph" || t.category === "Search";
+            return `
+          <div class="tool-perm-row" data-name="${escapeHtml(t.name.toLowerCase())}" data-category="${escapeHtml(t.category)}" data-desc="${escapeHtml(t.description.toLowerCase())}">
+            <div class="tool-perm-info">
+              <div class="tool-perm-name">
+                <span>${escapeHtml(t.name)}</span>
+                <span class="badge ${isCodeGraph ? "primary" : ""}">${escapeHtml(t.category)}</span>
+                ${isCodeGraph ? '<span class="badge" style="font-size:10px;">CGC Engine</span>' : ""}
+              </div>
+              <div class="tool-perm-desc" title="${escapeHtml(t.description)}">
+                ${escapeHtml(t.description)}
+              </div>
+            </div>
+
+            <label class="toggle-switch" title="Toggle ${escapeHtml(t.name)}">
+              <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        `;
+          })
+          .join("")}
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="settingsToast" style="display:none; position:fixed; bottom:24px; right:24px; z-index:9999; background:var(--fg); color:var(--bg); padding:10px 18px; border-radius:8px; font-size:13px; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,0.3); transition:all 0.2s ease;">
+  </div>
+
+  ${renderFooter()}
+
+  <script>
+    const currentKeyId = ${JSON.stringify(selectedKeyId)};
+
+    function showToast(msg, isError = false) {
+      const el = document.getElementById('settingsToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.background = isError ? '#e00' : 'var(--fg)';
+      el.style.color = isError ? '#fff' : 'var(--bg)';
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    function onSettingKeyChange(selectEl) {
+      const val = selectEl.value;
+      const url = new URL(window.location.href);
+      url.searchParams.set('key', val);
+      window.location.href = url.toString();
+    }
+
+    function toggleInputVisibility(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.type = el.type === 'password' ? 'text' : 'password';
+    }
+
+    async function saveCredentials(e) {
+      e.preventDefault();
+      const btn = document.getElementById('saveCredsBtn');
+      const ghInput = document.getElementById('customGithubInput');
+      const rndInput = document.getElementById('customRenderInput');
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      try {
+        const res = await fetch('/settings/api/credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            keyId: currentKeyId,
+            githubToken: ghInput.value,
+            renderToken: rndInput.value
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('Credentials saved successfully');
+          if (data.maskedGitHub) ghInput.placeholder = data.maskedGitHub;
+          if (data.maskedRender) rndInput.placeholder = data.maskedRender;
+          ghInput.value = '';
+          rndInput.value = '';
+        } else {
+          showToast(data.error || 'Failed to save credentials', true);
+        }
+      } catch (err) {
+        showToast('Network error saving credentials', true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Credentials';
+      }
+    }
+
+    async function onToolToggle(checkboxEl, toolName) {
+      const enabled = checkboxEl.checked;
+      try {
+        const res = await fetch('/settings/api/tool-toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            keyId: currentKeyId,
+            toolName: toolName,
+            enabled: enabled
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(toolName + (enabled ? ' enabled' : ' disabled'));
+        } else {
+          checkboxEl.checked = !enabled;
+          showToast(data.error || 'Failed to toggle tool', true);
+        }
+      } catch (err) {
+        checkboxEl.checked = !enabled;
+        showToast('Network error updating tool permission', true);
+      }
+    }
+
+    async function batchToggleCodeGraph(enable) {
+      const boxes = document.querySelectorAll('#toolsListContainer .tool-perm-row');
+      const promises = [];
+      boxes.forEach(row => {
+        const cat = row.getAttribute('data-category');
+        if (cat === 'Code Graph' || cat === 'Search') {
+          const cb = row.querySelector('input[type="checkbox"]');
+          if (cb && cb.checked !== enable) {
+            cb.checked = enable;
+            const tName = cb.getAttribute('data-tool');
+            promises.push(
+              fetch('/settings/api/tool-toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyId: currentKeyId, toolName: tName, enabled: enable })
+              })
+            );
+          }
+        }
+      });
+      await Promise.all(promises);
+      showToast(enable ? 'All Code Graph tools enabled' : 'All Code Graph tools disabled');
+    }
+
+    async function resetToolDefaults() {
+      const res = await fetch('/settings/api/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyId: currentKeyId,
+          enabledTools: [],
+          disabledTools: []
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Tool permissions reset to defaults');
+        setTimeout(() => window.location.reload(), 500);
+      }
+    }
+
+    let activeToolCat = 'All';
+    function setToolCatFilter(cat, btn) {
+      activeToolCat = cat;
+      document.querySelectorAll('.tools-manager-bar .pill-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      filterToolRows();
+    }
+
+    function filterToolRows() {
+      const q = (document.getElementById('toolSearchInput').value || '').trim().toLowerCase();
+      const rows = document.querySelectorAll('#toolsListContainer .tool-perm-row');
+      rows.forEach(r => {
+        const name = r.getAttribute('data-name') || '';
+        const cat = r.getAttribute('data-category') || '';
+        const desc = r.getAttribute('data-desc') || '';
+
+        const catMatches = activeToolCat === 'All' ||
+          (activeToolCat === 'Code Graph' && (cat === 'Code Graph' || cat === 'Search')) ||
+          cat.toLowerCase() === activeToolCat.toLowerCase();
+        const textMatches = !q || name.includes(q) || desc.includes(q) || cat.toLowerCase().includes(q);
+
+        r.style.display = (catMatches && textMatches) ? 'flex' : 'none';
+      });
+    }
+  </script>
 </body>
 </html>`;
 }

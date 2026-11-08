@@ -9,12 +9,19 @@ import express, {
 } from "express";
 import { MongoClient, type Db } from "mongodb";
 import { safeEqual, registerSecret } from "./security.js";
+import {
+  isOwnerEmail,
+  getOwnerEmail,
+  getKeySettings,
+  getOrCreateUser,
+} from "./userSettings.js";
 
 export interface OwnerProfile {
   email: string;
   name?: string;
   picture?: string;
   expiresAt: number;
+  role?: "owner" | "user";
 }
 
 export interface GeneratedKeyEntry {
@@ -23,6 +30,8 @@ export interface GeneratedKeyEntry {
   key: string;
   prefix: string;
   label: string;
+  email?: string;
+  role?: "owner" | "user";
   createdAt: number;
   lastUsedAt?: number;
 }
@@ -106,6 +115,8 @@ export async function loadKeysFromMongo(): Promise<void> {
           key: rawKey,
           prefix: d.prefix || (rawKey ? rawKey.slice(0, 16) : id),
           label: d.label || d.name || "Personal Key",
+          email: d.email,
+          role: d.role,
           createdAt: d.createdAt || Date.now(),
           lastUsedAt: d.lastUsedAt,
         };
@@ -240,8 +251,12 @@ export function parseOwnerCookie(req: Request): OwnerProfile | null {
       return null;
     }
 
-    if (!isAuthorizedEmail(data.email)) {
+    if (!isAuthorizedEmail(data.email) && process.env.MULTI_USER === "false") {
       return null;
+    }
+
+    if (!data.role) {
+      data.role = isOwnerEmail(data.email) ? "owner" : "user";
     }
 
     return data;
@@ -303,6 +318,8 @@ export function findAuthorizedApiKey(
               key: candidateKey,
               prefix: candidateKey.slice(0, 16),
               label: payload.label || "Personal Key",
+              email: payload.email,
+              role: payload.role,
               createdAt: payload.iat || Date.now(),
               lastUsedAt: Date.now(),
             };
@@ -329,6 +346,7 @@ export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
 
 export function createDynamicKey(
   label: string = "Personal Key",
+  email?: string,
 ): GeneratedKeyEntry {
   if (dynamicApiKeys.size >= 30) {
     throw new Error(
@@ -351,10 +369,16 @@ export function createDynamicKey(
 
   const id = `kx_${crypto.randomBytes(6).toString("hex")}`;
   const clientId = generateClientId();
+  const effectiveEmail = email || getOwnerEmail() || "owner@localhost";
+  const role: "owner" | "user" = isOwnerEmail(effectiveEmail)
+    ? "owner"
+    : "user";
   const payload = JSON.stringify({
     id,
     clientId,
     label: cleanLabel,
+    email: effectiveEmail,
+    role,
     iat: Date.now(),
   });
   const b64 = Buffer.from(payload).toString("base64url");
@@ -370,32 +394,38 @@ export function createDynamicKey(
     key: raw,
     prefix: raw.slice(0, 16),
     label: cleanLabel,
+    email: effectiveEmail,
+    role,
     createdAt: Date.now(),
   };
   dynamicApiKeys.set(id, entry);
   saveKeysToDisk();
   syncKeyToMongo(entry).catch(() => {});
+  // Initialize key settings
+  getKeySettings(id);
   return entry;
 }
 
-export function listDynamicKeys(): GeneratedKeyEntry[] {
+export function listDynamicKeys(userEmail?: string): GeneratedKeyEntry[] {
+  const isOwner = isOwnerEmail(userEmail);
   const seenKeys = new Set<string>();
-  const seenPrefixes = new Set<string>();
   const seenIds = new Set<string>();
-  const seenLabels = new Set<string>();
   const result: GeneratedKeyEntry[] = [];
 
   for (const entry of dynamicApiKeys.values()) {
     if (revokedKeyIds.has(entry.id)) continue;
+    if (
+      userEmail &&
+      !isOwner &&
+      (!entry.email || entry.email.toLowerCase() !== userEmail.toLowerCase())
+    ) {
+      continue;
+    }
     if (entry.id && seenIds.has(entry.id)) continue;
     if (entry.key && seenKeys.has(entry.key)) continue;
-    if (entry.prefix && seenPrefixes.has(entry.prefix)) continue;
-    if (entry.label && seenLabels.has(entry.label.toLowerCase())) continue;
 
     if (entry.id) seenIds.add(entry.id);
     if (entry.key) seenKeys.add(entry.key);
-    if (entry.prefix) seenPrefixes.add(entry.prefix);
-    if (entry.label) seenLabels.add(entry.label.toLowerCase());
     result.push(entry);
   }
   return result;
@@ -635,7 +665,10 @@ export function createGoogleAuthRouter(): Router {
           return;
         }
 
-        if (!isAuthorizedEmail(email)) {
+        const isOwner = isAuthorizedEmail(email);
+        const role: "owner" | "user" = isOwner ? "owner" : "user";
+
+        if (!isOwner && process.env.MULTI_USER === "false") {
           res.status(403).setHeader("Content-Type", "text/html; charset=utf-8")
             .send(`
           <!DOCTYPE html>
@@ -665,12 +698,15 @@ export function createGoogleAuthRouter(): Router {
           return;
         }
 
+        getOrCreateUser(email);
+
         const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
         const profile: OwnerProfile = {
           email,
           name: userData.name || email.split("@")[0],
           picture: userData.picture,
           expiresAt: Date.now() + thirtyDaysMs,
+          role,
         };
 
         const payloadStr = Buffer.from(JSON.stringify(profile)).toString(
@@ -715,8 +751,9 @@ export function createGoogleAuthRouter(): Router {
         email: owner.email,
         name: owner.name,
         picture: owner.picture,
+        role: owner.role || (isOwnerEmail(owner.email) ? "owner" : "user"),
       },
-      keys: listDynamicKeys(),
+      keys: listDynamicKeys(owner.email),
     });
   });
 
@@ -725,6 +762,7 @@ export function createGoogleAuthRouter(): Router {
     "/keys",
     requireOwnerAuth,
     (req: Request, res: Response): void => {
+      const currentUser = (req as any).owner as OwnerProfile | undefined;
       const rawLabel =
         typeof req.body?.label === "string"
           ? req.body.label.trim().slice(0, 50)
@@ -736,7 +774,7 @@ export function createGoogleAuthRouter(): Router {
         return;
       }
       try {
-        const entry = createDynamicKey(rawLabel);
+        const entry = createDynamicKey(rawLabel, currentUser?.email);
         res.status(201).json({
           id: entry.id,
           clientId: entry.clientId,

@@ -3,6 +3,7 @@ import path from "node:path";
 import { MongoClient, type Db } from "mongodb";
 import { fileShareRegistry } from "./fileShareRegistry.js";
 import { getMongoDb } from "./googleAuth.js";
+import { CODE_GRAPH_TOOLS_CATALOG } from "./codeGraphTools.js";
 
 export interface KeyMetrics {
   keyId: string;
@@ -79,7 +80,9 @@ export interface ToolDetailMeta {
     | "Execution"
     | "Filesystem"
     | "Git & Cloud"
-    | "Inspection";
+    | "Inspection"
+    | "Code Graph"
+    | "Search";
   description: string;
   totalCalls: number;
   successRate: number;
@@ -538,7 +541,10 @@ export class StatsTracker {
     this.scheduleSave();
   }
 
-  public getSharedSandboxStats(sandboxRoot?: string): SharedSandboxStats {
+  public getSharedSandboxStats(
+    sandboxRoot?: string,
+    isOwner: boolean = true,
+  ): SharedSandboxStats {
     let uploadFileCount = 0;
     let uploadBytes = 0;
     const uploadFiles: Array<{ name: string; size: number; mtime: number }> =
@@ -548,8 +554,11 @@ export class StatsTracker {
     let workspaceBytes = 0;
     let tempBytes = 0;
 
-    // Standard shared quota is 300 MB
-    const quotaLimitMb = Number(process.env.SANDBOX_MAX_TOTAL_MB) || 300;
+    // Distribute quotas: Owner receives standard/full limits (300MB default),
+    // regular users receive 50MB
+    const quotaLimitMb = isOwner
+      ? Number(process.env.SANDBOX_MAX_TOTAL_MB) || 300
+      : 50;
 
     if (sandboxRoot && fs.existsSync(sandboxRoot)) {
       try {
@@ -846,7 +855,11 @@ export class StatsTracker {
     }
   }
 
-  public getSummary(sandboxRoot?: string, targetKeyId?: string): StatsSummary {
+  public getSummary(
+    sandboxRoot?: string,
+    targetKeyId?: string,
+    isOwner: boolean = true,
+  ): StatsSummary {
     const keys = Array.from(this.keys.values()).sort(
       (a, b) => b.totalRequests - a.totalRequests,
     );
@@ -1042,10 +1055,11 @@ export class StatsTracker {
       platform: `${process.platform} (${process.arch})`,
     };
 
-    // Tools Catalog with complete specifications for all 87 MCP tools offered by Krix
+    // Tools Catalog with complete specifications for all MCP tools offered by Krix
     const knownTools: Array<{
       name: string;
-      category: "Sandbox" | "Files" | "Render" | "GitHub";
+      category:
+        "Sandbox" | "Files" | "Render" | "GitHub" | "Code Graph" | "Search";
       description: string;
     }> = [
       // 1. Sandbox Tools (14 tools)
@@ -1577,6 +1591,11 @@ export class StatsTracker {
         description:
           "Updates a pull request branch with latest commits from the base branch.",
       },
+      ...CODE_GRAPH_TOOLS_CATALOG.map((t) => ({
+        name: t.name,
+        category: t.category,
+        description: t.description,
+      })),
     ];
 
     const activeToolsSource = isFiltered
@@ -1662,7 +1681,7 @@ export class StatsTracker {
       weeklyTimeline,
       monthlyTimeline,
       availableYears,
-      sharedSandbox: this.getSharedSandboxStats(sandboxRoot),
+      sharedSandbox: this.getSharedSandboxStats(sandboxRoot, isOwner),
       systemHealth,
       statusCodes: this.statusCodes,
       clientEcosystems: this.clientEcosystems,

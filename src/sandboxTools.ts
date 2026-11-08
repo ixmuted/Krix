@@ -16,6 +16,7 @@ import {
   deleteSessionContext,
   makeRegistrar,
   getAuthKeyForSession,
+  getSandboxIdForSession,
   sandboxRootPath,
   assertValidOwnerRepo,
   assertValidRef,
@@ -27,6 +28,7 @@ import {
   getIsolation,
   runProc,
   runShell,
+  buildLimitsPrefix,
   spawnShell,
   spawnPersistentShell,
   killTree,
@@ -45,6 +47,7 @@ import {
   assertInsideRealRoot,
   type RunResult,
 } from "./sandboxProc.js";
+import { getUserQuota } from "./userSettings.js";
 import fsp from "node:fs/promises";
 import {
   getMongoStorageStatus,
@@ -686,9 +689,22 @@ export function registerSandboxTools(
           );
         }
 
+        const sbxId = getSandboxIdForSession(sessionId);
+        const quota = getUserQuota(sbxId === "owner" ? "owner" : "user");
+        const ulimitPrefix = buildLimitsPrefix(
+          quota.ulimitFile,
+          quota.ulimitProc,
+        );
+
         return execResponse(
           sessionId,
-          await runShell(args.command, { cwd, env, timeoutMs }),
+          await runShell(args.command, {
+            cwd,
+            env,
+            timeoutMs,
+            maxOutputBytes: quota.maxOutputBytes,
+            ulimitPrefix,
+          }),
         );
       } catch (err) {
         return formatError(err);
@@ -755,12 +771,15 @@ export function registerSandboxTools(
           args.args || [],
           bin,
         );
+        const sbxId = getSandboxIdForSession(sessionId);
+        const quota = getUserQuota(sbxId === "owner" ? "owner" : "user");
         let last: RunResult | null = null;
         for (const step of steps) {
           last = await runProc(step.file, step.args, {
             cwd,
             env,
             timeoutMs: 45000,
+            maxOutputBytes: quota.maxOutputBytes,
           });
           if (last.code !== 0) break;
         }
