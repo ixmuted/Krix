@@ -97,6 +97,8 @@ import {
   registerSecret,
   sanitizeOutput,
   sandboxRootForAuthKey,
+  getToolCredentialRequirement,
+  getMissingToolCredential,
 } from "./security.js";
 import { registerCodeGraphTools } from "./codeGraphTools.js";
 import {
@@ -151,8 +153,27 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   lastActive: number;
+  keyId: string;
 }
 const transports = new Map<string, SessionEntry>();
+
+/** Close every live MCP session for a key so credential changes take effect immediately. */
+function closeSessionsForKey(keyId: string): number {
+  let closed = 0;
+  for (const [sessionId, entry] of transports) {
+    if (entry.keyId !== keyId) continue;
+    transports.delete(sessionId);
+    closed += 1;
+    try {
+      void Promise.resolve(entry.transport.close()).catch((closeError) => {
+        console.warn(`[mcp] Session close failed: ${String((closeError as any)?.message || closeError)}`);
+      });
+    } catch (err) {
+      console.warn(`[mcp] Could not close session after credential change: ${String((err as any)?.message || err)}`);
+    }
+  }
+  return closed;
+}
 
 function tagCategory(
   registry: Record<string, any>,
@@ -264,6 +285,19 @@ function createMasterServer(
 
   const ctx = getSessionContext(sessionId);
   const policyKeyId = keySettings?.keyId || "primary-key";
+  // Supplying a credential is the explicit opt-in for its provider's tool group.
+  // Keep all credential-free tools available under their existing category policy.
+  const activeCategories = new Set(ctx.enabledCategories);
+  if (githubToken?.trim()) {
+    activeCategories.add("github_issues_prs");
+    activeCategories.add("github_admin");
+  }
+  if (renderToken?.trim()) activeCategories.add("render");
+
+  const credentials = {
+    github: Boolean(githubToken?.trim()),
+    render: Boolean(renderToken?.trim()),
+  };
   const onRenderService = process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
   const renderSandboxOwnerOptIn =
     process.env.ENABLE_SANDBOX === "true" &&
@@ -274,7 +308,9 @@ function createMasterServer(
   for (const [name, handle] of Object.entries(registry)) {
     const cat = categoryOf[name];
     const sandboxAllowedHere = cat !== "sandbox" || !onRenderService || renderSandboxOwnerOptIn;
-    if (sandboxAllowedHere && isToolEnabledForKey(policyKeyId, name, cat, ctx.enabledCategories)) handle.enable();
+    const missingCredential = getMissingToolCredential(name, credentials, cat);
+    const policyEnabled = isToolEnabledForKey(policyKeyId, name, cat, activeCategories);
+    if (sandboxAllowedHere && !missingCredential && policyEnabled) handle.enable();
     else handle.disable();
   }
 
@@ -649,7 +685,7 @@ app.all(
         }
         // A session is bound to the identity that created it.
         const sessionIdentity = `user_${(keySettings.email || `key_${keyId}`).toLowerCase()}`;
-        if (getAuthKeyForSession(sessionId) !== computeAuthKey(sessionIdentity)) {
+        if (entry.keyId !== keyId || getAuthKeyForSession(sessionId) !== computeAuthKey(sessionIdentity)) {
           jsonRpcError(
             res,
             403,
@@ -701,7 +737,7 @@ app.all(
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => newSessionId,
         onsessioninitialized: (id) => {
-          transports.set(id, { transport, lastActive: Date.now() });
+          transports.set(id, { transport, lastActive: Date.now(), keyId });
         },
       });
 
@@ -1204,12 +1240,13 @@ app.delete("/api/keys/:id", async (req, res) => {
     return;
   }
   await revokeKeyInMongo(id);
+  const closedSessions = closeSessionsForKey(id);
   const revoked = revokeDynamicKey(id);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
   );
-  res.json({ success: revoked });
+  res.json({ success: revoked, closedSessions });
 });
 
 app.get("/tools", async (req, res) => {
@@ -1427,6 +1464,7 @@ app.get("/settings", async (req, res) => {
         keys: [],
         selectedKeyId: "primary-key",
         keySettings: getKeySettings("primary-key"),
+        credentialAvailability: { github: Boolean(DEFAULT_GITHUB_PAT), render: Boolean(DEFAULT_RENDER_API_KEY) },
         toolsCatalog: statsTracker.getSummary("/tmp").toolsCatalog,
         userQuota: getUserQuota("user"),
       }),
@@ -1528,6 +1566,10 @@ app.get("/settings", async (req, res) => {
       keys,
       selectedKeyId,
       keySettings,
+      credentialAvailability: {
+        github: Boolean(keySettings.customGitHubToken || (selectedKeyId === "primary-key" && DEFAULT_GITHUB_PAT)),
+        render: Boolean(keySettings.customRenderToken || (selectedKeyId === "primary-key" && DEFAULT_RENDER_API_KEY)),
+      },
       toolsCatalog: summary.toolsCatalog,
       userQuota,
     }),
@@ -1562,10 +1604,12 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
       typeof renderToken === "string" ? renderToken : undefined,
     );
     await syncKeySettingsToMongo(updated);
+    const closedSessions = closeSessionsForKey(keyId);
     res.setHeader("Cache-Control", "no-store");
 
     res.json({
       ok: true,
+      closedSessions,
       maskedGitHub: maskSecret(updated.customGitHubToken),
       maskedRender: maskSecret(updated.customRenderToken),
     });
@@ -1594,8 +1638,9 @@ app.post("/settings/api/credentials/delete", express.json(), async (req, res) =>
   try {
     const updated = removeKeyCredential(keyId, provider);
     await syncKeySettingsToMongo(updated);
+    const closedSessions = closeSessionsForKey(keyId);
     res.setHeader("Cache-Control", "no-store");
-    res.json({ ok: true, provider, deleted: true });
+    res.json({ ok: true, provider, deleted: true, closedSessions });
   } catch {
     res.status(503).json({ ok: false, error: "Credential deletion could not be persisted." });
   }
@@ -1627,9 +1672,24 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
   }
 
   try {
+    const settings = getKeySettings(keyId);
+    const credentialRequirement = getToolCredentialRequirement(toolName);
+    const credentialsReady = {
+      github: Boolean(settings.customGitHubToken || (keyId === "primary-key" && DEFAULT_GITHUB_PAT)),
+      render: Boolean(settings.customRenderToken || (keyId === "primary-key" && DEFAULT_RENDER_API_KEY)),
+    };
+    const missingCredential = getMissingToolCredential(toolName, credentialsReady);
+    if (enabled && missingCredential) {
+      const providerLabel = missingCredential === "github" ? "GitHub personal access token" : "Render API key";
+      res.status(409).json({ ok: false, error: `This tool requires a saved ${providerLabel}. Add the credential in Settings to enable it.` });
+      return;
+    }
     const updated = toggleKeyTool(keyId, toolName, Boolean(enabled));
+    const closedSessions = closeSessionsForKey(keyId);
     res.json({
       ok: true,
+      credentialRequirement,
+      closedSessions,
       enabledTools: updated.enabledTools,
       disabledTools: updated.disabledTools,
     });
@@ -1663,8 +1723,9 @@ app.post("/settings/api/tool-risk", express.json(), async (req, res) => {
       acknowledgeHighRisk === true,
     );
     await syncKeySettingsToMongo(updated);
+    const closedSessions = closeSessionsForKey(keyId);
     res.setHeader("Cache-Control", "no-store");
-    res.json({ ok: true, riskLevel: updated.toolRiskLevels?.[toolName], acknowledged: updated.riskAcknowledgedTools?.includes(toolName) || false });
+    res.json({ ok: true, closedSessions, riskLevel: updated.toolRiskLevels?.[toolName], acknowledged: updated.riskAcknowledgedTools?.includes(toolName) || false });
   } catch (err: any) {
     res.status(400).json({ ok: false, error: err?.message || "Could not update tool risk." });
   }
@@ -1696,8 +1757,10 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
       Array.isArray(enabledTools) ? enabledTools : [],
       Array.isArray(disabledTools) ? disabledTools : [],
     );
+    const closedSessions = closeSessionsForKey(keyId);
     res.json({
       ok: true,
+      closedSessions,
       enabledTools: updated.enabledTools,
       disabledTools: updated.disabledTools,
     });

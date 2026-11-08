@@ -3,6 +3,7 @@ import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 import type { ActiveOAuthInfo } from "./mcpOAuth.js";
 import type { KeySettings, UserQuotaConfig } from "./userSettings.js";
 import { maskSecret, getDefaultToolRiskLevel } from "./userSettings.js";
+import { getMissingToolCredential, type ToolCredentialRequirement } from "./security.js";
 import { getKrixDesignCss, renderKrixGraphic } from "./uiEnhancements.js";
 
 export function escapeHtml(str: string): string {
@@ -5133,6 +5134,7 @@ export function renderSettingsPage(params: {
   }>;
   selectedKeyId: string;
   keySettings: KeySettings;
+  credentialAvailability?: { github: boolean; render: boolean };
   toolsCatalog: ToolDetailMeta[];
   userQuota: UserQuotaConfig;
   nonce?: string;
@@ -5144,6 +5146,10 @@ export function renderSettingsPage(params: {
     keys,
     selectedKeyId,
     keySettings,
+    credentialAvailability = {
+      github: Boolean(keySettings.customGitHubToken),
+      render: Boolean(keySettings.customRenderToken),
+    },
     toolsCatalog,
     userQuota,
     nonce,
@@ -5188,8 +5194,11 @@ export function renderSettingsPage(params: {
   const enabledSet = new Set(keySettings.enabledTools || []);
   const disabledSet = new Set(keySettings.disabledTools || []);
 
+  const missingCredentialForTool = (t: ToolDetailMeta): ToolCredentialRequirement | null =>
+    getMissingToolCredential(t.name, credentialAvailability);
+
   const isToolActive = (t: ToolDetailMeta): boolean => {
-    if (disabledSet.has(t.name)) return false;
+    if (disabledSet.has(t.name) || missingCredentialForTool(t)) return false;
     const explicit = enabledSet.has(t.name);
     const categoryDefault = t.category !== "Code Graph" && t.category !== "Search";
     const risk = keySettings.toolRiskLevels?.[t.name] || getDefaultToolRiskLevel(t.name, t.category);
@@ -5575,7 +5584,7 @@ export function renderSettingsPage(params: {
             </div>
           </div>
           <span id="githubCredentialStatus" class="credential-status" style="font-size:11px; color:var(--accents-5); margin-top:7px; display:block;">
-            ${keySettings.customGitHubToken ? `Saved GitHub credential · <code>${maskedGitHub}</code>. The secret itself stays server-side.` : "No GitHub token saved for this key. Add a token to enable GitHub access."}
+            ${keySettings.customGitHubToken ? `Saved GitHub credential · <code>${maskedGitHub}</code>. The secret itself stays server-side.` : credentialAvailability.github ? "Using the server-level GitHub credential. The secret stays server-side." : "No GitHub token saved for this key. Add a token to enable GitHub access."}
           </span>
           ${keySettings.customGitHubToken ? `<button type="button" class="credential-remove-btn" onclick="deleteCredential('github')">${renderKrixGraphic("trash", 13)} Remove GitHub credential</button>` : ""}
         </div>
@@ -5602,7 +5611,7 @@ export function renderSettingsPage(params: {
             </div>
           </div>
           <span id="renderCredentialStatus" class="credential-status" style="font-size:11px; color:var(--accents-5); margin-top:7px; display:block;">
-            ${keySettings.customRenderToken ? `Saved Render credential · <code>${maskedRender}</code>. The secret itself stays server-side.` : "No Render key saved for this key. Add a key to enable Render access."}
+            ${keySettings.customRenderToken ? `Saved Render credential · <code>${maskedRender}</code>. The secret itself stays server-side.` : credentialAvailability.render ? "Using the server-level Render credential. The secret stays server-side." : "No Render key saved for this key. Add a key to enable Render access."}
           </span>
           ${keySettings.customRenderToken ? `<button type="button" class="credential-remove-btn" onclick="deleteCredential('render')">${renderKrixGraphic("trash", 13)} Remove Render credential</button>` : ""}
         </div>
@@ -5626,7 +5635,7 @@ export function renderSettingsPage(params: {
         <span>Granular Tool Permissions & Code Graph</span>
       </div>
       <p class="section-desc">
-        Select which tools are enabled for this key. <strong>Code Graph Context (${codeGraphCount} tools)</strong> and <strong>Web Search</strong> are disabled by default for maximum security; toggle individual tools below to enable them for your agent.
+        Tools without external credential requirements are available by default, subject to server-side sandbox safety settings. GitHub tools become available automatically when a GitHub token is saved; Render tools become available automatically when a Render API key is saved. Remote Git operations in the sandbox also require a GitHub token, while local sandbox execution, files and status tools do not. Removing or replacing a credential closes existing MCP sessions so clients reconnect with the updated tool set. High-risk tools still require explicit risk acknowledgement. <strong>Code Graph Context (${codeGraphCount} tools)</strong> and <strong>Web Search</strong> remain disabled by default; toggle individual tools below to enable them for your agent.
       </p>
 
       <div class="visual-card" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;">
@@ -5672,13 +5681,16 @@ export function renderSettingsPage(params: {
             const isCodeGraph = t.category === "Code Graph" || t.category === "Search";
             const riskLevel = keySettings.toolRiskLevels?.[t.name] || getDefaultToolRiskLevel(t.name, t.category);
             const riskAcknowledged = keySettings.riskAcknowledgedTools?.includes(t.name) || false;
+            const missingCredential = missingCredentialForTool(t);
+            const credentialLabel = missingCredential === "github" ? "Requires GitHub token" : missingCredential === "render" ? "Requires Render key" : "";
             return `
-          <div class="tool-perm-row" data-name="${escapeHtml(t.name.toLowerCase())}" data-category="${escapeHtml(t.category)}" data-desc="${escapeHtml(t.description.toLowerCase())}" data-risk="${riskLevel}">
+          <div class="tool-perm-row" data-name="${escapeHtml(t.name.toLowerCase())}" data-category="${escapeHtml(t.category)}" data-desc="${escapeHtml(t.description.toLowerCase())}" data-risk="${riskLevel}" data-credential="${missingCredential || "none"}">
             <div class="tool-perm-info">
               <div class="tool-perm-name">
                 <span>${escapeHtml(t.name)}</span>
                 <span class="badge ${isCodeGraph ? "primary" : ""}">${escapeHtml(t.category)}</span>
                 ${isCodeGraph ? '<span class="badge" style="font-size:10px;">CGC Engine</span>' : ""}
+                ${missingCredential ? `<span class="badge" style="font-size:10px;border-color:var(--border);color:var(--accents-5);">${credentialLabel}</span>` : ""}
               </div>
               <div class="tool-perm-desc" title="${escapeHtml(t.description)}">
                 ${escapeHtml(t.description)}
@@ -5690,8 +5702,8 @@ export function renderSettingsPage(params: {
               <select class="tool-risk-select" data-risk-tool="${escapeHtml(t.name)}" aria-label="Risk tier for ${escapeHtml(t.name)}" onchange="onToolRiskChange(this, '${escapeHtml(t.name)}')">
                 ${(["safe","low","moderate","high","critical"] as const).map((level) => `<option value="${level}" ${riskLevel === level ? "selected" : ""}>${level.charAt(0).toUpperCase()+level.slice(1)} risk</option>`).join("")}
               </select>
-              <label class="toggle-switch" title="Toggle ${escapeHtml(t.name)}">
-                <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
+              <label class="toggle-switch" title="${missingCredential ? `${credentialLabel} to enable ${escapeHtml(t.name)}` : `Toggle ${escapeHtml(t.name)}`}">
+                <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} ${missingCredential ? "disabled aria-disabled=\"true\"" : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -5817,6 +5829,7 @@ export function renderSettingsPage(params: {
           if (data.maskedRender) document.getElementById('renderCredentialStatus').innerHTML = 'Saved Render credential · <code>' + data.maskedRender + '</code>. The secret itself stays server-side.';
           ghInput.value = '';
           rndInput.value = '';
+          setTimeout(() => window.location.reload(), 450);
         } else {
           showToast(data.error || 'Failed to save credentials', true);
         }

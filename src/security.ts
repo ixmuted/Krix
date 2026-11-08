@@ -553,6 +553,44 @@ export const TOOL_CATEGORY: Record<string, ToolCategory> = {
   web_search: "codegraph",
 };
 
+// Credential requirements are enforced by the server, not only by the settings UI.
+// GitHub API operations are grouped under core / GitHub categories. The two core
+// exceptions below are local context/status helpers and remain usable without a PAT.
+const CORE_TOOLS_WITHOUT_GITHUB_CREDENTIAL = new Set([
+  "set_active_context",
+  "sandbox_status",
+]);
+const SANDBOX_TOOLS_WITH_GITHUB_REMOTE_ACCESS = new Set([
+  "git_clone",
+  "git_checkout",
+  "git_pull",
+  "git_commit_push",
+]);
+
+export type ToolCredentialRequirement = "github" | "render";
+
+export function getToolCredentialRequirement(
+  toolName: string,
+  category: ToolCategory | string = TOOL_CATEGORY[toolName],
+): ToolCredentialRequirement | null {
+  if (category === "render") return "render";
+  if (category === "github_issues_prs" || category === "github_admin") return "github";
+  if (category === "core" && !CORE_TOOLS_WITHOUT_GITHUB_CREDENTIAL.has(toolName)) return "github";
+  if (SANDBOX_TOOLS_WITH_GITHUB_REMOTE_ACCESS.has(toolName)) return "github";
+  return null;
+}
+
+export function getMissingToolCredential(
+  toolName: string,
+  credentials: { github?: boolean; render?: boolean },
+  category?: ToolCategory | string,
+): ToolCredentialRequirement | null {
+  const required = getToolCredentialRequirement(toolName, category);
+  if (required === "github" && !credentials.github) return "github";
+  if (required === "render" && !credentials.render) return "render";
+  return null;
+}
+
 export function makeRegistrar(
   server: any,
   registry: Record<string, any>,
