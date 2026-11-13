@@ -1095,5 +1095,46 @@ th:has(.krix-dropdown),
   flex-wrap: wrap;
   gap: 12px;
 }
+/* Mobile overflow, controls and compact navigation refinements. */
+.home-bento-grid,
+.home-bento-grid > .card { min-width: 0; max-width: 100%; }
+.tool-breakdown-select-wrap select { max-width: min(260px, 58vw); }
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='m3 4.5 3 3 3-3' stroke='%23909098' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  padding-right: 32px !important;
+}
+.store-view-toggle .nav-pill,
+.store-view-toggle .nav-pill.active { border-radius: 999px !important; }
+.theme-mode-control .theme-mode-button { width: 42px; min-width: 42px; justify-content: center; padding: 0 !important; }
+.theme-mode-control .theme-mode-button span { display: none !important; }
+.oauth-clients-scroll { overflow-x: auto !important; overflow-y: visible; width: 100%; min-width: 0; }
+.oauth-clients-scroll .oauth-client-row { flex: 0 0 680px; min-width: 680px; }
+
+@media (max-width: 768px) {
+  .home-bento-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; }
+  .home-bento-grid > .card,
+  .home-bento-grid > .home-config-card,
+  .home-bento-grid > .home-telemetry-card { grid-column: 1 / -1 !important; width: 100%; min-width: 0; }
+  .home-config-card > div:first-child { gap: 10px; }
+  .snippet-copy-button { flex: 0 0 36px; }
+  .oauth-clients-scroll .oauth-client-row { flex-basis: 680px; min-width: 680px; }
+  .store-view-toggle { flex: 0 0 auto; }
+  #storeSearchInput { min-width: 0; }
+  .store-table-toolbar { align-items: stretch !important; }
+  .store-table-toolbar > div:last-child { min-width: 0; width: 100%; flex-wrap: wrap; }
+  .store-table-toolbar > div:last-child > div:last-child { min-width: 0 !important; width: 100%; flex: 1 1 100%; }
+  #toolSearchInput { min-width: 0; width: 100%; }
+  .tool-breakdown-select-wrap { width: 100%; justify-content: space-between; }
+  .tool-breakdown-select-wrap select { width: min(62%, 260px); }
+  .density-toggle { border-radius: 999px !important; overflow: hidden; }
+  .density-toggle .nav-pill,
+  .density-toggle .nav-pill.active { border-radius: 999px !important; }
+  .settings-action-row { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
 `;
 }
