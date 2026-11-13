@@ -959,7 +959,19 @@ th:has(.krix-dropdown),
   border-radius: 6px;
 }
 
+/* OAuth rows stay on one intentional horizontal track on narrow screens. */
+.oauth-clients-scroll {
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.oauth-app-favicon { display:block; width:100%; height:100%; object-fit:contain; }
+.density-toggle { border-radius:6px !important; }
+.density-toggle .nav-pill,
+.density-toggle .nav-pill.active { border-radius:4px !important; }
+
 @media (max-width: 768px) {
+  .oauth-clients-scroll .oauth-client-row { min-width:620px; flex:0 0 620px; }
   .mobile-subnav-scroll { justify-content: space-between; min-width: 100%; }
   .api-client-id-box { max-width: 100%; }
   .settings-action-row { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -7,8 +7,10 @@ export const SVG_ICONS: Record<string, string> = {
   render: `<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>`,
 
   // Top 24 Popular AI Application Logos & Connectors (OAuth 2.1 Handshake)
-  gemini: `<path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 7.5 12 2 12 2Z" fill="currentColor" stroke="none"/>`,
-  claude: `<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10M8.5 8.5l7 7M15.5 8.5l-7 7"/>`,
+  // Brand marks are intentionally not approximated here. Provider marks load from the
+  // provider website favicon; this neutral icon is only the failure/unknown fallback.
+  gemini: `<path d="M12 3v18M3 12h18M5.64 5.64l12.72 12.72M18.36 5.64 5.64 18.36"/><circle cx="12" cy="12" r="2.5"/>`,
+  claude: `<path d="M12 3.2 13.8 9l5.8 1.8-5.8 1.8-1.8 5.8-1.8-5.8L4.4 10.8 10.2 9 12 3.2Z"/>`,
   chatgpt: `<circle cx="12" cy="12" r="9"/><path d="m9 10 3-2 3 2v4l-3 2-3-2z"/>`,
   antigravity: `<polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="3"/>`,
   codex: `<path d="m7 8-4 4 4 4"/><path d="m17 8 4 4-4 4"/><path d="m14 4-4 16"/>`,
@@ -121,39 +123,43 @@ export function getCanonicalLogoUrl(): string {
   return "/icon-48.png?v=2";
 }
 
-export function getAppLogoSvg(name: string, size: number = 20): string {
+const APP_FAVICON_HOSTS: Array<[string[], string]> = [
+  [["gemini", "google gemini"], "https://gemini.google.com"],
+  [["claude", "anthropic"], "https://claude.ai"],
+  [["chatgpt", "openai", "gpt"], "https://chatgpt.com"],
+  [["cursor"], "https://cursor.com"],
+  [["windsurf", "codeium"], "https://windsurf.com"],
+  [["github", "copilot"], "https://github.com"],
+  [["perplexity"], "https://www.perplexity.ai"],
+  [["mistral", "lechat"], "https://mistral.ai"],
+  [["deepseek"], "https://www.deepseek.com"],
+  [["grok", "xai"], "https://grok.com"],
+  [["replit"], "https://replit.com"],
+  [["vercel", "v0"], "https://vercel.com"],
+  [["zed"], "https://zed.dev"],
+  [["ollama"], "https://ollama.com"],
+  [["bolt"], "https://bolt.new"],
+  [["lovable"], "https://lovable.dev"],
+];
+
+function safeWebsiteOrigin(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value.startsWith("http") ? value : `https://${value}`);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Prefer the app's own favicon; show a neutral, polished fallback if unavailable. */
+export function getAppLogoSvg(name: string, size: number = 20, websiteUrl?: string): string {
   const q = (name || "").toLowerCase();
-  if (q.includes("gemini")) return renderSvg("gemini", size);
-  if (q.includes("claude") || q.includes("anthropic"))
-    return renderSvg("claude", size);
-  if (q.includes("chatgpt") || q.includes("openai") || q.includes("gpt"))
-    return renderSvg("chatgpt", size);
-  if (q.includes("antigravity")) return renderSvg("antigravity", size);
-  if (q.includes("copilot") || q.includes("codex"))
-    return renderSvg("codex", size);
-  if (q.includes("cursor")) return renderSvg("cursor", size);
-  if (q.includes("windsurf") || q.includes("codeium"))
-    return renderSvg("windsurf", size);
-  if (q.includes("cline")) return renderSvg("cline", size);
-  if (q.includes("roo") || q.includes("roocode"))
-    return renderSvg("roocode", size);
-  if (q.includes("continue")) return renderSvg("continue", size);
-  if (q.includes("zed")) return renderSvg("zed", size);
-  if (q.includes("aider")) return renderSvg("aider", size);
-  if (q.includes("perplexity")) return renderSvg("perplexity", size);
-  if (q.includes("mistral") || q.includes("lechat"))
-    return renderSvg("mistral", size);
-  if (q.includes("grok") || q.includes("xai")) return renderSvg("grok", size);
-  if (q.includes("deepseek")) return renderSvg("deepseek", size);
-  if (q.includes("ollama")) return renderSvg("ollama", size);
-  if (q.includes("lmstudio") || q.includes("lm studio"))
-    return renderSvg("lmstudio", size);
-  if (q.includes("openwebui") || q.includes("open webui"))
-    return renderSvg("openwebui", size);
-  if (q.includes("replit")) return renderSvg("replit", size);
-  if (q.includes("bolt")) return renderSvg("bolt", size);
-  if (q.includes("lovable")) return renderSvg("lovable", size);
-  if (q.includes("v0") || q.includes("vercel")) return renderSvg("v0", size);
-  if (q.includes("quickwitty")) return renderSvg("quickwitty", size);
-  return renderSvg("sparkles", size);
+  const matched = APP_FAVICON_HOSTS.find(([aliases]) => aliases.some((alias) => q.includes(alias)));
+  const origin = safeWebsiteOrigin(websiteUrl) || matched?.[1];
+  const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
+  if (!origin) return fallback;
+  const favicon = `${origin}/favicon.ico`;
+  return `<img class="oauth-app-favicon" src="${favicon}" width="${size}" height="${size}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="app-logo-fallback" hidden style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
 }
