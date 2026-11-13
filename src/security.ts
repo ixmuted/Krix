@@ -557,7 +557,7 @@ export const TOOL_CATEGORY: Record<string, ToolCategory> = {
   simulate_metrics: "codegraph",
   simulate_architectural_change: "codegraph",
   analyze_architectural_evolution: "codegraph",
-  web_search: "codegraph",
+  web_search: "sandbox",
 };
 
 // Credential requirements are enforced by the server, not only by the settings UI.

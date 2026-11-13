@@ -310,8 +310,10 @@ function createMasterServer(
   if (githubToken?.trim()) {
     activeCategories.add("github_issues_prs");
     activeCategories.add("github_admin");
+    // A valid GitHub PAT unlocks the complete sandbox tool group, including remote Git helpers.
+    activeCategories.add("sandbox");
   }
-  if (renderToken?.trim()) activeCategories.add("render");
+  // Render credentials are available to the user, but Render tools remain opt-in per key.
 
   const credentials = {
     github: Boolean(githubToken?.trim()),
@@ -1093,11 +1095,22 @@ app.get(["/", "/home"], async (req, res) => {
 });
 
 app.get(["/api", "/keys"], async (req, res) => {
-  await Promise.all([
-    ensureMongoAuth().catch(() => {}),
-    loadOAuthFromMongo().catch(() => {}),
-    statsTracker.ensureMongo().catch(() => {}),
-  ]);
+  const statsMongoConfigured = Boolean(
+    getMongoDb() || process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL,
+  );
+  try {
+    await Promise.all([
+      ensureMongoAuth().catch(() => {}),
+      loadOAuthFromMongo().catch(() => {}),
+      statsTracker.ensureMongo(),
+    ]);
+  } catch (error: any) {
+    console.error("[stats] MongoDB restore failed before API response:", error?.message || error);
+    if (statsMongoConfigured) {
+      res.status(503).json({ error: "Statistics are temporarily unavailable because MongoDB could not be reached. No stale local snapshot was served." });
+      return;
+    }
+  }
   const db = getMongoDb();
   if (db) fileShareRegistry.setMongoDb(db);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
@@ -1155,11 +1168,22 @@ app.get(["/api", "/keys"], async (req, res) => {
 });
 
 app.get("/api/keys", async (req, res) => {
-  await Promise.all([
-    ensureMongoAuth().catch(() => {}),
-    loadOAuthFromMongo().catch(() => {}),
-    statsTracker.ensureMongo().catch(() => {}),
-  ]);
+  const statsMongoConfigured = Boolean(
+    getMongoDb() || process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL,
+  );
+  try {
+    await Promise.all([
+      ensureMongoAuth().catch(() => {}),
+      loadOAuthFromMongo().catch(() => {}),
+      statsTracker.ensureMongo(),
+    ]);
+  } catch (error: any) {
+    console.error("[stats] MongoDB restore failed before page response:", error?.message || error);
+    if (statsMongoConfigured) {
+      res.status(503).send("Statistics are temporarily unavailable because MongoDB could not be reached. No stale local snapshot was served.");
+      return;
+    }
+  }
   const dbTools = getMongoDb();
   if (dbTools) fileShareRegistry.setMongoDb(dbTools);
   const owner = parseOwnerCookie(req);
@@ -2072,6 +2096,27 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
   }
 
   try {
+    // Validate newly supplied provider credentials before persisting them.
+    if (typeof githubToken === "string" && githubToken.trim()) {
+      const validation = await fetch("https://api.github.com/user", {
+        headers: { Authorization: `Bearer ${githubToken.trim()}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!validation.ok) {
+        res.status(422).json({ ok: false, code: "INVALID_GITHUB_TOKEN", error: validation.status === 401 ? "GitHub rejected this token. Check that it is valid and has not expired." : `GitHub credential validation failed (${validation.status}).` });
+        return;
+      }
+    }
+    if (typeof renderToken === "string" && renderToken.trim()) {
+      const validation = await fetch("https://api.render.com/v1/owners?limit=1", {
+        headers: { Authorization: `Bearer ${renderToken.trim()}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!validation.ok) {
+        res.status(422).json({ ok: false, code: "INVALID_RENDER_TOKEN", error: validation.status === 401 || validation.status === 403 ? "Render rejected this API key. Check that it is valid and has not been revoked." : `Render credential validation failed (${validation.status}).` });
+        return;
+      }
+    }
     const updated = updateKeyCredentials(
       keyId,
       owner.email,

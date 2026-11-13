@@ -217,7 +217,6 @@ export function getKeySettings(keyId: string): KeySettings {
             "core",
             "github_issues_prs",
             "github_admin",
-            "render",
             "sandbox",
             "files",
           ]
@@ -419,9 +418,12 @@ export function isToolEnabledForKey(
   if (settings.disabledTools?.includes(toolName)) return false;
 
   const explicitlyEnabled = Boolean(settings.enabledTools?.includes(toolName));
+  // Search is grouped under Sandbox in the catalog, but is deliberately opt-in.
+  if (toolName === "web_search") return explicitlyEnabled;
   const categoryEnabled =
     category !== "codegraph" &&
     category !== "search" &&
+    category !== "render" &&
     sessionEnabledCategories.has(category);
   const enabled = explicitlyEnabled || categoryEnabled;
   if (!enabled) return false;
