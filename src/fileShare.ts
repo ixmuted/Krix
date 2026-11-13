@@ -324,7 +324,7 @@ class MongoFileStore implements FileStore {
     ownerKey: string,
     options: ListOwnerOptions = {},
   ): Promise<{ files: StoredFileMeta[]; totalCount: number }> {
-    const { bucket } = await this.init();
+    const { db, bucket } = await this.init();
     const now = new Date();
     const status = options.status || "active";
     const query: Record<string, any> =
@@ -365,8 +365,6 @@ class MongoFileStore implements FileStore {
         .skip(offset)
         .limit(limit)
         .toArray(),
-      // Count matching GridFS file documents without using the deprecated cursor.count().
-      // GridFSBucket exposes its files collection through the database namespace.
       db.collection(`${BUCKET}.files`).countDocuments(query),
     ]);
 
@@ -1481,7 +1479,7 @@ export function registerFileTools(
   registry: Record<string, any>,
   getBaseUrl: () => string,
 ) {
-  const reg = makeRegistrar(server, registry, sessionId);
+  const reg = makeRegistrar(server, registry);
 
   reg(
     "sandbox_store",
