@@ -7,7 +7,7 @@ import {
   renderAuthRequiredCard,
   escapeHtml,
 } from "../components.js";
-import { renderSvg } from "../icons.js";
+import { renderSvg, getAppLogoSvg } from "../icons.js";
 
 export function renderApiKeysPage(params: {
   base: string;
@@ -70,8 +70,8 @@ export function renderApiKeysPage(params: {
       </button>
     </div>
 
-    <!-- Profile Default Integrations Card (Contract Invariant: id="providerCredentialsCard") -->
-    <div id="providerCredentialsCard" class="card spotlight-card card-top-border" style="padding:22px 24px; margin-bottom:28px;">
+    <!-- Profile Default Integrations Card (Managed in /settings) -->
+    <div id="providerCredentialsCard" class="card spotlight-card card-top-border" style="display:none;" aria-hidden="true">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
         <div>
           <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">DEFAULT INTEGRATIONS</div>
@@ -199,15 +199,15 @@ export function renderApiKeysPage(params: {
                     <td style="padding:12px; color:var(--geist-gray-50); font-family:var(--font-mono); font-size:11px; font-variant-numeric:tabular-nums;">
                       ${escapeHtml(k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "Recent")}
                     </td>
-                    <td style="padding:12px; text-align:right;">
-                      <div class="krix-dropdown" style="display:inline-block; position:relative;">
+                    <td style="padding:12px; text-align:right; position:relative; overflow:visible;">
+                      <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
                         <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${menuId}')" style="padding:4px 6px;" aria-label="Key Actions">
                           ${renderSvg("more-vertical", 14)}
                         </button>
                         <div id="${menuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:var(--z-dropdown); min-width:160px; text-align:left;">
-                          <a href="/settings" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
-                            ${renderSvg("settings", 13)}
-                            <span>Configure</span>
+                          <a href="/api/settings?key=${encodeURIComponent(keyId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
+                            ${renderSvg("edit", 13)}
+                            <span>Edit</span>
                           </a>
                           <button type="button" class="btn ghost" onclick="openRenameKeyModal('${keyId}', '${keyLabel}'); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm);">
                             ${renderSvg("edit", 13)}
@@ -216,7 +216,7 @@ export function renderApiKeysPage(params: {
                           <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
                           <button type="button" class="btn ghost danger" onclick="openRevokeKeyModal('${keyId}', '${keyLabel}'); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
                             ${renderSvg("trash", 13)}
-                            <span>Revoke</span>
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -252,20 +252,46 @@ export function renderApiKeysPage(params: {
         ${
           oauthClients.length === 0
             ? `<div style="text-align:center; padding:32px; color:var(--geist-gray-50); font-size:13px;">No third-party applications authorized yet.</div>`
-            : oauthClients
-                .map((client) => {
-                  const cId = escapeHtml(client.clientId || "");
-                  const cName = escapeHtml(client.clientName || cId);
-                  const cScope = escapeHtml(client.scope || "mcp:all");
-                  const lastUsed = client.lastUsedAt
-                    ? new Date(client.lastUsedAt).toLocaleDateString()
-                    : "Active";
+            : (() => {
+                const oauthNameCounts: Record<string, number> = {};
+                const oauthNameTotals: Record<string, number> = {};
+                oauthClients.forEach((c) => {
+                  const rawName =
+                    c.clientName ||
+                    (c.clientId?.toLowerCase().includes("gemini")
+                      ? "Google Gemini"
+                      : c.clientId || "App");
+                  oauthNameTotals[rawName] =
+                    (oauthNameTotals[rawName] || 0) + 1;
+                });
 
-                  return `
-              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle);">
+                return oauthClients
+                  .map((client, idx) => {
+                    const cId = escapeHtml(client.clientId || "");
+                    const rawName =
+                      client.clientName ||
+                      (client.clientId?.toLowerCase().includes("gemini")
+                        ? "Google Gemini"
+                        : cId || "OAuth Application");
+                    let displayName = rawName;
+                    if (oauthNameTotals[rawName] > 1) {
+                      const curIdx = (oauthNameCounts[rawName] =
+                        (oauthNameCounts[rawName] || 0) + 1);
+                      displayName = `${rawName} #${curIdx}`;
+                    }
+                    const cName = escapeHtml(displayName);
+                    const cScope = escapeHtml(client.scope || "mcp:all");
+                    const lastUsed = client.lastUsedAt
+                      ? new Date(client.lastUsedAt).toLocaleDateString()
+                      : "Active";
+                    const appLogo = getAppLogoSvg(displayName, 18);
+                    const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
+
+                    return `
+              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
                 <div style="display:flex; align-items:center; gap:12px;">
-                  <div style="width:36px; height:36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle);">
-                    ${renderSvg("shield", 16)}
+                  <div style="width:36px; height:36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
+                    ${appLogo}
                   </div>
                   <div>
                     <div style="font-weight:600; font-size:13px; color:var(--fg);">${cName}</div>
@@ -279,15 +305,28 @@ export function renderApiKeysPage(params: {
 
                 <div style="display:flex; align-items:center; gap:12px;">
                   <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${lastUsed}</span>
-                  <button type="button" class="btn ghost danger" onclick="revokeOAuthClient('${cId}', '${cName}')" style="font-size:12px; padding:4px 8px; border-radius:var(--radius-sm); color:var(--error);" title="Revoke Authorization">
-                    ${renderSvg("trash", 13)}
-                    <span>Revoke</span>
-                  </button>
+                  <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
+                    <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}')" style="padding:4px 6px;" aria-label="OAuth Actions">
+                      ${renderSvg("more-vertical", 14)}
+                    </button>
+                    <div id="${oauthMenuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:var(--z-dropdown); min-width:160px; text-align:left;">
+                      <a href="/api/settings?key=${encodeURIComponent(cId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
+                        ${renderSvg("edit", 13)}
+                        <span>Edit</span>
+                      </a>
+                      <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
+                      <button type="button" class="btn ghost danger" onclick="revokeOAuthClient('${cId}', '${cName}'); closeKeyDropdown('${oauthMenuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
+                        ${renderSvg("trash", 13)}
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             `;
-                })
-                .join("")
+                  })
+                  .join("");
+              })()
         }
       </div>
     </div>
@@ -453,6 +492,12 @@ export function renderApiKeysPage(params: {
         const name = (input?.value || '').trim();
         if (!name || name.length < 4) {
           showToast('Key label must be at least 4 characters long', 'error');
+          return;
+        }
+
+        const existingLabels = Array.from(document.querySelectorAll('.api-key-row')).map(r => (r.getAttribute('data-label') || '').toLowerCase());
+        if (existingLabels.includes(name.toLowerCase())) {
+          showToast('An API key named "' + name + '" already exists. Please choose a unique name.', 'error');
           return;
         }
 

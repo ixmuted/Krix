@@ -31,6 +31,7 @@ export function getTokensCss(): string {
   --bg-surface-1: #fafafa;
   --bg-surface-2: #f4f4f5;
   --bg-surface-3: #e4e4e7;
+  --nav-header-bg: rgba(255, 255, 255, 0.98);
   --border-subtle: #eaeaea;
   --border-medium: #d4d4d8;
   --border-focus: #000000;
@@ -79,6 +80,7 @@ html.dark {
   --bg-surface-1: #111114;
   --bg-surface-2: #18181c;
   --bg-surface-3: #222228;
+  --nav-header-bg: rgba(10, 10, 12, 0.85);
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-medium: rgba(255, 255, 255, 0.15);
   --border-focus: #ffffff;
@@ -367,12 +369,114 @@ code, kbd, pre, samp {
   color: var(--fg);
 }
 
+/* Modern Animated Curved Checkbox */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-medium);
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  background-color: var(--bg-surface-1);
+  display: inline-grid;
+  place-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  vertical-align: middle;
+}
+
+input[type="checkbox"]:hover {
+  border-color: var(--fg);
+  background-color: var(--bg-surface-2);
+}
+
+input[type="checkbox"]:checked {
+  background-color: var(--fg);
+  border-color: var(--fg);
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid var(--bg);
+  border-bottom: 2px solid var(--bg);
+  transform: rotate(-45deg) scale(0);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: -2px;
+}
+
+input[type="checkbox"]:checked::before {
+  transform: rotate(-45deg) scale(1);
+}
+
+input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+/* Modern Curved Animated Switch */
+.krix-switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.krix-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.krix-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--border-medium);
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: var(--radius-full);
+}
+
+.krix-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.krix-switch input:checked + .krix-slider {
+  background-color: var(--success);
+}
+
+.krix-switch input:checked + .krix-slider:before {
+  transform: translateX(16px);
+}
+
 /* =====================================================
    6. REDESIGNED CUSTOM DROPDOWNS & KEBAB MENUS
    ===================================================== */
 .krix-dropdown {
   position: relative;
   display: inline-block;
+  overflow: visible;
+}
+
+td:has(.krix-dropdown),
+th:has(.krix-dropdown),
+.action-cell {
+  position: relative;
+  overflow: visible !important;
 }
 
 .krix-dropdown-menu {
@@ -679,7 +783,7 @@ code, kbd, pre, samp {
   top: 0;
   width: 100%;
   z-index: var(--z-sticky);
-  background: rgba(10, 10, 12, 0.85);
+  background: var(--nav-header-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);

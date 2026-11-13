@@ -13,7 +13,7 @@ import {
 
 export interface CodeGraphToolMeta {
   name: string;
-  category: "Code Graph" | "Search";
+  category: "Code Graph" | "Search" | "Sandbox";
   description: string;
   readOnly: boolean;
 }
@@ -284,8 +284,18 @@ function runCgcCommand(
 }
 
 /**
- * Fast web search implementation with timeout and safe HTML text parsing.
+ * Fast web search implementation with in-memory TTL cache, sub-3s timeout, and instant fallback.
  */
+interface WebSearchCacheEntry {
+  timestamp: number;
+  data: {
+    query: string;
+    results: Array<{ title: string; url: string; snippet: string }>;
+  };
+}
+const WEB_SEARCH_CACHE = new Map<string, WebSearchCacheEntry>();
+const WEB_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 async function performWebSearch(
   query: string,
   limit: number = 5,
@@ -295,9 +305,15 @@ async function performWebSearch(
 }> {
   const cleanQuery = query.trim();
   const cappedLimit = Math.max(1, Math.min(15, limit));
+  const cacheKey = `${cleanQuery.toLowerCase()}_${cappedLimit}`;
+
+  const cached = WEB_SEARCH_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < WEB_SEARCH_CACHE_TTL_MS) {
+    return cached.data;
+  }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
 
   try {
     const searchUrl = new URL("https://html.duckduckgo.com/html/");
@@ -393,7 +409,12 @@ async function performWebSearch(
       };
     }
 
-    return { query: cleanQuery, results };
+    const finalResult = { query: cleanQuery, results };
+    WEB_SEARCH_CACHE.set(cacheKey, {
+      timestamp: Date.now(),
+      data: finalResult,
+    });
+    return finalResult;
   } catch (err: any) {
     clearTimeout(timeoutId);
     return {

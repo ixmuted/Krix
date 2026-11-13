@@ -42,8 +42,10 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
       </div>
 
       <div style="display:flex; gap:10px;">
-        <a href="/store" class="btn">View Store</a>
-        <a href="/home" class="btn primary">Back to Home</a>
+        <a href="/store" class="btn" style="border-radius:var(--radius-full); gap:6px;">
+          ${renderSvg("folder", 14)}
+          <span>View Store</span>
+        </a>
       </div>
     </div>
 
@@ -94,11 +96,12 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
                 ${renderSvg("shield", 18)}
               </div>
               <div>
-                <div style="font-weight:600; font-size:13px; color:var(--fg);">>Keep<</div>
+                <div style="font-weight:600; font-size:13px; color:var(--fg);">Keep</div>
               </div>
             </div>
-            <label class="switch" title="Keep (Permanent Storage)" style="position:relative; display:inline-block; width:40px; height:22px; cursor:pointer;">
-              <input type="checkbox" id="permSave" aria-label="Permanent Storage" style="accent-color:var(--accent); width:18px; height:18px;">
+            <label class="switch krix-switch" title="Keep (Permanent Storage)">
+              <input type="checkbox" id="permSave" aria-label="Permanent Storage">
+              <span class="krix-slider"></span>
             </label>
           </div>
 
@@ -175,30 +178,37 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         }
       }
 
-      function handleFileSelect(files) {
+      async function handleFileSelect(files) {
         if (!files || files.length === 0) return;
         const keep = document.getElementById('permSave')?.checked;
-        const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-          formData.append('files', files[i]);
-        }
-        if (keep) formData.append('keep', 'true');
+        const total = files.length;
 
-        if (window.showToast) window.showToast('Uploading ' + files.length + ' file(s)', 'info');
-
-        fetch('/upload', {
-          method: 'POST',
-          body: formData
-        }).then(res => {
-          if (res.ok) {
-            if (window.showToast) window.showToast('Files uploaded successfully', 'success');
-            setTimeout(() => { window.location.href = '/store'; }, 1000);
-          } else {
-            if (window.showToast) window.showToast('Upload failed', 'error');
+        for (let i = 0; i < total; i++) {
+          const file = files[i];
+          if (window.showToast) {
+            window.showToast('Uploading ' + (i + 1) + ' of ' + total + ': ' + file.name, 'info');
           }
-        }).catch(err => {
-          if (window.showToast) window.showToast('Upload failed: ' + err.message, 'error');
-        });
+          const formData = new FormData();
+          formData.append('files', file);
+          if (keep) formData.append('keep', 'true');
+
+          try {
+            const res = await fetch('/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (!res.ok) {
+              if (window.showToast) window.showToast('Upload failed for ' + file.name, 'error');
+              return;
+            }
+          } catch (err) {
+            if (window.showToast) window.showToast('Upload failed: ' + err.message, 'error');
+            return;
+          }
+        }
+
+        if (window.showToast) window.showToast('All ' + total + ' file(s) uploaded successfully', 'success');
+        setTimeout(() => { window.location.href = '/store'; }, 800);
       }
 
       function renderFileList() {

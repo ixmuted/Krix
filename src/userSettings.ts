@@ -41,6 +41,7 @@ export interface KeySettings {
   enabledCategories?: string[];
   toolRiskLevels?: Record<string, ToolRiskLevel>;
   riskAcknowledgedTools?: string[];
+  disabled?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -439,7 +440,7 @@ export function isToolEnabledForKey(
 // Persistence: Disk & MongoDB
 // ---------------------------------------------------------------------------------------------
 
-function saveSettingsToDisk(): void {
+export function saveSettingsToDisk(): void {
   try {
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     const keySettings = Array.from(keySettingsMap.entries()).map(

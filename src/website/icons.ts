@@ -6,12 +6,35 @@ export const SVG_ICONS: Record<string, string> = {
   github: `<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>`,
   render: `<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>`,
 
-  // Top AI System Brand Vectors (OAuth 2.1 Handshake)
+  // Top 24 Popular AI Application Logos & Connectors (OAuth 2.1 Handshake)
   gemini: `<path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 7.5 12 2 12 2Z" fill="currentColor" stroke="none"/>`,
   claude: `<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10M8.5 8.5l7 7M15.5 8.5l-7 7"/>`,
   chatgpt: `<circle cx="12" cy="12" r="9"/><path d="m9 10 3-2 3 2v4l-3 2-3-2z"/>`,
   antigravity: `<polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="3"/>`,
   codex: `<path d="m7 8-4 4 4 4"/><path d="m17 8 4 4-4 4"/><path d="m14 4-4 16"/>`,
+  cursor: `<polygon points="3 3 10 21 13 13 21 10 3 3"/><line x1="13" x2="20" y1="13" y2="20"/>`,
+  windsurf: `<path d="M4 18c4-6 6-12 14-14-2 8-8 10-14 14z"/><path d="M7 17l10-10"/>`,
+  cline: `<rect width="18" height="14" x="3" y="5" rx="3"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><line x1="12" x2="12" y1="2" y2="5"/>`,
+  roocode: `<path d="M18 10c0-4-3-7-7-7S4 6 4 10c0 5 4 10 8 11 4-1 6-6 6-11z"/><circle cx="9" cy="9" r="1.5"/><circle cx="15" cy="9" r="1.5"/>`,
+  continue: `<circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8"/>`,
+  zed: `<polygon points="5 5 19 5 8 19 19 19"/>`,
+  aider: `<circle cx="9" cy="8" r="4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="3"/><path d="M15 17c1.5-.6 3.5-.6 5 0"/>`,
+  perplexity: `<path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/><circle cx="12" cy="12" r="4"/>`,
+  mistral: `<path d="M4 4h4v4H4zM16 4h4v4h-4zM4 10h16v4H4zM4 16h4v4H4zM16 16h4v4h-4z"/>`,
+  grok: `<path d="M4 4l16 16M4 20L20 4"/><circle cx="12" cy="12" r="2"/>`,
+  deepseek: `<path d="M3 14c4-6 10-8 18-4-3 5-9 9-18 4z"/><circle cx="15" cy="11" r="1.5"/>`,
+  ollama: `<ellipse cx="12" cy="13" rx="7" ry="8"/><path d="M8 8l-2-5M16 8l2-5"/><circle cx="10" cy="12" r="1.2"/><circle cx="14" cy="12" r="1.2"/>`,
+  lmstudio: `<polygon points="12 2 21 9 12 22 3 9 12 2"/>`,
+  openwebui: `<rect width="18" height="18" x="3" y="3" rx="4"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/>`,
+  replit: `<path d="M4 4h7v5H4zM11 9h7v5h-7zM4 14h7v5H4z"/>`,
+  bolt: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"/>`,
+  lovable: `<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`,
+  v0: `<polygon points="12 3 2 20 22 20"/><circle cx="12" cy="14" r="2"/>`,
+  quickwitty: `<circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M7 7l2 2M15 15l2 2M7 17l2-2M15 9l2-2"/>`,
+
+  // Layout View Options (Store & Catalog)
+  list: `<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>`,
+  grid: `<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>`,
 
   // Core Functional Micro-Interaction Icons
   copy: `<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>`,
@@ -92,4 +115,41 @@ export function renderGoogleLogoSvg(size: number = 18): string {
 
 export function getCanonicalLogoUrl(): string {
   return "/icon-48.png?v=2";
+}
+
+export function getAppLogoSvg(name: string, size: number = 20): string {
+  const q = (name || "").toLowerCase();
+  if (q.includes("gemini")) return renderSvg("gemini", size);
+  if (q.includes("claude") || q.includes("anthropic"))
+    return renderSvg("claude", size);
+  if (q.includes("chatgpt") || q.includes("openai") || q.includes("gpt"))
+    return renderSvg("chatgpt", size);
+  if (q.includes("antigravity")) return renderSvg("antigravity", size);
+  if (q.includes("copilot") || q.includes("codex"))
+    return renderSvg("codex", size);
+  if (q.includes("cursor")) return renderSvg("cursor", size);
+  if (q.includes("windsurf") || q.includes("codeium"))
+    return renderSvg("windsurf", size);
+  if (q.includes("cline")) return renderSvg("cline", size);
+  if (q.includes("roo") || q.includes("roocode"))
+    return renderSvg("roocode", size);
+  if (q.includes("continue")) return renderSvg("continue", size);
+  if (q.includes("zed")) return renderSvg("zed", size);
+  if (q.includes("aider")) return renderSvg("aider", size);
+  if (q.includes("perplexity")) return renderSvg("perplexity", size);
+  if (q.includes("mistral") || q.includes("lechat"))
+    return renderSvg("mistral", size);
+  if (q.includes("grok") || q.includes("xai")) return renderSvg("grok", size);
+  if (q.includes("deepseek")) return renderSvg("deepseek", size);
+  if (q.includes("ollama")) return renderSvg("ollama", size);
+  if (q.includes("lmstudio") || q.includes("lm studio"))
+    return renderSvg("lmstudio", size);
+  if (q.includes("openwebui") || q.includes("open webui"))
+    return renderSvg("openwebui", size);
+  if (q.includes("replit")) return renderSvg("replit", size);
+  if (q.includes("bolt")) return renderSvg("bolt", size);
+  if (q.includes("lovable")) return renderSvg("lovable", size);
+  if (q.includes("v0") || q.includes("vercel")) return renderSvg("v0", size);
+  if (q.includes("quickwitty")) return renderSvg("quickwitty", size);
+  return renderSvg("sparkles", size);
 }

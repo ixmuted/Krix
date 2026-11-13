@@ -13,15 +13,30 @@ export function renderApiKeySettingsPage(params: {
   keySettings: any;
 }): string {
   const key = params.key || {};
-  const keyId = escapeHtml(key.id || "");
+  const keyId = escapeHtml(key.id || key.clientId || "");
   const keyName = escapeHtml(
-    key.label || key.name || `Key ${keyId.slice(0, 4)}`,
+    key.label || key.clientName || key.name || `Key ${keyId.slice(0, 4)}`,
   );
   const tools = Array.isArray(params.toolsCatalog) ? params.toolsCatalog : [];
   const settings = params.keySettings || {};
   const enabledTools = Array.isArray(settings.enabledTools)
     ? settings.enabledTools
     : [];
+  const isKeyDisabled = !!settings.disabled;
+
+  const createdDate = key.createdAt
+    ? new Date(key.createdAt).toLocaleDateString()
+    : "Recent";
+  const appName = escapeHtml(
+    key.clientName ||
+      key.app ||
+      (key.type === "oauth" ? "OAuth Client" : "Direct API Integration"),
+  );
+  const tokenPrefix = escapeHtml(keyId ? keyId.slice(0, 8) : "kx_auth");
+  const requestCount = key.totalRequests || 0;
+  const lastActive = key.lastActiveAt
+    ? new Date(key.lastActiveAt).toLocaleString()
+    : "Active";
 
   const content = `
     <!-- Top Header Deck -->
@@ -43,6 +58,45 @@ export function renderApiKeySettingsPage(params: {
       <button type="button" class="btn primary deploy-btn" onclick="saveKeySettings()" style="border-radius:var(--radius-full); padding:9px 20px;">
         Save Changes
       </button>
+    </div>
+
+    <!-- Key Metadata & Telemetry Deck -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:24px;">
+      <div class="card spotlight-card card-top-border" style="padding:16px 18px;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--geist-gray-50);">Created Date</div>
+        <div style="font-size:14px; font-weight:600; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${createdDate}</div>
+      </div>
+
+      <div class="card spotlight-card card-top-border" style="padding:16px 18px;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--geist-gray-50);">Connected App</div>
+        <div style="font-size:14px; font-weight:600; color:var(--fg); margin-top:4px;">${appName}</div>
+      </div>
+
+      <div class="card spotlight-card card-top-border" style="padding:16px 18px;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--geist-gray-50);">Token Prefix</div>
+        <div style="font-size:14px; font-weight:600; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${tokenPrefix}</div>
+      </div>
+
+      <div class="card spotlight-card card-top-border" style="padding:16px 18px;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--geist-gray-50);">Total Invocations</div>
+        <div style="font-size:14px; font-weight:600; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${requestCount} calls</div>
+      </div>
+
+      <div class="card spotlight-card card-top-border" style="padding:16px 18px;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--geist-gray-50);">Last Active</div>
+        <div style="font-size:13px; font-weight:600; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${lastActive}</div>
+      </div>
+
+      <div class="card spotlight-card card-top-border" style="padding:16px 18px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--geist-gray-50);">Key Status</div>
+          <div id="keyStatusText" style="font-size:13px; font-weight:600; color:${isKeyDisabled ? "var(--error)" : "var(--success)"}; margin-top:4px;">${isKeyDisabled ? "Disabled" : "Active"}</div>
+        </div>
+        <label class="switch krix-switch" title="Pause or Disable Key">
+          <input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} onchange="document.getElementById('keyStatusText').textContent = this.checked ? 'Active' : 'Disabled'; document.getElementById('keyStatusText').style.color = this.checked ? 'var(--success)' : 'var(--error)';">
+          <span class="krix-slider"></span>
+        </label>
+      </div>
     </div>
 
     <!-- Key Credential Overrides Card -->
@@ -118,13 +172,16 @@ export function renderApiKeySettingsPage(params: {
         const checks = document.querySelectorAll('.tool-perm-check:checked');
         const enabled = Array.from(checks).map(c => c.value);
 
+        const disabled = !document.getElementById('keyActiveToggle')?.checked;
+
         fetch('/api/keys/${keyId}/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             githubToken: gh,
             renderApiKey: rn,
-            enabledTools: enabled
+            enabledTools: enabled,
+            disabled: disabled
           })
         }).then(res => {
           if (res.ok) window.showToast('Settings saved successfully', 'success');

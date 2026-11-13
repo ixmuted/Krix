@@ -75,10 +75,14 @@ import {
   renderHomePage,
   renderStatsPage,
   renderApiKeysPage,
+  renderApiKeySettingsPage,
   renderToolsPage,
   renderStorePage,
   renderNotFoundPage,
   renderSettingsPage,
+  renderPrivacyPage,
+  renderTermsPage,
+  renderHelpPage,
   type StoredFileInfo,
 } from "./views.js";
 import { logIsolationStatus } from "./sandboxProc.js";
@@ -115,6 +119,7 @@ import {
   updateKeyToolRiskLevel,
   isToolEnabledForKey,
   syncKeySettingsToMongo,
+  saveSettingsToDisk,
   getUserRole,
   isOwnerEmail,
   maskSecret,
@@ -1273,11 +1278,9 @@ app.get("/api/keys/:id/credentials/secret", async (req, res) => {
   const id = String(req.params.id || "");
   const provider = String(req.query.provider || "").toLowerCase();
   if (provider !== "github" && provider !== "render") {
-    res
-      .status(400)
-      .json({
-        error: "Invalid provider. Supported providers: github, render.",
-      });
+    res.status(400).json({
+      error: "Invalid provider. Supported providers: github, render.",
+    });
     return;
   }
   const limiterId = `${owner.email.toLowerCase()}:${clientIp(req)}`;
@@ -1286,20 +1289,16 @@ app.get("/api/keys/:id/credentials/secret", async (req, res) => {
       "Retry-After",
       String(keyRevealLimiter.retryAfterSec(limiterId) || 60),
     );
-    res
-      .status(429)
-      .json({
-        error: "Too many credential reveal attempts. Try again shortly.",
-      });
+    res.status(429).json({
+      error: "Too many credential reveal attempts. Try again shortly.",
+    });
     return;
   }
   if (!userOwnsKey(owner.email, id)) {
-    res
-      .status(403)
-      .json({
-        error:
-          "You can only reveal credentials for keys assigned to your account.",
-      });
+    res.status(403).json({
+      error:
+        "You can only reveal credentials for keys assigned to your account.",
+    });
     return;
   }
   const settings = getKeySettings(id);
@@ -1308,11 +1307,9 @@ app.get("/api/keys/:id/credentials/secret", async (req, res) => {
       ? settings.customGitHubToken
       : settings.customRenderToken;
   if (!token) {
-    res
-      .status(404)
-      .json({
-        error: `No custom ${provider} credential is saved for this key.`,
-      });
+    res.status(404).json({
+      error: `No custom ${provider} credential is saved for this key.`,
+    });
     return;
   }
   res.setHeader("Cache-Control", "no-store, no-cache, private, max-age=0");
@@ -1398,6 +1395,152 @@ app.delete("/api/keys/:id", async (req, res) => {
     listActiveOAuthAuthorizations(),
   );
   res.json({ success: revoked, closedSessions });
+});
+
+app.get("/api/settings", async (req, res) => {
+  await Promise.all([
+    ensureMongoAuth().catch(() => {}),
+    loadOAuthFromMongo().catch(() => {}),
+    statsTracker.ensureMongo().catch(() => {}),
+  ]);
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.redirect("/auth/google?returnTo=" + encodeURIComponent(req.originalUrl));
+    return;
+  }
+  const keyId = typeof req.query.key === "string" ? req.query.key.trim() : "";
+  const dynamicKeys = listDynamicKeys(owner.email);
+  const activeOAuths = listActiveOAuthAuthorizations().filter(
+    (oa) =>
+      isOwnerEmail(owner.email) ||
+      oa.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+  );
+
+  let targetKey: any = dynamicKeys.find((k) => k.id === keyId);
+  if (!targetKey) {
+    const oauthTarget = activeOAuths.find((oa) => oa.clientId === keyId);
+    if (oauthTarget) {
+      targetKey = {
+        id: oauthTarget.clientId,
+        clientId: oauthTarget.clientId,
+        label: oauthTarget.clientName || "OAuth Client",
+        type: "oauth",
+        createdAt: oauthTarget.createdAt || Date.now(),
+      };
+    }
+  }
+  if (!targetKey && isOwnerEmail(owner.email) && keyId === "primary-key") {
+    targetKey = {
+      id: "primary-key",
+      label: "Primary Key",
+      type: "master",
+      createdAt: Date.now(),
+    };
+  }
+  if (!targetKey) {
+    targetKey = dynamicKeys[0] || {
+      id: keyId || "primary-key",
+      label: "API Key",
+      createdAt: Date.now(),
+    };
+  }
+
+  const effectiveKeyId = targetKey.id || targetKey.clientId || "primary-key";
+  const keySettings = getKeySettings(effectiveKeyId);
+  const summary = statsTracker.getSummary(
+    process.cwd(),
+    effectiveKeyId,
+    isOwnerEmail(owner.email),
+  );
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderApiKeySettingsPage({
+      base,
+      isOwner: isOwnerEmail(owner.email),
+      owner,
+      key: targetKey,
+      toolsCatalog: summary.toolsCatalog,
+      keySettings,
+    }),
+  );
+});
+
+app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = req.params.id as string;
+  if (!isOwnerEmail(owner.email) && !userOwnsKey(owner.email, id)) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  const { githubToken, renderApiKey, enabledTools, disabled } = req.body || {};
+  const settings = getKeySettings(id);
+
+  if (githubToken !== undefined) {
+    settings.customGitHubToken = githubToken ? String(githubToken).trim() : undefined;
+    if (settings.customGitHubToken) registerSecret(settings.customGitHubToken);
+  }
+  if (renderApiKey !== undefined) {
+    settings.customRenderToken = renderApiKey ? String(renderApiKey).trim() : undefined;
+    if (settings.customRenderToken) registerSecret(settings.customRenderToken);
+  }
+  if (Array.isArray(enabledTools)) {
+    settings.enabledTools = enabledTools.map(String);
+  }
+  if (typeof disabled === "boolean") {
+    settings.disabled = disabled;
+  }
+  settings.updatedAt = Date.now();
+  saveSettingsToDisk();
+  syncKeySettingsToMongo(settings).catch(() => {});
+
+  res.json({ success: true, settings });
+});
+
+app.post("/api/account/delete", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const email = owner.email.toLowerCase();
+  const userKeys = listDynamicKeys(email);
+  for (const k of userKeys) {
+    closeSessionsForKey(k.id);
+    revokeDynamicKey(k.id);
+    statsTracker.removeKey(k.id);
+  }
+  statsTracker.syncKnownKeys(
+    listDynamicKeys(),
+    listActiveOAuthAuthorizations(),
+  );
+
+  res.clearCookie("krix_owner");
+  res.json({ success: true, message: "Account and associated tokens deleted." });
+});
+
+app.get("/privacy", (req, res) => {
+  const owner = parseOwnerCookie(req);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderPrivacyPage({ owner }));
+});
+
+app.get("/terms", (req, res) => {
+  const owner = parseOwnerCookie(req);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderTermsPage({ owner }));
+});
+
+app.get("/help", (req, res) => {
+  const owner = parseOwnerCookie(req);
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderHelpPage({ owner, base }));
 });
 
 app.get("/tools", async (req, res) => {

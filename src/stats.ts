@@ -873,10 +873,34 @@ export class StatsTracker {
           }
         }
       }
+
+      // Purge revoked/deleted OAuth clients from active keys collection
+      const activeOAuthClientIds = new Set(oauthClients.map((c) => c.clientId));
+      for (const [existingKeyId, existingMetrics] of Array.from(
+        this.keys.entries(),
+      )) {
+        if (
+          existingMetrics.type === "oauth" &&
+          !activeOAuthClientIds.has(existingKeyId)
+        ) {
+          this.keys.delete(existingKeyId);
+          changed = true;
+        }
+      }
     }
 
-    // Historical usage is retained after a key/client is revoked or deleted.
-    // This keeps audit and analytics history intact across dashboard refreshes.
+    // Complete purge of any orphaned legacy keys not in active dynamic keys or active OAuth clients
+    if (dynamicKeys && oauthClients) {
+      const activeDynamicIds = new Set(dynamicKeys.map((k) => k.id));
+      const activeOAuthClientIds = new Set(oauthClients.map((c) => c.clientId));
+      for (const [existingKeyId] of Array.from(this.keys.entries())) {
+        if (existingKeyId === "primary-key" || existingKeyId === "master-env-key") continue;
+        if (!activeDynamicIds.has(existingKeyId) && !activeOAuthClientIds.has(existingKeyId)) {
+          this.keys.delete(existingKeyId);
+          changed = true;
+        }
+      }
+    }
 
     if (changed) {
       this.scheduleSave();
@@ -1193,10 +1217,10 @@ export class StatsTracker {
           "Stages workspace modifications, creates signed commits, and pushes to remote branches.",
       },
 
-      // 2. File Storage Tools (1 tool)
+      // 2. File Storage Tools (1 tool - merged in Sandbox)
       {
         name: "sandbox_store",
-        category: "Files",
+        category: "Sandbox",
         description:
           "Persistent cloud storage, permanent retention, direct sharing links, and uploads.",
       },

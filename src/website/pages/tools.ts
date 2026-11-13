@@ -55,14 +55,75 @@ export function renderToolsPage(params: {
       </div>
 
       <!-- Dual Density Toggle & Key Selector -->
-      <div style="display:flex; align-items:center; gap:10px;">
-        <select id="keySelector" onchange="onKeyFilterChange(this)" style="display:none;" aria-hidden="true">
-          <option value="">All Keys</option>
-        </select>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
+          <select id="keySelector" onchange="onKeyFilterChange(this)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer;">
+            <option value="">All Keys</option>
+            ${(params.summary?.keys || [])
+              .map((k: any) => {
+                const val = k.keyId || k.id;
+                const lbl = k.label || val;
+                const sel =
+                  params.summary?.selectedKeyId === val ? "selected" : "";
+                return `<option value="${escapeHtml(val)}" ${sel}>${escapeHtml(lbl)}</option>`;
+              })
+              .join("")}
+          </select>
+        </div>
         <div style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:3px; gap:2px;">
           <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full);">Concise</button>
           <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full);">Verbose</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Telemetry Breakdown Dashboard Card -->
+    <div id="toolTelemetryCard" class="card spotlight-card card-top-border" style="padding:22px 24px; margin-bottom:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+        <div>
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">TELEMETRY BREAKDOWN</div>
+          <h2 id="breakdownToolTitle" style="font-size:18px; font-weight:700; color:var(--fg); margin-top:2px;">All Tools Aggregate</h2>
+          <p id="breakdownToolSubtitle" style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Execution statistics across all MCP tool invocations</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="toolBreakdownSelect" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Select Tool:</label>
+          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer; max-width:260px;">
+            <option value="">All Tools (Global)</option>
+            ${tools.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${escapeHtml(t.category || "General")})</option>`).join("")}
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-bottom:14px;">
+        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Invocations</div>
+          <div id="metricTotalCalls" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${params.summary?.totalRequests || 0}</div>
+        </div>
+        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Success Rate</div>
+          <div id="metricSuccessRate" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--success); margin-top:4px;">${params.summary?.overallSuccessRate != null ? params.summary.overallSuccessRate + "%" : "100%"}</div>
+        </div>
+        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Failures</div>
+          <div id="metricFailures" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--error); margin-top:4px;">${params.summary?.totalErrors || 0}</div>
+        </div>
+        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Avg Latency</div>
+          <div id="metricLatency" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${params.summary?.avgDurationMs || 0} ms</div>
+        </div>
+        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Peak Usage</div>
+          <div id="metricPeak" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${params.summary?.throughputRpm ? params.summary.throughputRpm + " rpm" : "N/A"}</div>
+        </div>
+        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Last Active</div>
+          <div id="metricLastActive" style="font-size:14px; font-weight:600; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">Recent</div>
+        </div>
+      </div>
+
+      <div id="breakdownToolVerbose" style="font-size:12px; color:var(--geist-gray-50); line-height:1.5; padding:10px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+        Global execution summary across all tools recorded by the Krix MCP runtime.
       </div>
     </div>
 
@@ -147,7 +208,10 @@ export function renderToolsPage(params: {
     <div id="toolDrawer" style="position:fixed; top:0; right:0; bottom:0; width:440px; max-width:90vw; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:var(--z-drawer); transform:translateX(100%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:24px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <h2 id="drawerToolName" style="font-size:16px; font-weight:700; font-family:var(--font-mono); color:var(--fg);"></h2>
-        <button type="button" class="btn ghost" onclick="closeToolDrawer()" style="padding:4px;" aria-label="Close Drawer">&times;</button>
+        <button type="button" class="btn ghost" onclick="closeToolDrawer()" style="padding:4px 8px; font-size:12px; display:inline-flex; align-items:center; gap:4px;" aria-label="Close Drawer">
+          ${renderSvg("x", 14)}
+          <span>Close</span>
+        </button>
       </div>
 
       <p id="drawerToolDesc" style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:16px;"></p>
@@ -160,6 +224,68 @@ export function renderToolsPage(params: {
 
     <script>
       let currentCategory = 'All';
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeToolDrawer();
+      });
+
+      const toolsMetricsMap = ${JSON.stringify(
+        tools.reduce((acc: any, t: any) => {
+          acc[t.name] = {
+            name: t.name,
+            category: t.category || "General",
+            description: t.description || "",
+            totalCalls: t.totalCalls || 0,
+            successRate: t.successRate != null ? t.successRate + "%" : "100%",
+            failures: t.errorCount || 0,
+            avgDurationMs: t.avgDurationMs ? t.avgDurationMs + " ms" : "0 ms",
+            peak: t.peakUsage || "N/A",
+            lastActive: t.lastActiveAt
+              ? new Date(t.lastActiveAt).toLocaleString()
+              : "Recent",
+          };
+          return acc;
+        }, {}),
+      )};
+
+      function selectToolBreakdown(name) {
+        const titleEl = document.getElementById('breakdownToolTitle');
+        const subEl = document.getElementById('breakdownToolSubtitle');
+        const descEl = document.getElementById('breakdownToolVerbose');
+        const callsEl = document.getElementById('metricTotalCalls');
+        const rateEl = document.getElementById('metricSuccessRate');
+        const failEl = document.getElementById('metricFailures');
+        const latEl = document.getElementById('metricLatency');
+        const peakEl = document.getElementById('metricPeak');
+        const activeEl = document.getElementById('metricLastActive');
+
+        if (!name || !toolsMetricsMap[name]) {
+          if (titleEl) titleEl.textContent = 'All Tools Aggregate';
+          if (subEl) subEl.textContent = 'Execution statistics across all MCP tool invocations';
+          if (descEl) descEl.textContent = 'Global execution summary across all tools recorded by the Krix MCP runtime.';
+          if (callsEl) callsEl.textContent = '${params.summary?.totalRequests || 0}';
+          if (rateEl) rateEl.textContent = '${params.summary?.overallSuccessRate != null ? params.summary.overallSuccessRate + "%" : "100%"}';
+          if (failEl) failEl.textContent = '${params.summary?.totalErrors || 0}';
+          if (latEl) latEl.textContent = '${params.summary?.avgDurationMs || 0} ms';
+          if (peakEl) peakEl.textContent = '${params.summary?.throughputRpm ? params.summary.throughputRpm + " rpm" : "N/A"}';
+          if (activeEl) activeEl.textContent = 'Recent';
+          return;
+        }
+
+        const m = toolsMetricsMap[name];
+        if (titleEl) titleEl.textContent = m.name;
+        if (subEl) subEl.textContent = 'Category: ' + m.category;
+        if (descEl) descEl.textContent = m.description || 'No extended documentation provided for this tool.';
+        if (callsEl) callsEl.textContent = String(m.totalCalls);
+        if (rateEl) rateEl.textContent = m.successRate;
+        if (failEl) failEl.textContent = String(m.failures);
+        if (latEl) latEl.textContent = m.avgDurationMs;
+        if (peakEl) peakEl.textContent = m.peak;
+        if (activeEl) activeEl.textContent = m.lastActive;
+
+        const select = document.getElementById('toolBreakdownSelect');
+        if (select && select.value !== name) select.value = name;
+      }
 
       function setToolDensity(mode) {
         const grid = document.getElementById('toolsGrid');
@@ -201,6 +327,7 @@ export function renderToolsPage(params: {
       }
 
       function openToolDrawer(name, desc, cat, schema) {
+        selectToolBreakdown(name);
         document.getElementById('drawerToolName').textContent = name;
         document.getElementById('drawerToolDesc').textContent = desc;
         try {

@@ -49,23 +49,8 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
           </nav>
         </div>
 
-        <!-- Right: Status, Command Trigger, Auth/Profile -->
+        <!-- Right: Auth/Profile & Primary Triggers -->
         <div style="display:flex; align-items:center; gap:10px;">
-          <!-- Live Status Indicator Pill (No operation terminology) -->
-          <div class="status-pill desktop-only-nav" title="System Live & Nominal">
-            <span class="status-dot-available"></span>
-            <span style="font-size:12px; font-weight:500;">Live</span>
-          </div>
-
-          <!-- Command Palette Trigger (No ellipsis) -->
-          <button type="button" class="btn ghost desktop-only-nav" onclick="window.toggleCommandPalette(true)" style="padding:6px 10px; font-size:12px;" aria-label="Open Command Palette">
-            <span style="display:flex; align-items:center; gap:6px; color:var(--geist-gray-50);">
-              ${renderSvg("search", 14)}
-              <span>Search</span>
-              <kbd style="font-size:10px; padding:1px 5px; background:var(--bg-surface-2); border:1px solid var(--border-subtle); border-radius:4px; font-family:var(--font-mono); color:var(--fg);">⌘K</kbd>
-            </span>
-          </button>
-
           ${
             isAuth
               ? `
@@ -190,14 +175,15 @@ export function renderFooter(): string {
 
         <!-- Connect & Security -->
         <div class="krix-footer-col" style="display:flex; flex-direction:column; gap:10px;">
-          <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg);">Connect</div>
+          <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg);">Connect &amp; Legal</div>
           <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:6px;">
             ${renderSvg("github", 14)}
             <span>GitHub</span>
           </a>
-          <a href="https://reddit.com/user/imunmuted" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50);">Reddit</a>
-          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50);">Privacy Policy</a>
-          <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50);">Terms of Service</a>
+          <a href="/help" style="font-size:12px; color:var(--geist-gray-50);">Help &amp; Documentation</a>
+          <a href="/privacy" style="font-size:12px; color:var(--geist-gray-50);">Privacy Policy</a>
+          <a href="/terms" style="font-size:12px; color:var(--geist-gray-50);">Terms of Service</a>
+          <a href="https://reddit.com/user/imunmuted" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50);">Reddit Community</a>
         </div>
       </div>
 

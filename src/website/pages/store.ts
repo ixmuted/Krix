@@ -107,15 +107,27 @@ export function renderStorePage(params: {
           <span class="badge" id="fileCountBadge">${files.length} items</span>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 12px; min-width:260px;">
-          ${renderSvg("search", 14, "text-muted")}
-          <input
-            type="text"
-            id="storeSearchInput"
-            placeholder="Search repository files"
-            oninput="filterStoreFiles()"
-            style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;"
-          >
+        <div style="display:flex; align-items:center; gap:10px;">
+          <!-- List vs Grid View Toggle (Pure SVGs, No words) -->
+          <div style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px; gap:2px;">
+            <button type="button" id="viewListBtn" class="nav-pill active" onclick="setStoreView('list')" title="List View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
+              ${renderSvg("list", 14)}
+            </button>
+            <button type="button" id="viewGridBtn" class="nav-pill" onclick="setStoreView('grid')" title="Grid View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
+              ${renderSvg("grid", 14)}
+            </button>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 12px; min-width:240px;">
+            ${renderSvg("search", 14, "text-muted")}
+            <input
+              type="text"
+              id="storeSearchInput"
+              placeholder="Search repository files"
+              oninput="filterStoreFiles()"
+              style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;"
+            >
+          </div>
         </div>
       </div>
 
@@ -246,6 +258,90 @@ export function renderStorePage(params: {
           </tbody>
         </table>
       </div>
+
+      <!-- Grid View Alternative (Pure SVG Toggled) -->
+      <div id="storeGrid" style="display:none; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; margin-top:14px;">
+        ${files
+          .map((file, idx) => {
+            const fId = escapeHtml(file.id || `file_${idx}`);
+            const fName = escapeHtml(
+              file.name || file.filename || `file_${idx}`,
+            );
+            const fSize = formatBytes(file.size || 0);
+            const isPermanent = !!file.permanent;
+            const isPublic = !!file.isPublic;
+            const source = file.source === "sandbox" ? "sandbox" : "store";
+            const downloadUrl = file.downloadUrl
+              ? file.downloadUrl
+              : source === "sandbox"
+                ? `/store/download?file=${encodeURIComponent(fName)}`
+                : `/store/download/${encodeURIComponent(fId)}`;
+            const gridMenuId = `grid_menu_${fId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
+            const kebabItems = [
+              {
+                label: "Copy URL",
+                icon: "copy",
+                onclick: `copyStoreUrl('${escapeHtml(downloadUrl)}')`,
+              },
+              { label: "Download File", icon: "download", href: downloadUrl },
+              isPermanent
+                ? {
+                    label: "Revert",
+                    icon: "clock",
+                    onclick: `togglePermanent('${fId}', false)`,
+                  }
+                : {
+                    label: "Keep",
+                    icon: "shield",
+                    onclick: `togglePermanent('${fId}', true)`,
+                  },
+              {
+                label: "Toggle Privacy",
+                icon: "lock",
+                onclick: `toggleFilePrivacy('${fId}')`,
+              },
+              {
+                label: "Rename",
+                icon: "edit",
+                onclick: `openRenameFileModal('${fId}', '${fName}', '${source}')`,
+              },
+              {
+                label: "Delete",
+                icon: "trash",
+                onclick: `openDeleteFileModal('${fId}', '${fName}', '${source}')`,
+                danger: true,
+              },
+            ];
+            return `
+              <div class="store-grid-card card spotlight-card" data-name="${fName.toLowerCase()}" style="padding:16px; display:flex; flex-direction:column; gap:10px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                    <div style="width:32px; height:32px; border-radius:6px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; color:var(--fg); flex-shrink:0;">
+                      ${renderSvg("file-text", 16)}
+                    </div>
+                    <div style="font-weight:600; font-family:var(--font-mono); font-size:13px; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${fName}">${fName}</div>
+                  </div>
+                  ${renderKebabMenu(kebabItems, gridMenuId)}
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:auto; padding-top:6px; border-top:1px solid var(--border-subtle);">
+                  <span>${fSize}</span>
+                  <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPermanent ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPermanent ? "Permanent" : "24h Ephemeral"}</span>
+                </div>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+
+      <!-- Pagination Bar -->
+      <div id="storePagination" style="display:flex; justify-content:space-between; align-items:center; padding:16px 4px 0; border-top:1px solid var(--border-subtle); margin-top:16px; font-size:12px; color:var(--geist-gray-50); flex-wrap:wrap; gap:10px;">
+        <div id="pageInfo">Showing 1-${Math.min(files.length, 10)} of ${files.length} items</div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button type="button" class="btn ghost" id="prevPageBtn" onclick="changeStorePage(-1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">&larr; Previous</button>
+          <span id="pageIndicator" style="font-family:var(--font-mono); font-size:11px; padding:0 6px;">1</span>
+          <button type="button" class="btn ghost" id="nextPageBtn" onclick="changeStorePage(1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">Next &rarr;</button>
+        </div>
+      </div>
     </div>
 
     <!-- Rename File Modal Dialog -->
@@ -285,13 +381,86 @@ export function renderStorePage(params: {
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
     <script>
+      let currentStoreView = 'list';
+      let currentStorePage = 1;
+      const storePageSize = 10;
+
+      function setStoreView(mode) {
+        currentStoreView = mode;
+        const table = document.getElementById('storeTable');
+        const grid = document.getElementById('storeGrid');
+        const listBtn = document.getElementById('viewListBtn');
+        const gridBtn = document.getElementById('viewGridBtn');
+
+        if (mode === 'grid') {
+          if (table) table.parentElement.style.display = 'none';
+          if (grid) grid.style.display = 'grid';
+          listBtn?.classList.remove('active');
+          gridBtn?.classList.add('active');
+        } else {
+          if (table) table.parentElement.style.display = '';
+          if (grid) grid.style.display = 'none';
+          listBtn?.classList.add('active');
+          gridBtn?.classList.remove('active');
+        }
+        applyStorePagination();
+      }
+
+      function changeStorePage(delta) {
+        const totalItems = document.querySelectorAll('.store-row').length;
+        const maxPage = Math.max(1, Math.ceil(totalItems / storePageSize));
+        const newPage = currentStorePage + delta;
+        if (newPage >= 1 && newPage <= maxPage) {
+          currentStorePage = newPage;
+          applyStorePagination();
+        }
+      }
+
+      function applyStorePagination() {
+        const rows = Array.from(document.querySelectorAll('.store-row'));
+        const cards = Array.from(document.querySelectorAll('.store-grid-card'));
+        const total = rows.length;
+        const maxPage = Math.max(1, Math.ceil(total / storePageSize));
+        if (currentStorePage > maxPage) currentStorePage = maxPage;
+
+        const start = (currentStorePage - 1) * storePageSize;
+        const end = start + storePageSize;
+
+        rows.forEach((r, idx) => {
+          r.style.display = (idx >= start && idx < end) ? '' : 'none';
+        });
+        cards.forEach((c, idx) => {
+          c.style.display = (idx >= start && idx < end) ? 'flex' : 'none';
+        });
+
+        const pageInfo = document.getElementById('pageInfo');
+        if (pageInfo) {
+          pageInfo.textContent = 'Showing ' + (total === 0 ? 0 : start + 1) + '-' + Math.min(end, total) + ' of ' + total + ' items';
+        }
+        const indicator = document.getElementById('pageIndicator');
+        if (indicator) indicator.textContent = currentStorePage + ' / ' + maxPage;
+
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+        if (prevBtn) prevBtn.disabled = currentStorePage <= 1;
+        if (nextBtn) nextBtn.disabled = currentStorePage >= maxPage;
+      }
+
       function filterStoreFiles() {
         const query = (document.getElementById('storeSearchInput')?.value || '').toLowerCase();
         document.querySelectorAll('.store-row').forEach(row => {
           const name = row.getAttribute('data-name') || '';
           row.style.display = name.includes(query) ? '' : 'none';
         });
+        document.querySelectorAll('.store-grid-card').forEach(card => {
+          const name = card.getAttribute('data-name') || '';
+          card.style.display = name.includes(query) ? 'flex' : 'none';
+        });
       }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        applyStorePagination();
+      });
 
       function copyStoreUrl(url) {
         const fullUrl = url.startsWith('http') ? url : window.location.origin + url;

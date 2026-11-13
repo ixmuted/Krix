@@ -30,6 +30,8 @@ export { renderSettingsPage } from "./pages/settings.js";
 export { renderNotFoundPage } from "./pages/notFound.js";
 export { renderOAuthConsentPage } from "./pages/oauthConsent.js";
 export { renderAuthRequiredCard } from "./pages/authCard.js";
+export { renderPrivacyPage, renderTermsPage } from "./pages/legal.js";
+export { renderHelpPage } from "./pages/help.js";
 
 export interface StoredFileInfo {
   id: string;

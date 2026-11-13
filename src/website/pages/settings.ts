@@ -160,6 +160,24 @@ export function renderSettingsPage(params: {
         </div>
       </div>
 
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
+        <button type="button" class="settings-cat-pill active" data-cat="All" onclick="filterSettingsCat('All', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-2); color:var(--fg); cursor:pointer;">
+          All (${(params.toolsCatalog || []).length})
+        </button>
+        <button type="button" class="settings-cat-pill" data-cat="GitHub" onclick="filterSettingsCat('GitHub', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+          GitHub (${(params.toolsCatalog || []).filter((t: any) => t.category === "GitHub").length})
+        </button>
+        <button type="button" class="settings-cat-pill" data-cat="Sandbox" onclick="filterSettingsCat('Sandbox', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+          Sandbox (${(params.toolsCatalog || []).filter((t: any) => t.category === "Sandbox" || t.category === "Files" || t.category === "Search").length})
+        </button>
+        <button type="button" class="settings-cat-pill" data-cat="Render" onclick="filterSettingsCat('Render', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+          Render (${(params.toolsCatalog || []).filter((t: any) => t.category === "Render").length})
+        </button>
+        <button type="button" class="settings-cat-pill" data-cat="Code Graph" onclick="filterSettingsCat('Code Graph', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+          Code Graph (${(params.toolsCatalog || []).filter((t: any) => t.category === "Code Graph").length})
+        </button>
+      </div>
+
       <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
         <div>
           <div style="font-size:13px; font-weight:600; color:var(--fg);">Code Graph Context (29 tools)</div>
@@ -171,21 +189,28 @@ export function renderSettingsPage(params: {
         </span>
       </div>
 
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; max-height:280px; overflow-y:auto; padding:4px;">
-        ${
-          codeGraphTools
-            .map((t: any) => {
-              const isEnabled = keySettings.enabledTools?.includes(t.name);
-              return `
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-size:12px;">
-                <span style="font-family:var(--font-mono); color:var(--fg);">${escapeHtml(t.name)}</span>
-                <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked)" ${isEnabled ? "checked" : ""} style="accent-color:var(--accent); width:16px; height:16px; cursor:pointer;">
+      <div id="settingsToolsGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; max-height:360px; overflow-y:auto; padding:4px;">
+        ${(params.toolsCatalog && params.toolsCatalog.length > 0
+          ? params.toolsCatalog
+          : codeGraphTools
+        )
+          .map((t: any) => {
+            const cat = t.category || "General";
+            const isEnabled = keySettings.enabledTools?.includes(t.name);
+            return `
+              <div class="settings-tool-row" data-cat="${escapeHtml(cat)}" data-name="${escapeHtml(t.name)}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); font-size:12px;">
+                <div style="min-width:0; flex:1; padding-right:10px;">
+                  <div style="font-family:var(--font-mono); font-weight:600; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(t.name)}</div>
+                  <div style="font-size:11px; color:var(--geist-gray-50);">${escapeHtml(cat)}</div>
+                </div>
+                <label class="switch krix-switch" title="Toggle Tool Permission">
+                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked)" ${isEnabled ? "checked" : ""}>
+                  <span class="krix-slider"></span>
+                </label>
               </div>
             `;
-            })
-            .join("") ||
-          `<div style="color:var(--geist-gray-50); font-size:12px; padding:12px;">All tools active by default</div>`
-        }
+          })
+          .join("")}
       </div>
     </div>
 
@@ -206,22 +231,97 @@ export function renderSettingsPage(params: {
       </div>
     </div>
 
-    <!-- Danger Zone -->
-    <div class="card spotlight-card" style="padding:24px; border-color:rgba(239, 68, 68, 0.3);">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div>
-          <h2 style="font-size:16px; font-weight:600; color:var(--error);">Session Termination</h2>
-          <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Sign out of your active Google session on this workstation.</p>
+    <!-- Danger Zone: Session Termination & Account Deletion -->
+    <div class="card spotlight-card" style="padding:24px; border-color:rgba(239, 68, 68, 0.3); margin-bottom:24px;">
+      <h2 style="font-size:16px; font-weight:600; color:var(--error); margin-bottom:16px;">Danger Zone</h2>
+
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding-bottom:16px; border-bottom:1px solid var(--border-subtle);">
+          <div>
+            <div style="font-size:13px; font-weight:600; color:var(--fg);">Session Termination</div>
+            <div style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Sign out of your active Google session on this workstation.</div>
+          </div>
+          <a href="/auth/logout" class="btn danger" style="border-radius:var(--radius-full); padding:8px 18px;">
+            ${renderSvg("lock", 14)}
+            <span>Sign Out</span>
+          </a>
         </div>
-        <a href="/auth/logout" class="btn danger" style="border-radius:var(--radius-full); padding:8px 18px;">
-          ${renderSvg("lock", 14)}
-          <span>Sign Out</span>
-        </a>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div style="font-size:13px; font-weight:600; color:var(--error);">Account Deletion</div>
+            <div style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Permanently delete your account, API keys, and all uploaded repository artifacts.</div>
+          </div>
+          <button type="button" class="btn danger" onclick="openDeleteAccountModal()" style="border-radius:var(--radius-full); padding:8px 18px;">
+            ${renderSvg("trash", 14)}
+            <span>Delete Account</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Deletion Confirmation Modal Dialog -->
+    <div id="deleteAccountModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
+      <div class="modal-card card spotlight-card" style="max-width:440px; width:100%; padding:28px;">
+        <h3 style="font-size:17px; font-weight:700; color:var(--error); margin-bottom:8px;">Delete Account &amp; Purge Data</h3>
+        <p style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:16px;">
+          This action is permanent and cannot be undone. All your API keys, OAuth authorizations, and stored files will be permanently erased.
+        </p>
+        <p style="font-size:12px; color:var(--fg); margin-bottom:12px;">
+          Please type <strong>DELETE</strong> to confirm:
+        </p>
+        <input type="text" id="deleteAccountConfirmInput" placeholder="DELETE" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-family:var(--font-mono); font-size:13px; color:var(--fg); margin-bottom:20px; outline:none;">
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn ghost" onclick="closeDeleteAccountModal()">Cancel</button>
+          <button type="button" id="confirmDeleteAccountBtn" class="btn danger" onclick="submitDeleteAccount()">Confirm Permanent Deletion</button>
+        </div>
       </div>
     </div>
 
     <script>
       const activeKeyId = ${JSON.stringify(currentKeyId)};
+
+      function openDeleteAccountModal() {
+        const m = document.getElementById('deleteAccountModal');
+        if (m) { m.hidden = false; m.style.display = 'flex'; }
+      }
+
+      function closeDeleteAccountModal() {
+        const m = document.getElementById('deleteAccountModal');
+        if (m) { m.hidden = true; m.style.display = 'none'; }
+      }
+
+      function submitDeleteAccount() {
+        const val = document.getElementById('deleteAccountConfirmInput')?.value?.trim();
+        if (val !== 'DELETE') {
+          if (window.showToast) window.showToast('Please type DELETE to confirm', 'error');
+          return;
+        }
+        fetch('/api/account/delete', { method: 'POST' }).then(res => {
+          if (res.ok) {
+            if (window.showToast) window.showToast('Account deleted successfully', 'success');
+            setTimeout(() => { window.location.href = '/home'; }, 1000);
+          } else {
+            if (window.showToast) window.showToast('Failed to delete account', 'error');
+          }
+        }).catch(err => {
+          if (window.showToast) window.showToast('Network error: ' + err.message, 'error');
+        });
+      }
+
+      function filterSettingsCat(cat, btn) {
+        document.querySelectorAll('.settings-cat-pill').forEach(b => {
+          b.style.background = 'var(--bg-surface-1)';
+          b.style.color = 'var(--geist-gray-50)';
+        });
+        btn.style.background = 'var(--bg-surface-2)';
+        btn.style.color = 'var(--fg)';
+        const rows = document.querySelectorAll('.settings-tool-row');
+        rows.forEach(r => {
+          const rCat = r.getAttribute('data-cat');
+          r.style.display = (cat === 'All' || rCat === cat || (cat === 'Sandbox' && (rCat === 'Files' || rCat === 'Search'))) ? 'flex' : 'none';
+        });
+      }
 
       function saveSettingsCredentials() {
         const gh = document.getElementById('settingsGithubInput')?.value?.trim();

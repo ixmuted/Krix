@@ -2,7 +2,7 @@
 // Visual Peer-to-Peer Handshake, Real Anime Avatar, Auto-Favicon Domain Resolver, and Scope Disclosures
 
 import { getTokensCss } from "../tokens.css.js";
-import { renderSvg } from "../icons.js";
+import { renderSvg, getAppLogoSvg } from "../icons.js";
 import { escapeHtml } from "../components.js";
 
 export function renderOAuthConsentPage(params: {
@@ -36,20 +36,8 @@ export function renderOAuthConsentPage(params: {
     domain = url.hostname;
   } catch {}
 
-  // Determine client icon
-  const lowerName = safeName.toLowerCase();
-  let clientIconSvg = renderSvg("terminal", 28);
-  if (lowerName.includes("gemini")) {
-    clientIconSvg = renderSvg("gemini", 28);
-  } else if (lowerName.includes("claude")) {
-    clientIconSvg = renderSvg("claude", 28);
-  } else if (lowerName.includes("chatgpt") || lowerName.includes("openai")) {
-    clientIconSvg = renderSvg("chatgpt", 28);
-  } else if (lowerName.includes("antigravity")) {
-    clientIconSvg = renderSvg("antigravity", 28);
-  } else if (lowerName.includes("codex")) {
-    clientIconSvg = renderSvg("codex", 28);
-  }
+  // Determine client icon from 24 popular AI logos
+  const clientIconSvg = getAppLogoSvg(safeName, 32);
 
   const cancelUrl = `${params.redirectUri}${params.redirectUri.includes("?") ? "&" : "?"}error=access_denied&state=${encodeURIComponent(params.state || "")}`;
 
@@ -168,9 +156,12 @@ export function renderOAuthConsentPage(params: {
       </a>
     </form>
 
-    <div style="text-align:center; margin-top:16px;">
+    <div style="text-align:center; margin-top:20px; display:flex; flex-direction:column; gap:6px;">
       <span style="font-size:11px; color:var(--geist-gray-50);">
-        You can revoke access anytime in Credentials & Settings.
+        By connecting, you agree to Krix's <a href="/terms" target="_blank" style="color:var(--fg); text-decoration:underline;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color:var(--fg); text-decoration:underline;">Privacy Policy</a>.
+      </span>
+      <span style="font-size:11px; color:var(--geist-gray-50);">
+        You can revoke access anytime in Credentials &amp; Settings.
       </span>
     </div>
   </div>

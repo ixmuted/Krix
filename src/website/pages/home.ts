@@ -41,9 +41,9 @@ export function renderHomePage(params: {
     <!-- Hero Section -->
     <section style="display:flex; flex-direction:column; align-items:center; text-align:center; padding:48px 0 32px; gap:16px;">
       <!-- Protocol Readiness Badge -->
-      <div style="display:inline-flex; align-items:center; gap:8px; padding:4px 14px; border-radius:var(--radius-full); background:var(--bg-surface-1); border:1px solid var(--border-subtle); font-size:12px; font-family:var(--font-mono); color:var(--geist-gray-50);">
+      <div style="display:inline-flex; align-items:center; gap:8px; padding:5px 14px; border-radius:var(--radius-full); background:var(--bg-surface-1); border:1px solid var(--border-subtle); font-size:12px; font-weight:500; color:var(--fg);">
         <span class="status-dot-available"></span>
-        <span>krix v1.4.0 • streamable http mcp 2024-11-05 ready</span>
+        <span>Unified Model Context Protocol &amp; Agent Execution Engine</span>
       </div>
 
       <!-- Headline with Metallic Gradient -->
