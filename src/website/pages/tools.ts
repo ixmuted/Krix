@@ -39,7 +39,7 @@ export function renderToolsPage(params: {
     categories[cat] = (categories[cat] || 0) + 1;
   });
 
-  const standardCats = ["Sandbox", "Render", "GitHub"];
+  const standardCats = ["Sandbox", "Render", "GitHub", "Files"];
   standardCats.forEach((c) => {
     if (!categories[c]) categories[c] = 0;
   });
@@ -72,9 +72,9 @@ export function renderToolsPage(params: {
               .join("")}
           </select>
         </div>
-        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:999px; padding:3px; gap:2px;">
-          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:7px 14px; border-radius:999px;">Concise</button>
-          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:7px 14px; border-radius:999px;">Verbose</button>
+        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:6px; padding:3px; gap:2px;">
+          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:4px;">Concise</button>
+          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:4px;">Verbose</button>
         </div>
       </div>
     </div>
@@ -87,9 +87,9 @@ export function renderToolsPage(params: {
           <h2 id="breakdownToolTitle" style="font-size:18px; font-weight:700; color:var(--fg); margin-top:2px;">All Tools Aggregate</h2>
           <p id="breakdownToolSubtitle" style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Execution statistics across all MCP tool invocations</p>
         </div>
-        <div class="tool-breakdown-select-wrap" style="display:flex; align-items:center; gap:8px; min-width:0;">
+        <div style="display:flex; align-items:center; gap:8px;">
           <label for="toolBreakdownSelect" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Select Tool:</label>
-          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer; max-width:260px; min-width:0;">
+          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer; max-width:260px;">
             <option value="">All Tools (Global)</option>
             ${tools.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${escapeHtml(t.category || "General")})</option>`).join("")}
           </select>
@@ -148,7 +148,9 @@ export function renderToolsPage(params: {
         <button type="button" class="tool-cat-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
           GitHub (${categories["GitHub"] || 0})
         </button>
-        ${categories["Files"] > 0 ? `<button type="button" class="tool-cat-pill" data-cat="Files" onclick="filterCategory('Files', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">Files (${categories["Files"]})</button>` : ""}
+        <button type="button" class="tool-cat-pill" data-cat="Files" onclick="filterCategory('Files', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+          Files (${categories["Files"] || 0})
+        </button>
         ${Object.keys(categories)
           .filter((cat) => !standardCats.includes(cat) && cat !== "All")
           .map(
@@ -218,8 +220,82 @@ export function renderToolsPage(params: {
       </div>
     </div>
 
+    <style>
+      /* Keep the inspector below the persistent mobile app header. */
+      @media (max-width: 640px) {
+        #toolDrawer {
+          inset: 104px 0 0 0 !important;
+          top: 104px !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          max-width: 100vw !important;
+          height: calc(100dvh - 104px) !important;
+          max-height: calc(100dvh - 104px) !important;
+          padding: 0 14px 14px !important;
+          border-left: 0 !important;
+          border-top: 1px solid var(--border-medium) !important;
+          border-radius: 14px 14px 0 0 !important;
+          box-sizing: border-box !important;
+          z-index: 640 !important;
+        }
+        #toolDrawer .tool-drawer-header {
+          position: sticky !important;
+          top: 0 !important;
+          min-height: 58px !important;
+          padding: 10px 0 10px !important;
+          margin: 0 0 12px !important;
+          gap: 8px !important;
+          box-sizing: border-box !important;
+        }
+        #toolDrawer .tool-drawer-header > div {
+          min-width: 0 !important;
+        }
+        #toolDrawer .tool-drawer-header button {
+          min-width: 76px !important;
+          min-height: 38px !important;
+          justify-content: center !important;
+          white-space: nowrap !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        #toolDrawerContent {
+          width: 100% !important;
+          min-width: 0 !important;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+          box-sizing: border-box !important;
+        }
+        #toolDrawerContent > *,
+        #toolDrawer #toolRunnerPanel,
+        #toolDrawer #drawerToolSchema {
+          max-width: 100% !important;
+          min-width: 0 !important;
+          box-sizing: border-box !important;
+        }
+        #toolDrawer #drawerToolSchema {
+          white-space: pre-wrap !important;
+          overflow-wrap: anywhere !important;
+        }
+        #toolDrawer #drawerToolArgs {
+          display: block !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          resize: vertical !important;
+        }
+        #toolDrawer #drawerToolRunButton {
+          max-width: 100% !important;
+          white-space: normal !important;
+        }
+      }
+    </style>
+
     <!-- Slide-Over Inspector Drawer -->
-    <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; inset:0 0 0 auto; width:480px; max-width:100vw; height:100dvh; max-height:100dvh; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:650; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
+    <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; inset:0 0 0 auto; width:480px; max-width:100vw; height:100dvh; max-height:100dvh; box-sizing:border-box; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:650; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
       <div class="tool-drawer-header" style="position:sticky; top:0; z-index:2; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-shrink:0; padding:18px 0 14px; background:var(--bg-surface-0); border-bottom:1px solid var(--border-subtle); margin-bottom:16px;">
         <div style="min-width:0; flex:1;">
           <div style="font-size:10px; font-weight:600; color:var(--geist-gray-50); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px;">Tool Inspector</div>
