@@ -40,12 +40,6 @@ export function renderHomePage(params: {
   const content = `
     <!-- Hero Section -->
     <section style="display:flex; flex-direction:column; align-items:center; text-align:center; padding:48px 0 32px; gap:16px;">
-      <!-- Protocol Readiness Badge -->
-      <div style="display:inline-flex; align-items:center; gap:8px; padding:5px 14px; border-radius:var(--radius-full); background:var(--bg-surface-1); border:1px solid var(--border-subtle); font-size:12px; font-weight:500; color:var(--fg);">
-        <span class="status-dot-available"></span>
-        <span>Unified Model Context Protocol &amp; Agent Execution Engine</span>
-      </div>
-
       <!-- Headline with Metallic Gradient -->
       <h1 style="font-size: clamp(32px, 5vw, 48px); font-weight:800; letter-spacing:-0.03em; line-height:1.1; max-width:760px; color:var(--fg);">
         High-Efficiency Model Context Protocol Hub

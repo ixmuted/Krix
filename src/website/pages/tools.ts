@@ -14,6 +14,7 @@ export function renderToolsPage(params: {
   owner?: any;
   tools?: any[];
   summary?: any;
+  selectedKeyId?: string;
 }): string {
   if (!params.isOwner) {
     return renderPageShell({
@@ -176,11 +177,17 @@ export function renderToolsPage(params: {
                 );
                 const tCat = escapeHtml(tool.category || "General");
                 const schemaJson = escapeHtml(
-                  JSON.stringify(tool.inputSchema || {}, null, 2),
+                  JSON.stringify(
+                    tool.inputSchema || {
+                      type: "object",
+                      properties: {},
+                      additionalProperties: false,
+                    },
+                  ),
                 );
 
                 return `
-            <div class="tool-row tool-box card spotlight-card" data-cat="${tCat}" data-name="${tName}" style="padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer;" onclick="openToolDrawer('${tName}', '${tDesc}', '${tCat}', '${schemaJson}')">
+            <div class="tool-row tool-box card spotlight-card" data-cat="${tCat}" data-name="${tName}" data-description="${tDesc}" data-schema="${schemaJson}" style="padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer;" onclick="openToolDrawerFromRow(this)" role="button" tabindex="0">
               <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                 <div style="width:28px; height:28px; border-radius:6px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; color:var(--fg); flex-shrink:0;">
                   ${renderSvg("terminal", 14)}
@@ -204,26 +211,59 @@ export function renderToolsPage(params: {
       }
     </div>
 
+    <div id="toolsPagination" class="permission-pagination" style="display:flex; justify-content:space-between; align-items:center; padding:16px 4px 0; border-top:1px solid var(--border-subtle); margin:16px 0 28px; font-size:12px; color:var(--geist-gray-50); flex-wrap:wrap; gap:10px;">
+      <div id="toolsPageInfo">Showing 1-${Math.min(tools.length, 10)} of ${tools.length} tools</div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button type="button" class="btn ghost" id="toolsPrevPage" onclick="changeToolsPage(-1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">&larr; Previous</button>
+        <span id="toolsPageIndicator" style="font-family:var(--font-mono); font-size:11px; padding:0 6px;">1 / 1</span>
+        <button type="button" class="btn ghost" id="toolsNextPage" onclick="changeToolsPage(1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">Next &rarr;</button>
+      </div>
+    </div>
+
     <!-- Slide-Over Inspector Drawer -->
-    <div id="toolDrawer" style="position:fixed; top:0; right:0; bottom:0; width:440px; max-width:90vw; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:var(--z-drawer); transform:translateX(100%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:24px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h2 id="drawerToolName" style="font-size:16px; font-weight:700; font-family:var(--font-mono); color:var(--fg);"></h2>
-        <button type="button" class="btn ghost" onclick="closeToolDrawer()" style="padding:4px 8px; font-size:12px; display:inline-flex; align-items:center; gap:4px;" aria-label="Close Drawer">
+    <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; inset:0 0 0 auto; width:480px; max-width:100vw; height:100dvh; max-height:100dvh; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:650; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
+      <div class="tool-drawer-header" style="position:sticky; top:0; z-index:2; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-shrink:0; padding:18px 0 14px; background:var(--bg-surface-0); border-bottom:1px solid var(--border-subtle); margin-bottom:16px;">
+        <div style="min-width:0; flex:1;">
+          <div style="font-size:10px; font-weight:600; color:var(--geist-gray-50); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px;">Tool Inspector</div>
+          <h2 id="drawerToolName" style="font-size:15px; font-weight:700; font-family:var(--font-mono); color:var(--fg); overflow-wrap:anywhere;"></h2>
+        </div>
+        <button type="button" class="btn ghost" onclick="closeToolDrawer()" style="flex-shrink:0; padding:7px 10px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px; border:1px solid var(--border-medium); background:var(--bg-surface-1);" aria-label="Close tool inspector">
           ${renderSvg("x", 14)}
           <span>Close</span>
         </button>
       </div>
 
-      <p id="drawerToolDesc" style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:16px;"></p>
+      <div id="toolDrawerContent" style="flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column;">
+        <p id="drawerToolDesc" style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:18px;"></p>
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50); margin-bottom:6px;">Parameters Schema</div>
+        <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px; margin-bottom:18px; overflow:auto; max-height:260px;">
+          <pre id="drawerToolSchema" style="font-family:var(--font-mono); font-size:11px; color:var(--fg); white-space:pre-wrap; overflow-wrap:anywhere; margin:0;"></pre>
+        </div>
 
-      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50); margin-bottom:6px;">Parameters Schema</div>
-      <div style="flex:1; overflow-y:auto; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px;">
-        <pre id="drawerToolSchema" style="font-family:var(--font-mono); font-size:11px; color:var(--fg); white-space:pre-wrap;"></pre>
+        <div id="toolRunnerPanel" style="padding:14px; border:1px solid var(--border-subtle); border-radius:var(--radius-md); background:var(--bg-surface-1); margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;">
+            <div style="font-size:12px; font-weight:600; color:var(--fg);">Run in isolated sandbox</div>
+            <span class="status-pill" style="font-size:10px;">Sandbox only</span>
+          </div>
+          <p id="toolRunnerHint" style="font-size:11px; color:var(--geist-gray-50); margin-bottom:10px;">Run a command or compile and test code in a disposable sandbox for this request.</p>
+          <label for="drawerToolArgs" style="display:block; font-size:11px; color:var(--geist-gray-50); margin-bottom:5px;">Arguments (JSON)</label>
+          <textarea id="drawerToolArgs" rows="7" spellcheck="false" style="width:100%; resize:vertical; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; padding:10px; color:var(--fg); font:11px/1.5 var(--font-mono);">{}</textarea>
+          <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+            <button type="button" id="drawerToolRunButton" class="btn primary" onclick="executeDrawerTool()" style="height:36px; border-radius:6px;" disabled>Run in Sandbox</button>
+          </div>
+          <div id="toolRunnerOutputWrap" hidden style="margin-top:12px;">
+            <div style="font-size:11px; font-weight:600; color:var(--geist-gray-50); margin-bottom:5px;">Execution output</div>
+            <pre id="toolRunnerOutput" style="max-height:220px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--bg-surface-0); border:1px solid var(--border-subtle); border-radius:6px; padding:10px; margin:0; color:var(--fg); font:11px/1.5 var(--font-mono);"></pre>
+          </div>
+        </div>
       </div>
     </div>
 
     <script>
       let currentCategory = 'All';
+      let currentToolsPage = 1;
+      const toolsPageSize = 10;
+      const activeToolsKeyId = ${JSON.stringify(params.selectedKeyId || params.summary?.selectedKeyId || "")};
 
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeToolDrawer();
@@ -319,14 +359,52 @@ export function renderToolsPage(params: {
 
       function applyFilter() {
         const q = (document.getElementById('toolSearchInput').value || '').toLowerCase();
-        document.querySelectorAll('.tool-row').forEach(row => {
+        const rows = Array.from(document.querySelectorAll('.tool-row'));
+        const filtered = rows.filter(row => {
           const matchCat = (currentCategory === 'All') || (row.getAttribute('data-cat') === currentCategory);
           const matchText = row.getAttribute('data-name').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
-          row.style.display = (matchCat && matchText) ? 'flex' : 'none';
+          return matchCat && matchText;
         });
+        currentToolsPage = 1;
+        renderToolsPageRows(rows, filtered);
       }
 
-      function openToolDrawer(name, desc, cat, schema) {
+      function renderToolsPageRows(rows, filtered) {
+        const totalPages = Math.max(1, Math.ceil(filtered.length / toolsPageSize));
+        currentToolsPage = Math.min(currentToolsPage, totalPages);
+        const start = (currentToolsPage - 1) * toolsPageSize;
+        rows.forEach(row => row.style.display = 'none');
+        filtered.forEach((row, index) => {
+          if (index >= start && index < start + toolsPageSize) row.style.display = 'flex';
+        });
+        const info = document.getElementById('toolsPageInfo');
+        const prev = document.getElementById('toolsPrevPage');
+        const next = document.getElementById('toolsNextPage');
+        const indicator = document.getElementById('toolsPageIndicator');
+        if (info) info.textContent = filtered.length
+          ? 'Showing ' + (start + 1) + '-' + Math.min(start + toolsPageSize, filtered.length) + ' of ' + filtered.length + ' tools'
+          : 'No matching tools';
+        if (indicator) indicator.textContent = currentToolsPage + ' / ' + totalPages;
+        if (prev) prev.disabled = currentToolsPage <= 1 || filtered.length === 0;
+        if (next) next.disabled = currentToolsPage >= totalPages || filtered.length === 0;
+      }
+
+      function changeToolsPage(delta) {
+        const rows = Array.from(document.querySelectorAll('.tool-row'));
+        const q = (document.getElementById('toolSearchInput').value || '').toLowerCase();
+        const filtered = rows.filter(row => {
+          const matchCat = currentCategory === 'All' || row.getAttribute('data-cat') === currentCategory;
+          const matchText = row.getAttribute('data-name').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
+          return matchCat && matchText;
+        });
+        currentToolsPage += delta;
+        renderToolsPageRows(rows, filtered);
+      }
+
+      function openToolDrawerFromRow(row) {
+        const name = row.dataset.name || '';
+        const desc = row.dataset.description || '';
+        const schema = row.dataset.schema || '{}';
         selectToolBreakdown(name);
         document.getElementById('drawerToolName').textContent = name;
         document.getElementById('drawerToolDesc').textContent = desc;
@@ -336,11 +414,61 @@ export function renderToolsPage(params: {
         } catch {
           document.getElementById('drawerToolSchema').textContent = schema;
         }
+        const executable = name === 'sandbox_exec' || name === 'sandbox_run';
+        const runnerHint = document.getElementById('toolRunnerHint');
+        const runButton = document.getElementById('drawerToolRunButton');
+        const argsInput = document.getElementById('drawerToolArgs');
+        const outputWrap = document.getElementById('toolRunnerOutputWrap');
+        if (argsInput) {
+          argsInput.value = name === 'sandbox_exec'
+            ? JSON.stringify({ command: 'pwd && ls -la' }, null, 2)
+            : (name === 'sandbox_run'
+              ? JSON.stringify({ lang: 'py', code: 'print("Hello from Krix sandbox")' }, null, 2)
+              : '{}');
+        }
+        if (runButton) runButton.disabled = !executable || !activeToolsKeyId;
+        if (runnerHint) runnerHint.textContent = executable
+          ? 'Run commands or compile and test code in a disposable sandbox. The execution environment enforces the server sandbox policy.'
+          : 'Execution is available only for sandbox_exec and sandbox_run. Other tools can be inspected here and invoked through an authenticated MCP client.';
+        if (outputWrap) outputWrap.hidden = true;
         document.getElementById('toolDrawer').style.transform = 'translateX(0)';
       }
 
       function closeToolDrawer() {
-        document.getElementById('toolDrawer').style.transform = 'translateX(100%)';
+        document.getElementById('toolDrawer').style.transform = 'translateX(105%)';
+      }
+
+      async function executeDrawerTool() {
+        const name = document.getElementById('drawerToolName')?.textContent || '';
+        const button = document.getElementById('drawerToolRunButton');
+        const outputWrap = document.getElementById('toolRunnerOutputWrap');
+        const output = document.getElementById('toolRunnerOutput');
+        let args;
+        try {
+          args = JSON.parse(document.getElementById('drawerToolArgs')?.value || '{}');
+          if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Arguments must be a JSON object.');
+        } catch (error) {
+          if (outputWrap) outputWrap.hidden = false;
+          if (output) output.textContent = error.message || 'Invalid JSON.';
+          return;
+        }
+        if (!['sandbox_exec', 'sandbox_run'].includes(name) || !activeToolsKeyId) return;
+        if (button) { button.disabled = true; button.textContent = 'Running…'; }
+        if (outputWrap) outputWrap.hidden = false;
+        if (output) output.textContent = 'Starting isolated sandbox…';
+        try {
+          const response = await fetch('/tools/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyId: activeToolsKeyId, toolName: name, arguments: args })
+          });
+          const data = await response.json();
+          if (output) output.textContent = data.ok ? data.result : (data.error || 'Execution failed.');
+        } catch (error) {
+          if (output) output.textContent = 'Request failed: ' + (error.message || String(error));
+        } finally {
+          if (button) { button.disabled = false; button.textContent = 'Run in Sandbox'; }
+        }
       }
 
       function onKeyFilterChange(selectEl) {
@@ -350,6 +478,8 @@ export function renderToolsPage(params: {
         else url.searchParams.delete('key');
         window.location.href = url.toString();
       }
+
+      applyFilter();
     </script>
   `;
 

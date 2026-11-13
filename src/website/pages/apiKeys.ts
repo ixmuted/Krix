@@ -9,6 +9,21 @@ import {
 } from "../components.js";
 import { renderSvg, getAppLogoSvg } from "../icons.js";
 
+function inlineJsString(value: unknown): string {
+  const text = String(value ?? "");
+  return `'${text
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, "\\x22")
+    .replace(/&/g, "\\x26")
+    .replace(/</g, "\\x3c")
+    .replace(/>/g, "\\x3e")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029")}'`;
+}
+
 export function renderApiKeysPage(params: {
   base: string;
   isOwner?: boolean;
@@ -155,10 +170,12 @@ export function renderApiKeysPage(params: {
                 ? `<tr id="emptyKeysRow"><td colspan="6" style="text-align:center; padding:32px; color:var(--geist-gray-50);">No active API keys found. Click "Create API Key" to generate one.</td></tr>`
                 : keys
                     .map((k, idx) => {
-                      const keyId = escapeHtml(k.id || "");
-                      const keyLabel = escapeHtml(
-                        k.label || k.name || `Key ${keyId.slice(0, 4)}`,
-                      );
+                      const rawKeyId = String(k.id || "");
+                      const keyId = escapeHtml(rawKeyId);
+                      const rawKeyLabel = String(k.label || k.name || `Key ${rawKeyId.slice(0, 4)}`);
+                      const keyLabel = escapeHtml(rawKeyLabel);
+                      const keyIdArg = inlineJsString(rawKeyId);
+                      const keyLabelArg = inlineJsString(rawKeyLabel);
                       const rawKey = escapeHtml(k.key || k.token || "");
                       const maskedKey =
                         rawKey.length > 8
@@ -175,7 +192,7 @@ export function renderApiKeysPage(params: {
                     </td>
                     <td style="padding:12px;">
                       <div style="display:flex; align-items:center; gap:6px;">
-                        <code style="font-family:var(--font-mono); font-size:12px; background:var(--bg-surface-2); padding:3px 6px; border-radius:4px; border:1px solid var(--border-subtle); color:var(--fg); font-variant-numeric:tabular-nums;">${clientId}</code>
+                        <code class="api-client-id-box" style="display:block; min-width:0; max-width:clamp(110px, 18vw, 220px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--font-mono); font-size:12px; background:var(--bg-surface-2); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle); color:var(--fg); font-variant-numeric:tabular-nums;">${clientId}</code>
                         ${clientId !== "N/A" ? `<button type="button" class="btn ghost copyClientIdBtn" onclick="window.copyToClipboard('${clientId}', this)" style="padding:3px;" title="Copy Client ID">${renderSvg("copy", 13)}</button>` : ""}
                       </div>
                     </td>
@@ -201,20 +218,20 @@ export function renderApiKeysPage(params: {
                     </td>
                     <td style="padding:12px; text-align:right; position:relative; overflow:visible;">
                       <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
-                        <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${menuId}')" style="padding:4px 6px;" aria-label="Key Actions">
+                        <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${menuId}', this)" style="padding:4px 6px;" aria-label="Key Actions">
                           ${renderSvg("more-vertical", 14)}
                         </button>
-                        <div id="${menuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:var(--z-dropdown); min-width:160px; text-align:left;">
+                        <div id="${menuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:680; min-width:160px; text-align:left;">
                           <a href="/api/settings?key=${encodeURIComponent(keyId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
                             ${renderSvg("edit", 13)}
                             <span>Edit</span>
                           </a>
-                          <button type="button" class="btn ghost" onclick="openRenameKeyModal('${keyId}', '${keyLabel}'); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm);">
+                          <button type="button" class="btn ghost" onclick="openRenameKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm);">
                             ${renderSvg("edit", 13)}
                             <span>Rename</span>
                           </button>
                           <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
-                          <button type="button" class="btn ghost danger" onclick="openRevokeKeyModal('${keyId}', '${keyLabel}'); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
+                          <button type="button" class="btn ghost danger" onclick="openRevokeKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
                             ${renderSvg("trash", 13)}
                             <span>Delete</span>
                           </button>
@@ -267,12 +284,13 @@ export function renderApiKeysPage(params: {
 
                 return oauthClients
                   .map((client, idx) => {
-                    const cId = escapeHtml(client.clientId || "");
+                    const rawClientId = String(client.clientId || "");
+                    const cId = escapeHtml(rawClientId);
                     const rawName =
                       client.clientName ||
                       (client.clientId?.toLowerCase().includes("gemini")
                         ? "Google Gemini"
-                        : cId || "OAuth Application");
+                        : rawClientId || "OAuth Application");
                     let displayName = rawName;
                     if (oauthNameTotals[rawName] > 1) {
                       const curIdx = (oauthNameCounts[rawName] =
@@ -280,6 +298,8 @@ export function renderApiKeysPage(params: {
                       displayName = `${rawName} #${curIdx}`;
                     }
                     const cName = escapeHtml(displayName);
+                    const clientIdArg = inlineJsString(rawClientId);
+                    const displayNameArg = inlineJsString(displayName);
                     const cScope = escapeHtml(client.scope || "mcp:all");
                     const lastUsed = client.lastUsedAt
                       ? new Date(client.lastUsedAt).toLocaleDateString()
@@ -289,16 +309,15 @@ export function renderApiKeysPage(params: {
 
                     return `
               <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
-                <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                   <div style="width:36px; height:36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
                     ${appLogo}
                   </div>
-                  <div>
-                    <div style="font-weight:600; font-size:13px; color:var(--fg);">${cName}</div>
-                    <div style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:2px;">
-                      <span>ID: ${cId}</span>
-                      <span>&bull;</span>
-                      <span>Scope: ${cScope}</span>
+                  <div style="min-width:0;flex:1;">
+                    <div style="font-weight:600; font-size:13px; color:var(--fg);overflow-wrap:anywhere;">${cName}</div>
+                    <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:5px; min-width:0;">
+                      <span style="font-size:10px;">ID</span><code class="api-client-id-box" style="display:block;max-width:min(44vw,260px);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 7px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-2);color:var(--fg);">${cId}</code>
+                      <span>&bull;</span><span>Scope: ${cScope}</span>
                     </div>
                   </div>
                 </div>
@@ -306,16 +325,19 @@ export function renderApiKeysPage(params: {
                 <div style="display:flex; align-items:center; gap:12px;">
                   <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${lastUsed}</span>
                   <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
-                    <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}')" style="padding:4px 6px;" aria-label="OAuth Actions">
+                    <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}', this)" style="padding:4px 6px;" aria-label="OAuth Actions">
                       ${renderSvg("more-vertical", 14)}
                     </button>
-                    <div id="${oauthMenuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:var(--z-dropdown); min-width:160px; text-align:left;">
+                    <div id="${oauthMenuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:680; min-width:160px; text-align:left;">
                       <a href="/api/settings?key=${encodeURIComponent(cId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
                         ${renderSvg("edit", 13)}
                         <span>Edit</span>
                       </a>
+                      <button type="button" class="btn ghost" onclick="openRenameOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%;justify-content:flex-start;font-size:12px;padding:6px 10px;border-radius:var(--radius-sm);">
+                        ${renderSvg("edit", 13)}<span>Rename</span>
+                      </button>
                       <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
-                      <button type="button" class="btn ghost danger" onclick="revokeOAuthClient('${cId}', '${cName}'); closeKeyDropdown('${oauthMenuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
+                      <button type="button" class="btn ghost danger" onclick="revokeOAuthClient(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
                         ${renderSvg("trash", 13)}
                         <span>Delete</span>
                       </button>
@@ -355,6 +377,19 @@ export function renderApiKeysPage(params: {
         <div style="display:flex; justify-content:flex-end; gap:8px;">
           <button type="button" class="btn ghost" onclick="closeRenameKeyModal()">Cancel</button>
           <button type="button" id="renameKeySubmitBtn" class="btn primary" onclick="submitRenameKey()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rename OAuth Client Modal -->
+    <div id="renameOAuthModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:var(--z-modal);display:none;align-items:center;justify-content:center;padding:16px;">
+      <div class="modal-card card spotlight-card" style="max-width:420px;width:100%;padding:24px;box-shadow:var(--shadow-popover);">
+        <h3 style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:6px;">Rename OAuth Client</h3>
+        <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:16px;">Choose a new display name for this authorized application.</p>
+        <input type="text" id="renameOAuthInput" maxlength="100" style="width:100%;padding:8px 12px;background:var(--bg-surface-1);border:1px solid var(--border-medium);border-radius:6px;font-size:13px;color:var(--fg);margin-bottom:20px;outline:none;">
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button type="button" class="btn ghost" onclick="closeRenameOAuthModal()">Cancel</button>
+          <button type="button" class="btn primary" id="renameOAuthSubmitBtn" onclick="submitRenameOAuth()">Save Changes</button>
         </div>
       </div>
     </div>
@@ -402,35 +437,68 @@ export function renderApiKeysPage(params: {
       let activeKeyMenuId = null;
       let pendingActionKeyId = null;
 
-      function toggleKeyDropdown(id) {
-        if (activeKeyMenuId && activeKeyMenuId !== id) {
-          closeKeyDropdown(activeKeyMenuId);
+      function toggleKeyDropdown(id, trigger) {
+        if (activeKeyMenuId === id) { closeKeyDropdown(id); return; }
+        if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId);
+        const menu = document.getElementById(id);
+        if (!menu || !trigger) return;
+        if (!menu.__portalPlaceholder) {
+          menu.__portalPlaceholder = document.createComment('dropdown-anchor');
+          menu.__originalStyle = menu.getAttribute('style') || '';
+          menu.parentNode.insertBefore(menu.__portalPlaceholder, menu);
         }
-        const el = document.getElementById(id);
-        if (el) {
-          const isOpen = el.style.display === 'block';
-          el.style.display = isOpen ? 'none' : 'block';
-          activeKeyMenuId = isOpen ? null : id;
-        }
+        document.body.appendChild(menu);
+        menu.style.display = 'flex';
+        menu.style.position = 'fixed';
+        menu.style.zIndex = '680';
+        menu.style.right = 'auto';
+        menu.style.left = '0px';
+        menu.style.top = '0px';
+        menu.style.maxWidth = 'calc(100vw - 24px)';
+        menu.style.maxHeight = 'min(70vh, 420px)';
+        menu.style.overflowY = 'auto';
+        const triggerRect = trigger.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+        const width = Math.min(menuRect.width || 184, window.innerWidth - 24);
+        const left = Math.max(12, Math.min(triggerRect.right - width, window.innerWidth - width - 12));
+        const fitsBelow = triggerRect.bottom + 6 + menuRect.height <= window.innerHeight - 12;
+        const top = fitsBelow
+          ? triggerRect.bottom + 5
+          : Math.max(12, triggerRect.top - Math.min(menuRect.height, window.innerHeight * 0.7) - 5);
+        menu.style.width = Math.min(window.innerWidth - 24, Math.max(width, 160)) + 'px';
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        activeKeyMenuId = id;
       }
 
       function closeKeyDropdown(id) {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        const menu = document.getElementById(id);
+        if (menu) {
+          menu.style.display = 'none';
+          if (menu.__portalPlaceholder && menu.__portalPlaceholder.parentNode) {
+            menu.__portalPlaceholder.parentNode.insertBefore(menu, menu.__portalPlaceholder);
+            menu.__portalPlaceholder.remove();
+            menu.__portalPlaceholder = null;
+            menu.setAttribute('style', menu.__originalStyle || '');
+          }
+        }
         if (activeKeyMenuId === id) activeKeyMenuId = null;
       }
 
       document.addEventListener('click', function(e) {
-        if (!e.target.closest('.krix-dropdown')) {
-          if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId);
-        }
+        if (!activeKeyMenuId) return;
+        const menu = document.getElementById(activeKeyMenuId);
+        const target = e.target;
+        if (menu && (menu.contains(target) || target.closest('.krix-dropdown'))) return;
+        closeKeyDropdown(activeKeyMenuId);
       });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && activeKeyMenuId) closeKeyDropdown(activeKeyMenuId);
+      });
+      window.addEventListener('resize', function() { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); });
+      window.addEventListener('scroll', function() { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); }, true);
 
       function showToast(message, type = 'success') {
-        if (window.showToast) {
-          window.showToast(message, type);
-          return;
-        }
         const container = document.getElementById('toastContainer');
         if (!container) return;
         const toast = document.createElement('div');
@@ -501,7 +569,7 @@ export function renderApiKeysPage(params: {
           return;
         }
 
-        const btn = document.getElementById('createKeySubmitBtn');
+        const btn = document.getElementById('createKeyBtn');
         if (btn) btn.disabled = true;
 
         fetch('/api/keys', {
@@ -610,6 +678,39 @@ export function renderApiKeysPage(params: {
           }).catch(err => {
             showToast('Network error: ' + err.message, 'error');
           });
+      }
+
+      let pendingOAuthClientId = null;
+      function openRenameOAuthModal(clientId, currentName) {
+        pendingOAuthClientId = clientId;
+        const modal = document.getElementById('renameOAuthModal');
+        const input = document.getElementById('renameOAuthInput');
+        if (input) input.value = currentName || '';
+        if (modal) { modal.hidden = false; modal.style.display = 'flex'; input?.focus(); }
+      }
+      function closeRenameOAuthModal() {
+        const modal = document.getElementById('renameOAuthModal');
+        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+        pendingOAuthClientId = null;
+      }
+      async function submitRenameOAuth() {
+        if (!pendingOAuthClientId) return;
+        const input = document.getElementById('renameOAuthInput');
+        const name = (input?.value || '').trim();
+        if (name.length < 2) { showToast('Client name must be at least 2 characters long', 'error'); return; }
+        const button = document.getElementById('renameOAuthSubmitBtn');
+        if (button) button.disabled = true;
+        try {
+          const response = await fetch('/oauth/authorizations/' + encodeURIComponent(pendingOAuthClientId), {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.success) throw new Error(data.error || 'Rename failed');
+          closeRenameOAuthModal();
+          showToast('OAuth client renamed successfully', 'success');
+          setTimeout(() => window.location.reload(), 450);
+        } catch (error) { showToast(error.message || 'Rename failed', 'error'); }
+        finally { if (button) button.disabled = false; }
       }
 
       function revokeOAuthClient(clientId, clientName) {

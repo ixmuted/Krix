@@ -1,5 +1,5 @@
 // Workspace & Account Settings Page
-// Contract Invariants: 50 MB / 300 MB quota cards, Standard Member / Server Owner badges, 2.5 MB, Per file limit, 400 KB max output, 204 PIDs, 2048 PIDs, Code Graph Context (29 tools), Granular Tool Permissions & Code Graph
+// Contract Invariants: 50 MB / 300 MB quota cards, Standard Member / Server Owner badges, 2.5 MB, Per file limit, 400 KB max output, 204 PIDs, 2048 PIDs, Code Graph Context (29 tools), Tool Permissions
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
@@ -31,12 +31,37 @@ export function renderSettingsPage(params: {
     params.selectedKeyId ||
     (params.keys && params.keys[0]?.id) ||
     "primary-key";
-  const maskedGitHub = keySettings.customGitHubToken
-    ? `${keySettings.customGitHubToken.slice(0, 4)}••••••••${keySettings.customGitHubToken.slice(-4)}`
-    : "Not Configured";
-  const maskedRender = keySettings.customRenderToken
-    ? `${keySettings.customRenderToken.slice(0, 4)}••••••••${keySettings.customRenderToken.slice(-4)}`
-    : "Not Configured";
+  const githubSecret = String(keySettings.customGitHubToken || "");
+  const renderSecret = String(keySettings.customRenderToken || "");
+  const maskedGitHub = githubSecret
+    ? `${githubSecret.slice(0, 4)}••••••••${githubSecret.slice(-4)}`
+    : "";
+  const maskedRender = renderSecret
+    ? `${renderSecret.slice(0, 4)}••••••••${renderSecret.slice(-4)}`
+    : "";
+  const enabledTools = new Set<string>(Array.isArray(keySettings.enabledTools) ? keySettings.enabledTools : []);
+  const disabledTools = new Set<string>(Array.isArray(keySettings.disabledTools) ? keySettings.disabledTools : []);
+  const enabledCategories = new Set<string>(Array.isArray(keySettings.enabledCategories) ? keySettings.enabledCategories : []);
+  const isToolEnabled = (tool: any): boolean => {
+    const name = String(tool.name || "");
+    if (disabledTools.has(name)) return false;
+    if (enabledTools.has(name)) return true;
+    const category = String(tool.category || "");
+    const categoryKeys: Record<string, string[]> = {
+      GitHub: ["github_issues_prs", "github_admin"],
+      Render: ["render"],
+      Sandbox: ["sandbox"],
+      Files: ["files"],
+      Execution: ["sandbox"],
+      Filesystem: ["files"],
+      "Code Graph": ["codegraph"],
+      Search: ["search"],
+    };
+    if (category === "GitHub" && params.credentialAvailability?.github) return true;
+    if (category === "Render" && params.credentialAvailability?.render) return true;
+    return category !== "Code Graph" && category !== "Search" &&
+      (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
+  };
 
   const codeGraphTools = (params.toolsCatalog || []).filter(
     (t: any) => t.category === "Code Graph" || t.category === "Search",
@@ -104,8 +129,11 @@ export function renderSettingsPage(params: {
             ${renderSvg("github", 18)}
             <span style="font-size:13px; font-weight:600; color:var(--fg);">GitHub Personal Access Token</span>
           </div>
-          <input type="password" id="settingsGithubInput" placeholder="github_pat_... or ghp_..." style="width:100%; padding:8px 12px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-family:var(--font-mono); font-size:12px; color:var(--fg); margin-bottom:6px; outline:none;">
-          <div style="font-size:11px; color:var(--geist-gray-50);">Current: <code style="font-family:var(--font-mono);">${escapeHtml(maskedGitHub)}</code></div>
+          <div class="settings-secret-control">
+            <input type="text" id="settingsGithubInput" value="${escapeHtml(maskedGitHub)}" data-secret="${escapeHtml(githubSecret)}" data-masked="${escapeHtml(maskedGitHub)}" data-editing="false" data-revealed="false" readonly placeholder="Not configured — select Edit to add a token" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
+            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','reveal')" title="Show or hide GitHub token" aria-label="Show or hide GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
+            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','edit')" title="Edit GitHub token" aria-label="Edit GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("edit", 14)}</button>
+          </div>
         </div>
 
         <div style="padding:16px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
@@ -113,33 +141,31 @@ export function renderSettingsPage(params: {
             ${renderSvg("render", 18)}
             <span style="font-size:13px; font-weight:600; color:var(--fg);">Render API Key</span>
           </div>
-          <input type="password" id="settingsRenderInput" placeholder="rnd_..." style="width:100%; padding:8px 12px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-family:var(--font-mono); font-size:12px; color:var(--fg); margin-bottom:6px; outline:none;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:11px; color:var(--geist-gray-50);">Current: <code style="font-family:var(--font-mono);">${escapeHtml(maskedRender)}</code></div>
+          <div class="settings-secret-control">
+            <input type="text" id="settingsRenderInput" value="${escapeHtml(maskedRender)}" data-secret="${escapeHtml(renderSecret)}" data-masked="${escapeHtml(maskedRender)}" data-editing="false" data-revealed="false" readonly placeholder="Not configured — select Edit to add a token" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
+            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','reveal')" title="Show or hide Render token" aria-label="Show or hide Render token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
+            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','edit')" title="Edit Render token" aria-label="Edit Render token" style="padding:7px; border-radius:6px;">${renderSvg("edit", 14)}</button>
           </div>
         </div>
       </div>
 
       <div style="display:flex; justify-content:flex-end;">
-        <button type="button" class="btn primary deploy-btn" onclick="saveSettingsCredentials()" style="border-radius:var(--radius-full); padding:8px 20px;">
+        <button type="button" id="settingsSaveCredentialsBtn" class="btn primary deploy-btn" onclick="saveSettingsCredentials()" style="display:none; border-radius:6px; padding:8px 18px;">
           ${renderSvg("shield", 14)}
-          <span>Save Credentials</span>
+          <span>Save Changes</span>
         </button>
       </div>
     </div>
 
-    <!-- Tool Permissions & Code Graph Section (Contract Invariant) -->
+    <!-- Tool Permissions Section -->
     <div class="card spotlight-card" style="padding:24px; margin-bottom:24px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
         <div>
-          <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Granular Tool Permissions & Code Graph</h2>
+          <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Tool Permissions</h2>
           <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">
-            Manage access controls and AST inspection capabilities.
+            Manage tool access for this workspace and its API credentials.
           </p>
         </div>
-        <button type="button" class="btn ghost" onclick="resetToolDefaults()" style="font-size:11px; padding:4px 10px; border-radius:var(--radius-full);">
-          Reset Defaults
-        </button>
       </div>
 
       <div class="tools-manager-bar" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
@@ -178,15 +204,12 @@ export function renderSettingsPage(params: {
         </button>
       </div>
 
-      <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:14px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
         <div>
           <div style="font-size:13px; font-weight:600; color:var(--fg);">Code Graph Context (29 tools)</div>
-          <div style="font-size:12px; color:var(--geist-gray-50);">Deep structural AST inspection and call hierarchy traversal</div>
+          <div style="font-size:12px; color:var(--geist-gray-50);">Deep structural AST inspection and call hierarchy traversal across provider tool groups.</div>
         </div>
-        <span class="status-pill" style="font-size:11px;">
-          <span class="status-dot-available"></span>
-          <span>Configured</span>
-        </span>
+        <span class="status-pill" style="font-size:11px;"><span class="status-dot-available"></span><span>Available</span></span>
       </div>
 
       <div id="settingsToolsGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; max-height:360px; overflow-y:auto; padding:4px;">
@@ -196,9 +219,9 @@ export function renderSettingsPage(params: {
         )
           .map((t: any) => {
             const cat = t.category || "General";
-            const isEnabled = keySettings.enabledTools?.includes(t.name);
+            const isEnabled = isToolEnabled(t);
             return `
-              <div class="settings-tool-row" data-cat="${escapeHtml(cat)}" data-name="${escapeHtml(t.name)}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); font-size:12px;">
+              <div class="settings-tool-row tool-toggle-row" data-cat="${escapeHtml(cat)}" data-tool-name="${escapeHtml(t.name).toLowerCase()}" data-name="${escapeHtml(t.name)}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); font-size:12px;">
                 <div style="min-width:0; flex:1; padding-right:10px;">
                   <div style="font-family:var(--font-mono); font-weight:600; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(t.name)}</div>
                   <div style="font-size:11px; color:var(--geist-gray-50);">${escapeHtml(cat)}</div>
@@ -212,6 +235,11 @@ export function renderSettingsPage(params: {
           })
           .join("")}
       </div>
+      <div class="permission-pagination" style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+        <span id="settingsToolsPageInfo" style="font-size:12px; color:var(--geist-gray-50); margin-right:auto;">Page 1 of 1</span>
+        <button type="button" id="settingsToolsPrev" class="btn ghost" onclick="changeSettingsToolsPage(-1)" style="height:34px; min-width:92px; border-radius:6px;">Previous</button>
+        <button type="button" id="settingsToolsNext" class="btn ghost" onclick="changeSettingsToolsPage(1)" style="height:34px; min-width:92px; border-radius:6px;">Next</button>
+      </div>
     </div>
 
     <!-- Appearance & Density Preferences -->
@@ -224,8 +252,10 @@ export function renderSettingsPage(params: {
             <div style="font-size:13px; font-weight:600; color:var(--fg);">Theme</div>
             <div style="font-size:12px; color:var(--geist-gray-50);">Select your default color scheme</div>
           </div>
-          <div style="display:inline-flex; border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:3px; background:var(--bg-surface-1);">
-            <button type="button" class="nav-pill active" onclick="window.toggleTheme()" style="font-size:12px; padding:4px 14px; border-radius:var(--radius-full);">Toggle Theme</button>
+          <div class="theme-mode-control" style="display:inline-flex; align-items:center; gap:4px; padding:4px; border:1px solid var(--border-medium); border-radius:6px; background:var(--bg-surface-1);">
+            <button type="button" class="theme-mode-button" data-theme-mode="system" onclick="window.setThemeMode('system')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("monitor", 15)}<span>System</span></button>
+            <button type="button" class="theme-mode-button" data-theme-mode="light" onclick="window.setThemeMode('light')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("sun", 15)}<span>Light</span></button>
+            <button type="button" class="theme-mode-button" data-theme-mode="dark" onclick="window.setThemeMode('dark')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("moon", 15)}<span>Dark</span></button>
           </div>
         </div>
       </div>
@@ -235,13 +265,19 @@ export function renderSettingsPage(params: {
     <div class="card spotlight-card" style="padding:24px; border-color:rgba(239, 68, 68, 0.3); margin-bottom:24px;">
       <h2 style="font-size:16px; font-weight:600; color:var(--error); margin-bottom:16px;">Danger Zone</h2>
 
+      <div class="settings-action-row" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;">
+        <button type="button" class="btn ghost" onclick="resetToolDefaults()" style="border:1px solid var(--border-medium);">
+          ${renderSvg("refresh", 15)}<span>Reset Tool Defaults</span>
+        </button>
+      </div>
+
       <div style="display:flex; flex-direction:column; gap:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding-bottom:16px; border-bottom:1px solid var(--border-subtle);">
           <div>
             <div style="font-size:13px; font-weight:600; color:var(--fg);">Session Termination</div>
             <div style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Sign out of your active Google session on this workstation.</div>
           </div>
-          <a href="/auth/logout" class="btn danger" style="border-radius:var(--radius-full); padding:8px 18px;">
+          <a href="/auth/logout" class="btn danger" style="border-radius:6px; padding:8px 18px; min-width:180px; min-height:38px; justify-content:center;">
             ${renderSvg("lock", 14)}
             <span>Sign Out</span>
           </a>
@@ -252,7 +288,7 @@ export function renderSettingsPage(params: {
             <div style="font-size:13px; font-weight:600; color:var(--error);">Account Deletion</div>
             <div style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Permanently delete your account, API keys, and all uploaded repository artifacts.</div>
           </div>
-          <button type="button" class="btn danger" onclick="openDeleteAccountModal()" style="border-radius:var(--radius-full); padding:8px 18px;">
+          <button type="button" class="btn danger" onclick="openDeleteAccountModal()" style="border-radius:6px; padding:8px 18px; min-width:180px; min-height:38px; justify-content:center;">
             ${renderSvg("trash", 14)}
             <span>Delete Account</span>
           </button>
@@ -262,7 +298,7 @@ export function renderSettingsPage(params: {
 
     <!-- Account Deletion Confirmation Modal Dialog -->
     <div id="deleteAccountModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-card card spotlight-card" style="max-width:440px; width:100%; padding:28px;">
+      <div class="modal-card card spotlight-card" style="max-width:440px; width:100%; max-height:calc(100dvh - 32px); overflow-y:auto; padding:24px;">
         <h3 style="font-size:17px; font-weight:700; color:var(--error); margin-bottom:8px;">Delete Account &amp; Purge Data</h3>
         <p style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:16px;">
           This action is permanent and cannot be undone. All your API keys, OAuth authorizations, and stored files will be permanently erased.
@@ -280,6 +316,10 @@ export function renderSettingsPage(params: {
 
     <script>
       const activeKeyId = ${JSON.stringify(currentKeyId)};
+
+      let currentSettingsCategory = 'All';
+      let currentSettingsToolsPage = 1;
+      const settingsToolsPageSize = 12;
 
       function openDeleteAccountModal() {
         const m = document.getElementById('deleteAccountModal');
@@ -309,32 +349,47 @@ export function renderSettingsPage(params: {
         });
       }
 
-      function filterSettingsCat(cat, btn) {
-        document.querySelectorAll('.settings-cat-pill').forEach(b => {
-          b.style.background = 'var(--bg-surface-1)';
-          b.style.color = 'var(--geist-gray-50)';
-        });
-        btn.style.background = 'var(--bg-surface-2)';
-        btn.style.color = 'var(--fg)';
-        const rows = document.querySelectorAll('.settings-tool-row');
-        rows.forEach(r => {
-          const rCat = r.getAttribute('data-cat');
-          r.style.display = (cat === 'All' || rCat === cat || (cat === 'Sandbox' && (rCat === 'Files' || rCat === 'Search'))) ? 'flex' : 'none';
-        });
+      function toggleSettingsSecret(id, mode) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        if (mode === 'edit') {
+          if (input.dataset.editing !== 'true') {
+            input.value = input.dataset.secret || '';
+            input.readOnly = false;
+            input.type = 'password';
+            input.dataset.editing = 'true';
+            input.dataset.revealed = 'false';
+            document.getElementById('settingsSaveCredentialsBtn').style.display = 'inline-flex';
+            input.focus();
+          }
+          return;
+        }
+        if (input.dataset.editing === 'true') {
+          input.type = input.type === 'password' ? 'text' : 'password';
+          return;
+        }
+        const reveal = input.dataset.revealed !== 'true';
+        input.dataset.revealed = reveal ? 'true' : 'false';
+        input.value = reveal ? (input.dataset.secret || '') : (input.dataset.masked || '');
       }
 
       function saveSettingsCredentials() {
-        const gh = document.getElementById('settingsGithubInput')?.value?.trim();
-        const rn = document.getElementById('settingsRenderInput')?.value?.trim();
+        const ghInput = document.getElementById('settingsGithubInput');
+        const rnInput = document.getElementById('settingsRenderInput');
+        const payload = { keyId: activeKeyId };
+        if (ghInput?.dataset.editing === 'true') payload.githubToken = ghInput.value.trim();
+        if (rnInput?.dataset.editing === 'true') payload.renderToken = rnInput.value.trim();
+        if (payload.githubToken === undefined && payload.renderToken === undefined) {
+          if (window.showToast) window.showToast('Edit a credential before saving.', 'info');
+          return;
+        }
 
+        const button = document.getElementById('settingsSaveCredentialsBtn');
+        if (button) { button.disabled = true; button.textContent = 'Saving…'; }
         fetch('/settings/api/credentials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            keyId: activeKeyId,
-            githubToken: gh !== '' ? gh : undefined,
-            renderToken: rn !== '' ? rn : undefined
-          })
+          body: JSON.stringify(payload)
         }).then(res => res.json()).then(data => {
           if (data && data.ok) {
             if (window.showToast) window.showToast('Credentials updated successfully', 'success');
@@ -344,7 +399,19 @@ export function renderSettingsPage(params: {
           }
         }).catch(err => {
           if (window.showToast) window.showToast('Network error: ' + err.message, 'error');
+        }).finally(() => { if (button) { button.disabled = false; button.innerHTML = 'Save Changes'; } });
+      }
+
+      function filterSettingsCat(cat, btn) {
+        currentSettingsCategory = cat;
+        document.querySelectorAll('.settings-cat-pill').forEach(b => {
+          b.style.background = 'var(--bg-surface-1)';
+          b.style.color = 'var(--geist-gray-50)';
         });
+        btn.style.background = 'var(--bg-surface-2)';
+        btn.style.color = 'var(--fg)';
+        currentSettingsToolsPage = 1;
+        renderSettingsTools();
       }
 
       function toggleToolPermission(toolName, enabled) {
@@ -364,11 +431,35 @@ export function renderSettingsPage(params: {
       }
 
       function filterToolRows() {
-        const q = (document.getElementById('toolSearchInput')?.value || '').toLowerCase();
-        document.querySelectorAll('.tool-toggle-row').forEach(row => {
+        currentSettingsToolsPage = 1;
+        renderSettingsTools();
+      }
+
+      function renderSettingsTools() {
+        const q = (document.getElementById('toolSearchInput')?.value || '').toLowerCase().trim();
+        const rows = Array.from(document.querySelectorAll('.tool-toggle-row'));
+        const filtered = rows.filter(row => {
+          const category = row.getAttribute('data-cat') || '';
           const name = row.getAttribute('data-tool-name') || '';
-          row.style.display = name.toLowerCase().includes(q) ? 'flex' : 'none';
+          const categoryMatch = currentSettingsCategory === 'All' || category === currentSettingsCategory || (currentSettingsCategory === 'Sandbox' && ['Files','Search','Filesystem','Execution'].includes(category));
+          return categoryMatch && (!q || row.textContent.toLowerCase().includes(q));
         });
+        const totalPages = Math.max(1, Math.ceil(filtered.length / settingsToolsPageSize));
+        currentSettingsToolsPage = Math.min(currentSettingsToolsPage, totalPages);
+        const start = (currentSettingsToolsPage - 1) * settingsToolsPageSize;
+        rows.forEach(row => row.style.display = 'none');
+        filtered.forEach((row, index) => { if (index >= start && index < start + settingsToolsPageSize) row.style.display = 'flex'; });
+        const info = document.getElementById('settingsToolsPageInfo');
+        const prev = document.getElementById('settingsToolsPrev');
+        const next = document.getElementById('settingsToolsNext');
+        if (info) info.textContent = filtered.length ? 'Page ' + currentSettingsToolsPage + ' of ' + totalPages + ' · ' + filtered.length + ' tools' : 'No matching tools';
+        if (prev) prev.disabled = currentSettingsToolsPage <= 1 || !filtered.length;
+        if (next) next.disabled = currentSettingsToolsPage >= totalPages || !filtered.length;
+      }
+
+      function changeSettingsToolsPage(delta) {
+        currentSettingsToolsPage += delta;
+        renderSettingsTools();
       }
 
       function resetToolDefaults() {
@@ -383,6 +474,16 @@ export function renderSettingsPage(params: {
           }
         });
       }
+
+      document.querySelectorAll('.theme-mode-button').forEach(button => {
+        const mode = button.dataset.themeMode || 'system';
+        if (mode === (localStorage.getItem('qw-theme') || 'system')) {
+          button.style.background = 'var(--bg-surface-2)';
+          button.style.borderColor = 'var(--border-medium)';
+          button.style.color = 'var(--fg)';
+        }
+      });
+      renderSettingsTools();
     </script>
   `;
 
