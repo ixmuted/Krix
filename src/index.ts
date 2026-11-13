@@ -1415,7 +1415,15 @@ app.get("/tools", async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   if (!owner) {
-    res.status(401).send("Sign in to view tool usage.");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(
+      renderToolsPage({
+        base,
+        isOwner: false,
+        owner: null,
+        tools: statsTracker.getSummary("/tmp").toolsCatalog,
+      }),
+    );
     return;
   }
   const isOwner = isOwnerEmail(owner.email);

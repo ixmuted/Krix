@@ -27,10 +27,10 @@ export function renderAuthRequiredCard(
   const loginUrl = `/auth/google?returnTo=${safeReturn}`;
 
   return `
-    <div style="min-height:50vh; display:flex; align-items:center; justify-content:center; padding:32px 16px;">
-      <div class="card spotlight-card card-top-border" style="max-width:440px; width:100%; padding:36px 32px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px; box-shadow:var(--shadow-lg);">
+    <div class="auth-required-viewport" style="min-height:50vh; display:flex; align-items:center; justify-content:center; padding:32px 16px;">
+      <div class="auth-required-card card spotlight-card card-top-border" style="max-width:440px; width:100%; padding:36px 32px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px; box-shadow:var(--shadow-lg);">
         <!-- Shield/Lock Icon Avatar Halo -->
-        <div style="width:52px; height:52px; border-radius:50%; background:var(--bg-surface-2); border:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:center; color:var(--fg);">
+        <div class="auth-icon-halo" style="width:52px; height:52px; border-radius:50%; background:var(--bg-surface-2); border:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:center; color:var(--fg);">
           ${renderSvg("shield", 22)}
         </div>
 

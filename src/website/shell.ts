@@ -151,10 +151,10 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
 export function renderFooter(): string {
   const currentYear = new Date().getFullYear();
   return `
-    <footer style="border-top:1px solid var(--border-subtle); background:var(--bg-surface-0); margin-top:auto; padding:48px 24px 36px; position:relative; z-index:1;">
-      <div style="max-width:1040px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:32px;">
+    <footer class="krix-footer" style="border-top:1px solid var(--border-subtle); background:var(--bg-surface-0); margin-top:auto; padding:48px 24px 36px; position:relative; z-index:1;">
+      <div class="krix-footer-inner" style="max-width:1040px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:32px;">
         <!-- Brand Column -->
-        <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="krix-footer-col" style="display:flex; flex-direction:column; gap:12px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <div class="brand-avatar" style="width:24px; height:24px;">
               <img src="/icon-48.png?v=2" alt="Krix">
@@ -171,7 +171,7 @@ export function renderFooter(): string {
         </div>
 
         <!-- Navigation -->
-        <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="krix-footer-col" style="display:flex; flex-direction:column; gap:10px;">
           <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg);">Platform</div>
           <a href="/home" style="font-size:12px; color:var(--geist-gray-50);">Home</a>
           <a href="/upload" style="font-size:12px; color:var(--geist-gray-50);">Upload</a>
@@ -180,7 +180,7 @@ export function renderFooter(): string {
         </div>
 
         <!-- Developer Resources -->
-        <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="krix-footer-col" style="display:flex; flex-direction:column; gap:10px;">
           <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg);">Developers</div>
           <a href="/api" style="font-size:12px; color:var(--geist-gray-50);">API Keys</a>
           <a href="/stats" style="font-size:12px; color:var(--geist-gray-50);">Telemetry</a>
@@ -189,7 +189,7 @@ export function renderFooter(): string {
         </div>
 
         <!-- Connect & Security -->
-        <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="krix-footer-col" style="display:flex; flex-direction:column; gap:10px;">
           <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg);">Connect</div>
           <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:6px;">
             ${renderSvg("github", 14)}
@@ -201,7 +201,7 @@ export function renderFooter(): string {
         </div>
       </div>
 
-      <div style="max-width:1040px; margin:32px auto 0; padding-top:20px; border-top:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div class="krix-footer-bottom" style="max-width:1040px; margin:32px auto 0; padding-top:20px; border-top:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
         <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">
           © ${currentYear} Krix • Streamable HTTP
         </span>
