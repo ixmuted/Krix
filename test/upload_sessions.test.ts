@@ -6,6 +6,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import { computeAuthKey, sandboxRootForAuthKey } from "../src/security.js";
+import { getKeySettings } from "../src/userSettings.js";
 import {
   registerUploadRoutes,
   activeUploadSessionCount,
@@ -19,9 +20,10 @@ const GH = "ghp_test_default_token";
 describe("web upload sessions", () => {
   let server: http.Server;
   let base = "";
-  const root = sandboxRootForAuthKey(computeAuthKey(GH));
+  const root = sandboxRootForAuthKey(getKeySettings("primary-key").sandboxId);
 
   before(async () => {
+    fs.rmSync(root, { recursive: true, force: true });
     process.env.UPLOAD_SESSION_MINUTES = "10";
     process.env.UPLOAD_MAX_FILE_MB = "0.1";
     process.env.UPLOAD_MAX_FILES = "3";

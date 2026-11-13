@@ -48,6 +48,8 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
   before(() => {
     process.env.OWNER_EMAIL = OWNER_EMAIL;
     process.env.SESSION_SECRET = "krix-test-secret-32-chars-long-123456";
+    process.env.KEY_ENCRYPTION_SECRET =
+      "krix-test-encryption-secret-32-bytes-ok";
   });
 
   describe("0. Credential-aware tool availability", () => {
@@ -55,25 +57,60 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
       assert.equal(getToolCredentialRequirement("get_file_contents"), "github");
       assert.equal(getToolCredentialRequirement("list_issues"), "github");
       assert.equal(getToolCredentialRequirement("create_branch"), "github");
-      assert.equal(getMissingToolCredential("get_file_contents", { github: false }), "github");
-      assert.equal(getMissingToolCredential("get_file_contents", { github: true }), null);
+      assert.equal(
+        getMissingToolCredential("get_file_contents", { github: false }),
+        "github",
+      );
+      assert.equal(
+        getMissingToolCredential("get_file_contents", { github: true }),
+        null,
+      );
     });
 
     test("Render tools require a Render API key", () => {
       assert.equal(getToolCredentialRequirement("list_services"), "render");
-      assert.equal(getMissingToolCredential("list_services", { render: false }), "render");
-      assert.equal(getMissingToolCredential("list_services", { render: true }), null);
+      assert.equal(
+        getMissingToolCredential("list_services", { render: false }),
+        "render",
+      );
+      assert.equal(
+        getMissingToolCredential("list_services", { render: true }),
+        null,
+      );
     });
 
     test("local sandbox tools remain available without GitHub credentials", () => {
-      for (const name of ["sandbox_exec", "sandbox_run", "sandbox_install", "sandbox_ps", "sandbox_status", "sandbox_file", "sandbox_store", "git_status", "git_diff"]) {
-        assert.equal(getToolCredentialRequirement(name), null, `${name} should not require a GitHub PAT`);
+      for (const name of [
+        "sandbox_exec",
+        "sandbox_run",
+        "sandbox_install",
+        "sandbox_ps",
+        "sandbox_status",
+        "sandbox_file",
+        "sandbox_store",
+        "git_status",
+        "git_diff",
+      ]) {
+        assert.equal(
+          getToolCredentialRequirement(name),
+          null,
+          `${name} should not require a GitHub PAT`,
+        );
       }
     });
 
     test("sandbox remote Git operations require a GitHub token", () => {
-      for (const name of ["git_clone", "git_checkout", "git_pull", "git_commit_push"]) {
-        assert.equal(getToolCredentialRequirement(name), "github", `${name} should require a GitHub PAT`);
+      for (const name of [
+        "git_clone",
+        "git_checkout",
+        "git_pull",
+        "git_commit_push",
+      ]) {
+        assert.equal(
+          getToolCredentialRequirement(name),
+          "github",
+          `${name} should require a GitHub PAT`,
+        );
       }
     });
 

@@ -3,7 +3,10 @@ import type { StatsSummary, KeyMetrics, ToolDetailMeta } from "./stats.js";
 import type { ActiveOAuthInfo } from "./mcpOAuth.js";
 import type { KeySettings, UserQuotaConfig } from "./userSettings.js";
 import { maskSecret, getDefaultToolRiskLevel } from "./userSettings.js";
-import { getMissingToolCredential, type ToolCredentialRequirement } from "./security.js";
+import {
+  getMissingToolCredential,
+  type ToolCredentialRequirement,
+} from "./security.js";
 import { getKrixDesignCss, renderKrixGraphic } from "./uiEnhancements.js";
 
 export function escapeHtml(str: string): string {
@@ -129,7 +132,8 @@ export function renderGoogleLogoSvg(size = 18): string {
 }
 
 export function getBaseStyles(): string {
-  return `
+  return (
+    `
     :root {
       color-scheme: light dark;
       --bg: #ffffff;
@@ -340,6 +344,7 @@ export function getBaseStyles(): string {
       width: 100%;
       max-width: 1080px;
       padding: 24px 20px;
+      flex: 1 0 auto;
     }
 
     .card {
@@ -1287,7 +1292,8 @@ export function getBaseStyles(): string {
       .endpoint-row input { width: 100% !important; min-width: 0 !important; }
       footer { flex-direction: column; gap: 12px; text-align: center; }
     }
-  ` + getKrixDesignCss();
+  ` + getKrixDesignCss()
+  );
 }
 
 export function renderRecaptchaScript(nonce?: string): string {
@@ -1392,13 +1398,16 @@ export function renderHeader(
         </div>
       </div>
 
-      <nav class="mobile-icon-nav" aria-label="Primary navigation">
-        <div class="mobile-icon-nav-inner">
-          <a href="/home" class="mobile-icon-link ${activeNav === "home" ? "active" : ""}" aria-label="Home" title="Home">${renderKrixGraphic("home", 19)}</a>
-          <a href="/upload" class="mobile-icon-link ${activeNav === "upload" ? "active" : ""}" aria-label="Upload" title="Upload">${renderKrixGraphic("upload", 19)}</a>
-          <a href="/store" class="mobile-icon-link ${activeNav === "store" ? "active" : ""}" aria-label="Store" title="Store">${renderKrixGraphic("database", 19)}</a>
-          <a href="/stats" class="mobile-icon-link ${activeNav === "stats" ? "active" : ""}" aria-label="Stats" title="Stats">${renderKrixGraphic("chart", 19)}</a>
-          <a href="/tools" class="mobile-icon-link ${activeNav === "tools" ? "active" : ""}" aria-label="Tools" title="Tools">${renderKrixGraphic("terminal", 19)}</a>
+      <!-- Mobile-only Horizontally Scrollable Navigation Sub-bar -->
+      <nav class="mobile-subnav" aria-label="Mobile Navigation">
+        <div class="mobile-subnav-scroll">
+          <a href="/home" class="mobile-subnav-pill ${activeNav === "home" ? "active" : ""}">Home</a>
+          <a href="/upload" class="mobile-subnav-pill ${activeNav === "upload" ? "active" : ""}">Upload</a>
+          <a href="/store" class="mobile-subnav-pill ${activeNav === "store" ? "active" : ""}">Store</a>
+          <a href="/stats" class="mobile-subnav-pill ${activeNav === "stats" ? "active" : ""}">Stats</a>
+          <a href="/tools" class="mobile-subnav-pill ${activeNav === "tools" ? "active" : ""}">Tools</a>
+          <a href="/api" class="mobile-subnav-pill ${activeNav === "api" ? "active" : ""}">API Keys</a>
+          <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener" class="mobile-subnav-pill">Contact</a>
         </div>
       </nav>
     </header>
@@ -2109,7 +2118,10 @@ export function renderApiKeysPage(params: {
                           k.prefix || (k as any).key?.slice(0, 16) || "";
                         const id = k.id || "";
                         const cId = (k as any).clientId || "";
-                        const isOwnKey = Boolean(owner?.email && k.email?.toLowerCase() === owner.email.toLowerCase());
+                        const isOwnKey = Boolean(
+                          owner?.email &&
+                          k.email?.toLowerCase() === owner.email.toLowerCase(),
+                        );
                         const hasSecret = Boolean((k as any).keyEncrypted);
                         const canReveal = hasSecret && isOwnKey;
                         const fullKey = "";
@@ -2128,7 +2140,7 @@ export function renderApiKeysPage(params: {
                   <td style="width: 32%; min-width: 240px;">
                     <div style="display:flex; align-items:center; gap:8px;">
                       <div class="key-display-scroll" style="width:145px; min-width:145px; max-width:145px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; padding:2px 0;">
-                        <code id="key-val-${escapeHtml(id)}" data-revealed="false" data-revealable="${canReveal ? "true" : "false"}" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:7px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block; box-sizing:border-box;">${canReveal ? "••••••••••••••••" : (hasSecret ? "Not available to this account" : "Reissue key to enable secure reveal")}</code>
+                        <code id="key-val-${escapeHtml(id)}" data-revealed="false" data-revealable="${canReveal ? "true" : "false"}" style="font-family:ui-monospace, SFMono-Regular, monospace; background:var(--code-bg); padding:4px 8px; border-radius:7px; font-size:12px; border:1px solid var(--border); color:var(--fg); display:inline-block; box-sizing:border-box;">${canReveal ? "••••••••••••••••" : hasSecret ? "Not available to this account" : "Reissue key to enable secure reveal"}</code>
                       </div>
                       ${canReveal ? `<button type="button" class="btn icon-btn" id="reveal-btn-${escapeHtml(id)}" onclick="toggleKeyReveal('${escapeHtml(id)}')" title="Reveal API Key" aria-label="Reveal API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">${renderSvg("eye", 14)}</button>` : ""}
                       ${canReveal ? `<button type="button" class="btn icon-btn" onclick="copyKeySecret('${escapeHtml(id)}', 'API Key')" title="Copy API Key" aria-label="Copy API Key" style="width:28px; height:28px; flex-shrink:0; padding:0; display:inline-flex; align-items:center; justify-content:center;">${renderSvg("copy", 14)}</button>` : ""}
@@ -2139,10 +2151,14 @@ export function renderApiKeysPage(params: {
                     <div class="kebab-wrap">
                       <button type="button" class="kebab-btn" data-action="toggle-menu" data-target="kebab-key-${escapeHtml(id)}" aria-label="Key Actions">${renderKrixGraphic("more", 17)}</button>
                       <div class="kebab-dropdown" id="kebab-key-${escapeHtml(id)}">
-                        ${canReveal ? `
+                        ${
+                          canReveal
+                            ? `
                         <button type="button" class="kebab-item" onclick="copyKeySecret('${escapeHtml(id)}', 'API Key')">
                           ${renderSvg("copy", 14)} <span>Copy Key</span>
-                        </button>` : ""}
+                        </button>`
+                            : ""
+                        }
                         ${
                           cId
                             ? `
@@ -2152,10 +2168,14 @@ export function renderApiKeysPage(params: {
                         `
                             : ""
                         }
-                        ${isOwnKey ? `
+                        ${
+                          isOwnKey
+                            ? `
                         <button type="button" class="kebab-item" onclick="openRenameKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
                           ${renderSvg("edit", 14)} <span>Rename</span>
-                        </button>` : ""}
+                        </button>`
+                            : ""
+                        }
                         <div class="kebab-divider"></div>
                         <button type="button" class="kebab-item danger" onclick="openDeleteKeyModal('${escapeHtml(id)}', '${escapeHtml(label)}')">
                           ${renderSvg("trash", 14)} <span>Delete Key</span>
@@ -3162,7 +3182,7 @@ export function renderToolsPage(params: {
           <input
             type="text"
             id="toolSearchInput"
-            placeholder="Search tools by name or description"
+            placeholder=""
             value=""
             autocomplete="off"
             spellcheck="false"
@@ -3968,7 +3988,7 @@ export function renderStatsPage(params: {
       }
 
       const totals = data.map(d => Math.max(0, Number(d.requests) || 0));
-      const maxVal = Math.max(1, ...totals);
+      const maxVal = totals.reduce((m, v) => Math.max(m, v), 1);
       const width = Math.max(280, Math.floor(container.clientWidth || container.getBoundingClientRect().width || 320));
       const height = 190;
       const pad = { top: 12, right: 8, bottom: 34, left: 38 };
@@ -5083,6 +5103,974 @@ export function renderStorePage(params: {
 </html>`;
 }
 
+export interface PageInfo {
+  ttlMinutes: number;
+  retentionMinutes: number;
+  maxFileMb: number;
+  maxTotalMb: number;
+  maxFiles: number;
+  folder: string;
+  owner?: OwnerProfile | null;
+}
+
+export function renderUploadPage(nonce: string, info: PageInfo): string {
+  const isOwner = Boolean(info.owner);
+  const nonceAttr = nonce ? ` nonce="${nonce}"` : "";
+
+  if (!isOwner) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <style${nonceAttr}>
+    ${getBaseStyles()}
+  </style>
+  ${renderRecaptchaScript(nonce)}
+  <script${nonceAttr}>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("upload", null, nonce)}
+  <div class="wrapper">
+    ${renderAuthRequiredCard("Upload", "/upload")}
+  </div>
+  ${renderFooter()}
+</body>
+</html>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
+  <style${nonceAttr}>
+    ${getBaseStyles()}
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color 0.15s ease;
+    }
+    .metric-card:hover {
+      border-color: var(--accents-4);
+    }
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accents-5);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--fg);
+      font-variant-numeric: tabular-nums;
+    }
+    .drop-zone {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      background: var(--card-bg);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      outline: none;
+    }
+    .drop-zone:hover, .drop-zone.drag-over, .drop-zone.dragover {
+      border-color: var(--fg);
+      background: var(--accents-1);
+    }
+    .drop-zone:focus-visible {
+      outline: 2px solid var(--fg);
+    }
+    .switch-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      margin-bottom: 16px;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--accents-2);
+      transition: .2s;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--fg);
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--accent);
+      border-color: var(--accent);
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: #ffffff;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      margin-bottom: 8px;
+      transition: all 0.15s ease;
+    }
+    .file-item:hover {
+      border-color: var(--accents-4);
+    }
+    .file-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+    }
+    .file-name {
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+      color: var(--fg);
+      overflow-wrap: anywhere;
+    }
+    .file-meta {
+      font-size: 11px;
+      color: var(--accents-5);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .file-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kebab-wrap {
+      position: relative;
+      display: inline-block;
+      text-align: right;
+    }
+    .kebab-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--accents-5);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .kebab-btn:hover, .kebab-btn:focus-visible {
+      color: var(--fg);
+      border-color: var(--accents-4);
+      background: var(--accents-1);
+    }
+    .kebab-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 100;
+      min-width: 190px;
+      padding: 6px;
+      border-radius: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kebab-dropdown.open {
+      display: flex;
+    }
+    .kebab-dropdown.pop-up {
+      top: auto;
+      bottom: calc(100% + 4px);
+    }
+    .kebab-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--fg);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s ease;
+      box-sizing: border-box;
+    }
+    .kebab-item:hover, .kebab-item:focus-visible {
+      background: var(--accents-1);
+      color: var(--fg);
+      outline: none;
+    }
+    .kebab-item.danger {
+      color: var(--error);
+    }
+    .kebab-item.danger:hover, .kebab-item.danger:focus-visible {
+      background: rgba(238, 0, 0, 0.08);
+      color: var(--error);
+    }
+    .kebab-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--card-bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast.error {
+      border-color: var(--error);
+    }
+    @media (max-width: 768px) {
+      .grid-4 { grid-template-columns: 1fr 1fr !important; }
+      .grid-2 { grid-template-columns: 1fr !important; }
+    }
+  </style>
+  ${renderRecaptchaScript(nonce)}
+  <script${nonceAttr}>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  ${renderHeader("upload", info.owner || null, nonce)}
+
+  <div class="wrapper">
+    <div class="page-heading">
+      <div>
+        <span class="krix-eyebrow">Workspace storage</span>
+        <h1>Sandbox uploads</h1>
+        <p>Upload workspace files, datasets and scripts directly to your isolated sandbox environment.</p>
+      </div>
+      <div class="page-actions">
+        <a href="/store" class="btn">View Store</a>
+        <a href="/home" class="btn primary">Back to Home</a>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Cards -->
+    <div class="grid-4" style="margin-bottom: 24px;">
+      <div class="card stat-card">
+        <div class="stat-label">Session Status</div>
+        <div class="stat-value" style="font-size: 18px; display:flex; align-items:center; gap:8px;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#0070f3;"></span>
+          <span>Active Sandbox</span>
+        </div>
+        <div class="stat-sub">Folder: <code>upload/</code></div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-label">Files Uploaded</div>
+        <div class="stat-value" id="valUploadCount">0 files</div>
+        <div class="stat-sub" id="valUploadSub">Session active</div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-label">Single File Limit</div>
+        <div class="stat-value">${info.maxFileMb}&nbsp;MB</div>
+        <div class="stat-sub">Max per file</div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-label">Storage Quota</div>
+        <div class="stat-value">${info.maxTotalMb}&nbsp;MB</div>
+        <div class="stat-sub">Up to ${info.maxFiles}&nbsp;files</div>
+      </div>
+    </div>
+
+    <!-- Active Upload & File Management Grid -->
+    <div id="session">
+      <div class="grid-2">
+        <!-- Left: Upload Dropzone Card -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Upload Workspace Files</h2>
+            <span class="badge">${info.maxFileMb} MB per file</span>
+          </div>
+
+          <!-- Keep Storage Toggle Switch (Permanent Storage) -->
+          <div class="switch-wrap" data-feature="Permanent Storage">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="color:#0070f3; display:flex;">
+                ${renderSvg("shield", 18)}
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:13px; color:var(--fg);">Keep</div>
+              </div>
+            </div>
+            <label class="switch" title="Keep (Permanent Storage)">
+              <input type="checkbox" id="permSave" aria-label="Permanent Storage">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Drag & Drop Zone -->
+          <div class="drop-zone" id="drop" tabindex="0" role="button" aria-label="Drop files to upload">
+            <div style="color:var(--accents-4); margin-bottom:12px; display:flex; justify-content:center;">
+              ${renderSvg("download", 32)}
+            </div>
+            <div style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:4px;">
+              Drag and drop files here, or click to browse
+            </div>
+            <div style="font-size:12px; color:var(--accents-5);">
+              Up to ${info.maxFiles} files &middot; ${info.maxFileMb} MB each &middot; ${info.maxTotalMb} MB total
+            </div>
+          </div>
+          <input id="picker" type="file" multiple hidden>
+        </div>
+
+        <!-- Right: Uploaded Files Manager Card -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h2 style="font-size:15px; font-weight:600; color:var(--fg);">Sandbox Files</h2>
+              <span class="badge" id="filesCountBadge">0 files</span>
+            </div>
+            <span id="usage" style="font-size:12px; color:var(--accents-5);"></span>
+          </div>
+
+          <!-- Search Input -->
+          <div class="search-input-wrap" style="margin-bottom:14px;">
+            ${renderSvg("search", 15)}
+            <input
+              type="text"
+              id="fileFilter"
+              class="search-input"
+              placeholder="Search files"
+              oninput="renderFileList()"
+            >
+          </div>
+
+          <!-- Files List -->
+          <ul id="list" style="list-style:none; padding:0; margin:0; max-height:420px; overflow-y:auto;"></ul>
+          <div id="emptyFilesMsg" style="text-align:center; padding:32px 16px; color:var(--accents-5); font-size:13px;">
+            No files uploaded in this session yet. Drag and drop above to begin.
+          </div>
+
+          <!-- Upload Files Pagination Bar -->
+          <div class="pagination-bar" id="uploadPaginationBar" style="display:none; margin-top:14px;">
+            <span id="uploadPageIndicator">Showing files</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" id="uploadPrevBtn" onclick="changeUploadPage(-1)" aria-label="Previous upload page" title="Previous"><span style="display:inline-flex;transform:rotate(180deg);">${renderSvg("arrow-right", 17)}</span></button>
+              <button type="button" class="pagination-btn" id="uploadNextBtn" onclick="changeUploadPage(1)" aria-label="Next upload page" title="Next">${renderSvg("arrow-right", 17)}</button>
+            </div>
+          </div>
+
+          <div class="err" id="upErr" role="alert" style="color:var(--error); font-size:12px; margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Upload File Rename Modal -->
+  <div id="uploadRenameModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Rename File</h3>
+      <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px; line-height:1.5;">Enter a new filename for the sandbox file:</p>
+      <input type="text" id="uploadRenameInput" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg); font-size:13px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeUploadRenameModal()">Cancel</button>
+        <button type="button" id="uploadRenameSaveBtn" class="btn primary">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Geist Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Custom Confirmation Modal -->
+  <div id="confirmModal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Action</h3>
+      <p id="modalDesc" style="font-size:13px; color:var(--accents-5); margin-bottom:20px; line-height:1.5;"></p>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn" onclick="closeConfirmModal()">Cancel</button>
+        <button type="button" id="modalConfirmBtn" class="btn" style="background:#e00; color:#fff; border-color:#e00;">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  ${renderFooter()}
+
+  <script${nonceAttr}>
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const isOwner = ${isOwner};
+    let token = null, limits = null;
+    const uploadedFileList = [];
+
+    const fmt = (n) => {
+      if (!n || n <= 0 || isNaN(n)) return '0 B';
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+      return (n / 1073741824).toFixed(1) + ' GB';
+    };
+
+    function showToast(message, type = 'success') {
+      const container = $('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      const icon = type === 'error'
+        ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0070f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      toast.innerHTML = icon + '<span>' + message.replace(/</g, '&lt;') + '</span>';
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+      }, 3500);
+    }
+
+    let activeConfirmAction = null;
+    function openDeleteModal(fileName, action) {
+      $('modalTitle').textContent = 'Delete File';
+      $('modalDesc').textContent = 'Are you sure you want to delete file "' + fileName + '" from the sandbox? This cannot be undone.';
+      activeConfirmAction = async () => {
+        closeConfirmModal();
+        await action();
+      };
+      $('modalConfirmBtn').onclick = activeConfirmAction;
+      const m = $('confirmModal');
+      if (m) {
+        m.removeAttribute('hidden');
+        m.classList.add('open');
+      }
+    }
+
+    window.closeConfirmModal = function() {
+      const modal = $('confirmModal');
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
+      activeConfirmAction = null;
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeConfirmModal();
+    });
+
+    async function api(path, opts) {
+      const res = await fetch('/upload/api' + path, opts);
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok) { const e = new Error(data.error || 'Request failed (' + res.status + ').'); e.status = res.status; throw e; }
+      return data;
+    }
+
+    async function initSession(apiKey) {
+      const data = await api('/session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKey || '' })
+      });
+      token = data.token; limits = data.limits;
+
+      if (Array.isArray(data.files)) {
+        uploadedFileList.length = 0;
+        data.files.forEach(f => {
+          uploadedFileList.push({
+            name: f.name,
+            size: f.size,
+            path: f.path,
+            permanent: Boolean(f.permanent),
+            statusText: fmt(f.size),
+            failed: false
+          });
+        });
+        renderFileList();
+      }
+    }
+
+    if (isOwner) {
+      initSession().catch((e) => {
+        const upErr = $('upErr');
+        if (upErr) upErr.textContent = e.message;
+      });
+    }
+
+    let uploadCurrentPage = 1;
+    const UPLOAD_PER_PAGE = 10;
+
+    window.changeUploadPage = function(delta) {
+      uploadCurrentPage += delta;
+      renderFileList();
+    };
+
+    let activeRenameUploadTarget = null;
+    window.openUploadRenameModal = function(file) {
+      activeRenameUploadTarget = file;
+      const input = $('uploadRenameInput');
+      input.value = file.name;
+      const saveBtn = $('uploadRenameSaveBtn');
+      saveBtn.onclick = executeUploadRename;
+      const modal = $('uploadRenameModal');
+      modal.removeAttribute('hidden');
+      modal.classList.add('open');
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    };
+
+    window.closeUploadRenameModal = function() {
+      const modal = $('uploadRenameModal');
+      if (modal) {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('open');
+      }
+      activeRenameUploadTarget = null;
+    };
+
+    async function executeUploadRename() {
+      if (!activeRenameUploadTarget) return;
+      const input = $('uploadRenameInput');
+      const newName = (input.value || '').trim();
+      if (!newName || newName === activeRenameUploadTarget.name) {
+        closeUploadRenameModal();
+        return;
+      }
+      const saveBtn = $('uploadRenameSaveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      try {
+        const res = await fetch('/upload/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName: activeRenameUploadTarget.name, newName })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          activeRenameUploadTarget.name = newName;
+          activeRenameUploadTarget.path = (activeRenameUploadTarget.path || '').replace(/[^/]+$/, newName);
+          showToast('File renamed to "' + newName + '"', 'success');
+          closeUploadRenameModal();
+          renderFileList();
+        } else {
+          showToast(data.error || 'Failed to rename file', 'error');
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.kebab-btn');
+      const allDropdowns = document.querySelectorAll('.kebab-dropdown.open');
+      if (btn) {
+        e.stopPropagation();
+        const wrap = btn.closest('.kebab-wrap');
+        const dropdown = wrap ? wrap.querySelector('.kebab-dropdown') : null;
+        allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        if (dropdown) {
+          const isOpen = dropdown.classList.contains('open');
+          if (!isOpen) {
+            const rect = btn.getBoundingClientRect();
+            if (window.innerHeight - rect.bottom < 180) {
+              dropdown.classList.add('pop-up');
+            } else {
+              dropdown.classList.remove('pop-up');
+            }
+            dropdown.classList.add('open');
+          } else {
+            dropdown.classList.remove('open');
+          }
+        }
+        return;
+      }
+      allDropdowns.forEach(d => d.classList.remove('open'));
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeConfirmModal();
+        closeUploadRenameModal();
+        document.querySelectorAll('.kebab-dropdown.open').forEach(d => d.classList.remove('open'));
+      }
+    });
+
+    window.renderFileList = function() {
+      const filter = ($('fileFilter').value || '').toLowerCase().trim();
+      const container = $('list');
+      container.innerHTML = '';
+      const visible = uploadedFileList.filter(f => f.name.toLowerCase().includes(filter));
+
+      const countText = uploadedFileList.length + ' file' + (uploadedFileList.length === 1 ? '' : 's');
+      $('filesCountBadge').textContent = countText;
+      const valCount = $('valUploadCount');
+      if (valCount) valCount.textContent = countText;
+
+      $('emptyFilesMsg').style.display = visible.length === 0 ? 'block' : 'none';
+
+      const totalBytes = uploadedFileList.reduce((acc, x) => acc + (x.size || 0), 0);
+      const usageEl = $('usage');
+      if (usageEl) usageEl.textContent = fmt(totalBytes) + ' used';
+      const valSub = $('valUploadSub');
+      if (valSub) valSub.textContent = fmt(totalBytes) + ' used';
+
+      // Pagination
+      const total = visible.length;
+      const totalPages = Math.max(1, Math.ceil(total / UPLOAD_PER_PAGE));
+      if (uploadCurrentPage > totalPages) uploadCurrentPage = totalPages;
+      if (uploadCurrentPage < 1) uploadCurrentPage = 1;
+
+      const start = (uploadCurrentPage - 1) * UPLOAD_PER_PAGE;
+      const end = start + UPLOAD_PER_PAGE;
+      const pageFiles = visible.slice(start, end);
+
+      const indicator = $('uploadPageIndicator');
+      if (indicator) {
+        indicator.textContent = total > 0 ? ('Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' files') : 'No files';
+      }
+      const prevBtn = $('uploadPrevBtn');
+      const nextBtn = $('uploadNextBtn');
+      if (prevBtn) prevBtn.disabled = uploadCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = uploadCurrentPage >= totalPages;
+      const bar = $('uploadPaginationBar');
+      if (bar) bar.style.display = total > UPLOAD_PER_PAGE ? 'flex' : 'none';
+
+      pageFiles.forEach(f => {
+        const li = document.createElement('li');
+        li.className = 'file-item' + (f.failed ? ' fail' : '');
+
+        const info = document.createElement('div');
+        info.className = 'file-info';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'file-name';
+        nameEl.textContent = f.path || f.name;
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'file-meta';
+        metaEl.innerHTML = '<span>' + (f.statusText || fmt(f.size)) + '</span>';
+        if (f.permanent) {
+          metaEl.innerHTML += '<span class="badge success">Permanent</span>';
+        } else if (!f.failed && f.path) {
+          metaEl.innerHTML += '<span class="badge">60m TTL</span>';
+        }
+        info.append(nameEl, metaEl);
+
+        const actions = document.createElement('div');
+        actions.className = 'file-actions';
+
+        if (!f.failed && f.path) {
+          const kebabWrap = document.createElement('div');
+          kebabWrap.className = 'kebab-wrap';
+
+          const kebabBtn = document.createElement('button');
+          kebabBtn.type = 'button';
+          kebabBtn.className = 'kebab-btn';
+          kebabBtn.setAttribute('aria-label', 'File Actions');
+          kebabBtn.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'; kebabBtn.setAttribute('aria-label', 'More file actions');
+
+          const dropdown = document.createElement('div');
+          dropdown.className = 'kebab-dropdown';
+
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'kebab-item';
+          copyBtn.innerHTML = '${renderSvg("copy", 14)} <span>Copy Path</span>';
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(f.path);
+            showToast('File path copied to clipboard', 'success');
+          };
+
+          const dlLink = document.createElement('a');
+          dlLink.className = 'kebab-item';
+          dlLink.href = '/upload/api/download?name=' + encodeURIComponent(f.name);
+          dlLink.download = f.name;
+          dlLink.innerHTML = '${renderSvg("download", 14)} <span>Download File</span>';
+
+          const permBtn = document.createElement('button');
+          permBtn.type = 'button';
+          permBtn.className = 'kebab-item';
+          permBtn.innerHTML = '${renderSvg("shield", 14)} <span>' + (f.permanent ? 'Revert' : 'Keep') + '</span>';
+          permBtn.onclick = async () => {
+            permBtn.disabled = true;
+            try {
+              const res = await api('/file/permanent?name=' + encodeURIComponent(f.name) + '&permanent=' + (!f.permanent), {
+                method: 'POST',
+                headers: { 'x-upload-token': token }
+              });
+              f.permanent = Boolean(res.permanent);
+              showToast(f.permanent ? 'File marked as permanent' : 'Permanent retention reverted', 'success');
+              renderFileList();
+            } catch (e) {
+              showToast('Error: ' + e.message, 'error');
+            } finally {
+              permBtn.disabled = false;
+            }
+          };
+
+          const renameBtn = document.createElement('button');
+          renameBtn.type = 'button';
+          renameBtn.className = 'kebab-item';
+          renameBtn.innerHTML = '${renderSvg("edit", 14)} <span>Rename</span>';
+          renameBtn.onclick = () => {
+            openUploadRenameModal(f);
+          };
+
+          const divider = document.createElement('div');
+          divider.className = 'kebab-divider';
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'kebab-item danger';
+          delBtn.innerHTML = '${renderSvg("trash", 14)} <span>Delete File</span>';
+          delBtn.onclick = () => {
+            openDeleteModal(f.name, async () => {
+              try {
+                await api('/file?name=' + encodeURIComponent(f.name), {
+                  method: 'DELETE',
+                  headers: { 'x-upload-token': token }
+                });
+                const idx = uploadedFileList.indexOf(f);
+                if (idx >= 0) uploadedFileList.splice(idx, 1);
+                showToast('File "' + f.name + '" deleted successfully', 'success');
+                renderFileList();
+              } catch (e) {
+                showToast('Could not delete: ' + e.message, 'error');
+              }
+            });
+          };
+
+          dropdown.append(copyBtn, dlLink, permBtn, renameBtn, divider, delBtn);
+          kebabWrap.append(kebabBtn, dropdown);
+          actions.appendChild(kebabWrap);
+        }
+
+        li.append(info, actions);
+        container.appendChild(li);
+      });
+    };
+
+    function sendOne(file) {
+      const isPermanent = Boolean($('permSave')?.checked);
+      const item = {
+        name: file.name,
+        size: file.size,
+        statusText: 'uploading',
+        permanent: isPermanent,
+        failed: false
+      };
+      uploadedFileList.unshift(item);
+      renderFileList();
+
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload/api/files');
+        xhr.setRequestHeader('x-upload-token', token);
+        xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+        xhr.setRequestHeader('content-type', 'application/octet-stream');
+        if (isPermanent) {
+          xhr.setRequestHeader('x-permanent', 'true');
+        }
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            item.statusText = Math.round(e.loaded / e.total * 100) + '%';
+            renderFileList();
+          }
+        };
+        xhr.onload = () => {
+          let d = {}; try { d = JSON.parse(xhr.responseText); } catch (_) {}
+          if (xhr.status === 201) {
+            item.path = d.file.path;
+            item.name = d.file.name;
+            item.size = d.file.size;
+            item.permanent = Boolean(d.file.permanent);
+            item.statusText = fmt(d.file.size);
+            const usageEl = $('usage');
+            if (usageEl) usageEl.textContent = d.files.length + ' file(s), ' + fmt(d.bytes);
+            showToast('Uploaded ' + item.name + ' successfully', 'success');
+          } else {
+            item.failed = true;
+            item.statusText = d.error || 'failed';
+            showToast('Upload failed: ' + item.statusText, 'error');
+          }
+          renderFileList();
+          resolve();
+        };
+        xhr.onerror = () => {
+          item.failed = true;
+          item.statusText = 'network error';
+          showToast('Network error during upload', 'error');
+          renderFileList();
+          resolve();
+        };
+        xhr.send(file);
+      });
+    }
+
+    async function upload(files) {
+      const upErr = $('upErr');
+      if (upErr) upErr.textContent = '';
+      for (const f of files) {
+        if (!token) return;
+        if (f.size === 0) {
+          uploadedFileList.unshift({ name: f.name, size: 0, statusText: 'empty file', failed: true });
+          renderFileList();
+          continue;
+        }
+        if (limits && f.size > limits.maxFileBytes) {
+          uploadedFileList.unshift({ name: f.name, size: f.size, statusText: 'too large', failed: true });
+          renderFileList();
+          continue;
+        }
+        await sendOne(f);
+      }
+    }
+
+    const drop = $('drop'), picker = $('picker');
+    if (drop && picker) {
+      drop.addEventListener('click', () => picker.click());
+      drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); } });
+      picker.addEventListener('change', () => { const f = [...picker.files]; picker.value = ''; upload(f); });
+
+      ['dragenter', 'dragover'].forEach((t) => {
+        drop.addEventListener(t, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          drop.classList.add('drag-over');
+        });
+        window.addEventListener(t, (e) => {
+          e.preventDefault();
+        });
+      });
+
+      ['dragleave', 'drop'].forEach((t) => {
+        drop.addEventListener(t, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          drop.classList.remove('drag-over');
+        });
+      });
+
+      drop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.remove('drag-over');
+        if (e.dataTransfer && e.dataTransfer.files) {
+          upload([...e.dataTransfer.files]);
+        }
+      });
+    }
+
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => e.preventDefault());
+
+    window.addEventListener('pagehide', () => {
+      if (token) navigator.sendBeacon('/upload/api/end', new Blob([JSON.stringify({ token })], { type: 'application/json' }));
+    });
+  })();
+  </script>
+</body>
+</html>`;
+}
+
 export function renderNotFoundPage(params: {
   base: string;
   isOwner: boolean;
@@ -5090,33 +6078,80 @@ export function renderNotFoundPage(params: {
   pathname?: string;
   nonce?: string;
 }): string {
-  const nonce = params.nonce;
+  const { base, isOwner, owner, pathname = "", nonce } = params;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>404 · Page not found</title>
+  <title>404 Not Found</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#000000">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
   <style>
-    * { box-sizing:border-box; }
-    html,body { min-height:100%;margin:0;background:#000;color:#fafafa;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    body { min-height:100svh;display:grid;place-items:center;padding:24px;background:#000; }
-    .not-found { width:min(100%,460px);text-align:center;padding:clamp(24px,6vw,44px);border:1px solid #292929;border-radius:10px;background:#050505; }
-    .not-found-code { margin:0 0 12px;font-size:clamp(64px,18vw,92px);line-height:.95;letter-spacing:-.075em;font-weight:750; }
-    .not-found-message { margin:0 0 24px;color:#a1a1aa;font-size:15px;line-height:1.6; }
-    .not-found-home { width:100%;min-height:46px;display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border:1px solid #fafafa;border-radius:7px;background:#fafafa;color:#09090b;text-decoration:none;font-size:14px;font-weight:650; }
-    .not-found-home:focus-visible { outline:2px solid #a1a1aa;outline-offset:3px; }
-    @media (prefers-reduced-motion:no-preference) { .not-found-home { transition:background-color .15s ease,color .15s ease; } .not-found-home:hover { background:#d4d4d8;border-color:#d4d4d8; } }
+    ${getBaseStyles()}
+    .notfound-card {
+      max-width: 520px;
+      margin: 80px auto;
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .notfound-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      color: var(--accents-5);
+      margin-bottom: 16px;
+    }
+    .notfound-code {
+      font-size: 64px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      color: var(--fg);
+      margin-bottom: 8px;
+    }
   </style>
+  ${renderRecaptchaScript(nonce)}
+  <script${nonce ? ` nonce="${nonce}"` : ""}>
+    (function() {
+      const saved = localStorage.getItem('qw-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
 </head>
 <body>
-  <main class="not-found" aria-labelledby="notFoundTitle">
-    <h1 class="not-found-code" id="notFoundTitle">404</h1>
-    <p class="not-found-message">This page doesn't exist.</p>
-    <a class="not-found-home" href="/home">Back to home</a>
-  </main>
+  ${renderHeader("home", owner, nonce)}
+
+  <div class="wrapper">
+    <div class="card notfound-card">
+      <div class="notfound-badge">404 Error</div>
+      <div class="notfound-code">404</div>
+      <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; color:var(--fg); margin-bottom:8px;">
+        Page Not Found
+      </h1>
+      <p style="font-size:14px; color:var(--accents-5); line-height:1.6; margin-bottom:24px;">
+        The requested URL <code style="font-family:ui-monospace, monospace; background:var(--code-bg); padding:2px 6px; border-radius:4px; font-size:13px; color:var(--fg); word-break:break-all;">${escapeHtml(pathname)}</code> does not exist or has been moved.
+      </p>
+
+      <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+        <a href="/home" class="btn primary">Back to Home</a>
+        <a href="/tools" class="btn">Browse Tools</a>
+        <a href="/upload" class="btn">Sandbox Upload</a>
+        <a href="/store" class="btn">View Store</a>
+      </div>
+    </div>
+  </div>
+
+  ${renderFooter()}
 </body>
 </html>`;
 }
@@ -5194,21 +6229,27 @@ export function renderSettingsPage(params: {
   const enabledSet = new Set(keySettings.enabledTools || []);
   const disabledSet = new Set(keySettings.disabledTools || []);
 
-  const missingCredentialForTool = (t: ToolDetailMeta): ToolCredentialRequirement | null =>
+  const missingCredentialForTool = (
+    t: ToolDetailMeta,
+  ): ToolCredentialRequirement | null =>
     getMissingToolCredential(t.name, credentialAvailability);
 
   const isToolActive = (t: ToolDetailMeta): boolean => {
     if (disabledSet.has(t.name) || missingCredentialForTool(t)) return false;
     const explicit = enabledSet.has(t.name);
-    const categoryDefault = t.category !== "Code Graph" && t.category !== "Search";
-    const risk = keySettings.toolRiskLevels?.[t.name] || getDefaultToolRiskLevel(t.name, t.category);
-    const acknowledged = keySettings.riskAcknowledgedTools?.includes(t.name) || false;
+    const categoryDefault =
+      t.category !== "Code Graph" && t.category !== "Search";
+    const risk =
+      keySettings.toolRiskLevels?.[t.name] ||
+      getDefaultToolRiskLevel(t.name, t.category);
+    const acknowledged =
+      keySettings.riskAcknowledgedTools?.includes(t.name) || false;
     if ((risk === "high" || risk === "critical") && !acknowledged) return false;
     return explicit || categoryDefault;
   };
 
   const codeGraphCount = toolsCatalog.filter(
-    (t) => t.category === "Code Graph" || t.category === "Search",
+    (t) => t.category === "Code Graph",
   ).length;
 
   return `<!DOCTYPE html>
@@ -5467,6 +6508,9 @@ export function renderSettingsPage(params: {
       </div>
 
       <div style="display:flex; align-items:center; gap:8px;">
+        <span class="role-badge ${isServerOwner ? "role-owner" : "role-member"}" style="font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--accents-1); color:var(--fg);">
+          ${isServerOwner ? "Server Owner" : "Standard Member (1/10th Limits)"}
+        </span>
         <a href="/tools" class="btn" style="font-size:12px;">Browse Tools</a>
       </div>
     </div>
@@ -5499,7 +6543,7 @@ export function renderSettingsPage(params: {
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px;">
         <div class="resource-stat-box">
           <span class="resource-stat-label">Total Storage Quota</span>
-          <span class="resource-stat-value">${userQuota.maxTotalMb} MB</span>
+          <span class="resource-stat-value">${userQuota.storageMb} MB</span>
           <span class="resource-stat-sub">Across stored files and workspace data</span>
         </div>
         <div class="resource-stat-box">
@@ -5534,14 +6578,14 @@ export function renderSettingsPage(params: {
 
         <div class="setting-key-select-wrap">
           <select id="settingKeySelector" onchange="onSettingKeyChange(this)" aria-label="Target API key" class="setting-key-native">
-            ${keys.map(k => `<option value="${escapeHtml(k.id)}" ${k.id === selectedKeyId ? "selected" : ""}>${escapeHtml(k.label || k.id)}${k.prefix ? ` (${escapeHtml(k.prefix)})` : ""}</option>`).join("")}
+            ${keys.map((k) => `<option value="${escapeHtml(k.id)}" ${k.id === selectedKeyId ? "selected" : ""}>${escapeHtml(k.label || k.id)}${k.prefix ? ` (${escapeHtml(k.prefix)})` : ""}</option>`).join("")}
           </select>
           <button type="button" class="setting-key-trigger" id="settingKeyTrigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleSettingKeyMenu()">
-            <span id="settingKeySelectedLabel">${escapeHtml((keys.find(k => k.id === selectedKeyId)?.label || keys.find(k => k.id === selectedKeyId)?.id || 'Select a key'))}</span>
+            <span id="settingKeySelectedLabel">${escapeHtml(keys.find((k) => k.id === selectedKeyId)?.label || keys.find((k) => k.id === selectedKeyId)?.id || "Select a key")}</span>
             ${renderKrixGraphic("chevronDown", 16)}
           </button>
           <div class="setting-key-menu" id="settingKeyMenu" role="listbox" aria-label="API keys">
-            ${keys.map(k => `<button type="button" role="option" aria-selected="${k.id === selectedKeyId}" class="setting-key-option" data-key-id="${escapeHtml(k.id)}" onclick="selectSettingKey('${escapeHtml(k.id)}')"><span>${escapeHtml(k.label || k.id)}</span><small>${escapeHtml(k.prefix || k.id.slice(0, 8))}</small></button>`).join("")}
+            ${keys.map((k) => `<button type="button" role="option" aria-selected="${k.id === selectedKeyId}" class="setting-key-option" data-key-id="${escapeHtml(k.id)}" onclick="selectSettingKey('${escapeHtml(k.id)}')"><span>${escapeHtml(k.label || k.id)}</span><small>${escapeHtml(k.prefix || k.id.slice(0, 8))}</small></button>`).join("")}
           </div>
         </div>
       </div>
@@ -5678,11 +6722,20 @@ export function renderSettingsPage(params: {
         ${toolsCatalog
           .map((t) => {
             const active = isToolActive(t);
-            const isCodeGraph = t.category === "Code Graph" || t.category === "Search";
-            const riskLevel = keySettings.toolRiskLevels?.[t.name] || getDefaultToolRiskLevel(t.name, t.category);
-            const riskAcknowledged = keySettings.riskAcknowledgedTools?.includes(t.name) || false;
+            const isCodeGraph =
+              t.category === "Code Graph" || t.category === "Search";
+            const riskLevel =
+              keySettings.toolRiskLevels?.[t.name] ||
+              getDefaultToolRiskLevel(t.name, t.category);
+            const riskAcknowledged =
+              keySettings.riskAcknowledgedTools?.includes(t.name) || false;
             const missingCredential = missingCredentialForTool(t);
-            const credentialLabel = missingCredential === "github" ? "Requires GitHub token" : missingCredential === "render" ? "Requires Render key" : "";
+            const credentialLabel =
+              missingCredential === "github"
+                ? "Requires GitHub token"
+                : missingCredential === "render"
+                  ? "Requires Render key"
+                  : "";
             return `
           <div class="tool-perm-row" data-name="${escapeHtml(t.name.toLowerCase())}" data-category="${escapeHtml(t.category)}" data-desc="${escapeHtml(t.description.toLowerCase())}" data-risk="${riskLevel}" data-credential="${missingCredential || "none"}">
             <div class="tool-perm-info">
@@ -5700,10 +6753,10 @@ export function renderSettingsPage(params: {
             <div class="tool-risk-control">
               <span class="risk-pill risk-${riskLevel}" title="Current risk tier">${riskLevel.toUpperCase()}${(riskLevel === "high" || riskLevel === "critical") && !riskAcknowledged ? " · ACK NEEDED" : ""}</span>
               <select class="tool-risk-select" data-risk-tool="${escapeHtml(t.name)}" aria-label="Risk tier for ${escapeHtml(t.name)}" onchange="onToolRiskChange(this, '${escapeHtml(t.name)}')">
-                ${(["safe","low","moderate","high","critical"] as const).map((level) => `<option value="${level}" ${riskLevel === level ? "selected" : ""}>${level.charAt(0).toUpperCase()+level.slice(1)} risk</option>`).join("")}
+                ${(["safe", "low", "moderate", "high", "critical"] as const).map((level) => `<option value="${level}" ${riskLevel === level ? "selected" : ""}>${level.charAt(0).toUpperCase() + level.slice(1)} risk</option>`).join("")}
               </select>
               <label class="toggle-switch" title="${missingCredential ? `${credentialLabel} to enable ${escapeHtml(t.name)}` : `Toggle ${escapeHtml(t.name)}`}">
-                <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} ${missingCredential ? "disabled aria-disabled=\"true\"" : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
+                <input type="checkbox" data-tool="${escapeHtml(t.name)}" ${active ? "checked" : ""} ${missingCredential ? 'disabled aria-disabled="true"' : ""} onchange="onToolToggle(this, '${escapeHtml(t.name)}')">
                 <span class="toggle-slider"></span>
               </label>
             </div>

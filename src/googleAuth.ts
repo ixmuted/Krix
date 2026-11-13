@@ -89,7 +89,10 @@ export async function ensureMongoAuth(): Promise<void> {
         } catch (err: any) {
           mongoDb = null;
           mongoInitPromise = null;
-          console.error("[mongo-auth] connection or key-migration failure:", err?.message);
+          console.error(
+            "[mongo-auth] connection or key-migration failure:",
+            err?.message,
+          );
           throw err;
         }
       })();
@@ -117,8 +120,11 @@ export async function loadKeysFromMongo(): Promise<void> {
             ? String(d._id)
             : `kx_${crypto.randomBytes(6).toString("hex")}`);
         const legacyRawKey = d.key || d.apiKey || "";
-        const keyHash = d.keyHash || (legacyRawKey ? hashApiKey(legacyRawKey) : undefined);
-        const encryptedLegacyKey = legacyRawKey ? encryptApiKey(legacyRawKey) : undefined;
+        const keyHash =
+          d.keyHash || (legacyRawKey ? hashApiKey(legacyRawKey) : undefined);
+        const encryptedLegacyKey = legacyRawKey
+          ? encryptApiKey(legacyRawKey)
+          : undefined;
         const entry: GeneratedKeyEntry = {
           id,
           clientId: d.clientId || generateClientId(),
@@ -157,8 +163,14 @@ export async function loadKeysFromMongo(): Promise<void> {
 export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
   await ensureMongoAuth();
   if (!mongoDb) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB is configured but unavailable; API key persistence failed.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB is configured but unavailable; API key persistence failed.",
+      );
     }
     return;
   }
@@ -170,8 +182,11 @@ export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
       {
         $set: {
           ...metadata,
-          keyHash: entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined),
-          keyEncrypted: entry.keyEncrypted || (_rawSecret ? encryptApiKey(_rawSecret) : undefined),
+          keyHash:
+            entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined),
+          keyEncrypted:
+            entry.keyEncrypted ||
+            (_rawSecret ? encryptApiKey(_rawSecret) : undefined),
           revoked: false,
           updatedAt: Date.now(),
         },
@@ -188,8 +203,14 @@ export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
 export async function revokeKeyInMongo(id: string): Promise<void> {
   await ensureMongoAuth();
   if (!mongoDb) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB is configured but unavailable; API key revocation cannot be confirmed.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB is configured but unavailable; API key revocation cannot be confirmed.",
+      );
     }
     return;
   }
@@ -211,7 +232,19 @@ function saveKeysToDisk(): void {
     const payload = {
       keys: Array.from(dynamicApiKeys.entries()).map(([id, entry]) => {
         const { key: _rawSecret, ...metadata } = entry;
-        return [id, { ...metadata, keyHash: entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined), keyEncrypted: entry.keyEncrypted || (_rawSecret ? encryptApiKey(_rawSecret) : undefined), key: "" }];
+        return [
+          id,
+          {
+            ...metadata,
+            keyHash:
+              entry.keyHash ||
+              (_rawSecret ? hashApiKey(_rawSecret) : undefined),
+            keyEncrypted:
+              entry.keyEncrypted ||
+              (_rawSecret ? encryptApiKey(_rawSecret) : undefined),
+            key: "",
+          },
+        ];
       }),
       revoked: Array.from(revokedKeyIds),
     };
@@ -230,10 +263,15 @@ function loadKeysFromDisk(): boolean {
             entry.clientId = generateClientId();
           }
           const legacyRawKey = entry.key || "";
-          const encryptedLegacyKey = legacyRawKey ? encryptApiKey(legacyRawKey) : undefined;
-          entry.keyHash = entry.keyHash || (legacyRawKey ? hashApiKey(legacyRawKey) : undefined);
+          const encryptedLegacyKey = legacyRawKey
+            ? encryptApiKey(legacyRawKey)
+            : undefined;
+          entry.keyHash =
+            entry.keyHash ||
+            (legacyRawKey ? hashApiKey(legacyRawKey) : undefined);
           entry.keyEncrypted = entry.keyEncrypted || encryptedLegacyKey;
-          if (legacyRawKey && !encryptedLegacyKey && !entry.keyEncrypted) canRewrite = false;
+          if (legacyRawKey && !encryptedLegacyKey && !entry.keyEncrypted)
+            canRewrite = false;
           entry.key = "";
           dynamicApiKeys.set(id, entry);
           if (legacyRawKey) registerSecret(legacyRawKey);
@@ -415,16 +453,25 @@ export function isAuthorizedApiKey(candidateKey?: string | null): boolean {
 function apiKeyCipher(): Buffer {
   const secret = process.env.KEY_ENCRYPTION_SECRET || "";
   if (Buffer.byteLength(secret) < 32) {
-    throw new Error("KEY_ENCRYPTION_SECRET must contain at least 32 bytes to enable API key reveal.");
+    throw new Error(
+      "KEY_ENCRYPTION_SECRET must contain at least 32 bytes to enable API key reveal.",
+    );
   }
   return crypto.createHash("sha256").update(secret, "utf8").digest();
 }
 
 function encryptApiKey(secret: string): string | undefined {
-  if (!process.env.KEY_ENCRYPTION_SECRET || Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET) < 32) return undefined;
+  if (
+    !process.env.KEY_ENCRYPTION_SECRET ||
+    Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET) < 32
+  )
+    return undefined;
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", apiKeyCipher(), iv);
-  const ciphertext = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  const ciphertext = Buffer.concat([
+    cipher.update(secret, "utf8"),
+    cipher.final(),
+  ]);
   const tag = cipher.getAuthTag();
   return `v1.${iv.toString("base64url")}.${tag.toString("base64url")}.${ciphertext.toString("base64url")}`;
 }
@@ -433,9 +480,16 @@ function decryptApiKey(envelope?: string): string | null {
   if (!envelope || !envelope.startsWith("v1.")) return null;
   try {
     const [, ivPart, tagPart, dataPart] = envelope.split(".");
-    const decipher = crypto.createDecipheriv("aes-256-gcm", apiKeyCipher(), Buffer.from(ivPart, "base64url"));
+    const decipher = crypto.createDecipheriv(
+      "aes-256-gcm",
+      apiKeyCipher(),
+      Buffer.from(ivPart, "base64url"),
+    );
     decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
-    return Buffer.concat([decipher.update(Buffer.from(dataPart, "base64url")), decipher.final()]).toString("utf8");
+    return Buffer.concat([
+      decipher.update(Buffer.from(dataPart, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
   } catch {
     return null;
   }
@@ -444,22 +498,28 @@ function decryptApiKey(envelope?: string): string | null {
 /** Reveal is deliberately limited to the account that created the key. */
 export function getDynamicKeySecret(id: string, email: string): string | null {
   const entry = dynamicApiKeys.get(id);
-  if (!entry || revokedKeyIds.has(id) || !entry.email || entry.email.toLowerCase() !== email.trim().toLowerCase()) return null;
+  if (
+    !entry ||
+    revokedKeyIds.has(id) ||
+    !entry.email ||
+    entry.email.toLowerCase() !== email.trim().toLowerCase()
+  )
+    return null;
   return decryptApiKey(entry.keyEncrypted);
 }
 export function createDynamicKey(
   label: string = "Personal Key",
   email?: string,
 ): GeneratedKeyEntry {
+  const cleanLabel = (label || "").trim();
+  if (cleanLabel.length < 4) {
+    throw new Error("Key name must be at least 4 characters long.");
+  }
+
   if (dynamicApiKeys.size >= 30) {
     throw new Error(
       "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
     );
-  }
-
-  const cleanLabel = (label || "").trim();
-  if (cleanLabel.length < 4) {
-    throw new Error("Key name must be at least 4 characters long.");
   }
 
   for (const existing of dynamicApiKeys.values()) {
@@ -526,7 +586,9 @@ export function listDynamicKeys(userEmail?: string): GeneratedKeyEntry[] {
     if (revokedKeyIds.has(entry.id)) continue;
     if (
       userEmail &&
-      (!entry.email || entry.email.trim().toLowerCase() !== userEmail.trim().toLowerCase())
+      !isOwner &&
+      (!entry.email ||
+        entry.email.trim().toLowerCase() !== userEmail.trim().toLowerCase())
     ) {
       continue;
     }
