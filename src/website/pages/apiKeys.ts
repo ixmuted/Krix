@@ -249,7 +249,7 @@ export function renderApiKeysPage(params: {
     </div>
 
     <!-- Active OAuth Authorizations Section (Contract Invariant: Active OAuth Authorizations, oauthSearchInput, filterOAuth) -->
-    <div class="card spotlight-card" style="padding:24px;">
+    <div class="card spotlight-card oauth-authorizations-card" style="padding:24px; height:auto; min-height:0; align-self:start;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
         <div>
           <div style="display:flex; align-items:center; gap:8px;">
@@ -265,7 +265,7 @@ export function renderApiKeysPage(params: {
         </div>
       </div>
 
-      <div id="oauthClientsContainer" class="oauth-clients-scroll" style="display:flex; flex-direction:column; gap:8px; overflow-x:auto; max-width:100%;">
+      <div id="oauthClientsContainer" class="oauth-clients-scroll" style="display:flex; flex-direction:column; align-items:stretch; gap:8px; overflow-x:auto; overflow-y:hidden; max-width:100%; height:auto; min-height:0; flex:none;">
         ${
           oauthClients.length === 0
             ? `<div style="text-align:center; padding:32px; color:var(--geist-gray-50); font-size:13px;">No third-party applications authorized yet.</div>`
@@ -308,7 +308,7 @@ export function renderApiKeysPage(params: {
                     const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
                     return `
-              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; box-sizing:border-box; padding:14px 18px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
+              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; box-sizing:border-box; width:100%; min-height:68px; height:auto; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible; flex:0 0 auto;">
                 <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                   <div style="width:36px; height:36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
                     ${appLogo}

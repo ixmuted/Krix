@@ -266,8 +266,8 @@ export function renderSettingsPage(params: {
       <h2 style="font-size:16px; font-weight:600; color:var(--error); margin-bottom:16px;">Danger Zone</h2>
 
       <div class="settings-action-row" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;">
-        <button type="button" class="btn danger" onclick="resetToolDefaults()" style="border:1px solid rgba(239,68,68,.35); border-radius:6px; min-height:38px; justify-content:center;">
-          ${renderSvg("refresh", 15)}<span>Reset Tool Defaults</span>
+        <button type="button" class="btn danger" onclick="resetToolDefaults()" style="border:1px solid rgba(239,68,68,.35); border-radius:6px; width:180px; min-width:180px; height:38px; min-height:38px; padding:8px 18px; justify-content:center; box-sizing:border-box;">
+          ${renderSvg("refresh", 15)}<span>Reset Tools</span>
         </button>
       </div>
 
