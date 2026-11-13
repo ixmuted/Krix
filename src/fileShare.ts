@@ -365,7 +365,9 @@ class MongoFileStore implements FileStore {
         .skip(offset)
         .limit(limit)
         .toArray(),
-      bucket.find(query).count(),
+      // Count matching GridFS file documents without using the deprecated cursor.count().
+      // GridFSBucket exposes its files collection through the database namespace.
+      db.collection(`${BUCKET}.files`).countDocuments(query),
     ]);
 
     return { files: docs.map(MongoFileStore.toMeta), totalCount };
