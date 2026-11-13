@@ -229,7 +229,7 @@ export function renderHomePage(params: {
   `;
 
   return renderPageShell({
-    title: "Overview - Krix",
+    title: "Krix",
     activeTab: "home",
     content,
     owner: params.owner,

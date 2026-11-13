@@ -619,7 +619,7 @@ export function renderStorePage(params: {
   `;
 
   return renderPageShell({
-    title: "Store - Krix",
+    title: "Krix",
     activeTab: "store",
     content,
     owner: params.owner,

@@ -265,7 +265,7 @@ export function renderApiKeysPage(params: {
         </div>
       </div>
 
-      <div id="oauthClientsContainer" style="display:flex; flex-direction:column; gap:8px;">
+      <div id="oauthClientsContainer" class="oauth-clients-scroll" style="display:flex; flex-direction:column; gap:8px; overflow-x:auto; max-width:100%;">
         ${
           oauthClients.length === 0
             ? `<div style="text-align:center; padding:32px; color:var(--geist-gray-50); font-size:13px;">No third-party applications authorized yet.</div>`
@@ -304,11 +304,11 @@ export function renderApiKeysPage(params: {
                     const lastUsed = client.lastUsedAt
                       ? new Date(client.lastUsedAt).toLocaleDateString()
                       : "Active";
-                    const appLogo = getAppLogoSvg(displayName, 18);
+                    const appLogo = getAppLogoSvg(displayName, 18, client.clientUri || client.client_uri || client.website || client.url);
                     const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
                     return `
-              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
+              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; box-sizing:border-box; padding:14px 18px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
                 <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                   <div style="width:36px; height:36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
                     ${appLogo}
@@ -322,7 +322,7 @@ export function renderApiKeysPage(params: {
                   </div>
                 </div>
 
-                <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px; flex:0 0 auto; white-space:nowrap;">
                   <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${lastUsed}</span>
                   <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
                     <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}', this)" style="padding:4px 6px;" aria-label="OAuth Actions">
