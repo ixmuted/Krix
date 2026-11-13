@@ -1111,8 +1111,9 @@ select {
 .store-view-toggle .nav-pill.active { border-radius: 999px !important; }
 .theme-mode-control .theme-mode-button { width: 42px; min-width: 42px; justify-content: center; padding: 0 !important; }
 .theme-mode-control .theme-mode-button span { display: none !important; }
-.oauth-clients-scroll { overflow-x: auto !important; overflow-y: visible; width: 100%; min-width: 0; }
-.oauth-clients-scroll .oauth-client-row { flex: 0 0 680px; min-width: 680px; }
+.oauth-authorizations-card { height: auto !important; min-height: 0 !important; align-self: start !important; }
+.oauth-clients-scroll { overflow-x: auto !important; overflow-y: hidden !important; width: 100%; min-width: 0; height: auto !important; min-height: 0 !important; flex: 0 0 auto !important; align-items: stretch !important; }
+.oauth-clients-scroll .oauth-client-row { flex: 0 0 680px; min-width: 680px; height: auto !important; min-height: 68px; align-self: flex-start; }
 
 @media (max-width: 768px) {
   .home-bento-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; }
@@ -1121,7 +1122,7 @@ select {
   .home-bento-grid > .home-telemetry-card { grid-column: 1 / -1 !important; width: 100%; min-width: 0; }
   .home-config-card > div:first-child { gap: 10px; }
   .snippet-copy-button { flex: 0 0 36px; }
-  .oauth-clients-scroll .oauth-client-row { flex-basis: 680px; min-width: 680px; }
+  .oauth-clients-scroll .oauth-client-row { flex-basis: 620px; min-width: 620px; }
   .store-view-toggle { flex: 0 0 auto; }
   #storeSearchInput { min-width: 0; }
   .store-table-toolbar { align-items: stretch !important; }

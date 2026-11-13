@@ -153,7 +153,7 @@ function safeWebsiteOrigin(value?: string): string | undefined {
   }
 }
 
-/** Prefer the app's own favicon; show a neutral, polished fallback if unavailable. */
+/** Prefer the provider favicon, retry through Google's favicon proxy, then use a neutral SVG. */
 export function getAppLogoSvg(name: string, size: number = 20, websiteUrl?: string): string {
   const q = (name || "").toLowerCase();
   const matched = APP_FAVICON_HOSTS.find(([aliases]) => aliases.some((alias) => q.includes(alias)));
@@ -161,5 +161,8 @@ export function getAppLogoSvg(name: string, size: number = 20, websiteUrl?: stri
   const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
   if (!origin) return fallback;
   const favicon = `${origin}/favicon.ico`;
-  return `<img class="oauth-app-favicon" src="${favicon}" width="${size}" height="${size}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="app-logo-fallback" hidden style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
+  const proxy = `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`;
+  const safeFavicon = favicon.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  const safeProxy = proxy.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return `<img class="oauth-app-favicon" src="${safeFavicon}" data-proxy-src="${safeProxy}" width="${size}" height="${size}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="if(this.dataset.proxySrc && this.src!==this.dataset.proxySrc){this.src=this.dataset.proxySrc;this.dataset.proxySrc='';}else{this.style.display='none';this.nextElementSibling.style.display='inline-flex';}"><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
 }
