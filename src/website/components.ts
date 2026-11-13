@@ -234,14 +234,32 @@ export function renderPageShell(options: PageShellOptions): string {
 
   <script ${nonceAttr}>
     (function() {
-      const saved = localStorage.getItem('qw-theme');
-      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
+      function applyTheme(mode) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+        document.documentElement.classList.toggle('dark', isDark);
+        document.querySelectorAll('.theme-mode-button').forEach(button => {
+          const selected = button.dataset.themeMode === mode;
+          button.style.background = selected ? 'var(--bg-surface-2)' : 'transparent';
+          button.style.borderColor = selected ? 'var(--border-medium)' : 'transparent';
+          button.style.color = selected ? 'var(--fg)' : 'var(--geist-gray-50)';
+        });
       }
-      window.toggleTheme = function() {
-        const isDark = document.documentElement.classList.toggle('dark');
-        localStorage.setItem('qw-theme', isDark ? 'dark' : 'light');
+      const saved = localStorage.getItem('qw-theme');
+      const initialMode = saved === 'dark' || saved === 'light' || saved === 'system' ? saved : 'system';
+      applyTheme(initialMode);
+      window.setThemeMode = function(mode) {
+        const nextMode = ['system', 'light', 'dark'].includes(mode) ? mode : 'system';
+        localStorage.setItem('qw-theme', nextMode);
+        applyTheme(nextMode);
       };
+      window.toggleTheme = function() {
+        const isDark = document.documentElement.classList.contains('dark');
+        window.setThemeMode(isDark ? 'light' : 'dark');
+      };
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+        if ((localStorage.getItem('qw-theme') || 'system') === 'system') applyTheme('system');
+      });
     })();
     ${getClientScripts()}
   </script>

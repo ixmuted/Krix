@@ -12,12 +12,12 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
   const userPicture = isAuth ? owner.picture || "" : "";
 
   const navLinks = [
-    { id: "home", href: "/home", label: "Home" },
-    { id: "upload", href: "/upload", label: "Upload" },
-    { id: "store", href: "/store", label: "Store" },
-    { id: "stats", href: "/stats", label: "Stats" },
-    { id: "tools", href: "/tools", label: "Tools" },
-    { id: "api", href: "/api", label: "API Keys" },
+    { id: "home", href: "/home", label: "Home", icon: "home" },
+    { id: "upload", href: "/upload", label: "Upload", icon: "upload" },
+    { id: "store", href: "/store", label: "Store", icon: "folder" },
+    { id: "stats", href: "/stats", label: "Stats", icon: "activity" },
+    { id: "tools", href: "/tools", label: "Tools", icon: "terminal" },
+    { id: "api", href: "/api", label: "API Keys", icon: "key" },
   ];
 
   const profileAvatar = userPicture
@@ -116,17 +116,12 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
           ${navLinks
             .map(
               (link) => `
-            <a href="${link.href}" class="mobile-subnav-pill ${activeTab === link.id ? "active" : ""}">
-              ${link.label}
+            <a href="${link.href}" class="mobile-subnav-pill ${activeTab === link.id ? "active" : ""}" aria-label="${link.label}" title="${link.label}">
+              ${renderSvg(link.icon, 18)}
             </a>
           `,
             )
             .join("")}
-          ${
-            isAuth
-              ? `<a href="/settings" class="mobile-subnav-pill ${activeTab === "settings" ? "active" : ""}">Settings</a>`
-              : ""
-          }
         </div>
       </div>
     </header>
@@ -192,8 +187,8 @@ export function renderFooter(): string {
           © ${currentYear} Krix • Streamable HTTP
         </span>
         <button type="button" onclick="window.toggleCommandPalette(true)" style="font-size:11px; color:var(--geist-gray-50); display:flex; align-items:center; gap:5px; cursor:pointer;">
-          ${renderSvg("command", 12)}
-          <span>Quick Navigator (⌘K)</span>
+          ${renderSvg("grid", 12)}
+          <span>Quick Navigator</span>
         </button>
       </div>
 
