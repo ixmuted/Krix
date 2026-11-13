@@ -1267,6 +1267,64 @@ app.get("/api/keys/:id/secret", async (req, res) => {
   res.json({ key: secret });
 });
 
+app.get("/api/keys/:id/credentials/secret", async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Sign in to reveal your credentials." });
+    return;
+  }
+  const id = String(req.params.id || "");
+  const provider = String(req.query.provider || "").toLowerCase();
+  if (provider !== "github" && provider !== "render") {
+    res.status(400).json({ error: "Invalid provider. Supported providers: github, render." });
+    return;
+  }
+  const limiterId = `${owner.email.toLowerCase()}:${clientIp(req)}`;
+  if (!keyRevealLimiter.hit(limiterId, 0)) {
+    res.setHeader("Retry-After", String(keyRevealLimiter.retryAfterSec(limiterId) || 60));
+    res.status(429).json({ error: "Too many credential reveal attempts. Try again shortly." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, id)) {
+    res.status(403).json({ error: "You can only reveal credentials for keys assigned to your account." });
+    return;
+  }
+  const settings = getKeySettings(id);
+  const token = provider === "github" ? settings.customGitHubToken : settings.customRenderToken;
+  if (!token) {
+    res.status(404).json({ error: `No custom ${provider} credential is saved for this key.` });
+    return;
+  }
+  res.setHeader("Cache-Control", "no-store, no-cache, private, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.json({ provider, token });
+});
+
+app.get("/api/keys/:id/credentials/status", async (req, res) => {
+  await ensureMongoAuth().catch(() => {});
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const id = String(req.params.id || "");
+  if (!userOwnsKey(owner.email, id)) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  const settings = getKeySettings(id);
+  res.setHeader("Cache-Control", "no-store, no-cache, private, max-age=0");
+  res.json({
+    keyId: id,
+    hasGitHub: Boolean(settings.customGitHubToken),
+    hasRender: Boolean(settings.customRenderToken),
+    maskedGitHub: maskSecret(settings.customGitHubToken),
+    maskedRender: maskSecret(settings.customRenderToken),
+  });
+});
+
 app.patch("/api/keys/:id", express.json(), async (req, res) => {
   await ensureMongoAuth().catch(() => {});
   const owner = parseOwnerCookie(req);

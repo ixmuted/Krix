@@ -66,10 +66,31 @@ export function renderSvg(
     | "search"
     | "lock"
     | "globe"
-    | "monitor",
+    | "monitor"
+    | "github"
+    | "render"
+    | "chevronDown"
+    | "chevronLeft"
+    | "chevronRight"
+    | "settings"
+    | "mail",
   size = 14,
 ): string {
   switch (name) {
+    case "github":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 6v-3.9a3.4 3.4 0 0 0-.9-2.7c3-.3 6.2-1.5 6.2-6.7a5.2 5.2 0 0 0-1.4-3.6 4.8 4.8 0 0 0-.1-3.6s-1.2-.4-3.8 1.4a13 13 0 0 0-6.9 0C5.5 1.1 4.3 1.5 4.3 1.5a4.8 4.8 0 0 0-.1 3.6 5.2 5.2 0 0 0-1.4 3.6c0 5.2 3.2 6.4 6.2 6.7A3.4 3.4 0 0 0 8 18.1V22"/></svg>`;
+    case "render":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><path d="M4 19.5 12 3l8 16.5H4z"/><path d="M8 15h8"/></svg>`;
+    case "chevronDown":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    case "chevronLeft":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+    case "chevronRight":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+    case "settings":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
+    case "mail":
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
     case "lock":
       return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
     case "globe":
@@ -823,11 +844,24 @@ export function getBaseStyles(): string {
       border-color: var(--accents-4);
       background: var(--accents-2);
     }
-    .profile-trigger-avatar {
-      width: 22px;
-      height: 22px;
+    .profile-avatar-wrap {
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
-      object-fit: cover;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      background: var(--card-sub);
+    }
+    .profile-trigger-avatar {
+      width: 100% !important;
+      height: 100% !important;
+      border-radius: 50% !important;
+      object-fit: cover !important;
+      display: block !important;
       flex-shrink: 0;
     }
     .profile-trigger-avatar-fallback {
@@ -1038,9 +1072,17 @@ export function getBaseStyles(): string {
     }
 
     /* Custom Select Dropdown Component */
+    .page-heading:has(.custom-select-menu.open) {
+      position: relative;
+      z-index: 10000;
+    }
     .custom-select-wrap {
       position: relative;
       display: inline-block;
+    }
+    .custom-select-wrap:has(.custom-select-menu.open) {
+      position: relative;
+      z-index: 10001;
     }
     .custom-select-btn {
       display: inline-flex;
@@ -1072,8 +1114,9 @@ export function getBaseStyles(): string {
       position: absolute;
       top: calc(100% + 4px);
       right: 0;
-      z-index: 9999;
+      z-index: 100000 !important;
       min-width: 200px;
+      max-width: min(320px, calc(100vw - 24px));
       max-height: 280px;
       overflow-y: auto;
       background: var(--card-bg);
@@ -1111,6 +1154,39 @@ export function getBaseStyles(): string {
     .custom-select-item.selected {
       font-weight: 600;
       color: #0070f3;
+    }
+
+    /* Modern Unified Inputs */
+    .modern-input,
+    .secret-input-wrap input {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--card-sub), var(--code-bg));
+      color: var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.035), 0 1px 2px rgba(0, 0, 0, 0.025);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      box-sizing: border-box;
+    }
+    .secret-input-wrap input {
+      padding-right: 80px;
+    }
+    .modern-input:focus,
+    .secret-input-wrap input:focus {
+      outline: none;
+      border-color: var(--accents-5);
+      box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.12), inset 0 1px 2px rgba(0, 0, 0, 0.025);
+    }
+    .modern-input::placeholder,
+    .secret-input-wrap input::placeholder {
+      color: var(--accents-5);
+      opacity: 0.75;
     }
 
     /* Footer Buttons with Crisp Borders */
@@ -1338,37 +1414,14 @@ export function renderHeader(
         </nav>
 
         <div class="nav-right">
-          <button type="button" class="krix-command-trigger" id="krixCommandTrigger" onclick="openKrixCommandPalette()" aria-label="Open command search" title="Search Krix · Ctrl+K">
-            ${renderKrixGraphic("search", 15)}<span>Search</span><kbd>Ctrl K</kbd>
-          </button>
-          <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Theme: System (Auto) · Click to switch" aria-label="Toggle Theme">
-            <svg id="themeIconSystem" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-              <line x1="8" y1="21" x2="16" y2="21"></line>
-              <line x1="12" y1="17" x2="12" y2="21"></line>
-            </svg>
-            <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="12" y1="1" x2="12" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="23"></line>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-              <line x1="1" y1="12" x2="3" y2="12"></line>
-              <line x1="21" y1="12" x2="23" y2="12"></line>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
-            <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </button>
-
           ${
             isOwner
               ? `
             <div class="profile-dropdown-wrap" id="headerProfileDropdownWrap">
               <button type="button" class="profile-trigger-btn" id="headerProfileTrigger" onclick="toggleProfileDropdown(event)" aria-expanded="false" aria-haspopup="true">
-                ${owner?.picture ? `<img src="${escapeHtml(owner.picture)}" class="profile-trigger-avatar" alt="Avatar">` : `<span class="profile-trigger-avatar-fallback">${escapeHtml((owner?.name || owner?.email || "O").charAt(0).toUpperCase())}</span>`}
+                <span class="profile-avatar-wrap">
+                  ${owner?.picture ? `<img src="${escapeHtml(owner.picture)}" class="profile-trigger-avatar" alt="Avatar">` : `<span class="profile-trigger-avatar-fallback">${escapeHtml((owner?.name || owner?.email || "O").charAt(0).toUpperCase())}</span>`}
+                </span>
                 <span class="profile-trigger-name" title="${escapeHtml(owner?.name || owner?.email || "Owner")}">${escapeHtml(owner?.name || owner?.email || "Owner")}</span>
                 ${renderKrixGraphic("chevronDown", 14)}
               </button>
@@ -1981,11 +2034,11 @@ export function renderApiKeysPage(params: {
     .kebab-dropdown { z-index:50; right:0; left:auto; max-width:min(240px, calc(100vw - 48px)); }
     .key-row:has(.kebab-dropdown[style*="display: block"]) { position:relative; z-index:10; }
     @media (max-width: 640px) {
-      .table-scroll-container { margin:0; padding:0; overflow:visible !important; }
-      #keysTable { min-width:0 !important; table-layout:fixed; }
+      .table-scroll-container { width:100%; max-width:100%; overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
+      #keysTable { min-width:0 !important; table-layout:fixed; width:100%; }
       #keysTable thead { display:none; }
-      #keysTable tbody { display:grid; gap:9px; }
-      #keysTable tbody tr.key-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); }
+      #keysTable tbody { display:grid; gap:9px; width:100%; }
+      #keysTable tbody tr.key-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); width:100%; box-sizing:border-box; }
       #keysTable tbody tr.key-row td { min-width:0; padding:4px 2px; border:0; overflow-wrap:anywhere; }
       #keysTable tbody tr.key-row td:nth-child(1) { grid-column:1; grid-row:1; }
       #keysTable tbody tr.key-row td:nth-child(2) { grid-column:1/-1; grid-row:2; }
@@ -1995,7 +2048,7 @@ export function renderApiKeysPage(params: {
       #keysTable .key-display-scroll { width:auto !important; min-width:0 !important; max-width:calc(100vw - 120px) !important; }
       #keysTable tbody tr:not(.key-row) { display:block; }
       .kebab-dropdown { position:fixed; right:16px; left:auto; }
-      #oauthTableBody tr { display:grid; grid-template-columns:1fr auto; gap:4px; padding:10px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px; }
+      #oauthTableBody tr { display:grid; grid-template-columns:1fr auto; gap:4px; padding:10px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px; width:100%; box-sizing:border-box; }
       #oauthTableBody td { border:0; padding:4px; min-width:0; overflow-wrap:anywhere; }
     }
     th {
@@ -2287,6 +2340,128 @@ export function renderApiKeysPage(params: {
           <div class="pagination-controls">
             <button type="button" class="pagination-btn" id="oauthPrevBtn" onclick="changeOAuthPage(-1)" aria-label="Previous OAuth authorizations" title="Previous">${renderKrixGraphic("chevronLeft", 17)}</button>
             <button type="button" class="pagination-btn" id="oauthNextBtn" onclick="changeOAuthPage(1)" aria-label="Next OAuth authorizations" title="Next">${renderKrixGraphic("chevronRight", 17)}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Provider Credentials Card (GitHub & Render) -->
+      <div class="card" id="providerCredentialsCard" style="margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <h2 style="font-size:15px; font-weight:600; color:var(--fg); margin:0;">Provider Credentials</h2>
+            <span class="badge" id="credKeyBadge">Per-Key Credentials</span>
+          </div>
+          ${
+            keys.length > 1
+              ? `
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="credKeySelect" style="font-size:12px; color:var(--accents-5);">Scope to Key:</label>
+            <select id="credKeySelect" onchange="onCredKeyChange(this.value)" class="modern-select" style="font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:var(--code-bg); color:var(--fg);">
+              ${keys.map((k) => `<option value="${escapeHtml(k.id || "")}">${escapeHtml(k.label || k.id || "")}</option>`).join("")}
+            </select>
+          </div>`
+              : ""
+          }
+        </div>
+        <p style="font-size:13px; color:var(--accents-5); margin-bottom:16px;">
+          Configure personal GitHub tokens and Render API keys for your agents. Once configured, credentials remain securely stored and can be revealed or copied at any time using the eye and copy buttons.
+        </p>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px;">
+          <!-- GitHub PAT Card -->
+          <div class="credential-box" style="padding:16px; border:1px solid var(--border); border-radius:10px; background:var(--card-bg);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                ${renderSvg("github", 18)}
+                <span style="font-weight:600; font-size:13px; color:var(--fg);">GitHub Token</span>
+              </div>
+              <span id="githubStatusBadge" class="badge">Checking…</span>
+            </div>
+
+            <!-- Saved Credential Display Row -->
+            <div id="githubSavedRow" style="display:none; margin-bottom:12px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); align-items:center; justify-content:space-between; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                <code id="githubTokenCode" data-revealed="false" style="font-family:ui-monospace, monospace; font-size:12px; color:var(--fg); letter-spacing:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">••••••••••••••••</code>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                <button type="button" class="btn icon-btn" id="githubEyeBtn" onclick="toggleCredReveal('github')" title="Reveal GitHub Token" aria-label="Reveal GitHub Token" style="width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+                  ${renderSvg("eye", 14)}
+                </button>
+                <button type="button" class="btn icon-btn" id="githubCopyBtn" onclick="copyCredSecret('github')" title="Copy GitHub Token" aria-label="Copy GitHub Token" style="width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+                  ${renderSvg("copy", 14)}
+                </button>
+                <button type="button" class="btn icon-btn danger" onclick="deleteCred('github')" title="Remove GitHub Token" aria-label="Remove GitHub Token" style="width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center; color:var(--error);">
+                  ${renderSvg("trash", 14)}
+                </button>
+              </div>
+            </div>
+
+            <!-- Input Box for adding / updating token -->
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input
+                type="password"
+                id="githubTokenInput"
+                placeholder="Enter personal access token (ghp_…)"
+                autocomplete="off"
+                spellcheck="false"
+                class="modern-input"
+                style="flex:1; min-width:0;"
+              >
+              <button type="button" class="btn primary" onclick="saveCred('github')" style="font-size:12px; padding:7px 14px; white-space:nowrap;">
+                Save
+              </button>
+            </div>
+            <div style="font-size:11px; color:var(--accents-5); margin-top:6px;">
+              Requires <code>repo</code>, <code>read:org</code>, and <code>gist</code> scopes.
+            </div>
+          </div>
+
+          <!-- Render API Key Card -->
+          <div class="credential-box" style="padding:16px; border:1px solid var(--border); border-radius:10px; background:var(--card-bg);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                ${renderSvg("render", 18)}
+                <span style="font-weight:600; font-size:13px; color:var(--fg);">Render API Key</span>
+              </div>
+              <span id="renderStatusBadge" class="badge">Checking…</span>
+            </div>
+
+            <!-- Saved Credential Display Row -->
+            <div id="renderSavedRow" style="display:none; margin-bottom:12px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--code-bg); align-items:center; justify-content:space-between; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                <code id="renderTokenCode" data-revealed="false" style="font-family:ui-monospace, monospace; font-size:12px; color:var(--fg); letter-spacing:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">••••••••••••••••</code>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                <button type="button" class="btn icon-btn" id="renderEyeBtn" onclick="toggleCredReveal('render')" title="Reveal Render API Key" aria-label="Reveal Render API Key" style="width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+                  ${renderSvg("eye", 14)}
+                </button>
+                <button type="button" class="btn icon-btn" id="renderCopyBtn" onclick="copyCredSecret('render')" title="Copy Render API Key" aria-label="Copy Render API Key" style="width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+                  ${renderSvg("copy", 14)}
+                </button>
+                <button type="button" class="btn icon-btn danger" onclick="deleteCred('render')" title="Remove Render Key" aria-label="Remove Render Key" style="width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center; color:var(--error);">
+                  ${renderSvg("trash", 14)}
+                </button>
+              </div>
+            </div>
+
+            <!-- Input Box for adding / updating key -->
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input
+                type="password"
+                id="renderTokenInput"
+                placeholder="Enter Render API key (rnd_…)"
+                autocomplete="off"
+                spellcheck="false"
+                class="modern-input"
+                style="flex:1; min-width:0;"
+              >
+              <button type="button" class="btn primary" onclick="saveCred('render')" style="font-size:12px; padding:7px 14px; white-space:nowrap;">
+                Save
+              </button>
+            </div>
+            <div style="font-size:11px; color:var(--accents-5); margin-top:6px;">
+              Obtain from <a href="https://dashboard.render.com/u/settings#api-keys" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline;">Render Account Settings</a>.
+            </div>
           </div>
         </div>
       </div>
@@ -2948,6 +3123,183 @@ export function renderApiKeysPage(params: {
         e.preventDefault();
         handleCreateKey(e);
       });
+    }
+
+    // Provider Credentials Logic (GitHub & Render)
+    let activeCredKeyId = "${escapeHtml(keys[0]?.id || "")}";
+
+    function onCredKeyChange(keyId) {
+      activeCredKeyId = keyId;
+      refreshCredentialsUI();
+    }
+
+    async function refreshCredentialsUI() {
+      if (!activeCredKeyId) return;
+      try {
+        const res = await fetch('/api/keys/' + encodeURIComponent(activeCredKeyId) + '/credentials/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // GitHub Credential Status & Row
+        const ghRow = document.getElementById('githubSavedRow');
+        const ghBadge = document.getElementById('githubStatusBadge');
+        const ghCode = document.getElementById('githubTokenCode');
+        if (data.hasGitHub) {
+          if (ghRow) ghRow.style.display = 'flex';
+          if (ghBadge) {
+            ghBadge.textContent = 'Configured';
+            ghBadge.className = 'badge success';
+          }
+          if (ghCode && ghCode.getAttribute('data-revealed') !== 'true') {
+            ghCode.textContent = data.maskedGitHub || '••••••••••••••••';
+          }
+        } else {
+          if (ghRow) ghRow.style.display = 'none';
+          if (ghBadge) {
+            ghBadge.textContent = 'Not Configured';
+            ghBadge.className = 'badge';
+          }
+        }
+
+        // Render Credential Status & Row
+        const rndRow = document.getElementById('renderSavedRow');
+        const rndBadge = document.getElementById('renderStatusBadge');
+        const rndCode = document.getElementById('renderTokenCode');
+        if (data.hasRender) {
+          if (rndRow) rndRow.style.display = 'flex';
+          if (rndBadge) {
+            rndBadge.textContent = 'Configured';
+            rndBadge.className = 'badge success';
+          }
+          if (rndCode && rndCode.getAttribute('data-revealed') !== 'true') {
+            rndCode.textContent = data.maskedRender || '••••••••••••••••';
+          }
+        } else {
+          if (rndRow) rndRow.style.display = 'none';
+          if (rndBadge) {
+            rndBadge.textContent = 'Not Configured';
+            rndBadge.className = 'badge';
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load credentials status', err);
+      }
+    }
+
+    async function toggleCredReveal(provider) {
+      if (!activeCredKeyId) return;
+      const codeEl = document.getElementById(provider + 'TokenCode');
+      const eyeBtn = document.getElementById(provider + 'EyeBtn');
+      if (!codeEl) return;
+      const isRevealed = codeEl.getAttribute('data-revealed') === 'true';
+      if (isRevealed) {
+        codeEl.setAttribute('data-revealed', 'false');
+        codeEl.textContent = '••••••••••••••••';
+        if (eyeBtn) eyeBtn.innerHTML = '${renderSvg("eye", 14)}';
+      } else {
+        try {
+          const res = await fetch('/api/keys/' + encodeURIComponent(activeCredKeyId) + '/credentials/secret?provider=' + encodeURIComponent(provider));
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Could not reveal credential', 'error');
+            return;
+          }
+          const data = await res.json();
+          if (data && data.token) {
+            codeEl.setAttribute('data-revealed', 'true');
+            codeEl.textContent = data.token;
+            if (eyeBtn) eyeBtn.innerHTML = '${renderSvg("eye-off", 14)}';
+          }
+        } catch {
+          showToast('Failed to reveal credential', 'error');
+        }
+      }
+    }
+
+    async function copyCredSecret(provider) {
+      if (!activeCredKeyId) return;
+      const codeEl = document.getElementById(provider + 'TokenCode');
+      let secret = (codeEl && codeEl.getAttribute('data-revealed') === 'true') ? codeEl.textContent : '';
+      if (!secret) {
+        try {
+          const res = await fetch('/api/keys/' + encodeURIComponent(activeCredKeyId) + '/credentials/secret?provider=' + encodeURIComponent(provider));
+          if (res.ok) {
+            const data = await res.json();
+            secret = data.token || '';
+          }
+        } catch {}
+      }
+      if (!secret) {
+        showToast('Could not retrieve secret to copy', 'error');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(secret);
+        showToast((provider === 'github' ? 'GitHub PAT' : 'Render API key') + ' copied to clipboard', 'success');
+      } catch {
+        showToast('Clipboard access was denied', 'error');
+      }
+    }
+
+    async function saveCred(provider) {
+      if (!activeCredKeyId) {
+        showToast('Select or generate an API key first', 'error');
+        return;
+      }
+      const input = document.getElementById(provider + 'TokenInput');
+      const val = (input ? input.value : '').trim();
+      if (!val) {
+        showToast('Enter a ' + (provider === 'github' ? 'token' : 'key') + ' to save', 'error');
+        return;
+      }
+      try {
+        const payload = { keyId: activeCredKeyId };
+        if (provider === 'github') {
+          payload.githubToken = val;
+        } else {
+          payload.renderToken = val;
+        }
+        const res = await fetch('/settings/api/credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          if (input) input.value = '';
+          showToast((provider === 'github' ? 'GitHub PAT' : 'Render API key') + ' saved securely', 'success');
+          refreshCredentialsUI();
+        } else {
+          showToast(data.error || 'Failed to save credential', 'error');
+        }
+      } catch {
+        showToast('Network error while saving credential', 'error');
+      }
+    }
+
+    async function deleteCred(provider) {
+      if (!activeCredKeyId) return;
+      if (!confirm('Remove saved ' + (provider === 'github' ? 'GitHub PAT' : 'Render API key') + ' for this key?')) return;
+      try {
+        const res = await fetch('/settings/api/credentials/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyId: activeCredKeyId, provider })
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          showToast((provider === 'github' ? 'GitHub PAT' : 'Render key') + ' removed', 'success');
+          refreshCredentialsUI();
+        } else {
+          showToast(data.error || 'Failed to delete credential', 'error');
+        }
+      } catch {
+        showToast('Network error while deleting credential', 'error');
+      }
+    }
+
+    if (activeCredKeyId) {
+      refreshCredentialsUI();
     }
 
     // Initial API Keys and OAuth pagination render
@@ -6686,35 +7038,39 @@ export function renderSettingsPage(params: {
         <span class="graphic-tile accent">${renderKrixGraphic("shield", 21)}</span>
         <div><div class="visual-card-title" style="margin:0;">Per-tool risk policy</div><div class="visual-card-desc">High and Critical tools remain unavailable until you explicitly acknowledge the risk. The server enforces this policy for this key.</div></div>
       </div>
-      <div class="tools-manager-bar">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <input
-            type="search"
-            id="toolSearchInput"
-            placeholder="Search tools by name or description…"
-            oninput="filterToolRows()"
-            style="font-size:12px; padding:6px 12px; border-radius:6px; min-width:240px; background:var(--input-bg); color:var(--fg); border:1px solid var(--border);"
-          >
-          <div class="pill-group">
-            <button type="button" class="pill-btn active" data-filter="All" onclick="setToolCatFilter('All', this)">All (${toolsCatalog.length})</button>
-            <button type="button" class="pill-btn" data-filter="Code Graph" onclick="setToolCatFilter('Code Graph', this)">Code Graph (${codeGraphCount})</button>
-            <button type="button" class="pill-btn" data-filter="Sandbox" onclick="setToolCatFilter('Sandbox', this)">Sandbox</button>
-            <button type="button" class="pill-btn" data-filter="Render" onclick="setToolCatFilter('Render', this)">Render</button>
-            <button type="button" class="pill-btn" data-filter="GitHub" onclick="setToolCatFilter('GitHub', this)">GitHub</button>
-            <button type="button" class="pill-btn" data-filter="Files" onclick="setToolCatFilter('Files', this)">Files</button>
+      <div class="tools-manager-bar" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div class="search-input-wrap" style="width:100%; max-width:380px;">
+            ${renderSvg("search", 15)}
+            <input
+              type="text"
+              id="toolSearchInput"
+              class="search-input"
+              placeholder="Search tools by name, category or description…"
+              oninput="filterToolRows()"
+              autocomplete="off"
+              spellcheck="false"
+            >
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn" onclick="batchToggleCodeGraph(true)" style="font-size:11px; padding:4px 10px;">
+              Enable Code Graph (${codeGraphCount})
+            </button>
+            <button type="button" class="btn" onclick="batchToggleCodeGraph(false)" style="font-size:11px; padding:4px 10px;">
+              Disable Code Graph
+            </button>
+            <button type="button" class="btn" onclick="resetToolDefaults()" style="font-size:11px; padding:4px 10px;">
+              Reset Defaults
+            </button>
           </div>
         </div>
-
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button type="button" class="btn" onclick="batchToggleCodeGraph(true)" style="font-size:11px; padding:4px 10px;">
-            Enable Code Graph (${codeGraphCount})
-          </button>
-          <button type="button" class="btn" onclick="batchToggleCodeGraph(false)" style="font-size:11px; padding:4px 10px;">
-            Disable Code Graph
-          </button>
-          <button type="button" class="btn" onclick="resetToolDefaults()" style="font-size:11px; padding:4px 10px;">
-            Reset Defaults
-          </button>
+        <div class="pill-group" style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="pill-btn active" data-filter="All" onclick="setToolCatFilter('All', this)">All (${toolsCatalog.length})</button>
+          <button type="button" class="pill-btn" data-filter="Code Graph" onclick="setToolCatFilter('Code Graph', this)">Code Graph (${codeGraphCount})</button>
+          <button type="button" class="pill-btn" data-filter="Sandbox" onclick="setToolCatFilter('Sandbox', this)">Sandbox</button>
+          <button type="button" class="pill-btn" data-filter="Render" onclick="setToolCatFilter('Render', this)">Render</button>
+          <button type="button" class="pill-btn" data-filter="GitHub" onclick="setToolCatFilter('GitHub', this)">GitHub</button>
+          <button type="button" class="pill-btn" data-filter="Files" onclick="setToolCatFilter('Files', this)">Files</button>
         </div>
       </div>
 
@@ -6822,25 +7178,48 @@ export function renderSettingsPage(params: {
       window.location.href = url.toString();
     }
 
-    function toggleInputVisibility(id) {
+    async function toggleInputVisibility(id) {
       const el = document.getElementById(id);
       if (!el) return;
+      if (!el.value) {
+        const provider = id.toLowerCase().includes('github') ? 'github' : 'render';
+        try {
+          const res = await fetch('/api/keys/' + encodeURIComponent(currentKeyId) + '/credentials/secret?provider=' + provider);
+          const data = await res.json();
+          if (data && data.token) {
+            el.value = data.token;
+            el.type = 'text';
+            return;
+          }
+        } catch {}
+      }
       el.type = el.type === 'password' ? 'text' : 'password';
     }
 
     async function copySecretField(id) {
       const el = document.getElementById(id);
-      if (!el || !el.value) {
-        alert('Enter a new credential before copying it. Saved credentials are never exposed again.');
+      let val = el ? el.value : '';
+      if (!val) {
+        const provider = id.toLowerCase().includes('github') ? 'github' : 'render';
+        try {
+          const res = await fetch('/api/keys/' + encodeURIComponent(currentKeyId) + '/credentials/secret?provider=' + provider);
+          const data = await res.json();
+          if (data && data.token) val = data.token;
+        } catch {}
+      }
+      if (!val) {
+        showToast('No credential to copy', true);
         return;
       }
       try {
-        await navigator.clipboard.writeText(el.value);
+        await navigator.clipboard.writeText(val);
+        showToast('Credential copied to clipboard');
       } catch {
         el.focus();
         el.select();
         document.execCommand('copy');
         el.setSelectionRange(0, 0);
+        showToast('Credential copied to clipboard');
       }
     }
 

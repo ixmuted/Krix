@@ -15,6 +15,8 @@ import {
   renderStorePage,
   renderHomePage,
   renderNotFoundPage,
+  renderSettingsPage,
+  renderSvg,
   getBaseStyles,
 } from "../dist/views.js";
 import { StatsTracker } from "../dist/stats.js";
@@ -1118,11 +1120,8 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
 
 test("Exact page titles, 10-day slider, error/working graph, store privacy, and unguessable token", async () => {
   const { fileShareRegistry } = await import("../dist/fileShareRegistry.js");
-  const {
-    renderToolsPage,
-    renderStatsPage,
-    renderNotFoundPage,
-  } = await import("../dist/views.js");
+  const { renderToolsPage, renderStatsPage, renderNotFoundPage } =
+    await import("../dist/views.js");
   const { renderUploadPage } = await import("../dist/uploadSessions.js");
 
   // 1. Verify exact page titles
@@ -1234,4 +1233,114 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
 
   const toggledTrue = fileShareRegistry.togglePrivacy("test_file_123", true);
   assert.equal(toggledTrue, true, "Must toggle privacy back to true");
+});
+
+test("Provider credentials on API page, avatar wrap, header button cleanup, and dropdown viewport positioning", () => {
+  const owner = {
+    email: "owner@quickwitty.com",
+    name: "Owner User",
+    picture: "https://lh3.googleusercontent.com/a/photo.jpg",
+  };
+
+  // 1. Verify header profile picture is wrapped in profile-avatar-wrap and search/theme buttons are removed
+  const headerHtml = renderHeader("home", owner);
+  assert.ok(
+    headerHtml.includes("profile-avatar-wrap"),
+    "Header profile picture must be enclosed in profile-avatar-wrap",
+  );
+  assert.ok(
+    !headerHtml.includes('id="themeToggleBtn"'),
+    "Header must not have top theme button near profile",
+  );
+  assert.ok(
+    !headerHtml.includes('id="krixCommandTrigger"'),
+    "Header must not have top search button",
+  );
+
+  // 2. Verify API Keys page renders Provider Credentials section with reveal & copy buttons
+  const apiHtml = renderApiKeysPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    owner,
+    keys: [
+      {
+        id: "key_primary",
+        label: "Primary Key",
+        prefix: "kx_sec_123",
+        createdAt: Date.now(),
+      } as any,
+    ],
+  });
+
+  assert.ok(
+    apiHtml.includes('id="providerCredentialsCard"'),
+    "API keys page must include providerCredentialsCard",
+  );
+  assert.ok(
+    apiHtml.includes('id="githubTokenCode"'),
+    "API keys page must include githubTokenCode element",
+  );
+  assert.ok(
+    apiHtml.includes('id="renderTokenCode"'),
+    "API keys page must include renderTokenCode element",
+  );
+  assert.ok(
+    apiHtml.includes("toggleCredReveal"),
+    "API keys page must include toggleCredReveal function",
+  );
+  assert.ok(
+    apiHtml.includes("copyCredSecret"),
+    "API keys page must include copyCredSecret function",
+  );
+  assert.ok(
+    !apiHtml.includes(
+      ".table-scroll-container { margin:0; padding:0; overflow:visible !important; }",
+    ),
+    "API keys table container must not have overflow:visible on mobile",
+  );
+
+  // 3. Verify renderSvg supports github and render icons
+  const ghSvg = renderSvg("github" as any, 15);
+  const rndSvg = renderSvg("render" as any, 15);
+  assert.ok(ghSvg.includes("<svg"), "renderSvg must render GitHub icon");
+  assert.ok(rndSvg.includes("<svg"), "renderSvg must render Render icon");
+
+  // 4. Verify settings page has proper search-input-wrap for tool permissions
+  const settingsHtml = renderSettingsPage({
+    base: "https://krix.onrender.com",
+    isOwner: true,
+    isServerOwner: true,
+    owner,
+    keys: [{ id: "key_primary", label: "Primary Key" }],
+    selectedKeyId: "key_primary",
+    keySettings: {
+      keyId: "key_primary",
+      email: "owner@quickwitty.com",
+      role: "owner",
+      sandboxId: "owner",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+    userQuota: {
+      role: "owner",
+      storageMb: 300,
+      maxFileMb: 25,
+      maxTotalMb: 100,
+      downloadMaxMb: 50,
+      maxOutputBytes: 4194304,
+      ulimitProc: 2048,
+      ulimitFile: 4096,
+      rateLimitPerMin: 120,
+    },
+    toolsCatalog: [
+      { name: "test_tool", description: "A test tool", category: "Sandbox" },
+    ],
+    credentialAvailability: { github: false, render: false },
+    codeGraphCount: 0,
+  });
+
+  assert.ok(
+    settingsHtml.includes("search-input-wrap"),
+    "Tool manager bar in settings page must use search-input-wrap",
+  );
 });
