@@ -267,7 +267,10 @@ export class StatsTracker {
     } catch (error: any) {
       this.mongoConnected = false;
       this.mongoDb = null;
-      console.error("[stats] MongoDB initialization failed:", error?.message || error);
+      console.error(
+        "[stats] MongoDB initialization failed:",
+        error?.message || error,
+      );
       throw error;
     }
   }
@@ -501,17 +504,32 @@ export class StatsTracker {
         this.globalDaily[date].tools++;
         this.globalWeekly[week].tools++;
         this.globalMonthly[month].tools++;
-        const tool = this.toolMetrics[toolName] || (this.toolMetrics[toolName] = {
-          totalCalls: 0, successCount: 0, errorCount: 0, totalDurationMs: 0,
-          daily: {}, weekly: {}, monthly: {},
-        });
-        const keyTool = (entry.toolMetrics ||= {})[toolName] || ((entry.toolMetrics ||= {})[toolName] = {
-          totalCalls: 0, successCount: 0, errorCount: 0, totalDurationMs: 0,
-          daily: {}, weekly: {}, monthly: {},
-        });
+        const tool =
+          this.toolMetrics[toolName] ||
+          (this.toolMetrics[toolName] = {
+            totalCalls: 0,
+            successCount: 0,
+            errorCount: 0,
+            totalDurationMs: 0,
+            daily: {},
+            weekly: {},
+            monthly: {},
+          });
+        const keyTool =
+          (entry.toolMetrics ||= {})[toolName] ||
+          ((entry.toolMetrics ||= {})[toolName] = {
+            totalCalls: 0,
+            successCount: 0,
+            errorCount: 0,
+            totalDurationMs: 0,
+            daily: {},
+            weekly: {},
+            monthly: {},
+          });
         for (const metric of [tool, keyTool]) {
           metric.totalCalls++;
-          if (isError) metric.errorCount++; else metric.successCount++;
+          if (isError) metric.errorCount++;
+          else metric.successCount++;
           metric.totalDurationMs += durationMs;
           metric.daily[date] = (metric.daily[date] || 0) + 1;
           metric.weekly[week] = (metric.weekly[week] || 0) + 1;
@@ -713,6 +731,21 @@ export class StatsTracker {
           }
         }
       }
+
+      // Purge revoked/deleted API keys from active keys collection
+      const activeDynamicIds = new Set(dynamicKeys.map((k) => k.id));
+      for (const [existingKeyId, existingMetrics] of Array.from(
+        this.keys.entries(),
+      )) {
+        if (
+          existingMetrics.type === "api_key" &&
+          !activeDynamicIds.has(existingKeyId) &&
+          existingKeyId !== "primary-key"
+        ) {
+          this.keys.delete(existingKeyId);
+          changed = true;
+        }
+      }
     }
 
     if (oauthClients && Array.isArray(oauthClients)) {
@@ -795,18 +828,30 @@ export class StatsTracker {
             )) {
               canonical.toolCalls[t] = (canonical.toolCalls[t] || 0) + cnt;
             }
-            for (const [toolName, metrics] of Object.entries(existingMetrics.toolMetrics || {})) {
-              const target = (canonical.toolMetrics ||= {})[toolName] || ((canonical.toolMetrics ||= {})[toolName] = {
-                totalCalls: 0, successCount: 0, errorCount: 0, totalDurationMs: 0,
-                daily: {}, weekly: {}, monthly: {},
-              });
+            for (const [toolName, metrics] of Object.entries(
+              existingMetrics.toolMetrics || {},
+            )) {
+              const target =
+                (canonical.toolMetrics ||= {})[toolName] ||
+                ((canonical.toolMetrics ||= {})[toolName] = {
+                  totalCalls: 0,
+                  successCount: 0,
+                  errorCount: 0,
+                  totalDurationMs: 0,
+                  daily: {},
+                  weekly: {},
+                  monthly: {},
+                });
               target.totalCalls += metrics.totalCalls || 0;
               target.successCount += metrics.successCount || 0;
               target.errorCount += metrics.errorCount || 0;
               target.totalDurationMs += metrics.totalDurationMs || 0;
-              for (const [d, count] of Object.entries(metrics.daily || {})) target.daily[d] = (target.daily[d] || 0) + count;
-              for (const [w, count] of Object.entries(metrics.weekly || {})) target.weekly[w] = (target.weekly[w] || 0) + count;
-              for (const [m, count] of Object.entries(metrics.monthly || {})) target.monthly[m] = (target.monthly[m] || 0) + count;
+              for (const [d, count] of Object.entries(metrics.daily || {}))
+                target.daily[d] = (target.daily[d] || 0) + count;
+              for (const [w, count] of Object.entries(metrics.weekly || {}))
+                target.weekly[w] = (target.weekly[w] || 0) + count;
+              for (const [m, count] of Object.entries(metrics.monthly || {}))
+                target.monthly[m] = (target.monthly[m] || 0) + count;
             }
             for (const [d, cnt] of Object.entries(
               existingMetrics.daily || {},
@@ -1622,7 +1667,9 @@ export class StatsTracker {
       }
     }
 
-    const activeToolMetrics = isFiltered ? (matchedKey?.toolMetrics || {}) : this.toolMetrics;
+    const activeToolMetrics = isFiltered
+      ? matchedKey?.toolMetrics || {}
+      : this.toolMetrics;
     const toolsCatalog: ToolDetailMeta[] = knownTools.map((t) => {
       const calls = cleanToolDistribution[t.name] || 0;
       const toolMetric = activeToolMetrics[t.name];
@@ -1701,7 +1748,10 @@ export class StatsTracker {
     this.saveTimeout = setTimeout(() => {
       this.saveTimeout = null;
       void this.persist().catch((error) => {
-        console.error("[stats] scheduled persistence failed:", error?.message || error);
+        console.error(
+          "[stats] scheduled persistence failed:",
+          error?.message || error,
+        );
         this.saveTimeout = setTimeout(() => {
           this.saveTimeout = null;
           this.scheduleSave();
@@ -1742,17 +1792,28 @@ export class StatsTracker {
         fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
         fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), "utf-8");
       } catch (error: any) {
-        console.error("[stats] local fallback write failed:", error?.message || error);
+        console.error(
+          "[stats] local fallback write failed:",
+          error?.message || error,
+        );
       }
 
       if (this.mongoConnected && this.mongoDb) {
-        await this.mongoDb.collection("krix_stats").updateOne(
-          { _id: "global_stats" as any },
-          { $set: data },
-          { upsert: true },
+        await this.mongoDb
+          .collection("krix_stats")
+          .updateOne(
+            { _id: "global_stats" as any },
+            { $set: data },
+            { upsert: true },
+          );
+      } else if (
+        process.env.MONGODB_URI ||
+        process.env.MONGO_URL ||
+        process.env.DATABASE_URL
+      ) {
+        throw new Error(
+          "MongoDB is configured but unavailable; statistics were only written to local fallback.",
         );
-      } else if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-        throw new Error("MongoDB is configured but unavailable; statistics were only written to local fallback.");
       }
     };
 
@@ -1768,7 +1829,10 @@ export class StatsTracker {
       this.saveTimeout = null;
     }
     await this.ensureMongo().catch((error) => {
-      console.error("[stats] MongoDB unavailable during flush:", error?.message || error);
+      console.error(
+        "[stats] MongoDB unavailable during flush:",
+        error?.message || error,
+      );
     });
     await this.persist();
   }
@@ -1793,9 +1857,14 @@ export class StatsTracker {
         if (Array.isArray(data.recentErrors))
           this.recentErrors = data.recentErrors;
         if (Array.isArray(data.recentTimestamps))
-          this.recentTimestamps = data.recentTimestamps.filter((t: number) => Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000);
+          this.recentTimestamps = data.recentTimestamps.filter(
+            (t: number) =>
+              Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000,
+          );
         if (Array.isArray(data.recentDurations))
-          this.recentDurations = data.recentDurations.filter((n: number) => Number.isFinite(n)).slice(-200);
+          this.recentDurations = data.recentDurations
+            .filter((n: number) => Number.isFinite(n))
+            .slice(-200);
         if (Array.isArray(data.hourlyCounts))
           this.hourlyCounts = data.hourlyCounts;
         if (data.dayOfWeekCounts) this.dayOfWeekCounts = data.dayOfWeekCounts;
@@ -1857,9 +1926,14 @@ export class StatsTracker {
         if (Array.isArray(doc.recentErrors))
           this.recentErrors = doc.recentErrors;
         if (Array.isArray(doc.recentTimestamps))
-          this.recentTimestamps = doc.recentTimestamps.filter((t: number) => Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000);
+          this.recentTimestamps = doc.recentTimestamps.filter(
+            (t: number) =>
+              Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000,
+          );
         if (Array.isArray(doc.recentDurations))
-          this.recentDurations = doc.recentDurations.filter((n: number) => Number.isFinite(n)).slice(-200);
+          this.recentDurations = doc.recentDurations
+            .filter((n: number) => Number.isFinite(n))
+            .slice(-200);
         if (Array.isArray(doc.hourlyCounts))
           this.hourlyCounts = doc.hourlyCounts;
         if (doc.dayOfWeekCounts) this.dayOfWeekCounts = doc.dayOfWeekCounts;

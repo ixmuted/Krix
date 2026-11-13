@@ -54,10 +54,15 @@ export function renderToolsPage(params: {
         </p>
       </div>
 
-      <!-- Dual Density Toggle -->
-      <div style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:3px; gap:2px;">
-        <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full);">Concise</button>
-        <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full);">Verbose</button>
+      <!-- Dual Density Toggle & Key Selector -->
+      <div style="display:flex; align-items:center; gap:10px;">
+        <select id="keySelector" onchange="onKeyFilterChange(this)" style="display:none;" aria-hidden="true">
+          <option value="">All Keys</option>
+        </select>
+        <div style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:3px; gap:2px;">
+          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full);">Concise</button>
+          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full);">Verbose</button>
+        </div>
       </div>
     </div>
 
@@ -209,6 +214,14 @@ export function renderToolsPage(params: {
 
       function closeToolDrawer() {
         document.getElementById('toolDrawer').style.transform = 'translateX(100%)';
+      }
+
+      function onKeyFilterChange(selectEl) {
+        const val = selectEl ? selectEl.value : '';
+        const url = new URL(window.location.href);
+        if (val) url.searchParams.set('key', val);
+        else url.searchParams.delete('key');
+        window.location.href = url.toString();
       }
     </script>
   `;

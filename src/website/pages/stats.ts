@@ -1,7 +1,12 @@
 // Real-Time Telemetry Dashboard with 10-Day Chunk Navigation and Per-Key Metrics
 // Contract Invariants: Exact <title>Stats</title>, id="keySelector", id="valPeakTime", id="statsKeySearchInput", dailyChunkNav, btnPrevDailyChunk, btnNextDailyChunk, N/A fallbacks
 
-import { renderPageShell, renderAuthRequiredCard, escapeHtml, formatBytes } from "../components.js";
+import {
+  renderPageShell,
+  renderAuthRequiredCard,
+  escapeHtml,
+  formatBytes,
+} from "../components.js";
 import { renderSvg } from "../icons.js";
 
 export function renderStatsPage(params: {
@@ -16,7 +21,7 @@ export function renderStatsPage(params: {
       activeTab: "stats",
       owner: params.owner,
       content: renderAuthRequiredCard(
-        "Usage & Analytics",
+        "Authentication Required",
         "Please sign in with your authorized Google Account to access this section.",
         "/stats",
       ),
@@ -25,7 +30,8 @@ export function renderStatsPage(params: {
 
   const summary = params.summary || {};
   const totalRequests = summary.totalRequests || 0;
-  const overallSuccessRate = summary.overallSuccessRate ?? (totalRequests > 0 ? 100 : 100);
+  const overallSuccessRate =
+    summary.overallSuccessRate ?? (totalRequests > 0 ? 100 : 100);
   const totalErrors = summary.totalErrors || 0;
   const throughputRpm = summary.throughputRpm ?? 0;
   const activeHttpSessions = summary.activeHttpSessions ?? 0;
@@ -84,15 +90,24 @@ export function renderStatsPage(params: {
           <optgroup label="API Keys">
             ${apiKeys
               .map((k: any) => {
-                const label = (k.label === "Master Key" || k.keyId === "master-env-key") ? "Primary Key" : (k.label || k.keyId);
-                const val = k.keyId === "master-env-key" ? "primary-key" : (k.keyId || k.id);
+                const label =
+                  k.label === "Master Key" || k.keyId === "master-env-key"
+                    ? "Primary Key"
+                    : k.label || k.keyId;
+                const val =
+                  k.keyId === "master-env-key"
+                    ? "primary-key"
+                    : k.keyId || k.id;
                 return `<option value="${escapeHtml(val)}" ${summary.selectedKeyId === val ? "selected" : ""}>${escapeHtml(label)}</option>`;
               })
               .join("")}
           </optgroup>
           <optgroup label="OAuth Authorizations">
             ${oauthKeys
-              .map((k: any) => `<option value="${escapeHtml(k.keyId || k.id)}" ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}>${escapeHtml(k.label || k.keyId || k.id)}</option>`)
+              .map(
+                (k: any) =>
+                  `<option value="${escapeHtml(k.keyId || k.id)}" ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}>${escapeHtml(k.label || k.keyId || k.id)}</option>`,
+              )
               .join("")}
           </optgroup>
         `
@@ -201,16 +216,20 @@ export function renderStatsPage(params: {
 
       <div id="timelineChart" style="min-height:140px; display:flex; align-items:flex-end; gap:6px; padding:16px 0; border-bottom:1px solid var(--border-subtle);">
         ${
-          (summary.dailyTimeline || []).slice(-10).map((item: any) => {
-            const reqs = item.requests || 0;
-            const h = Math.min(100, Math.max(8, reqs * 10));
-            return `
+          (summary.dailyTimeline || [])
+            .slice(-10)
+            .map((item: any) => {
+              const reqs = item.requests || 0;
+              const h = Math.min(100, Math.max(8, reqs * 10));
+              return `
               <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
                 <div style="width:100%; height:${h}px; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.85;" title="${item.date}: ${reqs} calls"></div>
-                <span style="font-size:10px; font-family:var(--font-mono); color:var(--geist-gray-50);">${(item.date || '').slice(5)}</span>
+                <span style="font-size:10px; font-family:var(--font-mono); color:var(--geist-gray-50);">${(item.date || "").slice(5)}</span>
               </div>
             `;
-          }).join("") || `<div style="width:100%; text-align:center; color:var(--geist-gray-50); font-size:12px; padding:40px 0;">No timeline data available</div>`
+            })
+            .join("") ||
+          `<div style="width:100%; text-align:center; color:var(--geist-gray-50); font-size:12px; padding:40px 0;">No timeline data available</div>`
         }
       </div>
     </div>
@@ -275,12 +294,16 @@ export function renderStatsPage(params: {
         <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;" id="clientEcosystemList">
           ${
             totalClientTraffic > 0
-              ? Object.entries(clientEcosystems).map(([client, count]) => `
+              ? Object.entries(clientEcosystems)
+                  .map(
+                    ([client, count]) => `
                   <div style="display:flex; justify-content:space-between;">
                     <span style="color:var(--geist-gray-50);">${escapeHtml(client)}:</span>
                     <strong style="font-family:var(--font-mono); color:var(--fg);">${count}</strong>
                   </div>
-                `).join("")
+                `,
+                  )
+                  .join("")
               : `<div style="font-size:13px; color:var(--geist-gray-50); text-align:center; padding:12px 0;">No client traffic recorded yet (N/A)</div>`
           }
         </div>
@@ -301,7 +324,8 @@ export function renderStatsPage(params: {
               ? toolEntries
                   .sort((a, b) => (b[1] as number) - (a[1] as number))
                   .slice(0, 5)
-                  .map(([tool, count]) => `
+                  .map(
+                    ([tool, count]) => `
                     <div>
                       <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
                         <span style="font-family:var(--font-mono); font-weight:600; color:var(--fg);">${escapeHtml(tool)}</span>
@@ -311,7 +335,9 @@ export function renderStatsPage(params: {
                         <div style="height:100%; background:var(--accent); width:60%;"></div>
                       </div>
                     </div>
-                  `).join("")
+                  `,
+                  )
+                  .join("")
               : `<div style="font-size:13px; color:var(--geist-gray-50); padding:16px 0; text-align:center;">No tool calls recorded yet (N/A)</div>`
           }
         </div>
@@ -371,11 +397,15 @@ export function renderStatsPage(params: {
                 ? keys
                     .map((k: any) => {
                       const displayLabel =
-                        k.label === "Master Key" || k.label?.includes("Master Key") || k.keyId === "master-env-key"
+                        k.label === "Master Key" ||
+                        k.label?.includes("Master Key") ||
+                        k.keyId === "master-env-key"
                           ? "Primary Key"
-                          : (k.label || k.keyId);
+                          : k.label || k.keyId;
                       const displayKeyId =
-                        k.keyId === "master-env-key" ? "primary-key" : (k.keyId || k.id);
+                        k.keyId === "master-env-key"
+                          ? "primary-key"
+                          : k.keyId || k.id;
 
                       return `
                 <tr style="border-bottom:1px solid var(--border-subtle);" class="stats-row stats-key-row">
@@ -384,7 +414,7 @@ export function renderStatsPage(params: {
                     <div style="font-family:var(--font-mono); font-size:11px; color:var(--geist-gray-50);">${escapeHtml(displayKeyId)}</div>
                   </td>
                   <td style="padding:12px; font-family:var(--font-mono); color:var(--fg);">${k.totalRequests || 0}</td>
-                  <td style="padding:12px; font-family:var(--font-mono); color:${k.errorCount > 0 ? 'var(--error)' : 'var(--success)'};">${k.errorCount || 0}</td>
+                  <td style="padding:12px; font-family:var(--font-mono); color:${k.errorCount > 0 ? "var(--error)" : "var(--success)"};">${k.errorCount || 0}</td>
                   <td style="padding:12px; font-family:var(--font-mono); color:var(--fg);">${k.avgDurationMs || 0}ms</td>
                   <td style="padding:12px;">
                     <span class="status-pill" style="font-size:11px;">

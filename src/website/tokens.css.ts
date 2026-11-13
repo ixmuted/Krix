@@ -813,6 +813,20 @@ code, kbd, pre, samp {
   font-size: 12px;
 }
 
+/* Google reCAPTCHA v3 badge hiding per Google Terms */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}
+
+/* Profile name overflow prevention in header and menu */
+.profile-trigger-name,
+.profile-menu-name,
+.profile-menu-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Endpoint input row for tests */
 .endpoint-row {
   display: flex;

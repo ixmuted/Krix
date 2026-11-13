@@ -17,6 +17,23 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+export function renderRecaptchaScript(nonce?: string): string {
+  const siteKey =
+    process.env.RECAPTCHA_SITE_KEY ||
+    process.env.GOOGLE_RECAPTCHA_SITE_KEY ||
+    "6Ld_sample_krix_recaptcha_key";
+  return `
+    <script src="https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}"${nonce ? ` nonce="${escapeHtml(nonce)}"` : ""}></script>
+    <script${nonce ? ` nonce="${escapeHtml(nonce)}"` : ""}>
+      if (typeof grecaptcha !== 'undefined') {
+        grecaptcha.ready(function() {
+          // Google reCAPTCHA v3 active
+        });
+      }
+    </script>
+  `;
+}
+
 export function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return "0 B";
   const k = 1024;
@@ -40,11 +57,11 @@ export interface KebabItem {
 export function renderKebabMenu(items: KebabItem[], menuId: string): string {
   return `
     <div class="krix-dropdown">
-      <button type="button" class="krix-kebab-trigger" onclick="window.toggleKebabMenu(event, '${escapeHtml(menuId)}')" aria-label="More Actions" title="Actions">
+      <button type="button" class="krix-kebab-trigger kebab-btn" onclick="window.toggleKebabMenu(event, '${escapeHtml(menuId)}')" aria-label="More Actions" title="Actions">
         ${renderSvg("more-vertical", 16)}
       </button>
 
-      <div id="${escapeHtml(menuId)}" class="krix-dropdown-menu">
+      <div id="${escapeHtml(menuId)}" class="krix-dropdown-menu kebab-dropdown">
         ${items
           .map((item) => {
             const cleanLabel = escapeHtml(
@@ -211,6 +228,9 @@ export function renderPageShell(options: PageShellOptions): string {
 
   <!-- Circular Scroll Progress FAB -->
   ${renderScrollProgressFab()}
+
+  <!-- Google reCAPTCHA v3 Integration -->
+  ${renderRecaptchaScript(options.nonce)}
 
   <script ${nonceAttr}>
     (function() {

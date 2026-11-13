@@ -13,6 +13,7 @@ import {
   isOwnerEmail,
   getOwnerEmail,
   getKeySettings,
+  removeKeySettings,
   getOrCreateUser,
   generateSandboxId,
   updateKeyCredentials,
@@ -516,18 +517,18 @@ export function createDynamicKey(
     throw new Error("Key name must be at least 4 characters long.");
   }
 
-  if (dynamicApiKeys.size >= 30) {
-    throw new Error(
-      "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
-    );
-  }
-
   for (const existing of dynamicApiKeys.values()) {
     if (existing.label.toLowerCase() === cleanLabel.toLowerCase()) {
       throw new Error(
         `An API key named "${cleanLabel}" already exists. Please choose a unique name.`,
       );
     }
+  }
+
+  if (dynamicApiKeys.size >= 30) {
+    throw new Error(
+      "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
+    );
   }
 
   const id = `kx_${crypto.randomBytes(6).toString("hex")}`;
@@ -607,6 +608,7 @@ export function revokeDynamicKey(id: string): boolean {
   const deleted = dynamicApiKeys.delete(id);
   saveKeysToDisk();
   revokeKeyInMongo(id).catch(() => {});
+  removeKeySettings(id);
   return deleted;
 }
 

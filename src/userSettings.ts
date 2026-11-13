@@ -61,7 +61,9 @@ export const USER_STORAGE_MB = 50; // 50MB distributed storage limit for non-own
 function settingsCipherKey(): Buffer {
   const secret = process.env.KEY_ENCRYPTION_SECRET || "";
   if (Buffer.byteLength(secret) < 32) {
-    throw new Error("KEY_ENCRYPTION_SECRET must contain at least 32 bytes to store credentials securely.");
+    throw new Error(
+      "KEY_ENCRYPTION_SECRET must contain at least 32 bytes to store credentials securely.",
+    );
   }
   return crypto.createHash("sha256").update(secret, "utf8").digest();
 }
@@ -70,7 +72,10 @@ function encryptStoredSecret(secret?: string): string | undefined {
   if (!secret) return undefined;
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", settingsCipherKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(secret, "utf8"),
+    cipher.final(),
+  ]);
   return `v1.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${encrypted.toString("base64url")}`;
 }
 
@@ -78,10 +83,19 @@ function decryptStoredSecret(envelope?: string): string | undefined {
   if (!envelope || !envelope.startsWith("v1.")) return undefined;
   try {
     const [, iv, tag, payload] = envelope.split(".");
-    const decipher = crypto.createDecipheriv("aes-256-gcm", settingsCipherKey(), Buffer.from(iv, "base64url"));
+    const decipher = crypto.createDecipheriv(
+      "aes-256-gcm",
+      settingsCipherKey(),
+      Buffer.from(iv, "base64url"),
+    );
     decipher.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([decipher.update(Buffer.from(payload, "base64url")), decipher.final()]).toString("utf8");
-  } catch { return undefined; }
+    return Buffer.concat([
+      decipher.update(Buffer.from(payload, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -230,7 +244,13 @@ export function updateKeyCredentials(
 
   if (customGitHubToken !== undefined) {
     const token = customGitHubToken.trim();
-    if (token && Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET || "") < 32) throw new Error("Configure KEY_ENCRYPTION_SECRET (32+ bytes) before saving credentials.");
+    if (
+      token &&
+      Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET || "") < 32
+    )
+      throw new Error(
+        "Configure KEY_ENCRYPTION_SECRET (32+ bytes) before saving credentials.",
+      );
     if (token) {
       settings.customGitHubToken = token;
       registerSecret(token);
@@ -239,7 +259,13 @@ export function updateKeyCredentials(
 
   if (customRenderToken !== undefined) {
     const token = customRenderToken.trim();
-    if (token && Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET || "") < 32) throw new Error("Configure KEY_ENCRYPTION_SECRET (32+ bytes) before saving credentials.");
+    if (
+      token &&
+      Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET || "") < 32
+    )
+      throw new Error(
+        "Configure KEY_ENCRYPTION_SECRET (32+ bytes) before saving credentials.",
+      );
     if (token) {
       settings.customRenderToken = token;
       registerSecret(token);
@@ -251,7 +277,10 @@ export function updateKeyCredentials(
   return settings;
 }
 
-export function removeKeyCredential(keyId: string, provider: "github" | "render"): KeySettings {
+export function removeKeyCredential(
+  keyId: string,
+  provider: "github" | "render",
+): KeySettings {
   const settings = getKeySettings(keyId);
   if (provider === "github") delete settings.customGitHubToken;
   else delete settings.customRenderToken;
@@ -259,6 +288,14 @@ export function removeKeyCredential(keyId: string, provider: "github" | "render"
   saveSettingsToDisk();
   syncKeySettingsToMongo(settings).catch(() => {});
   return settings;
+}
+
+export function removeKeySettings(keyId: string): boolean {
+  const deleted = keySettingsMap.delete(keyId);
+  if (deleted) {
+    saveSettingsToDisk();
+  }
+  return deleted;
 }
 
 export function updateKeyTools(
@@ -302,18 +339,43 @@ export function toggleKeyTool(
   return settings;
 }
 
-export function getDefaultToolRiskLevel(toolName: string, category = ""): ToolRiskLevel {
+export function getDefaultToolRiskLevel(
+  toolName: string,
+  category = "",
+): ToolRiskLevel {
   const name = toolName.toLowerCase();
-  if (/(delete|destroy|terminate|revoke|execute|shell|command|run_code|run_command|stop_service|restart_service)/.test(name)) return "critical";
-  if (/(deploy|create|update|edit|write|upload|rename|remove|publish|scale|start|restart|configure|permission|token|secret)/.test(name)) return "high";
-  if (/(read|list|search|fetch|get_|inspect|status|info|describe|view|query)/.test(name)) return "low";
+  if (
+    /(delete|destroy|terminate|revoke|execute|shell|command|run_code|run_command|stop_service|restart_service)/.test(
+      name,
+    )
+  )
+    return "critical";
+  if (
+    /(deploy|create|update|edit|write|upload|rename|remove|publish|scale|start|restart|configure|permission|token|secret)/.test(
+      name,
+    )
+  )
+    return "high";
+  if (
+    /(read|list|search|fetch|get_|inspect|status|info|describe|view|query)/.test(
+      name,
+    )
+  )
+    return "low";
   if (/codegraph|search/.test(category.toLowerCase())) return "low";
   return "moderate";
 }
 
-export function getToolRiskLevel(keyId: string, toolName: string, category = ""): ToolRiskLevel {
+export function getToolRiskLevel(
+  keyId: string,
+  toolName: string,
+  category = "",
+): ToolRiskLevel {
   const settings = getKeySettings(keyId);
-  return settings.toolRiskLevels?.[toolName] || getDefaultToolRiskLevel(toolName, category);
+  return (
+    settings.toolRiskLevels?.[toolName] ||
+    getDefaultToolRiskLevel(toolName, category)
+  );
 }
 
 export function updateKeyToolRiskLevel(
@@ -322,12 +384,22 @@ export function updateKeyToolRiskLevel(
   riskLevel: ToolRiskLevel,
   acknowledgeHighRisk = false,
 ): KeySettings {
-  const allowed: ToolRiskLevel[] = ["safe", "low", "moderate", "high", "critical"];
+  const allowed: ToolRiskLevel[] = [
+    "safe",
+    "low",
+    "moderate",
+    "high",
+    "critical",
+  ];
   if (!allowed.includes(riskLevel)) throw new Error("Invalid tool risk level.");
   const settings = getKeySettings(keyId);
-  settings.toolRiskLevels = { ...(settings.toolRiskLevels || {}), [toolName]: riskLevel };
+  settings.toolRiskLevels = {
+    ...(settings.toolRiskLevels || {}),
+    [toolName]: riskLevel,
+  };
   const acknowledged = new Set(settings.riskAcknowledgedTools || []);
-  if ((riskLevel === "high" || riskLevel === "critical") && acknowledgeHighRisk) acknowledged.add(toolName);
+  if ((riskLevel === "high" || riskLevel === "critical") && acknowledgeHighRisk)
+    acknowledged.add(toolName);
   else acknowledged.delete(toolName);
   settings.riskAcknowledgedTools = Array.from(acknowledged);
   settings.updatedAt = Date.now();
@@ -346,12 +418,18 @@ export function isToolEnabledForKey(
   if (settings.disabledTools?.includes(toolName)) return false;
 
   const explicitlyEnabled = Boolean(settings.enabledTools?.includes(toolName));
-  const categoryEnabled = category !== "codegraph" && category !== "search" && sessionEnabledCategories.has(category);
+  const categoryEnabled =
+    category !== "codegraph" &&
+    category !== "search" &&
+    sessionEnabledCategories.has(category);
   const enabled = explicitlyEnabled || categoryEnabled;
   if (!enabled) return false;
 
   const riskLevel = getToolRiskLevel(keyId, toolName, category);
-  if ((riskLevel === "high" || riskLevel === "critical") && !settings.riskAcknowledgedTools?.includes(toolName)) {
+  if (
+    (riskLevel === "high" || riskLevel === "critical") &&
+    !settings.riskAcknowledgedTools?.includes(toolName)
+  ) {
     return false;
   }
   return true;
@@ -364,19 +442,26 @@ export function isToolEnabledForKey(
 function saveSettingsToDisk(): void {
   try {
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
-    const keySettings = Array.from(keySettingsMap.entries()).map(([keyId, settings]) => {
-      const persisted: Record<string, any> = { ...settings };
-      delete persisted.customGitHubToken;
-      delete persisted.customRenderToken;
-      const githubEncrypted = encryptStoredSecret(settings.customGitHubToken);
-      const renderEncrypted = encryptStoredSecret(settings.customRenderToken);
-      if (githubEncrypted) persisted.customGitHubTokenEncrypted = githubEncrypted;
-      else delete persisted.customGitHubTokenEncrypted;
-      if (renderEncrypted) persisted.customRenderTokenEncrypted = renderEncrypted;
-      else delete persisted.customRenderTokenEncrypted;
-      return [keyId, persisted];
-    });
-    const payload = { users: Array.from(userAccountsMap.entries()), keySettings };
+    const keySettings = Array.from(keySettingsMap.entries()).map(
+      ([keyId, settings]) => {
+        const persisted: Record<string, any> = { ...settings };
+        delete persisted.customGitHubToken;
+        delete persisted.customRenderToken;
+        const githubEncrypted = encryptStoredSecret(settings.customGitHubToken);
+        const renderEncrypted = encryptStoredSecret(settings.customRenderToken);
+        if (githubEncrypted)
+          persisted.customGitHubTokenEncrypted = githubEncrypted;
+        else delete persisted.customGitHubTokenEncrypted;
+        if (renderEncrypted)
+          persisted.customRenderTokenEncrypted = renderEncrypted;
+        else delete persisted.customRenderTokenEncrypted;
+        return [keyId, persisted];
+      },
+    );
+    const payload = {
+      users: Array.from(userAccountsMap.entries()),
+      keySettings,
+    };
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(payload, null, 2), {
       encoding: "utf-8",
       mode: 0o600,
@@ -398,13 +483,19 @@ function loadSettingsFromDisk(): void {
       if (Array.isArray(data.keySettings)) {
         for (const [keyId, rawSettings] of data.keySettings) {
           const settings = { ...rawSettings };
-          settings.customGitHubToken = settings.customGitHubToken || decryptStoredSecret(settings.customGitHubTokenEncrypted);
-          settings.customRenderToken = settings.customRenderToken || decryptStoredSecret(settings.customRenderTokenEncrypted);
+          settings.customGitHubToken =
+            settings.customGitHubToken ||
+            decryptStoredSecret(settings.customGitHubTokenEncrypted);
+          settings.customRenderToken =
+            settings.customRenderToken ||
+            decryptStoredSecret(settings.customRenderTokenEncrypted);
           delete settings.customGitHubTokenEncrypted;
           delete settings.customRenderTokenEncrypted;
           keySettingsMap.set(keyId, settings);
-          if (settings.customGitHubToken) registerSecret(settings.customGitHubToken);
-          if (settings.customRenderToken) registerSecret(settings.customRenderToken);
+          if (settings.customGitHubToken)
+            registerSecret(settings.customGitHubToken);
+          if (settings.customRenderToken)
+            registerSecret(settings.customRenderToken);
         }
       }
     }
@@ -413,7 +504,8 @@ function loadSettingsFromDisk(): void {
   }
 }
 loadSettingsFromDisk();
-if (Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET || "") >= 32) saveSettingsToDisk();
+if (Buffer.byteLength(process.env.KEY_ENCRYPTION_SECRET || "") >= 32)
+  saveSettingsToDisk();
 
 export async function syncUserToMongo(user: UserAccount): Promise<void> {
   await ensureMongoAuth();
@@ -438,7 +530,10 @@ export async function syncKeySettingsToMongo(
   const db = getMongoDb();
   if (!db) return;
   try {
-    const persisted: Record<string, any> = { ...settings, updatedAt: Date.now() };
+    const persisted: Record<string, any> = {
+      ...settings,
+      updatedAt: Date.now(),
+    };
     delete persisted.customGitHubToken;
     delete persisted.customRenderToken;
     const githubEncrypted = encryptStoredSecret(settings.customGitHubToken);
@@ -450,7 +545,15 @@ export async function syncKeySettingsToMongo(
     const col = db.collection("key_settings");
     await col.updateOne(
       { keyId: settings.keyId },
-      { $set: persisted, $unset: { customGitHubToken: "", customRenderToken: "", ...(githubEncrypted ? {} : { customGitHubTokenEncrypted: "" }), ...(renderEncrypted ? {} : { customRenderTokenEncrypted: "" }) } },
+      {
+        $set: persisted,
+        $unset: {
+          customGitHubToken: "",
+          customRenderToken: "",
+          ...(githubEncrypted ? {} : { customGitHubTokenEncrypted: "" }),
+          ...(renderEncrypted ? {} : { customRenderTokenEncrypted: "" }),
+        },
+      },
       { upsert: true },
     );
   } catch (err: any) {
@@ -486,14 +589,23 @@ export async function loadSettingsFromMongo(): Promise<void> {
           keyId: d.keyId,
           email: d.email || "anonymous",
           role: d.role || "user",
-          customGitHubToken: d.customGitHubToken || decryptStoredSecret(d.customGitHubTokenEncrypted),
-          customRenderToken: d.customRenderToken || decryptStoredSecret(d.customRenderTokenEncrypted),
+          customGitHubToken:
+            d.customGitHubToken ||
+            decryptStoredSecret(d.customGitHubTokenEncrypted),
+          customRenderToken:
+            d.customRenderToken ||
+            decryptStoredSecret(d.customRenderTokenEncrypted),
           sandboxId:
             d.sandboxId || generateSandboxId(d.keyId, d.role === "owner"),
           enabledTools: Array.isArray(d.enabledTools) ? d.enabledTools : [],
           disabledTools: Array.isArray(d.disabledTools) ? d.disabledTools : [],
-          toolRiskLevels: d.toolRiskLevels && typeof d.toolRiskLevels === "object" ? d.toolRiskLevels : {},
-          riskAcknowledgedTools: Array.isArray(d.riskAcknowledgedTools) ? d.riskAcknowledgedTools : [],
+          toolRiskLevels:
+            d.toolRiskLevels && typeof d.toolRiskLevels === "object"
+              ? d.toolRiskLevels
+              : {},
+          riskAcknowledgedTools: Array.isArray(d.riskAcknowledgedTools)
+            ? d.riskAcknowledgedTools
+            : [],
           enabledCategories: Array.isArray(d.enabledCategories)
             ? d.enabledCategories
             : ["core", "sandbox", "files"],
@@ -503,7 +615,8 @@ export async function loadSettingsFromMongo(): Promise<void> {
         keySettingsMap.set(d.keyId, s);
         if (s.customGitHubToken) registerSecret(s.customGitHubToken);
         if (s.customRenderToken) registerSecret(s.customRenderToken);
-        if (d.customGitHubToken || d.customRenderToken) await syncKeySettingsToMongo(s);
+        if (d.customGitHubToken || d.customRenderToken)
+          await syncKeySettingsToMongo(s);
       }
     }
   } catch (err: any) {

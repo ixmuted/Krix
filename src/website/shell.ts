@@ -70,21 +70,21 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
             isAuth
               ? `
             <!-- Authenticated Profile Menu -->
-            <div class="krix-dropdown">
-              <button type="button" class="krix-kebab-trigger" onclick="window.toggleKebabMenu(event, 'headerProfileDropdown')" aria-label="Account Menu" style="width:auto; padding:2px 6px; border-radius:var(--radius-full); gap:8px;">
+            <div class="krix-dropdown" id="headerProfileDropdownWrap">
+              <button type="button" class="krix-kebab-trigger" id="headerProfileTrigger" onclick="window.toggleKebabMenu(event, 'headerProfileMenu')" aria-label="Account Menu" style="width:auto; padding:2px 6px; border-radius:var(--radius-full); gap:8px;">
                 <span class="profile-avatar-wrap">
                   ${profileAvatar}
                 </span>
-                <span class="desktop-only-nav" style="font-size:12px; font-weight:500; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                <span class="desktop-only-nav profile-trigger-name" style="font-size:12px; font-weight:500; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                   ${userName}
                 </span>
                 ${renderSvg("chevron-down", 13, "desktop-only-nav")}
               </button>
 
-              <div id="headerProfileDropdown" class="krix-dropdown-menu" style="min-width:200px;">
+              <div id="headerProfileMenu" class="krix-dropdown-menu" style="min-width:200px;">
                 <div style="padding:8px 12px; border-bottom:1px solid var(--border-subtle); margin-bottom:4px;">
-                  <div style="font-size:12px; font-weight:600; color:var(--fg);">${userName}</div>
-                  <div style="font-size:11px; color:var(--geist-gray-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${userEmail}</div>
+                  <div class="profile-menu-name" style="font-size:12px; font-weight:600; color:var(--fg);">${userName}</div>
+                  <div class="profile-menu-email" style="font-size:11px; color:var(--geist-gray-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${userEmail}</div>
                 </div>
                 <a href="/settings" class="krix-dropdown-item">
                   ${renderSvg("settings", 15)}
@@ -99,6 +99,18 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
                   ${renderSvg("lock", 15)}
                   <span>Sign Out</span>
                 </a>
+              </div>
+            </div>
+
+            <!-- Sign Out Confirmation Modal (Contract Invariant: id="headerSignOutModal") -->
+            <div class="modal-backdrop" id="headerSignOutModal" hidden style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:var(--z-modal); align-items:center; justify-content:center;">
+              <div class="modal-card card spotlight-card" role="dialog" aria-modal="true" style="max-width:400px; padding:24px;">
+                <h3 style="font-size:16px; font-weight:600; margin-bottom:8px; color:var(--fg);">Sign Out</h3>
+                <p style="font-size:13px; color:var(--geist-gray-50); margin-bottom:20px; line-height:1.5;">Are you sure you want to sign out of your Krix session?</p>
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                  <button type="button" class="btn" onclick="document.getElementById('headerSignOutModal').style.display='none'">Cancel</button>
+                  <a href="/auth/logout" class="btn primary" style="background:var(--error); border-color:var(--error); color:#fff;">Confirm Sign Out</a>
+                </div>
               </div>
             </div>
           `
@@ -197,6 +209,10 @@ export function renderFooter(): string {
           ${renderSvg("command", 12)}
           <span>Quick Navigator (⌘K)</span>
         </button>
+      </div>
+
+      <div class="recaptcha-notice" style="font-size:11px; color:var(--geist-gray-50); text-align:center; margin-top:20px; line-height:1.5;">
+        This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--geist-gray-50); text-decoration:underline;">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" style="color:var(--geist-gray-50); text-decoration:underline;">Terms of Service</a> apply.
       </div>
     </footer>
   `;

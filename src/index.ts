@@ -1216,12 +1216,10 @@ app.post("/api/keys", express.json(), async (req, res) => {
   } catch (err: any) {
     // A key that could not be durably recorded must never be handed to the client.
     if (createdKeyId) revokeDynamicKey(createdKeyId);
-    res
-      .status(503)
-      .json({
-        error:
-          "API key creation could not be persisted. Try again after storage is healthy.",
-      });
+    res.status(503).json({
+      error:
+        "API key creation could not be persisted. Try again after storage is healthy.",
+    });
   }
 });
 
@@ -1253,12 +1251,10 @@ app.get("/api/keys/:id/secret", async (req, res) => {
   }
   const secret = getDynamicKeySecret(id, owner.email);
   if (!secret) {
-    res
-      .status(409)
-      .json({
-        error:
-          "This key was created before encrypted recovery was enabled. Create a replacement key to enable reveal and copy.",
-      });
+    res.status(409).json({
+      error:
+        "This key was created before encrypted recovery was enabled. Create a replacement key to enable reveal and copy.",
+    });
     return;
   }
   res.setHeader("Cache-Control", "no-store, no-cache, private, max-age=0");
@@ -1277,23 +1273,46 @@ app.get("/api/keys/:id/credentials/secret", async (req, res) => {
   const id = String(req.params.id || "");
   const provider = String(req.query.provider || "").toLowerCase();
   if (provider !== "github" && provider !== "render") {
-    res.status(400).json({ error: "Invalid provider. Supported providers: github, render." });
+    res
+      .status(400)
+      .json({
+        error: "Invalid provider. Supported providers: github, render.",
+      });
     return;
   }
   const limiterId = `${owner.email.toLowerCase()}:${clientIp(req)}`;
   if (!keyRevealLimiter.hit(limiterId, 0)) {
-    res.setHeader("Retry-After", String(keyRevealLimiter.retryAfterSec(limiterId) || 60));
-    res.status(429).json({ error: "Too many credential reveal attempts. Try again shortly." });
+    res.setHeader(
+      "Retry-After",
+      String(keyRevealLimiter.retryAfterSec(limiterId) || 60),
+    );
+    res
+      .status(429)
+      .json({
+        error: "Too many credential reveal attempts. Try again shortly.",
+      });
     return;
   }
   if (!userOwnsKey(owner.email, id)) {
-    res.status(403).json({ error: "You can only reveal credentials for keys assigned to your account." });
+    res
+      .status(403)
+      .json({
+        error:
+          "You can only reveal credentials for keys assigned to your account.",
+      });
     return;
   }
   const settings = getKeySettings(id);
-  const token = provider === "github" ? settings.customGitHubToken : settings.customRenderToken;
+  const token =
+    provider === "github"
+      ? settings.customGitHubToken
+      : settings.customRenderToken;
   if (!token) {
-    res.status(404).json({ error: `No custom ${provider} credential is saved for this key.` });
+    res
+      .status(404)
+      .json({
+        error: `No custom ${provider} credential is saved for this key.`,
+      });
     return;
   }
   res.setHeader("Cache-Control", "no-store, no-cache, private, max-age=0");
@@ -1373,6 +1392,7 @@ app.delete("/api/keys/:id", async (req, res) => {
   await revokeKeyInMongo(id);
   const closedSessions = closeSessionsForKey(id);
   const revoked = revokeDynamicKey(id);
+  statsTracker.removeKey(id);
   statsTracker.syncKnownKeys(
     listDynamicKeys(),
     listActiveOAuthAuthorizations(),
@@ -1746,12 +1766,10 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
   }
 
   if (!userOwnsKey(owner.email, keyId)) {
-    res
-      .status(403)
-      .json({
-        ok: false,
-        error: "Forbidden: You do not have permission to manage this key.",
-      });
+    res.status(403).json({
+      ok: false,
+      error: "Forbidden: You do not have permission to manage this key.",
+    });
     return;
   }
 
@@ -1773,12 +1791,10 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
       maskedRender: maskSecret(updated.customRenderToken),
     });
   } catch (err: any) {
-    res
-      .status(500)
-      .json({
-        ok: false,
-        error: err?.message || "Failed to save credentials.",
-      });
+    res.status(500).json({
+      ok: false,
+      error: err?.message || "Failed to save credentials.",
+    });
   }
 });
 
@@ -1801,12 +1817,10 @@ app.post(
       return;
     }
     if (!userOwnsKey(owner.email, keyId)) {
-      res
-        .status(403)
-        .json({
-          ok: false,
-          error: "You cannot manage credentials for this key.",
-        });
+      res.status(403).json({
+        ok: false,
+        error: "You cannot manage credentials for this key.",
+      });
       return;
     }
     try {
@@ -1816,12 +1830,10 @@ app.post(
       res.setHeader("Cache-Control", "no-store");
       res.json({ ok: true, provider, deleted: true, closedSessions });
     } catch {
-      res
-        .status(503)
-        .json({
-          ok: false,
-          error: "Credential deletion could not be persisted.",
-        });
+      res.status(503).json({
+        ok: false,
+        error: "Credential deletion could not be persisted.",
+      });
     }
   },
 );
@@ -1845,12 +1857,10 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
   }
 
   if (!userOwnsKey(owner.email, keyId)) {
-    res
-      .status(403)
-      .json({
-        ok: false,
-        error: "Forbidden: You do not have permission to manage this key.",
-      });
+    res.status(403).json({
+      ok: false,
+      error: "Forbidden: You do not have permission to manage this key.",
+    });
     return;
   }
 
@@ -1876,12 +1886,10 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
         missingCredential === "github"
           ? "GitHub personal access token"
           : "Render API key";
-      res
-        .status(409)
-        .json({
-          ok: false,
-          error: `This tool requires a saved ${providerLabel}. Add the credential in Settings to enable it.`,
-        });
+      res.status(409).json({
+        ok: false,
+        error: `This tool requires a saved ${providerLabel}. Add the credential in Settings to enable it.`,
+      });
       return;
     }
     const updated = toggleKeyTool(keyId, toolName, Boolean(enabled));
@@ -1938,12 +1946,10 @@ app.post("/settings/api/tool-risk", express.json(), async (req, res) => {
       acknowledged: updated.riskAcknowledgedTools?.includes(toolName) || false,
     });
   } catch (err: any) {
-    res
-      .status(400)
-      .json({
-        ok: false,
-        error: err?.message || "Could not update tool risk.",
-      });
+    res.status(400).json({
+      ok: false,
+      error: err?.message || "Could not update tool risk.",
+    });
   }
 });
 
@@ -1961,12 +1967,10 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
   }
 
   if (!userOwnsKey(owner.email, keyId)) {
-    res
-      .status(403)
-      .json({
-        ok: false,
-        error: "Forbidden: You do not have permission to manage this key.",
-      });
+    res.status(403).json({
+      ok: false,
+      error: "Forbidden: You do not have permission to manage this key.",
+    });
     return;
   }
 
