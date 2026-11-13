@@ -4,6 +4,7 @@ import { MongoClient, type Db } from "mongodb";
 import { fileShareRegistry } from "./fileShareRegistry.js";
 import { getMongoDb } from "./googleAuth.js";
 import { CODE_GRAPH_TOOLS_CATALOG } from "./codeGraphTools.js";
+import { getToolInputSchema } from "./toolSchemas.js";
 
 export interface KeyMetrics {
   keyId: string;
@@ -84,6 +85,7 @@ export interface ToolDetailMeta {
     | "Code Graph"
     | "Search";
   description: string;
+  inputSchema?: Record<string, unknown>;
   totalCalls: number;
   successRate: number;
   avgDurationMs: number;
@@ -1664,6 +1666,7 @@ export class StatsTracker {
         name: t.name,
         category: t.category,
         description: t.description,
+        inputSchema: getToolInputSchema(t.name),
       })),
     ];
 
@@ -1701,6 +1704,7 @@ export class StatsTracker {
         name: t.name,
         category: t.category,
         description: t.description,
+        inputSchema: getToolInputSchema(t.name),
         totalCalls: calls,
         successRate: toolMetric?.totalCalls
           ? Math.round((toolMetric.successCount / toolMetric.totalCalls) * 100)
@@ -1720,6 +1724,7 @@ export class StatsTracker {
         name,
         category: "Inspection",
         description: "Tool usage recorded from MCP calls.",
+        inputSchema: getToolInputSchema(name),
         totalCalls: metrics.totalCalls,
         successRate: metrics.totalCalls
           ? Math.round((metrics.successCount / metrics.totalCalls) * 100)

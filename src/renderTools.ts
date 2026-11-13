@@ -71,8 +71,8 @@ async function callRenderTool(toolName: string, args: any, renderToken: string |
   }
 }
 
-export function registerRenderTools(server: McpServer, renderTokenGetter: () => string | undefined, registry: Record<string, any>) {
-  const reg = makeRegistrar(server, registry);
+export function registerRenderTools(server: McpServer, renderTokenGetter: () => string | undefined, registry: Record<string, any>, sessionId?: string) {
+  const reg = makeRegistrar(server, registry, sessionId);
 
   reg('list_workspaces', { description: 'List workspaces.', inputSchema: {}, annotations: getToolAnnotations('list_workspaces') },
     async () => callRenderTool('list_workspaces', {}, renderTokenGetter()));

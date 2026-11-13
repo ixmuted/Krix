@@ -128,7 +128,7 @@ function getBestMatchFeedback(content: string, oldStr: string): string {
 }
 
 export function registerGitHubTools(server: McpServer, octokit: Octokit, sessionId: string, registry: Record<string, any>) {
-  const reg = makeRegistrar(server, registry);
+  const reg = makeRegistrar(server, registry, sessionId);
 
   reg('set_active_context', {
     description: 'Set default GitHub repo/branch context and/or default sandbox cwd + env vars, once per authenticated identity.',

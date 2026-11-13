@@ -1479,7 +1479,7 @@ export function registerFileTools(
   registry: Record<string, any>,
   getBaseUrl: () => string,
 ) {
-  const reg = makeRegistrar(server, registry);
+  const reg = makeRegistrar(server, registry, sessionId);
 
   reg(
     "sandbox_store",

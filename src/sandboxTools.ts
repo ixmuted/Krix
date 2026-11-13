@@ -750,7 +750,8 @@ export function registerSandboxTools(
         const cwd = await resolveDir(sessionId, args.dir);
         const env = envFor(sessionId, root);
         const nonce = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-        bin = path.join(sandboxTmp(root), `_sbx_out_${nonce}`);
+        const outputBinary = path.join(sandboxTmp(root), `_sbx_out_${nonce}`);
+        bin = outputBinary;
 
         let abs: string;
         if (args.filePath) {
@@ -759,8 +760,10 @@ export function registerSandboxTools(
         } else if (args.code) {
           sanitizeCommand(args.code);
           const ext = EXT_BY_LANG[args.lang || "py"] || ".py";
-          abs = tmp = path.join(cwd, `_snippet_${nonce}${ext}`);
-          await sbxWriteText(root, tmp, args.code, false);
+          const snippetPath = path.join(cwd, `_snippet_${nonce}${ext}`);
+          abs = snippetPath;
+          tmp = snippetPath;
+          await sbxWriteText(root, snippetPath, args.code, false);
         } else {
           throw new Error("Provide either `code` or `filePath`.");
         }
@@ -769,7 +772,7 @@ export function registerSandboxTools(
           path.extname(abs).toLowerCase(),
           abs,
           args.args || [],
-          bin,
+          outputBinary,
         );
         const sbxId = getSandboxIdForSession(sessionId);
         const quota = getUserQuota(sbxId === "owner" ? "owner" : "user");

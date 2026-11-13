@@ -2,6 +2,7 @@ import vm from "node:vm";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { captureToolRegistration } from "./toolSchemas.js";
 
 export enum PermissionLevel {
   READ_ONLY = "READ_ONLY",
@@ -109,6 +110,12 @@ export function registerSessionAuth(
   githubToken: string,
 ): void {
   sessionAuthKey.set(sessionId, hashAuth(githubToken));
+}
+
+export function unregisterSessionAuth(sessionId: string): void {
+  sessionAuthKey.delete(sessionId);
+  sessionSandboxId.delete(sessionId);
+  deleteSessionContext(sessionId);
 }
 
 export function getAuthKeyForSession(sessionId: string): string {
@@ -610,6 +617,7 @@ export function makeRegistrar(
             return handler(...args);
           }
         : handler;
+    captureToolRegistration(sessionId, name, config?.inputSchema, wrapped);
     registry[name] = server.registerTool(name, config, wrapped);
     return registry[name];
   };

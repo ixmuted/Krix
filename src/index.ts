@@ -72,6 +72,11 @@ import {
 } from "./mcpOAuth.js";
 import { statsTracker } from "./stats.js";
 import {
+  clearToolRegistrations,
+  executeRegisteredTool,
+  setToolRegistrationEnabled,
+} from "./toolSchemas.js";
+import {
   renderHomePage,
   renderStatsPage,
   renderApiKeysPage,
@@ -97,6 +102,7 @@ import {
   ToolCategory,
   getSessionContext,
   registerSessionAuth,
+  unregisterSessionAuth,
   registerSessionSandboxId,
   getSandboxIdForSession,
   getAuthKeyForSession,
@@ -283,7 +289,7 @@ function createMasterServer(
   registerGitHubTools(server, octokit, sessionId, registry);
   tagCategory(registry, categoryOf, "github_admin");
 
-  registerRenderTools(server, () => renderToken, registry);
+  registerRenderTools(server, () => renderToken, registry, sessionId);
   tagCategory(registry, categoryOf, "render");
 
   registerSandboxTools(server, sessionId, githubToken, registry);
@@ -330,9 +336,13 @@ function createMasterServer(
       cat,
       activeCategories,
     );
-    if (sandboxAllowedHere && !missingCredential && policyEnabled)
+    if (sandboxAllowedHere && !missingCredential && policyEnabled) {
       handle.enable();
-    else handle.disable();
+      setToolRegistrationEnabled(sessionId, name, true);
+    } else {
+      handle.disable();
+      setToolRegistrationEnabled(sessionId, name, false);
+    }
   }
 
   // Ensure every tool returned to MCP clients (like Gemini) includes icons metadata (matching GitHub MCP Server)
@@ -1455,6 +1465,7 @@ app.get("/api/settings", async (req, res) => {
   );
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.send(
     renderApiKeySettingsPage({
       base,
@@ -1463,6 +1474,17 @@ app.get("/api/settings", async (req, res) => {
       key: targetKey,
       toolsCatalog: summary.toolsCatalog,
       keySettings,
+      apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
+      credentialAvailability: {
+        github: Boolean(
+          keySettings.customGitHubToken ||
+          (effectiveKeyId === "primary-key" && DEFAULT_GITHUB_PAT),
+        ),
+        render: Boolean(
+          keySettings.customRenderToken ||
+          (effectiveKeyId === "primary-key" && DEFAULT_RENDER_API_KEY),
+        ),
+      },
     }),
   );
 });
@@ -1478,8 +1500,30 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
-  const { githubToken, renderApiKey, enabledTools, disabled } = req.body || {};
+  const { githubToken, renderApiKey, enabledTools, disabledTools, disabled } = req.body || {};
   const settings = getKeySettings(id);
+
+  const nextGitHubToken = githubToken !== undefined
+    ? String(githubToken).trim()
+    : settings.customGitHubToken || (id === "primary-key" ? DEFAULT_GITHUB_PAT : "");
+  const nextRenderToken = renderApiKey !== undefined
+    ? String(renderApiKey).trim()
+    : settings.customRenderToken || (id === "primary-key" ? DEFAULT_RENDER_API_KEY : "");
+  if (Array.isArray(enabledTools)) {
+    for (const toolName of enabledTools.map(String)) {
+      const missing = getMissingToolCredential(toolName, {
+        github: Boolean(nextGitHubToken),
+        render: Boolean(nextRenderToken),
+      });
+      if (missing) {
+        res.status(409).json({
+          success: false,
+          error: `This tool requires a saved ${missing === "github" ? "GitHub personal access token" : "Render API key"}. Add the credential override before enabling it.`,
+        });
+        return;
+      }
+    }
+  }
 
   if (githubToken !== undefined) {
     settings.customGitHubToken = githubToken ? String(githubToken).trim() : undefined;
@@ -1492,14 +1536,19 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   if (Array.isArray(enabledTools)) {
     settings.enabledTools = enabledTools.map(String);
   }
+  if (Array.isArray(disabledTools)) {
+    settings.disabledTools = disabledTools.map(String);
+  }
   if (typeof disabled === "boolean") {
     settings.disabled = disabled;
   }
   settings.updatedAt = Date.now();
   saveSettingsToDisk();
   syncKeySettingsToMongo(settings).catch(() => {});
+  const closedSessions = closeSessionsForKey(id);
 
-  res.json({ success: true, settings });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ success: true, settings, closedSessions });
 });
 
 app.post("/api/account/delete", async (req, res) => {
@@ -1585,6 +1634,37 @@ app.get("/tools", async (req, res) => {
       )?.clientId ||
       (isOwnerEmail(owner.email) ? "primary-key" : "no-keys");
   }
+  // Build the tool catalog from the real MCP registrations. The probe has a
+  // throwaway identity and is never connected to a transport or executed.
+  const probeSessionId = crypto.randomUUID();
+  const probeSettings: KeySettings = {
+    ...getKeySettings(selectedKeyId),
+    keyId: selectedKeyId,
+    email: owner.email,
+    role: isOwnerEmail(owner.email) ? "owner" : "user",
+  };
+  const probeGithubToken =
+    probeSettings.customGitHubToken ||
+    (selectedKeyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") || "";
+  const probeRenderToken =
+    probeSettings.customRenderToken ||
+    (selectedKeyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
+  registerSessionAuth(
+    probeSessionId,
+    `krix_tool_catalog_${owner.email.toLowerCase()}_${probeSessionId}`,
+  );
+  try {
+    createMasterServer(
+      probeGithubToken,
+      probeRenderToken,
+      probeSessionId,
+      req,
+      probeSettings,
+    );
+  } finally {
+    clearToolRegistrations(probeSessionId);
+    unregisterSessionAuth(probeSessionId);
+  }
   const authKey = computeAuthKey(
     owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
   );
@@ -1601,8 +1681,75 @@ app.get("/tools", async (req, res) => {
       owner,
       tools: summary.toolsCatalog,
       summary,
+      selectedKeyId,
     }),
   );
+});
+
+app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Sign in is required." });
+    return;
+  }
+
+  const toolName = typeof req.body?.toolName === "string" ? req.body.toolName : "";
+  const keyId = typeof req.body?.keyId === "string" ? req.body.keyId : "";
+  const args = req.body?.arguments;
+  if (!keyId || !toolName || !["sandbox_exec", "sandbox_run"].includes(toolName)) {
+    res.status(400).json({ ok: false, error: "Only sandbox_exec and sandbox_run can be run from the web inspector." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, keyId)) {
+    res.status(403).json({ ok: false, error: "You do not own the selected key." });
+    return;
+  }
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    res.status(400).json({ ok: false, error: "Arguments must be a JSON object." });
+    return;
+  }
+
+  const sessionId = crypto.randomUUID();
+  const settings: KeySettings = {
+    ...getKeySettings(keyId),
+    keyId,
+    email: owner.email,
+    role: isOwnerEmail(owner.email) ? "owner" : "user",
+  };
+  const githubToken =
+    settings.customGitHubToken ||
+    (keyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") || "";
+  const renderToken =
+    settings.customRenderToken ||
+    (keyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
+
+  // A unique authenticated sandbox identity ensures every web execution gets
+  // a disposable workspace and cannot read another key's persistent files.
+  registerSessionAuth(
+    sessionId,
+    `krix_web_runner_${owner.email.toLowerCase()}_${sessionId}`,
+  );
+  try {
+    createMasterServer(githubToken, renderToken, sessionId, req, settings);
+    const result = await executeRegisteredTool(sessionId, toolName, args);
+    const serialized = JSON.stringify(result ?? null);
+    const output = sanitizeOutput(
+      serialized.length > 180_000
+        ? `${serialized.slice(0, 180_000)}\n[Output truncated]`
+        : serialized,
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, result: output });
+  } catch (error: any) {
+    res.status(400).json({
+      ok: false,
+      error: sanitizeOutput(String(error?.message || "Tool execution failed.")),
+    });
+  } finally {
+    clearToolRegistrations(sessionId);
+    await destroySandbox(sessionId).catch(() => {});
+    unregisterSessionAuth(sessionId);
+  }
 });
 
 app.get("/stats/api", async (req, res) => {
