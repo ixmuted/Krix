@@ -46,10 +46,10 @@ export function renderSettingsPage(params: {
     const name = String(tool.name || "");
     if (disabledTools.has(name)) return false;
     if (enabledTools.has(name)) return true;
+    if (name === "web_search") return false;
     const category = String(tool.category || "");
     const categoryKeys: Record<string, string[]> = {
       GitHub: ["github_issues_prs", "github_admin"],
-      Render: ["render"],
       Sandbox: ["sandbox"],
       Files: ["files"],
       Execution: ["sandbox"],
@@ -58,7 +58,7 @@ export function renderSettingsPage(params: {
       Search: ["search"],
     };
     if (category === "GitHub" && params.credentialAvailability?.github) return true;
-    if (category === "Render" && params.credentialAvailability?.render) return true;
+    if (category === "Sandbox" && params.credentialAvailability?.github) return true;
     return category !== "Code Graph" && category !== "Search" &&
       (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
   };
@@ -253,9 +253,9 @@ export function renderSettingsPage(params: {
             <div style="font-size:12px; color:var(--geist-gray-50);">Select your default color scheme</div>
           </div>
           <div class="theme-mode-control" style="display:inline-flex; align-items:center; gap:4px; padding:4px; border:1px solid var(--border-medium); border-radius:6px; background:var(--bg-surface-1);">
-            <button type="button" class="theme-mode-button" data-theme-mode="system" onclick="window.setThemeMode('system')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("monitor", 15)}<span>System</span></button>
-            <button type="button" class="theme-mode-button" data-theme-mode="light" onclick="window.setThemeMode('light')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("sun", 15)}<span>Light</span></button>
-            <button type="button" class="theme-mode-button" data-theme-mode="dark" onclick="window.setThemeMode('dark')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("moon", 15)}<span>Dark</span></button>
+            <button type="button" class="theme-mode-button" data-theme-mode="system" onclick="window.setThemeMode('system')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("monitor", 17)}</button>
+            <button type="button" class="theme-mode-button" data-theme-mode="light" onclick="window.setThemeMode('light')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("sun", 17)}</button>
+            <button type="button" class="theme-mode-button" data-theme-mode="dark" onclick="window.setThemeMode('dark')" style="display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid transparent; border-radius:4px; font-size:12px;">${renderSvg("moon", 17)}</button>
           </div>
         </div>
       </div>
@@ -266,7 +266,7 @@ export function renderSettingsPage(params: {
       <h2 style="font-size:16px; font-weight:600; color:var(--error); margin-bottom:16px;">Danger Zone</h2>
 
       <div class="settings-action-row" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;">
-        <button type="button" class="btn ghost" onclick="resetToolDefaults()" style="border:1px solid var(--border-medium);">
+        <button type="button" class="btn danger" onclick="resetToolDefaults()" style="border:1px solid rgba(239,68,68,.35); border-radius:6px; min-height:38px; justify-content:center;">
           ${renderSvg("refresh", 15)}<span>Reset Tool Defaults</span>
         </button>
       </div>
@@ -395,7 +395,7 @@ export function renderSettingsPage(params: {
             if (window.showToast) window.showToast('Credentials updated successfully', 'success');
             setTimeout(() => window.location.reload(), 600);
           } else {
-            if (window.showToast) window.showToast(data.error || 'Failed to save', 'error');
+            if (window.showToast) window.showToast(data.error || 'Credential validation or save failed', 'error');
           }
         }).catch(err => {
           if (window.showToast) window.showToast('Network error: ' + err.message, 'error');
@@ -423,7 +423,7 @@ export function renderSettingsPage(params: {
           if (data && data.ok) {
             if (window.showToast) window.showToast(toolName + (enabled ? ' enabled' : ' disabled'), 'success');
           } else {
-            if (window.showToast) window.showToast('Failed to toggle tool', 'error');
+            if (window.showToast) window.showToast(data.error || 'This tool is unavailable until its required provider credential is saved.', 'error');
           }
         }).catch(err => {
           if (window.showToast) window.showToast('Network error', 'error');

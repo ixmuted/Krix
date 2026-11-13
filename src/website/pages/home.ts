@@ -69,17 +69,16 @@ export function renderHomePage(params: {
     </section>
 
     <!-- Bento Grid Architecture -->
-    <div style="display:grid; grid-template-columns:repeat(12, 1fr); gap:20px; margin-top:16px;">
+    <div class="home-bento-grid" style="display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:20px; margin-top:16px;">
       <!-- Card 1: Interactive Client Configurator (8 Columns) -->
-      <div class="card spotlight-card card-top-border" style="grid-column:span 8; padding:24px;">
+      <div class="card spotlight-card card-top-border home-config-card" style="grid-column:span 8; min-width:0; padding:24px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;">
           <div>
             <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">01 // CLIENT CONFIGURATION</div>
             <h2 style="font-size:17px; font-weight:700; color:var(--fg); margin-top:4px;">Connect Your AI Workspace</h2>
           </div>
-          <button type="button" class="btn" onclick="window.copyToClipboard(document.getElementById('mcpSnippetCode').textContent, this)" style="padding:6px 12px; font-size:12px; border-radius:var(--radius-full);">
-            ${renderSvg("copy", 14)}
-            <span>Copy Snippet</span>
+          <button type="button" class="btn snippet-copy-button" aria-label="Copy snippet" title="Copy snippet" onclick="window.copyToClipboard(document.getElementById('mcpSnippetCode').textContent, this)" style="padding:8px; width:36px; height:36px; justify-content:center; border-radius:8px;">
+            ${renderSvg("copy", 16)}
           </button>
         </div>
 
@@ -102,7 +101,7 @@ export function renderHomePage(params: {
       </div>
 
       <!-- Card 2: Live Protocol Telemetry (4 Columns) -->
-      <div class="card spotlight-card card-top-border" style="grid-column:span 4; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
+      <div class="card spotlight-card card-top-border home-telemetry-card" style="grid-column:span 4; min-width:0; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
           <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">02 // TELEMETRY SUMMARY</div>
           <h2 style="font-size:17px; font-weight:700; color:var(--fg); margin-top:4px;">Platform Metrics</h2>

@@ -101,7 +101,7 @@ export function renderStorePage(params: {
 
     <!-- Files Table Card -->
     <div class="card spotlight-card" style="padding:24px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+      <div class="store-table-toolbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Repository Objects</h2>
           <span class="badge" id="fileCountBadge">${files.length} items</span>
@@ -109,7 +109,7 @@ export function renderStorePage(params: {
 
         <div style="display:flex; align-items:center; gap:10px;">
           <!-- List vs Grid View Toggle (Pure SVGs, No words) -->
-          <div style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px; gap:2px;">
+          <div class="store-view-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px; gap:2px;">
             <button type="button" id="viewListBtn" class="nav-pill active" onclick="setStoreView('list')" title="List View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
               ${renderSvg("list", 14)}
             </button>
@@ -118,7 +118,7 @@ export function renderStorePage(params: {
             </button>
           </div>
 
-          <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 12px; min-width:240px;">
+          <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 12px; min-width:0; flex:1 1 240px; max-width:100%;">
             ${renderSvg("search", 14, "text-muted")}
             <input
               type="text"

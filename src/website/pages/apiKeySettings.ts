@@ -30,10 +30,10 @@ export function renderApiKeySettingsPage(params: {
     const name = String(tool.name || "");
     if (disabledTools.has(name)) return false;
     if (enabledTools.has(name)) return true;
+    if (name === "web_search") return false;
     const category = String(tool.category || "");
     const categoryKeys: Record<string, string[]> = {
       GitHub: ["github_issues_prs", "github_admin"],
-      Render: ["render"],
       Sandbox: ["sandbox"],
       Files: ["files"],
       Execution: ["sandbox"],
@@ -42,7 +42,7 @@ export function renderApiKeySettingsPage(params: {
       Search: ["search"],
     };
     if (category === "GitHub" && params.credentialAvailability?.github) return true;
-    if (category === "Render" && params.credentialAvailability?.render) return true;
+    if (category === "Sandbox" && params.credentialAvailability?.github) return true;
     return category !== "Code Graph" && category !== "Search" &&
       (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
   };
@@ -114,9 +114,9 @@ export function renderApiKeySettingsPage(params: {
       <h2 style="font-size:16px;font-weight:650;color:var(--fg);margin-bottom:5px;">Key Identity</h2>
       <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:14px;">View this key's token and OAuth client identifier.</p>
       <div class="key-identity-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
-        <div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
+        ${rawApiToken ? `<div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
           <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(maskedApiToken)}" data-is-visible="false">${escapeHtml(maskedApiToken)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button></div></div>
-        </div>
+        </div>` : ""}
         <div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">Client ID</label>
           <div class="key-secret-row"><code id="oauthClientIdValue" class="key-secret-value" data-raw="${escapeHtml(clientId || rawKeyId)}" data-masked="${escapeHtml(maskedClientId)}" data-is-visible="false">${escapeHtml(maskedClientId)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('oauthClientIdValue',this)" title="Reveal client ID" aria-label="Reveal client ID">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('oauthClientIdValue').dataset.raw,this)" title="Copy client ID" aria-label="Copy client ID">${renderSvg("copy", 14)}</button></div></div>
         </div>

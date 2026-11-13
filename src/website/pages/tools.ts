@@ -39,7 +39,7 @@ export function renderToolsPage(params: {
     categories[cat] = (categories[cat] || 0) + 1;
   });
 
-  const standardCats = ["Sandbox", "Render", "GitHub", "Files"];
+  const standardCats = ["Sandbox", "Render", "GitHub"];
   standardCats.forEach((c) => {
     if (!categories[c]) categories[c] = 0;
   });
@@ -72,9 +72,9 @@ export function renderToolsPage(params: {
               .join("")}
           </select>
         </div>
-        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:6px; padding:3px; gap:2px;">
-          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:4px;">Concise</button>
-          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:4px;">Verbose</button>
+        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:999px; padding:3px; gap:2px;">
+          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:7px 14px; border-radius:999px;">Concise</button>
+          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:7px 14px; border-radius:999px;">Verbose</button>
         </div>
       </div>
     </div>
@@ -87,9 +87,9 @@ export function renderToolsPage(params: {
           <h2 id="breakdownToolTitle" style="font-size:18px; font-weight:700; color:var(--fg); margin-top:2px;">All Tools Aggregate</h2>
           <p id="breakdownToolSubtitle" style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Execution statistics across all MCP tool invocations</p>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div class="tool-breakdown-select-wrap" style="display:flex; align-items:center; gap:8px; min-width:0;">
           <label for="toolBreakdownSelect" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Select Tool:</label>
-          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer; max-width:260px;">
+          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer; max-width:260px; min-width:0;">
             <option value="">All Tools (Global)</option>
             ${tools.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${escapeHtml(t.category || "General")})</option>`).join("")}
           </select>
@@ -148,9 +148,7 @@ export function renderToolsPage(params: {
         <button type="button" class="tool-cat-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
           GitHub (${categories["GitHub"] || 0})
         </button>
-        <button type="button" class="tool-cat-pill" data-cat="Files" onclick="filterCategory('Files', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
-          Files (${categories["Files"] || 0})
-        </button>
+        ${categories["Files"] > 0 ? `<button type="button" class="tool-cat-pill" data-cat="Files" onclick="filterCategory('Files', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">Files (${categories["Files"]})</button>` : ""}
         ${Object.keys(categories)
           .filter((cat) => !standardCats.includes(cat) && cat !== "All")
           .map(
