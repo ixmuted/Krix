@@ -2317,10 +2317,12 @@ app.get("/settings", async (req, res) => {
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
     statsTracker.ensureMongo().catch(() => {}),
+    ensureSettingsFromMongo().catch(() => {}),
   ]);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   const isOwner = Boolean(owner && isOwnerEmail(owner.email));
+  const sandboxAllowed = isSandboxAllowedOnServer();
 
   if (!owner) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -2332,11 +2334,13 @@ app.get("/settings", async (req, res) => {
         keys: [],
         selectedKeyId: "primary-key",
         keySettings: getKeySettings("primary-key"),
+        sandboxAllowed,
         credentialAvailability: {
           github: Boolean(getWorkspaceCredential("github")),
           render: Boolean(getWorkspaceCredential("render")),
           workspaceGithub: Boolean(getWorkspaceCredential("github")),
           workspaceRender: Boolean(getWorkspaceCredential("render")),
+          sandboxEnabled: sandboxAllowed,
         },
         toolsCatalog: statsTracker.getSummary("/tmp").toolsCatalog,
         userQuota: getUserQuota("user"),
