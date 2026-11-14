@@ -495,17 +495,25 @@ export function isToolEnabledForKey(
   sessionEnabledCategories: Set<string>,
 ): boolean {
   const settings = getKeySettings(keyId);
-  if (settings.disabledTools?.includes(toolName)) return false;
+  const primary =
+    keyId !== "primary-key" ? keySettingsMap.get("primary-key") : undefined;
 
-  const explicitlyEnabled = Boolean(settings.enabledTools?.includes(toolName));
+  // 1. Per-key explicit overrides always win over global defaults.
+  if (settings.disabledTools?.includes(toolName)) return false;
+  if (settings.enabledTools?.includes(toolName)) return true;
+
+  // 2. Otherwise inherit global tool overrides from primary-key when set.
+  if (primary?.disabledTools?.includes(toolName)) return false;
+  const globallyEnabled = Boolean(primary?.enabledTools?.includes(toolName));
+
   // Search is grouped under Sandbox in the catalog, but is deliberately opt-in.
-  if (toolName === "web_search") return explicitlyEnabled;
+  if (toolName === "web_search") return globallyEnabled;
   const categoryEnabled =
     category !== "codegraph" &&
     category !== "search" &&
     category !== "render" &&
     sessionEnabledCategories.has(category);
-  const enabled = explicitlyEnabled || categoryEnabled;
+  const enabled = globallyEnabled || categoryEnabled;
   if (!enabled) return false;
 
   // The risk gate only applies when the user has explicitly marked this tool high/critical
@@ -513,10 +521,12 @@ export function isToolEnabledForKey(
   // (delete/create/update/edit/write/execute/upload...) are advisory only: they must never
   // hide a tool that Settings shows as ON, whether it is on by category, by default
   // (GitHub default set) or by an explicit toggle. This keeps every tool consistent with the UI.
-  const explicitRisk = settings.toolRiskLevels?.[toolName];
+  const explicitRisk =
+    settings.toolRiskLevels?.[toolName] || primary?.toolRiskLevels?.[toolName];
   if (
     (explicitRisk === "high" || explicitRisk === "critical") &&
-    !settings.riskAcknowledgedTools?.includes(toolName)
+    !settings.riskAcknowledgedTools?.includes(toolName) &&
+    !primary?.riskAcknowledgedTools?.includes(toolName)
   ) {
     return false;
   }
