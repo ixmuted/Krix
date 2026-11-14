@@ -477,6 +477,7 @@ export function renderSettingsPage(params: {
       }
 
       function toggleToolPermission(toolName, enabled, input) {
+        if (input) input.disabled = true;
         fetch('/settings/api/tool-toggle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -492,6 +493,28 @@ export function renderSettingsPage(params: {
         }).catch(err => {
           if (input) input.checked = !enabled;
           if (window.showToast) window.showToast('Network error', 'error');
+        }).finally(() => {
+          if (input) input.disabled = false;
+        });
+      }
+
+      function applyToolsToAllKeys() {
+        const btn = document.getElementById('applyToolsAllKeysBtn');
+        if (btn) btn.disabled = true;
+        fetch('/settings/api/tools/sync-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceKeyId: activeKeyId })
+        }).then(res => res.json()).then(data => {
+          if (data && data.ok) {
+            if (window.showToast) window.showToast('Tool permissions synced across ' + (data.updatedCount || 1) + ' key(s)', 'success');
+          } else {
+            if (window.showToast) window.showToast((data && data.error) || 'Failed to sync tool permissions', 'error');
+          }
+        }).catch(() => {
+          if (window.showToast) window.showToast('Network error', 'error');
+        }).finally(() => {
+          if (btn) btn.disabled = false;
         });
       }
 
