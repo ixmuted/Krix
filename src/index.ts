@@ -748,12 +748,20 @@ app.all(
   },
   express.json({ limit: `${MAX_BODY_MB}mb` }),
   async (req: Request, res: Response): Promise<void> => {
-    await statsTracker.ensureMongo().catch((error) => {
-      console.error(
-        "[stats] startup restore before MCP request failed:",
-        error?.message || error,
-      );
-    });
+    await Promise.all([
+      statsTracker.ensureMongo().catch((error) => {
+        console.error(
+          "[stats] startup restore before MCP request failed:",
+          error?.message || error,
+        );
+      }),
+      ensureSettingsFromMongo().catch((error) => {
+        console.error(
+          "[settings] startup restore before MCP request failed:",
+          error?.message || error,
+        );
+      }),
+    ]);
     const startTime = Date.now();
     const clientAuth = (req as any).clientAuth || {
       keyId: "primary-key",
