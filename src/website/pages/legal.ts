@@ -8,15 +8,10 @@ export function renderPrivacyPage(params: { owner?: any }): string {
   const content = `
     <div style="max-width:780px; margin:0 auto; padding:24px 0 64px;">
       <div style="margin-bottom:32px;">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-          <a href="/home" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:4px;">
-            &larr; <span>Back to Home</span>
-          </a>
-        </div>
         <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">LEGAL &amp; COMPLIANCE</div>
         <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.03em; color:var(--fg); margin-top:6px;">Privacy Policy</h1>
         <p style="font-size:13px; color:var(--geist-gray-50); margin-top:4px; font-family:var(--font-mono);">
-          Effective Date: November 2026 &bull; Version 1.4.0
+          Effective Date: November 2026
         </p>
       </div>
 
@@ -81,15 +76,10 @@ export function renderTermsPage(params: { owner?: any }): string {
   const content = `
     <div style="max-width:780px; margin:0 auto; padding:24px 0 64px;">
       <div style="margin-bottom:32px;">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-          <a href="/home" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:4px;">
-            &larr; <span>Back to Home</span>
-          </a>
-        </div>
         <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">LEGAL &amp; COMPLIANCE</div>
         <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.03em; color:var(--fg); margin-top:6px;">Terms of Service</h1>
         <p style="font-size:13px; color:var(--geist-gray-50); margin-top:4px; font-family:var(--font-mono);">
-          Effective Date: November 2026 &bull; Version 1.4.0
+          Effective Date: November 2026
         </p>
       </div>
 

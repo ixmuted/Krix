@@ -294,6 +294,24 @@ export function renderToolsPage(params: {
       }
     </style>
 
+    <style>
+      /* The drawer body is a flex column: without flex-shrink:0 the schema box was squashed to
+         almost nothing on phones. Give it a real height and let the page scroll instead. */
+      #toolDrawerContent > * { flex-shrink: 0; }
+      #toolDrawer .drawer-schema-box {
+        flex: 0 0 auto;
+        min-height: 160px;
+        max-height: min(56dvh, 420px);
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      #toolDrawer .drawer-schema-box pre { font-size: 12px; line-height: 1.55; }
+      @media (max-width: 640px) {
+        #toolDrawer .drawer-schema-box { min-height: 220px; max-height: 52dvh; padding: 12px 14px; }
+        #toolDrawer .drawer-schema-box pre { font-size: 12.5px; }
+      }
+    </style>
+
     <!-- Slide-Over Inspector Drawer -->
     <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; inset:0 0 0 auto; width:480px; max-width:100vw; height:100dvh; max-height:100dvh; box-sizing:border-box; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:650; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
       <div class="tool-drawer-header" style="position:sticky; top:0; z-index:2; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-shrink:0; padding:18px 0 14px; background:var(--bg-surface-0); border-bottom:1px solid var(--border-subtle); margin-bottom:16px;">
@@ -310,8 +328,8 @@ export function renderToolsPage(params: {
       <div id="toolDrawerContent" style="flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column;">
         <p id="drawerToolDesc" style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:18px;"></p>
         <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50); margin-bottom:6px;">Parameters Schema</div>
-        <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px; margin-bottom:18px; overflow:auto; max-height:260px;">
-          <pre id="drawerToolSchema" style="font-family:var(--font-mono); font-size:11px; color:var(--fg); white-space:pre-wrap; overflow-wrap:anywhere; margin:0;"></pre>
+        <div id="drawerSchemaBox" class="drawer-schema-box" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px; margin-bottom:18px; overflow:auto;">
+          <pre id="drawerToolSchema" style="font-family:var(--font-mono); color:var(--fg); white-space:pre-wrap; overflow-wrap:anywhere; margin:0;"></pre>
         </div>
 
         <div id="toolRunnerPanel" style="padding:14px; border:1px solid var(--border-subtle); border-radius:var(--radius-md); background:var(--bg-surface-1); margin-bottom:10px;">

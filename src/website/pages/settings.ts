@@ -3,6 +3,7 @@
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
+import { isDefaultGithubTool } from "../../toolDefaults.js";
 
 export function renderSettingsPage(params: {
   base: string;
@@ -49,7 +50,7 @@ export function renderSettingsPage(params: {
     if (name === "web_search") return false;
     const category = String(tool.category || "");
     const categoryKeys: Record<string, string[]> = {
-      GitHub: ["github_issues_prs", "github_admin"],
+      GitHub: [],
       Sandbox: ["sandbox"],
       Files: ["files"],
       Execution: ["sandbox"],
@@ -57,7 +58,8 @@ export function renderSettingsPage(params: {
       "Code Graph": ["codegraph"],
       Search: ["search"],
     };
-    if (category === "GitHub" && params.credentialAvailability?.github) return true;
+    // With a GitHub token only the default GitHub tool set is on; everything else is opt-in.
+    if (category === "GitHub" && params.credentialAvailability?.github) return isDefaultGithubTool(name);
     if (category === "Sandbox" && params.credentialAvailability?.github) return true;
     return category !== "Code Graph" && category !== "Search" &&
       (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
@@ -204,14 +206,6 @@ export function renderSettingsPage(params: {
         </button>
       </div>
 
-      <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:14px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-        <div>
-          <div style="font-size:13px; font-weight:600; color:var(--fg);">Code Graph Context (29 tools)</div>
-          <div style="font-size:12px; color:var(--geist-gray-50);">Deep structural AST inspection and call hierarchy traversal across provider tool groups.</div>
-        </div>
-        <span class="status-pill" style="font-size:11px;"><span class="status-dot-available"></span><span>Available</span></span>
-      </div>
-
       <div id="settingsToolsGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; max-height:360px; overflow-y:auto; padding:4px;">
         ${(params.toolsCatalog && params.toolsCatalog.length > 0
           ? params.toolsCatalog
@@ -227,7 +221,7 @@ export function renderSettingsPage(params: {
                   <div style="font-size:11px; color:var(--geist-gray-50);">${escapeHtml(cat)}</div>
                 </div>
                 <label class="switch krix-switch" title="Toggle Tool Permission">
-                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked)" ${isEnabled ? "checked" : ""}>
+                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}>
                   <span class="krix-slider"></span>
                 </label>
               </div>
@@ -414,7 +408,7 @@ export function renderSettingsPage(params: {
         renderSettingsTools();
       }
 
-      function toggleToolPermission(toolName, enabled) {
+      function toggleToolPermission(toolName, enabled, input) {
         fetch('/settings/api/tool-toggle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -423,9 +417,12 @@ export function renderSettingsPage(params: {
           if (data && data.ok) {
             if (window.showToast) window.showToast(toolName + (enabled ? ' enabled' : ' disabled'), 'success');
           } else {
-            if (window.showToast) window.showToast(data.error || 'This tool is unavailable until its required provider credential is saved.', 'error');
+            // Server refused (for example a missing GitHub/Render credential): undo the toggle.
+            if (input) input.checked = !enabled;
+            if (window.showToast) window.showToast((data && data.error) || 'This tool is unavailable until its required provider credential is saved.', 'error');
           }
         }).catch(err => {
+          if (input) input.checked = !enabled;
           if (window.showToast) window.showToast('Network error', 'error');
         });
       }

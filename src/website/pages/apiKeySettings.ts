@@ -3,6 +3,8 @@
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
+import { getToolCredentialRequirement } from "../../security.js";
+import { credentialRequiredMessage, isDefaultGithubTool } from "../../toolDefaults.js";
 
 export function renderApiKeySettingsPage(params: {
   base: string;
@@ -33,7 +35,7 @@ export function renderApiKeySettingsPage(params: {
     if (name === "web_search") return false;
     const category = String(tool.category || "");
     const categoryKeys: Record<string, string[]> = {
-      GitHub: ["github_issues_prs", "github_admin"],
+      GitHub: [],
       Sandbox: ["sandbox"],
       Files: ["files"],
       Execution: ["sandbox"],
@@ -41,7 +43,8 @@ export function renderApiKeySettingsPage(params: {
       "Code Graph": ["codegraph"],
       Search: ["search"],
     };
-    if (category === "GitHub" && params.credentialAvailability?.github) return true;
+    // With a GitHub token only the default GitHub tool set is on; everything else is opt-in.
+    if (category === "GitHub" && params.credentialAvailability?.github) return isDefaultGithubTool(name);
     if (category === "Sandbox" && params.credentialAvailability?.github) return true;
     return category !== "Code Graph" && category !== "Search" &&
       (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
@@ -76,8 +79,7 @@ export function renderApiKeySettingsPage(params: {
   const content = `
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
       <div style="min-width:0;">
-        <a href="/api" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:4px;">&larr; <span>Back to API Keys</span></a>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.03em; color:var(--fg); margin-top:8px;">Configure Key: ${keyName}</h1>
+        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.03em; color:var(--fg);">Configure Key: ${keyName}</h1>
         <p style="font-size:13px; color:var(--geist-gray-50); margin-top:2px; font-family:var(--font-mono); overflow-wrap:anywhere;">Key ID: ${keyId}</p>
       </div>
     </div>
@@ -115,7 +117,7 @@ export function renderApiKeySettingsPage(params: {
       <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:14px;">View this key's token and OAuth client identifier.</p>
       <div class="key-identity-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
         ${rawApiToken ? `<div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
-          <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(maskedApiToken)}" data-is-visible="false">${escapeHtml(maskedApiToken)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button></div></div>
+          <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(maskedApiToken)}" data-is-visible="false">${escapeHtml(maskedApiToken)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('apiKeyTokenValue').dataset.raw,this)" title="Copy token" aria-label="Copy token">${renderSvg("copy", 14)}</button></div></div>
         </div>` : ""}
         <div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">Client ID</label>
           <div class="key-secret-row"><code id="oauthClientIdValue" class="key-secret-value" data-raw="${escapeHtml(clientId || rawKeyId)}" data-masked="${escapeHtml(maskedClientId)}" data-is-visible="false">${escapeHtml(maskedClientId)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('oauthClientIdValue',this)" title="Reveal client ID" aria-label="Reveal client ID">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('oauthClientIdValue').dataset.raw,this)" title="Copy client ID" aria-label="Copy client ID">${renderSvg("copy", 14)}</button></div></div>
@@ -145,10 +147,6 @@ export function renderApiKeySettingsPage(params: {
         <div><h2 style="font-size:16px;font-weight:650;color:var(--fg);">Tool Permissions</h2><p style="font-size:12px;color:var(--geist-gray-50);margin-top:3px;">Choose the exact tools this key is allowed to use.</p></div>
         <input type="search" id="keyToolSearch" placeholder="Search tools" oninput="filterKeyTools()" style="width:min(260px,100%);padding:8px 11px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-1);color:var(--fg);font-size:12px;">
       </div>
-      <div style="background:var(--bg-surface-1);border:1px solid var(--border-subtle);border-radius:6px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div><div style="font-size:12px;font-weight:650;color:var(--fg);">Code Graph Context (29 tools)</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:3px;">Deep structural AST inspection and call hierarchy context across GitHub, Render, and Sandbox tool groups.</div></div>
-        <span style="font-size:11px;color:var(--geist-gray-50);">Included in tool permissions</span>
-      </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
         ${categories.map((category) => `<button type="button" class="settings-cat-pill${category === "All" ? " active" : ""}" data-cat="${escapeHtml(category)}" onclick="selectKeyToolCategory('${escapeHtml(category).replace(/'/g, "\\'")}',this)" style="padding:5px 10px;font-size:11px;border:1px solid var(--border-subtle);border-radius:6px;background:${category === "All" ? "var(--bg-surface-2)" : "var(--bg-surface-1)"};color:${category === "All" ? "var(--fg)" : "var(--geist-gray-50)"};">${escapeHtml(category)} (${category === "All" ? tools.length : categoryCounts.get(category) || 0})</button>`).join("")}
       </div>
@@ -157,9 +155,10 @@ export function renderApiKeySettingsPage(params: {
           const toolName = String(tool.name || "");
           const category = String(tool.category || "General");
           const checked = isToolEnabled(tool);
-          return `<div class="key-tool-row" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
+          const requires = getToolCredentialRequirement(toolName) || "";
+          return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
             <div style="min-width:0;flex:1;"><div style="font:600 12px var(--font-mono);color:var(--fg);overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:2px;">${escapeHtml(category)}</div></div>
-            <label class="switch krix-switch" title="Toggle permission for ${escapeHtml(toolName)}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="showKeySettingsSave()"><span class="krix-slider"></span></label>
+            <label class="switch krix-switch" title="Toggle permission for ${escapeHtml(toolName)}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
         }).join("") : `<div style="text-align:center;padding:28px;color:var(--geist-gray-50);font-size:12px;">No tools available.</div>`}
       </div>
@@ -167,6 +166,8 @@ export function renderApiKeySettingsPage(params: {
     </section>
 
     <script>
+      const credentialReady = { github: ${Boolean(params.credentialAvailability?.github)}, render: ${Boolean(params.credentialAvailability?.render)} };
+      const credentialMessages = { github: ${JSON.stringify(credentialRequiredMessage("github", undefined, "key")).replace(/</g, "\\u003c")}, render: ${JSON.stringify(credentialRequiredMessage("render", undefined, "key")).replace(/</g, "\\u003c")} };
       const keyToolPageSize = 12;
       let keyToolPage = 1;
       let keyToolCategory = 'All';
@@ -191,6 +192,21 @@ export function renderApiKeySettingsPage(params: {
         if (info) info.textContent = 'Page ' + keyToolPage + ' of ' + pages + ' · ' + matches.length + ' tools';
         if (prev) prev.disabled = keyToolPage <= 1;
         if (next) next.disabled = keyToolPage >= pages;
+      }
+      function providerReady(provider) {
+        // A credential typed into the override box (not yet saved) counts, an emptied one does not.
+        const inputId = provider === 'github' ? 'customGithubToken' : 'customRenderKey';
+        if (overrideEditing[provider]) return Boolean((document.getElementById(inputId)?.value || '').trim());
+        return Boolean(credentialReady[provider]);
+      }
+      function onKeyToolToggle(input) {
+        const requires = input.closest('.key-tool-row')?.dataset.requires || '';
+        if (input.checked && requires && !providerReady(requires)) {
+          input.checked = false;
+          showToast('"' + input.value + '" ' + credentialMessages[requires].replace(/^This tool /, ''), 'error');
+          return;
+        }
+        showKeySettingsSave();
       }
       function changeKeyToolsPage(delta) { keyToolPage += delta; renderKeyToolsPage(); }
       function filterKeyTools() { keyToolPage = 1; renderKeyToolsPage(); }

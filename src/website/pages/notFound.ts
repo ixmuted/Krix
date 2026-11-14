@@ -1,5 +1,5 @@
 // Minimalist Chrome-Free 404 Error Viewport
-// Contract Invariants: Exact <title>404 Not Found</title>, "404 Error", "Page Not Found", pathname, "/home", "/tools"
+// Contract Invariants: Exact <title>404 Not Found</title>, "404 Error", "Page Not Found", pathname, "/home"
 
 import { getTokensCss } from "../tokens.css.js";
 import { escapeHtml } from "../components.js";
@@ -47,10 +47,6 @@ export function renderNotFoundPage(params: {
       <a href="/home" class="btn primary" style="padding:8px 18px; border-radius:var(--radius-full);">
         ${renderSvg("terminal", 14)}
         <span>Back to Home (/home)</span>
-      </a>
-      <a href="/tools" class="btn" style="padding:8px 18px; border-radius:var(--radius-full);">
-        ${renderSvg("sliders", 14)}
-        <span>Browse Tools (/tools)</span>
       </a>
     </div>
   </div>

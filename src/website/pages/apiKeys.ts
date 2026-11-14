@@ -157,17 +157,13 @@ export function renderApiKeysPage(params: {
           <thead>
             <tr style="border-bottom:1px solid var(--border-subtle); color:var(--geist-gray-50); font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">
               <th style="padding:10px 12px; font-weight:600;">Label</th>
-              <th style="padding:10px 12px; font-weight:600;">Client ID</th>
-              <th style="padding:10px 12px; font-weight:600;">Key Token</th>
-              <th style="padding:10px 12px; font-weight:600;">Status</th>
-              <th style="padding:10px 12px; font-weight:600;">Created</th>
               <th style="padding:10px 12px; font-weight:600; text-align:right;">Actions</th>
             </tr>
           </thead>
           <tbody id="keysTableBody">
             ${
               keys.length === 0
-                ? `<tr id="emptyKeysRow"><td colspan="6" style="text-align:center; padding:32px; color:var(--geist-gray-50);">No active API keys found. Click "Create API Key" to generate one.</td></tr>`
+                ? `<tr id="emptyKeysRow"><td colspan="2" style="text-align:center; padding:32px; color:var(--geist-gray-50);">No active API keys found. Click "Create API Key" to generate one.</td></tr>`
                 : keys
                     .map((k, idx) => {
                       const rawKeyId = String(k.id || "");
@@ -176,11 +172,6 @@ export function renderApiKeysPage(params: {
                       const keyLabel = escapeHtml(rawKeyLabel);
                       const keyIdArg = inlineJsString(rawKeyId);
                       const keyLabelArg = inlineJsString(rawKeyLabel);
-                      const rawKey = escapeHtml(k.key || k.token || "");
-                      const maskedKey =
-                        rawKey.length > 8
-                          ? `${rawKey.slice(0, 4)}••••••••${rawKey.slice(-4)}`
-                          : "••••••••";
                       const clientId = escapeHtml(k.clientId || "N/A");
                       const menuId = `keyMenu_${idx}`;
 
@@ -190,32 +181,6 @@ export function renderApiKeysPage(params: {
                       <span id="key-name-text-${keyId}" class="key-label-text-${keyId}" style="font-weight:600; color:var(--fg);">${keyLabel}</span>
                       <div style="font-family:var(--font-mono); font-size:11px; color:var(--geist-gray-50);">${keyId}</div>
                     </td>
-                    <td style="padding:12px;">
-                      <div style="display:flex; align-items:center; gap:6px;">
-                        <code class="api-client-id-box" style="display:block; min-width:0; max-width:clamp(110px, 18vw, 220px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--font-mono); font-size:12px; background:var(--bg-surface-2); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle); color:var(--fg); font-variant-numeric:tabular-nums;">${clientId}</code>
-                        ${clientId !== "N/A" ? `<button type="button" class="btn ghost copyClientIdBtn" onclick="window.copyToClipboard('${clientId}', this)" style="padding:3px;" title="Copy Client ID">${renderSvg("copy", 13)}</button>` : ""}
-                      </div>
-                    </td>
-                    <td style="padding:12px;">
-                      <div class="key-display-scroll" style="display:flex; align-items:center; gap:8px;">
-                        <code id="keyCode_${idx}" data-raw="${rawKey}" data-masked-val="${maskedKey}" data-masked="true" style="font-family:var(--font-mono); color:var(--fg);">${maskedKey}</code>
-                        <button type="button" class="btn ghost toggleKeyReveal" onclick="window.toggleSecretReveal('keyCode_${idx}', this)" style="padding:3px;" title="Reveal Key">
-                          ${renderSvg("eye", 13)}
-                        </button>
-                        <button type="button" class="btn ghost" onclick="window.copyToClipboard('${rawKey}', this)" style="padding:3px;" title="Copy Key">
-                          ${renderSvg("copy", 13)}
-                        </button>
-                      </div>
-                    </td>
-                    <td style="padding:12px;">
-                      <span class="status-pill" style="font-size:11px;">
-                        <span class="status-dot-available" style="width:5px; height:5px;"></span>
-                        <span>Active</span>
-                      </span>
-                    </td>
-                    <td style="padding:12px; color:var(--geist-gray-50); font-family:var(--font-mono); font-size:11px; font-variant-numeric:tabular-nums;">
-                      ${escapeHtml(k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "Recent")}
-                    </td>
                     <td style="padding:12px; text-align:right; position:relative; overflow:visible;">
                       <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
                         <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${menuId}', this)" style="padding:4px 6px;" aria-label="Key Actions">
@@ -223,8 +188,8 @@ export function renderApiKeysPage(params: {
                         </button>
                         <div id="${menuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:680; min-width:160px; text-align:left;">
                           <a href="/api/settings?key=${encodeURIComponent(keyId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
-                            ${renderSvg("edit", 13)}
-                            <span>Edit</span>
+                            ${renderSvg("info", 13)}
+                            <span>Info</span>
                           </a>
                           <button type="button" class="btn ghost" onclick="openRenameKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm);">
                             ${renderSvg("edit", 13)}
@@ -265,7 +230,7 @@ export function renderApiKeysPage(params: {
         </div>
       </div>
 
-      <div id="oauthClientsContainer" class="oauth-clients-scroll" style="display:flex; flex-direction:column; align-items:stretch; gap:8px; overflow-x:auto; overflow-y:hidden; max-width:100%; height:auto; min-height:0; flex:none;">
+      <div id="oauthClientsContainer" class="oauth-clients-scroll" style="display:flex; flex-direction:column; align-items:stretch; gap:8px; overflow:visible; max-width:100%; height:auto; min-height:0; flex:none;">
         ${
           oauthClients.length === 0
             ? `<div style="text-align:center; padding:32px; color:var(--geist-gray-50); font-size:13px;">No third-party applications authorized yet.</div>`
@@ -300,44 +265,45 @@ export function renderApiKeysPage(params: {
                     const cName = escapeHtml(displayName);
                     const clientIdArg = inlineJsString(rawClientId);
                     const displayNameArg = inlineJsString(displayName);
-                    const cScope = escapeHtml(client.scope || "mcp:all");
-                    const lastUsed = client.lastUsedAt
-                      ? new Date(client.lastUsedAt).toLocaleDateString()
-                      : "Active";
+                    // Scopes are derived server-side from the tools actually enabled for this client.
+                    const scopeList: string[] = Array.isArray(client.scopes)
+                      ? client.scopes.map((x: unknown) => String(x))
+                      : String(client.scope || "mcp:tools").split(/\s+/).filter(Boolean);
+                    const scopeChips = scopeList.length
+                      ? scopeList
+                          .map((sc) => `<span class="oauth-scope-chip">${escapeHtml(sc)}</span>`)
+                          .join("")
+                      : `<span class="oauth-scope-chip" style="opacity:.7;">none</span>`;
                     const appLogo = getAppLogoSvg(displayName, 18, client.clientUri || client.client_uri || client.website || client.url);
                     const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
                     return `
-              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" style="display:flex; justify-content:space-between; align-items:center; box-sizing:border-box; width:100%; min-height:68px; height:auto; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible; flex:0 0 auto;">
+              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" data-client-id="${cId}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; box-sizing:border-box; width:100%; min-height:68px; height:auto; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible; flex:0 0 auto;">
                 <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-                  <div style="width:36px; height:36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
+                  <div style="width:36px; height:36px; flex:0 0 36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
                     ${appLogo}
                   </div>
-                  <div style="min-width:0;flex:1;">
-                    <div style="font-weight:600; font-size:13px; color:var(--fg);overflow-wrap:anywhere;">${cName}</div>
-                    <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:5px; min-width:0;">
-                      <span style="font-size:10px;">ID</span><code class="api-client-id-box" style="display:block;max-width:min(44vw,260px);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 7px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-2);color:var(--fg);">${cId}</code>
-                      <span>&bull;</span><span>Scope: ${cScope}</span>
-                    </div>
+                  <div style="min-width:0; flex:1;">
+                    <div style="font-weight:600; font-size:13px; color:var(--fg); overflow-wrap:anywhere;">${cName}</div>
+                    <div class="oauth-scope-line">${scopeChips}</div>
                   </div>
                 </div>
 
-                <div style="display:flex; align-items:center; gap:12px; flex:0 0 auto; white-space:nowrap;">
-                  <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${lastUsed}</span>
+                <div style="display:flex; align-items:center; flex:0 0 auto;">
                   <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
                     <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}', this)" style="padding:4px 6px;" aria-label="OAuth Actions">
                       ${renderSvg("more-vertical", 14)}
                     </button>
                     <div id="${oauthMenuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:680; min-width:160px; text-align:left;">
-                      <a href="/api/settings?key=${encodeURIComponent(cId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
-                        ${renderSvg("edit", 13)}
-                        <span>Edit</span>
+                      <a href="/api/settings?key=${encodeURIComponent(rawClientId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
+                        ${renderSvg("info", 13)}
+                        <span>Info</span>
                       </a>
                       <button type="button" class="btn ghost" onclick="openRenameOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%;justify-content:flex-start;font-size:12px;padding:6px 10px;border-radius:var(--radius-sm);">
                         ${renderSvg("edit", 13)}<span>Rename</span>
                       </button>
                       <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
-                      <button type="button" class="btn ghost danger" onclick="revokeOAuthClient(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
+                      <button type="button" class="btn ghost danger" onclick="openRevokeOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
                         ${renderSvg("trash", 13)}
                         <span>Delete</span>
                       </button>
@@ -352,6 +318,12 @@ export function renderApiKeysPage(params: {
         }
       </div>
     </div>
+
+    <style>
+      .oauth-scope-line{display:flex;flex-wrap:wrap;gap:4px 5px;margin-top:6px;max-height:44px;overflow:hidden;min-width:0}
+      .oauth-scope-chip{font:600 10px/1 var(--font-mono);padding:4px 7px;border-radius:999px;background:var(--bg-surface-2);border:1px solid var(--border-subtle);color:var(--geist-gray-50);white-space:nowrap}
+      .oauth-clients-scroll{overflow-x:hidden}
+    </style>
 
     <!-- Create API Key Modal (Concentric Vercel Geist Dialog) -->
     <div id="createKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
@@ -436,6 +408,7 @@ export function renderApiKeysPage(params: {
     <script>
       let activeKeyMenuId = null;
       let pendingActionKeyId = null;
+      let pendingActionKind = 'key';
 
       function toggleKeyDropdown(id, trigger) {
         if (activeKeyMenuId === id) { closeKeyDropdown(id); return; }
@@ -641,8 +614,13 @@ export function renderApiKeysPage(params: {
 
       function openRevokeKeyModal(keyId, keyLabel = 'this key') {
         pendingActionKeyId = keyId;
+        pendingActionKind = 'key';
         const modal = document.getElementById('confirmModal');
         const desc = document.getElementById('modalDesc');
+        const title = document.getElementById('modalTitle');
+        const btn = document.getElementById('modalConfirmBtn');
+        if (title) title.textContent = 'Revoke API Key';
+        if (btn) btn.textContent = 'Revoke Key';
         if (desc) desc.textContent = 'Are you sure you want to revoke key "' + keyLabel + '"? This action cannot be reversed.';
         if (modal) {
           modal.hidden = false;
@@ -657,9 +635,16 @@ export function renderApiKeysPage(params: {
           modal.style.display = 'none';
         }
         pendingActionKeyId = null;
+        pendingOAuthClientId = null;
+        pendingActionKind = 'key';
+        const title = document.getElementById('modalTitle');
+        const btn = document.getElementById('modalConfirmBtn');
+        if (title) title.textContent = 'Confirm Action';
+        if (btn) { btn.textContent = 'Revoke Key'; btn.disabled = false; }
       }
 
       function executeConfirmedAction() {
+        if (pendingActionKind === 'oauth') return executeOAuthRevoke();
         if (!pendingActionKeyId) return;
         const id = pendingActionKeyId;
         fetch('/api/keys/' + encodeURIComponent(id), { method: 'DELETE' })
@@ -678,6 +663,28 @@ export function renderApiKeysPage(params: {
           }).catch(err => {
             showToast('Network error: ' + err.message, 'error');
           });
+      }
+
+      async function executeOAuthRevoke() {
+        if (!pendingOAuthClientId) return;
+        const id = pendingOAuthClientId;
+        const btn = document.getElementById('modalConfirmBtn');
+        if (btn) btn.disabled = true;
+        try {
+          await revokeOAuthAuthorization(id);
+          document.querySelectorAll('.oauth-client-row').forEach(row => {
+            if (row.getAttribute('data-client-id') === id) row.remove();
+          });
+          closeConfirmModal();
+          showToast('OAuth access revoked', 'success');
+          const remaining = document.querySelectorAll('.oauth-client-row').length;
+          const badge = document.getElementById('oauthCountBadge');
+          if (badge) badge.textContent = String(remaining);
+          if (!remaining) setTimeout(() => window.location.reload(), 500);
+        } catch (error) {
+          if (btn) btn.disabled = false;
+          showToast(error.message || 'Revocation failed', 'error');
+        }
       }
 
       let pendingOAuthClientId = null;
@@ -713,17 +720,26 @@ export function renderApiKeysPage(params: {
         finally { if (button) button.disabled = false; }
       }
 
-      function revokeOAuthClient(clientId, clientName) {
-        if (!confirm('Revoke access for ' + clientName + '?')) return;
-        fetch('/api/oauth/clients/' + encodeURIComponent(clientId), { method: 'DELETE' })
-          .then(res => {
-            if (res.ok) {
-              showToast('Client authorization revoked', 'success');
-              setTimeout(() => window.location.reload(), 500);
-            } else {
-              showToast('Revocation failed', 'error');
-            }
-          }).catch(err => showToast('Network error', 'error'));
+      function openRevokeOAuthModal(clientId, clientName) {
+        pendingOAuthClientId = clientId;
+        pendingActionKind = 'oauth';
+        const modal = document.getElementById('confirmModal');
+        const title = document.getElementById('modalTitle');
+        const desc = document.getElementById('modalDesc');
+        const btn = document.getElementById('modalConfirmBtn');
+        if (title) title.textContent = 'Revoke OAuth Access';
+        if (desc) desc.textContent = 'Revoke access for "' + clientName + '"? The application will be disconnected and must be re-authorized to use Krix again.';
+        if (btn) btn.textContent = 'Revoke Access';
+        if (modal) { modal.hidden = false; modal.style.display = 'flex'; }
+      }
+
+      async function revokeOAuthAuthorization(clientId) {
+        const response = await fetch('/oauth/authorizations/' + encodeURIComponent(clientId), { method: 'DELETE' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || ('Revocation failed (HTTP ' + response.status + ')'));
+        }
+        return data;
       }
 
       function openEditCredsModal() {
