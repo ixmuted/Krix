@@ -269,6 +269,12 @@ export function getKeySettings(keyId: string): KeySettings {
       sandboxId,
       enabledTools: primary ? [...(primary.enabledTools || [])] : [],
       disabledTools: primary ? [...(primary.disabledTools || [])] : [],
+      toolRiskLevels: primary?.toolRiskLevels
+        ? { ...primary.toolRiskLevels }
+        : undefined,
+      riskAcknowledgedTools: primary?.riskAcknowledgedTools
+        ? [...primary.riskAcknowledgedTools]
+        : [],
       // Inherit global tool access categories from primary key if present, otherwise default set
       enabledCategories: primary
         ? [...(primary.enabledCategories || ["core", "sandbox", "files"])]
