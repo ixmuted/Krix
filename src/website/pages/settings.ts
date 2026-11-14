@@ -185,37 +185,13 @@ export function renderSettingsPage(params: {
 
     <!-- Tool Permissions Section -->
     <div class="card spotlight-card" style="padding:24px; margin-bottom:24px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
         <div>
           <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Tool Permissions</h2>
           <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">
-            Manage tool access per API key or connected OAuth client, or sync across all credentials.
+            Manage default tool access inherited by all API keys and connected OAuth clients.
           </p>
         </div>
-        ${
-          params.keys && params.keys.length > 0
-            ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <select id="settingsKeySelect" class="krix-select" aria-label="Select API key or OAuth client" onchange="if(this.value) window.location.href='/settings?key=' + encodeURIComponent(this.value)" style="max-width:260px;">
-                  ${params.keys
-                    .map((k: any) => {
-                      const kid = String(k.id || "");
-                      const klabel = String(k.label || k.name || kid);
-                      const isSelected = kid === currentKeyId;
-                      return `<option value="${escapeHtml(kid)}" ${isSelected ? "selected" : ""}>${escapeHtml(klabel)}</option>`;
-                    })
-                    .join("")}
-                </select>
-                ${
-                  params.keys.length > 1
-                    ? `<button type="button" id="applyToolsAllKeysBtn" class="btn secondary" onclick="applyToolsToAllKeys()" title="Copy this key's tool permissions to all API keys and OAuth clients" style="height:34px; padding:0 12px; border-radius:var(--radius-full); font-size:12px;">
-                        ${renderSvg("refresh", 13)}
-                        <span>Apply to All Keys</span>
-                      </button>`
-                    : ""
-                }
-              </div>`
-            : ""
-        }
       </div>
 
       <div class="tools-manager-bar" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
