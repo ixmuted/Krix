@@ -47,10 +47,16 @@ export function renderApiKeySettingsPage(params: {
   const isKeyDisabled = !!settings.disabled;
   const isToolEnabled = (tool: any): boolean => {
     const name = String(tool.name || "");
+    const category = String(tool.category || "");
+    if (
+      ["Sandbox", "Files", "Execution", "Filesystem"].includes(category) &&
+      (!sandboxAllowed || params.credentialAvailability?.sandboxEnabled === false)
+    ) {
+      return false;
+    }
     if (disabledTools.has(name)) return false;
     if (enabledTools.has(name)) return true;
     if (name === "web_search") return false;
-    const category = String(tool.category || "");
     const categoryKeys: Record<string, string[]> = {
       GitHub: [],
       Sandbox: ["sandbox"],
@@ -63,12 +69,6 @@ export function renderApiKeySettingsPage(params: {
     // With a GitHub token only the default GitHub tool set is on; everything else is opt-in.
     if (category === "GitHub" && params.credentialAvailability?.github)
       return isDefaultGithubTool(name);
-    if (
-      ["Sandbox", "Files", "Execution", "Filesystem"].includes(category) &&
-      (!sandboxAllowed || params.credentialAvailability?.sandboxEnabled === false)
-    ) {
-      return false;
-    }
     if (category === "Sandbox" && params.credentialAvailability?.github)
       return true;
     return (
