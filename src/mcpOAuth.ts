@@ -14,6 +14,11 @@ import { safeEqual, registerSecret } from "./security.js";
 import { getKeySettings } from "./userSettings.js";
 import { renderSvg } from "./website/icons.js";
 import { renderOAuthConsentPage } from "./website/pages/oauthConsent.js";
+import {
+  getClientIp,
+  getUserAgent,
+  sendOAuthClientSetupEmail,
+} from "./emailService.js";
 
 export interface OAuthClient {
   clientId: string;
@@ -1043,6 +1048,24 @@ export function createMcpOAuthRouter(): Router {
         ownerEmail: owner.email,
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       });
+
+      const registered = registeredClients.get(clientId);
+      const clientName = registered?.clientName || clientId;
+      const clientIp = getClientIp(req);
+      const userAgent = getUserAgent(req);
+
+      sendOAuthClientSetupEmail({
+        email: owner.email,
+        name: owner.name,
+        clientId,
+        clientName,
+        redirectUri,
+        scope,
+        ip: clientIp,
+        userAgent,
+      }).catch((err) =>
+        console.error("[email] sendOAuthClientSetupEmail error:", err?.message),
+      );
 
       targetUrl.searchParams.set("code", code);
       if (state) targetUrl.searchParams.set("state", state);

@@ -18,6 +18,12 @@ import {
   generateSandboxId,
   updateKeyCredentials,
 } from "./userSettings.js";
+import {
+  getClientIp,
+  getUserAgent,
+  sendAccountCreatedEmail,
+  sendNewLoginIpEmail,
+} from "./emailService.js";
 
 export interface OwnerProfile {
   email: string;
@@ -892,7 +898,33 @@ export function createGoogleAuthRouter(): Router {
           return;
         }
 
-        getOrCreateUser(email);
+        const clientIp = getClientIp(req);
+        const userAgent = getUserAgent(req);
+        const userResult = getOrCreateUser(email, clientIp);
+
+        if (userResult.isNewUser) {
+          sendAccountCreatedEmail({
+            email,
+            name: userData.name || email.split("@")[0],
+            ip: clientIp,
+            userAgent,
+            role,
+          }).catch((err) =>
+            console.error(
+              "[email] sendAccountCreatedEmail error:",
+              err?.message,
+            ),
+          );
+        } else if (userResult.isNewIp) {
+          sendNewLoginIpEmail({
+            email,
+            name: userData.name || email.split("@")[0],
+            ip: clientIp,
+            userAgent,
+          }).catch((err) =>
+            console.error("[email] sendNewLoginIpEmail error:", err?.message),
+          );
+        }
 
         const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
         const profile: OwnerProfile = {

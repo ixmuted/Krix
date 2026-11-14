@@ -134,8 +134,14 @@ import {
   getOwnerEmail,
   maskSecret,
   generateSandboxId,
+  deleteUserAccount,
   type KeySettings,
 } from "./userSettings.js";
+import {
+  getClientIp,
+  getUserAgent,
+  sendAccountDeletedEmail,
+} from "./emailService.js";
 import {
   credentialRequiredMessage,
   type CredentialProvider,
@@ -1761,6 +1767,19 @@ app.post("/api/account/delete", async (req, res) => {
     return;
   }
   const email = owner.email.toLowerCase();
+  const clientIp = getClientIp(req);
+  const userAgent = getUserAgent(req);
+
+  // Send security email notifying of account deletion
+  sendAccountDeletedEmail({
+    email,
+    name: owner.name,
+    ip: clientIp,
+    userAgent,
+  }).catch((err) =>
+    console.error("[email] sendAccountDeletedEmail error:", err?.message),
+  );
+
   const userKeys = listDynamicKeys(email);
   for (const k of userKeys) {
     closeSessionsForKey(k.id);
@@ -1772,7 +1791,10 @@ app.post("/api/account/delete", async (req, res) => {
     listActiveOAuthAuthorizations(),
   );
 
+  deleteUserAccount(email);
+
   res.clearCookie("krix_owner");
+  res.clearCookie("krix_session", { path: "/" });
   res.json({
     success: true,
     message: "Account and associated tokens deleted.",

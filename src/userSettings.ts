@@ -13,6 +13,8 @@ export interface UserAccount {
   createdAt: number;
   updatedAt: number;
   lastLoginAt?: number;
+  lastLoginIp?: string;
+  knownIps?: string[];
 }
 
 export interface UserQuotaConfig {
@@ -172,19 +174,33 @@ export function generateSandboxId(keyId: string, isOwner: boolean): string {
   return `${isOwner ? "owner" : "sbx"}_${cleanKey}`;
 }
 
-export function getOrCreateUser(email: string): UserAccount {
+export function getOrCreateUser(
+  email: string,
+  ip?: string,
+): UserAccount & { isNewUser: boolean; isNewIp: boolean } {
   const normEmail = email.trim().toLowerCase();
   let user = userAccountsMap.get(normEmail);
   const role = getUserRole(normEmail);
   const now = Date.now();
+  let isNewUser = false;
+  let isNewIp = false;
+
+  const cleanIp = ip
+    ? String(ip)
+        .replace(/^::ffff:/, "")
+        .trim()
+    : undefined;
 
   if (!user) {
+    isNewUser = true;
     user = {
       email: normEmail,
       role,
       createdAt: now,
       updatedAt: now,
       lastLoginAt: now,
+      lastLoginIp: cleanIp,
+      knownIps: cleanIp ? [cleanIp] : [],
     };
     userAccountsMap.set(normEmail, user);
     saveSettingsToDisk();
@@ -193,9 +209,28 @@ export function getOrCreateUser(email: string): UserAccount {
     user.role = role;
     user.lastLoginAt = now;
     user.updatedAt = now;
+
+    if (cleanIp) {
+      const known = Array.isArray(user.knownIps)
+        ? [...user.knownIps]
+        : user.lastLoginIp
+          ? [user.lastLoginIp]
+          : [];
+      if (known.length > 0 && !known.includes(cleanIp)) {
+        isNewIp = true;
+      }
+      if (!known.includes(cleanIp)) {
+        known.push(cleanIp);
+      }
+      user.knownIps = known;
+      user.lastLoginIp = cleanIp;
+    }
+
+    saveSettingsToDisk();
+    syncUserToMongo(user).catch(() => {});
   }
 
-  return user;
+  return Object.assign(user, { isNewUser, isNewIp });
 }
 
 export function getKeySettings(keyId: string): KeySettings {
@@ -522,6 +557,28 @@ export async function syncUserToMongo(user: UserAccount): Promise<void> {
   }
 }
 
+export function deleteUserAccount(email: string): boolean {
+  const normEmail = email.trim().toLowerCase();
+  const deleted = userAccountsMap.delete(normEmail);
+  if (deleted) {
+    saveSettingsToDisk();
+    deleteUserFromMongo(normEmail).catch(() => {});
+  }
+  return deleted;
+}
+
+export async function deleteUserFromMongo(email: string): Promise<void> {
+  await ensureMongoAuth();
+  const db = getMongoDb();
+  if (!db) return;
+  try {
+    const col = db.collection("users");
+    await col.deleteOne({ email });
+  } catch (err: any) {
+    console.error("[settings] deleteUserFromMongo error:", err?.message);
+  }
+}
+
 export async function syncKeySettingsToMongo(
   settings: KeySettings,
 ): Promise<void> {
@@ -576,6 +633,12 @@ export async function loadSettingsFromMongo(): Promise<void> {
           createdAt: d.createdAt || Date.now(),
           updatedAt: d.updatedAt || Date.now(),
           lastLoginAt: d.lastLoginAt,
+          lastLoginIp: d.lastLoginIp,
+          knownIps: Array.isArray(d.knownIps)
+            ? d.knownIps
+            : d.lastLoginIp
+              ? [d.lastLoginIp]
+              : [],
         });
       }
     }
