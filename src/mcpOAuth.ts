@@ -717,10 +717,11 @@ export function createMcpOAuthRouter(): Router {
         registration_endpoint: `${base}/oauth/register`,
         revocation_endpoint: `${base}/oauth/revoke`,
         jwks_uri: `${base}/.well-known/jwks.json`,
-        // gemini.google.com img-src CSP allows data: URIs but blocks external image hosts.
-        ...(process.env.KRIX_OAUTH_LOGO_URI === "0"
-          ? {}
-          : { logo_uri: ICON_48_DATA_URI }),
+        // Omit logo_uri by default: RFC 8414 requires an https:// URL if present,
+        // while gemini.google.com's img-src CSP blocks external image hosts.
+        ...(process.env.KRIX_OAUTH_LOGO_URI === "1"
+          ? { logo_uri: `${base}/logo.png` }
+          : {}),
         service_documentation: `${base}`,
         client_name: "Krix",
         client_uri: `${base}`,
