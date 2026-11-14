@@ -963,6 +963,26 @@ th:has(.krix-dropdown),
   background: var(--bg-surface-1);
 }
 
+/* Modal Backdrops & Cards (Top-Layer Stacking Guarantee) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+
+.modal-backdrop[hidden] {
+  display: none !important;
+}
+
+.modal-card {
+  position: relative;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* =====================================================
    9. SCROLL PROGRESS FAB
    ===================================================== */
