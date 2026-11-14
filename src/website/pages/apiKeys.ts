@@ -668,18 +668,13 @@ export function renderApiKeysPage(params: {
         const input = document.getElementById('renameKeyInput');
         if (input) input.value = currentName;
         if (modal) {
-          modal.hidden = false;
-          modal.style.display = 'flex';
+          showPageModal(modal);
           input?.focus();
         }
       }
 
       function closeRenameKeyModal() {
-        const modal = document.getElementById('renameKeyModal');
-        if (modal) {
-          modal.hidden = true;
-          modal.style.display = 'none';
-        }
+        hidePageModal(document.getElementById('renameKeyModal'));
         pendingActionKeyId = null;
       }
 
@@ -720,18 +715,11 @@ export function renderApiKeysPage(params: {
         if (title) title.textContent = 'Revoke API Key';
         if (btn) btn.textContent = 'Revoke Key';
         if (desc) desc.textContent = 'Are you sure you want to revoke key "' + keyLabel + '"? This action cannot be reversed.';
-        if (modal) {
-          modal.hidden = false;
-          modal.style.display = 'flex';
-        }
+        showPageModal(modal);
       }
 
       function closeConfirmModal() {
-        const modal = document.getElementById('confirmModal');
-        if (modal) {
-          modal.hidden = true;
-          modal.style.display = 'none';
-        }
+        hidePageModal(document.getElementById('confirmModal'));
         pendingActionKeyId = null;
         pendingOAuthClientId = null;
         pendingActionKind = 'key';
