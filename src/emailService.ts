@@ -52,6 +52,14 @@ export interface SendAccountDeletedParams {
   gracePeriodDays?: number;
 }
 
+export interface SendAccountFinallyDeletedParams {
+  email: string;
+  name?: string;
+  ip?: string;
+  userAgent?: string;
+  purgedAt?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Configuration & Brand Assets
 // ---------------------------------------------------------------------------
@@ -770,6 +778,56 @@ export async function sendAccountDeletedEmail(
   return sendEmail({
     to: params.email,
     subject: `Krix Security Notice: Account Scheduled for Deletion (${graceDays}-Day Grace Period)`,
+    html,
+  });
+}
+
+/**
+ * 2b. Account Finally Deleted Notification (Permanent Purge Confirmation)
+ * Sent when the 30-day grace period has elapsed and the account is permanently expunged.
+ */
+export async function sendAccountFinallyDeletedEmail(
+  params: SendAccountFinallyDeletedParams,
+): Promise<SendResult> {
+  const timeStr = formatTimestamp(params.purgedAt || Date.now());
+  const userName = params.name || params.email.split("@")[0] || "User";
+
+  const bodyContent = `
+    <div style="background-color:#fef2f2; border:1px solid #fee2e2; border-left:4px solid #ef4444; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#991b1b; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <strong>Account Permanently Deleted:</strong> The 30-day grace period for your account has ended. All account records, tokens, credentials, and persistent workspaces have been permanently purged.
+    </div>
+    ${renderInfoTable([
+      { icon: "profile", label: "Account Email", value: params.email },
+      {
+        icon: "trash",
+        label: "Deletion Status",
+        value: "Permanently Purged",
+        isPill: true,
+      },
+      {
+        icon: "shield",
+        label: "Data Purged",
+        value: "Tokens, Workspaces, Files",
+      },
+      { icon: "clock", label: "Purged At", value: timeStr },
+    ])}
+    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      All personal data, active OAuth authorizations, dynamic API keys, and isolated sandbox environments associated with your account have been irrevocably deleted in accordance with our security policies.
+    </p>`;
+
+  const html = renderEmailShell({
+    badge: "Account Deleted",
+    badgeTone: "red",
+    title: "Krix Account Permanently Deleted",
+    description: `The 30-day grace period has ended and all records for ${userName} (${params.email}) have been permanently purged.`,
+    bodyContent,
+    footerAccount: params.email,
+    timestamp: timeStr,
+  });
+
+  return sendEmail({
+    to: params.email,
+    subject: "Krix Security Notice: Account Permanently Deleted",
     html,
   });
 }

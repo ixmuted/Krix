@@ -4,6 +4,7 @@ import path from "node:path";
 import { type Db } from "mongodb";
 import { getMongoDb, ensureMongoAuth } from "./googleAuth.js";
 import { registerSecret } from "./security.js";
+import { sendAccountFinallyDeletedEmail } from "./emailService.js";
 
 export type UserRole = "owner" | "user";
 
@@ -576,12 +577,27 @@ export async function syncUserToMongo(user: UserAccount): Promise<void> {
   }
 }
 
-export function deleteUserAccount(email: string): boolean {
+export function deleteUserAccount(
+  email: string,
+  sendFinalEmail = false,
+): boolean {
   const normEmail = email.trim().toLowerCase();
   const deleted = userAccountsMap.delete(normEmail);
   if (deleted) {
     saveSettingsToDisk();
     deleteUserFromMongo(normEmail).catch(() => {});
+    if (sendFinalEmail) {
+      sendAccountFinallyDeletedEmail({
+        email: normEmail,
+        name: normEmail.split("@")[0],
+        purgedAt: Date.now(),
+      }).catch((err) => {
+        console.error(
+          `[settings] Failed to send final deletion email to ${normEmail}:`,
+          err?.message,
+        );
+      });
+    }
   }
   return deleted;
 }
@@ -666,7 +682,7 @@ export async function purgeExpiredAccounts(): Promise<string[]> {
       console.log(
         `[settings] Asynchronously purging expired account past 30-day grace period: ${email}`,
       );
-      deleteUserAccount(email);
+      deleteUserAccount(email, true);
     } catch (err: any) {
       console.error(
         `[settings] Failed to purge expired account ${email}:`,

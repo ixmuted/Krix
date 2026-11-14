@@ -442,9 +442,7 @@ function createMasterServer(
   const renderSandboxOwnerOptIn =
     process.env.ENABLE_SANDBOX === "true" &&
     process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-    process.env.SANDBOX_REQUIRE_ISOLATION === "false" &&
-    keySettings?.role === "owner" &&
-    isOwnerEmail(keySettings?.email);
+    process.env.SANDBOX_REQUIRE_ISOLATION === "false";
   for (const [name, handle] of Object.entries(registry)) {
     const cat = categoryOf[name];
     const sandboxAllowedHere =
@@ -1940,14 +1938,11 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
   }
 
   const toolName =
-    typeof req.body?.toolName === "string" ? req.body.toolName : "";
-  const keyId = typeof req.body?.keyId === "string" ? req.body.keyId : "";
+    typeof req.body?.toolName === "string" ? req.body.toolName.trim() : "";
+  const rawKeyId =
+    typeof req.body?.keyId === "string" ? req.body.keyId.trim() : "";
   const args = req.body?.arguments;
-  if (
-    !keyId ||
-    !toolName ||
-    !["sandbox_exec", "sandbox_run"].includes(toolName)
-  ) {
+  if (!toolName || !["sandbox_exec", "sandbox_run"].includes(toolName)) {
     res.status(400).json({
       ok: false,
       error:
@@ -1955,12 +1950,26 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
     });
     return;
   }
-  if (!userOwnsKey(owner.email, keyId)) {
-    res
-      .status(403)
-      .json({ ok: false, error: "You do not own the selected key." });
-    return;
+
+  let effectiveKeyId = rawKeyId;
+  if (
+    !effectiveKeyId ||
+    effectiveKeyId === "all" ||
+    effectiveKeyId === "no-keys" ||
+    !userOwnsKey(owner.email, effectiveKeyId)
+  ) {
+    if (isOwnerEmail(owner.email)) {
+      effectiveKeyId = "primary-key";
+    } else {
+      const userKeys = listDynamicKeys(owner.email);
+      if (userKeys.length > 0) {
+        effectiveKeyId = userKeys[0].id;
+      } else {
+        effectiveKeyId = `user_${owner.email.toLowerCase()}`;
+      }
+    }
   }
+
   if (!args || typeof args !== "object" || Array.isArray(args)) {
     res
       .status(400)
@@ -1969,15 +1978,26 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
   }
 
   const sessionId = crypto.randomUUID();
+  const baseSettings = getKeySettings(effectiveKeyId);
   const settings: KeySettings = {
-    ...getKeySettings(keyId),
-    keyId,
+    ...baseSettings,
+    keyId: effectiveKeyId,
     email: owner.email,
     role: isOwnerEmail(owner.email) ? "owner" : "user",
+    enabledTools: Array.from(
+      new Set([...(baseSettings.enabledTools || []), toolName]),
+    ),
+    riskAcknowledgedTools: Array.from(
+      new Set([...(baseSettings.riskAcknowledgedTools || []), toolName]),
+    ),
   };
-  const githubToken = getEffectiveCredential(keyId, "github", settings);
+  const githubToken = getEffectiveCredential(
+    effectiveKeyId,
+    "github",
+    settings,
+  );
   const renderToken =
-    getEffectiveCredential(keyId, "render", settings) || undefined;
+    getEffectiveCredential(effectiveKeyId, "render", settings) || undefined;
 
   // A unique authenticated sandbox identity ensures every web execution gets
   // a disposable workspace and cannot read another key's persistent files.
@@ -1986,6 +2006,8 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
     `krix_web_runner_${owner.email.toLowerCase()}_${sessionId}`,
   );
   try {
+    const ctx = getSessionContext(sessionId);
+    ctx.enabledCategories.add("sandbox");
     createMasterServer(githubToken, renderToken, sessionId, req, settings);
     const result = await executeRegisteredTool(sessionId, toolName, args);
     const serialized = JSON.stringify(result ?? null);

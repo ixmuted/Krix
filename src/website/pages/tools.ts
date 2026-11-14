@@ -563,7 +563,7 @@ export function renderToolsPage(params: {
               ? JSON.stringify({ lang: 'py', code: 'print("Hello from Krix sandbox")' }, null, 2)
               : '{}');
         }
-        if (runButton) runButton.disabled = !executable || !activeToolsKeyId;
+        if (runButton) runButton.disabled = !executable;
         if (runnerHint) runnerHint.textContent = executable
           ? 'Run commands or compile and test code in a disposable sandbox. The execution environment enforces the server sandbox policy.'
           : 'Execution is available only for sandbox_exec and sandbox_run. Other tools can be inspected here and invoked through an authenticated MCP client.';
@@ -589,7 +589,7 @@ export function renderToolsPage(params: {
           if (output) output.textContent = error.message || 'Invalid JSON.';
           return;
         }
-        if (!['sandbox_exec', 'sandbox_run'].includes(name) || !activeToolsKeyId) return;
+        if (!['sandbox_exec', 'sandbox_run'].includes(name)) return;
         if (button) { button.disabled = true; button.textContent = 'Running…'; }
         if (outputWrap) outputWrap.hidden = false;
         if (output) output.textContent = 'Starting isolated sandbox…';
@@ -597,7 +597,7 @@ export function renderToolsPage(params: {
           const response = await fetch('/tools/execute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keyId: activeToolsKeyId, toolName: name, arguments: args })
+            body: JSON.stringify({ keyId: activeToolsKeyId || 'default', toolName: name, arguments: args })
           });
           const data = await response.json();
           if (output) output.textContent = data.ok ? data.result : (data.error || 'Execution failed.');

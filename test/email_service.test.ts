@@ -13,6 +13,7 @@ import {
   sendEmail,
   sendAccountCreatedEmail,
   sendAccountDeletedEmail,
+  sendAccountFinallyDeletedEmail,
   sendNewLoginIpEmail,
   sendOAuthClientSetupEmail,
   KRIX_LOGO_URL,
@@ -212,6 +213,15 @@ describe("Email Service & User Security Tracking", () => {
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         deletionDeadline: deadline,
         gracePeriodDays: 30,
+      });
+      assert.equal(result.skipped, true);
+    });
+
+    it("sends finally deleted email after 30-day grace period expires", async () => {
+      const result = await sendAccountFinallyDeletedEmail({
+        email: "alice@example.com",
+        name: "Alice",
+        purgedAt: Date.now(),
       });
       assert.equal(result.skipped, true);
     });

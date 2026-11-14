@@ -126,6 +126,12 @@ describe("New Features & UI Polish Verification", () => {
         html.includes("width:260px;max-width:100%"),
       "Active OAuth search bar must have 260px width matching API keys search bar",
     );
+    assert.ok(
+      html.includes("overflow: visible !important") ||
+        html.includes("overflow:visible !important") ||
+        html.includes("overflow:visible!important"),
+      "OAuth authorizations container and rows must have overflow: visible to prevent clipping kebab menus",
+    );
   });
 
   test("4. getAppLogoSvg renders Google Favicon proxy with clean fallback without broken image", () => {

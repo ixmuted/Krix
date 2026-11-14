@@ -490,7 +490,7 @@ th:has(.krix-dropdown),
   border-radius: 10px;
   box-shadow: var(--shadow-popover);
   backdrop-filter: blur(20px);
-  z-index: var(--z-dropdown);
+  z-index: 99999;
   display: none;
   flex-direction: column;
   gap: 2px;
@@ -1194,6 +1194,14 @@ th:has(.krix-dropdown),
   -webkit-overflow-scrolling: touch;
 }
 .oauth-app-favicon { display:block; width:100%; height:100%; object-fit:contain; }
+.oauth-app-favicon:not([src]),
+.oauth-app-favicon[src=""],
+.client-logo-img:not([src]),
+.client-logo-img[src=""],
+.oauth-app-favicon.hidden,
+.client-logo-img.hidden {
+  display: none !important;
+}
 .density-toggle {
   border-radius: var(--radius-full) !important;
   background: var(--bg-surface-1);
@@ -1375,9 +1383,33 @@ select {
 .store-view-toggle .nav-pill.active { border-radius: 999px !important; }
 .theme-mode-control .theme-mode-button { width: 42px; min-width: 42px; justify-content: center; padding: 0 !important; }
 .theme-mode-control .theme-mode-button span { display: none !important; }
-.oauth-authorizations-card { height: auto !important; min-height: 0 !important; align-self: start !important; }
-.oauth-clients-scroll { overflow: visible !important; width: 100%; min-width: 0; height: auto !important; min-height: 0 !important; flex: 0 0 auto !important; align-items: stretch !important; }
-.oauth-clients-scroll .oauth-client-row { flex: 0 0 auto; min-width: 0; width: 100%; height: auto !important; min-height: 68px; align-self: stretch; }
+.oauth-authorizations-card,
+.oauth-authorizations-card.card,
+.oauth-authorizations-card.spotlight-card {
+  height: auto !important;
+  min-height: 0 !important;
+  align-self: start !important;
+  overflow: visible !important;
+}
+.oauth-clients-scroll {
+  overflow: visible !important;
+  width: 100%;
+  min-width: 0;
+  height: auto !important;
+  min-height: 0 !important;
+  flex: 0 0 auto !important;
+  align-items: stretch !important;
+}
+.oauth-clients-scroll .oauth-client-row,
+.oauth-client-row.card {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+  height: auto !important;
+  min-height: 68px;
+  align-self: stretch;
+  overflow: visible !important;
+}
 
 @media (max-width: 768px) {
   .home-bento-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; }

@@ -292,6 +292,24 @@ export function getClientScripts(): string {
     }
   });
 
+  // Resilient App Logo & Favicon Fallback Watcher (Zero Broken Browser Icon Policy)
+  window.addEventListener('error', function(e) {
+    const target = e.target;
+    if (target && target.tagName === 'IMG' && (target.classList.contains('oauth-app-favicon') || target.classList.contains('client-logo-img'))) {
+      if (target.dataset.fallbackSrc && target.src !== target.dataset.fallbackSrc) {
+        target.src = target.dataset.fallbackSrc;
+        target.dataset.fallbackSrc = '';
+      } else {
+        target.style.display = 'none';
+        target.classList.add('hidden');
+        if (target.nextElementSibling) {
+          target.nextElementSibling.classList.remove('hidden');
+          target.nextElementSibling.style.display = 'inline-flex';
+        }
+      }
+    }
+  }, true);
+
   // DOM Ready Initializer
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {

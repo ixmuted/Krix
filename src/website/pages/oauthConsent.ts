@@ -351,6 +351,11 @@ export function renderOAuthConsentPage(params: {
     .hidden {
       display: none !important;
     }
+    img:not([src]),
+    img[src=""],
+    img.hidden {
+      display: none !important;
+    }
     .app-logo-fallback {
       display: flex;
       align-items: center;
@@ -458,6 +463,37 @@ export function renderOAuthConsentPage(params: {
       </span>
     </div>
   </div>
+
+  <script nonce="${escapeHtml(params.nonce || "")}">
+    window.addEventListener('error', function(e) {
+      var target = e.target;
+      if (target && target.tagName === 'IMG') {
+        if (target.dataset.fallbackSrc && target.src !== target.dataset.fallbackSrc) {
+          target.src = target.dataset.fallbackSrc;
+          target.dataset.fallbackSrc = '';
+        } else {
+          target.style.display = 'none';
+          target.classList.add('hidden');
+          if (target.nextElementSibling) {
+            target.nextElementSibling.classList.remove('hidden');
+            target.nextElementSibling.style.display = 'inline-flex';
+          }
+        }
+      }
+    }, true);
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('img').forEach(function(img) {
+        if (img.complete && img.naturalWidth === 0) {
+          img.style.display = 'none';
+          img.classList.add('hidden');
+          if (img.nextElementSibling) {
+            img.nextElementSibling.classList.remove('hidden');
+            img.nextElementSibling.style.display = 'inline-flex';
+          }
+        }
+      });
+    });
+  </script>
 </body>
 </html>`;
 }

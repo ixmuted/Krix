@@ -371,7 +371,14 @@ export function renderApiKeysPage(params: {
     <style>
       .oauth-scope-line{display:flex;flex-wrap:wrap;gap:4px 5px;margin-top:6px;max-height:44px;overflow:hidden;min-width:0}
       .oauth-scope-chip{font:600 10px/1 var(--font-mono);padding:4px 7px;border-radius:999px;background:var(--bg-surface-2);border:1px solid var(--border-subtle);color:var(--geist-gray-50);white-space:nowrap}
-      .oauth-clients-scroll{overflow-x:hidden}
+      .oauth-authorizations-card,
+      .oauth-authorizations-card.card,
+      .oauth-authorizations-card.spotlight-card,
+      .oauth-clients-scroll,
+      .oauth-client-row,
+      .oauth-client-row.card {
+        overflow: visible !important;
+      }
     </style>
 
     <!-- Create API Key Modal (Concentric Vercel Geist Dialog) -->
@@ -471,8 +478,9 @@ export function renderApiKeysPage(params: {
         }
         document.body.appendChild(menu);
         menu.style.display = 'flex';
+        menu.style.flexDirection = 'column';
         menu.style.position = 'fixed';
-        menu.style.zIndex = '680';
+        menu.style.zIndex = '99999';
         menu.style.right = 'auto';
         menu.style.left = '0px';
         menu.style.top = '0px';
@@ -486,7 +494,7 @@ export function renderApiKeysPage(params: {
         const fitsBelow = triggerRect.bottom + 6 + menuRect.height <= window.innerHeight - 12;
         const top = fitsBelow
           ? triggerRect.bottom + 5
-          : Math.max(12, triggerRect.top - Math.min(menuRect.height, window.innerHeight * 0.7) - 5);
+          : Math.max(12, triggerRect.top - menuRect.height - 5);
         menu.style.width = Math.min(window.innerWidth - 24, Math.max(width, 160)) + 'px';
         menu.style.left = left + 'px';
         menu.style.top = top + 'px';
