@@ -72,6 +72,31 @@ export function getMongoDb(): Db | null {
   return mongoDb;
 }
 
+/**
+ * Older versions created a unique index on the key label/name. Revoked keys stay in the
+ * collection, so reusing a name (e.g. "gemini") hit E11000 and surfaced as a storage failure.
+ * Name uniqueness is enforced per owner in createDynamicKey, so any unique index that
+ * involves label/name is obsolete and is dropped.
+ */
+async function dropLegacyKeyNameIndexes(): Promise<void> {
+  if (!mongoDb) return;
+  try {
+    const col = mongoDb.collection("api_keys");
+    const indexes = await col.indexes();
+    for (const idx of indexes) {
+      if (!idx.unique || !idx.name || idx.name === "_id_") continue;
+      const fields = Object.keys(idx.key || {});
+      if (fields.some((f) => f === "label" || f === "name")) {
+        await col.dropIndex(idx.name);
+        console.log(`[mongo-auth] dropped legacy unique index ${idx.name}`);
+      }
+    }
+  } catch (err: any) {
+    // Collection may not exist yet or the user may lack index privileges; not fatal.
+    console.warn("[mongo-auth] legacy index check skipped:", err?.message);
+  }
+}
+
 export async function ensureMongoAuth(): Promise<void> {
   const uri =
     process.env.MONGODB_URI ||
@@ -92,6 +117,7 @@ export async function ensureMongoAuth(): Promise<void> {
           const dbName =
             process.env.MONGODB_DB_NAME || process.env.MONGODB_DB || "krix";
           mongoDb = client.db(dbName);
+          await dropLegacyKeyNameIndexes();
           await loadKeysFromMongo();
         } catch (err: any) {
           mongoDb = null;
@@ -167,7 +193,20 @@ export async function loadKeysFromMongo(): Promise<void> {
   }
 }
 
-export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
+const inflightKeySyncs = new Map<string, Promise<void>>();
+
+/** Concurrent syncs of the same key share one write (createDynamicKey and the route both sync). */
+export function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
+  const existing = inflightKeySyncs.get(entry.id);
+  if (existing) return existing;
+  const p = syncKeyToMongoOnce(entry).finally(() => {
+    inflightKeySyncs.delete(entry.id);
+  });
+  inflightKeySyncs.set(entry.id, p);
+  return p;
+}
+
+async function syncKeyToMongoOnce(entry: GeneratedKeyEntry): Promise<void> {
   await ensureMongoAuth();
   if (!mongoDb) {
     if (
@@ -184,23 +223,26 @@ export async function syncKeyToMongo(entry: GeneratedKeyEntry): Promise<void> {
   try {
     const col = mongoDb.collection("api_keys");
     const { key: _rawSecret, ...metadata } = entry;
-    await col.updateOne(
-      { id: entry.id },
-      {
-        $set: {
-          ...metadata,
-          keyHash:
-            entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined),
-          keyEncrypted:
-            entry.keyEncrypted ||
-            (_rawSecret ? encryptApiKey(_rawSecret) : undefined),
-          revoked: false,
-          updatedAt: Date.now(),
-        },
-        $unset: { key: "", apiKey: "" },
+    const update = {
+      $set: {
+        ...metadata,
+        keyHash:
+          entry.keyHash || (_rawSecret ? hashApiKey(_rawSecret) : undefined),
+        keyEncrypted:
+          entry.keyEncrypted ||
+          (_rawSecret ? encryptApiKey(_rawSecret) : undefined),
+        revoked: false,
+        updatedAt: Date.now(),
       },
-      { upsert: true },
-    );
+      $unset: { key: "", apiKey: "" },
+    };
+    try {
+      await col.updateOne({ id: entry.id }, update, { upsert: true });
+    } catch (e: any) {
+      // Upsert races on a unique index resolve on a single retry.
+      if (e?.code !== 11000) throw e;
+      await col.updateOne({ id: entry.id }, update, { upsert: true });
+    }
   } catch (err: any) {
     console.error("[mongo-auth] syncKeyToMongo error:", err?.message);
     throw err;

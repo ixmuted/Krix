@@ -1653,9 +1653,15 @@ app.get("/api/settings", async (req, res) => {
       createdAt: Date.now(),
     };
   }
+  if (!targetKey && keyId) {
+    // A specific key was requested but does not exist (revoked or stale link):
+    // never fall back to another key's settings page.
+    res.redirect(302, "/api");
+    return;
+  }
   if (!targetKey) {
     targetKey = dynamicKeys[0] || {
-      id: keyId || "primary-key",
+      id: "primary-key",
       label: "API Key",
       createdAt: Date.now(),
     };
