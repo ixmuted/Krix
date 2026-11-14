@@ -318,19 +318,39 @@ function closeSessionsForKey(keyId: string): number {
 }
 
 
+function isSandboxAllowedOnServer(): boolean {
+  const onRenderService =
+    process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
+  const renderSandboxOwnerOptIn =
+    process.env.ENABLE_SANDBOX === "true" &&
+    process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
+    process.env.SANDBOX_REQUIRE_ISOLATION === "false";
+  return !onRenderService || renderSandboxOwnerOptIn;
+}
+
 /**
- * Re-apply the current tool policy to every live session for a key and tell the
- * client its tool list changed (notifications/tools/list_changed). Unlike
- * closeSessionsForKey this keeps the connection, so clients such as Gemini
- * re-fetch tools/list and immediately see enabled/disabled tools.
+ * Re-apply the current tool policy to every live session affected by `keyId`.
+ * When `keyId === "primary-key"` (global settings), all API keys and OAuth clients
+ * inherit from it, so every active session is refreshed.
  */
 function refreshSessionsForKey(keyId: string): number {
   let refreshed = 0;
-  for (const entry of transports.values()) {
-    if (entry.keyId !== keyId || !entry.server) continue;
+  for (const [sessionId, entry] of Array.from(transports.entries())) {
+    if (keyId !== "primary-key" && entry.keyId !== keyId) continue;
+    if (!entry.server) continue;
     try {
       (entry.server as any).applyToolPolicy?.();
-      Promise.resolve(entry.server.sendToolListChanged()).catch(() => {});
+      const t = entry.transport as any;
+      const standaloneId = t?._standaloneSseStreamId;
+      const hasLiveSseStream = Boolean(
+        standaloneId && t?._streamMapping?.has(standaloneId),
+      );
+      if (hasLiveSseStream) {
+        Promise.resolve(entry.server.sendToolListChanged()).catch(() => {});
+      } else {
+        transports.delete(sessionId);
+        void Promise.resolve(entry.transport.close()).catch(() => {});
+      }
       refreshed += 1;
     } catch (err) {
       console.warn(
