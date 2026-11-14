@@ -2443,6 +2443,7 @@ app.get("/settings", async (req, res) => {
       keys,
       selectedKeyId,
       keySettings,
+      sandboxAllowed,
       credentialAvailability: {
         github: Boolean(
           getEffectiveCredential(selectedKeyId, "github", keySettings),
@@ -2452,6 +2453,7 @@ app.get("/settings", async (req, res) => {
         ),
         workspaceGithub: Boolean(getWorkspaceCredential("github")),
         workspaceRender: Boolean(getWorkspaceCredential("render")),
+        sandboxEnabled: sandboxAllowed,
       },
       toolsCatalog: summary.toolsCatalog,
       userQuota,
