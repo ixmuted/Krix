@@ -9,6 +9,8 @@ import {
   updateKeyToolRiskLevel,
   getDefaultToolRiskLevel,
 } from "../src/userSettings.js";
+import { renderSettingsPage } from "../src/website/pages/settings.js";
+import { renderApiKeySettingsPage } from "../src/website/pages/apiKeySettings.js";
 
 const ALL = Object.entries(TOOL_CATEGORY);
 const ALL_CATS = new Set(Object.values(TOOL_CATEGORY));
@@ -65,5 +67,54 @@ describe("every tool respects the enable/disable toggle", () => {
     assert.equal(isToolEnabledForKey(key, "delete_file", "core", ALL_CATS), false);
     toggleKeyTool(key, "delete_file", true);
     assert.equal(isToolEnabledForKey(key, "delete_file", "core", ALL_CATS), true);
+  });
+
+  test("settings UI renders key/OAuth selector, Apply to All Keys, and respects sandboxAllowed=false", () => {
+    const html = renderSettingsPage({
+      base: "http://localhost:3000",
+      isOwner: true,
+      owner: { email: "owner@example.com", name: "Owner" },
+      keys: [
+        { id: "primary-key", label: "Primary API Key" },
+        { id: "krix_client_gemini_test", label: "OAuth: Google Gemini" },
+      ],
+      selectedKeyId: "krix_client_gemini_test",
+      keySettings: getKeySettings("krix_client_gemini_test"),
+      sandboxAllowed: false,
+      credentialAvailability: { github: true, render: true, sandboxEnabled: false },
+      toolsCatalog: [
+        { name: "sandbox_exec", category: "Sandbox", description: "Run shell command" },
+        { name: "get_file_contents", category: "GitHub", description: "Read file" },
+      ],
+      userQuota: { role: "owner" },
+    });
+    assert.ok(html.includes('id="settingsKeySelect"'), "must render key/OAuth selector");
+    assert.ok(html.includes("krix_client_gemini_test"), "must include OAuth client option");
+    assert.ok(html.includes("applyToolsToAllKeys()"), "must include Apply to All Keys action");
+    assert.ok(
+      html.includes("toggleToolPermission('sandbox_exec', this.checked, this)\" >"),
+      "sandbox_exec must render unchecked when sandboxAllowed is false",
+    );
+    assert.ok(
+      html.includes("toggleToolPermission('get_file_contents', this.checked, this)\" checked>"),
+      "default GitHub tool must remain checked when GitHub credential is present",
+    );
+
+    const keyDetailHtml = renderApiKeySettingsPage({
+      base: "http://localhost:3000",
+      isOwner: true,
+      owner: { email: "owner@example.com", name: "Owner" },
+      key: { id: "krix_client_gemini_test", label: "Google Gemini", type: "oauth" },
+      keySettings: getKeySettings("krix_client_gemini_test"),
+      sandboxAllowed: false,
+      credentialAvailability: { github: true, render: true, sandboxEnabled: false },
+      toolsCatalog: [
+        { name: "sandbox_exec", category: "Sandbox", description: "Run shell command" },
+      ],
+    });
+    assert.ok(
+      keyDetailHtml.includes('value="sandbox_exec"  onchange="onKeyToolToggle(this)"'),
+      "apiKeySettings must render sandbox_exec unchecked when sandboxAllowed is false",
+    );
   });
 });
