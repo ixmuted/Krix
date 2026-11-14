@@ -508,12 +508,14 @@ export function isToolEnabledForKey(
   const enabled = explicitlyEnabled || categoryEnabled;
   if (!enabled) return false;
 
-  // The default-on GitHub tool set is advertised as enabled in Settings, so it is
-  // not held back by the risk gate (everything else needs explicit enabling).
-  if (category === "core" && isDefaultGithubTool(toolName)) return true;
-  const riskLevel = getToolRiskLevel(keyId, toolName, category);
+  // The risk gate only applies when the user has explicitly marked this tool high/critical
+  // (via the tool-risk endpoint) without acknowledging it. Name-based default risk labels
+  // (delete/create/update/edit/write/execute/upload...) are advisory only: they must never
+  // hide a tool that Settings shows as ON, whether it is on by category, by default
+  // (GitHub default set) or by an explicit toggle. This keeps every tool consistent with the UI.
+  const explicitRisk = settings.toolRiskLevels?.[toolName];
   if (
-    (riskLevel === "high" || riskLevel === "critical") &&
+    (explicitRisk === "high" || explicitRisk === "critical") &&
     !settings.riskAcknowledgedTools?.includes(toolName)
   ) {
     return false;
