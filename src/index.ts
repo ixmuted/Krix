@@ -288,6 +288,8 @@ interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   lastActive: number;
   keyId: string;
+  /** Live MCP server so tool policy changes can be applied without dropping the session. */
+  server?: McpServer;
 }
 const transports = new Map<string, SessionEntry>();
 
@@ -311,6 +313,30 @@ function closeSessionsForKey(keyId: string): number {
     }
   }
   return closed;
+}
+
+
+/**
+ * Re-apply the current tool policy to every live session for a key and tell the
+ * client its tool list changed (notifications/tools/list_changed). Unlike
+ * closeSessionsForKey this keeps the connection, so clients such as Gemini
+ * re-fetch tools/list and immediately see enabled/disabled tools.
+ */
+function refreshSessionsForKey(keyId: string): number {
+  let refreshed = 0;
+  for (const entry of transports.values()) {
+    if (entry.keyId !== keyId || !entry.server) continue;
+    try {
+      (entry.server as any).applyToolPolicy?.();
+      Promise.resolve(entry.server.sendToolListChanged()).catch(() => {});
+      refreshed += 1;
+    } catch (err) {
+      console.warn(
+        `[mcp] Tool policy refresh failed: ${String((err as any)?.message || err)}`,
+      );
+    }
+  }
+  return refreshed;
 }
 
 function tagCategory(
@@ -421,17 +447,7 @@ function createMasterServer(
   registerCodeGraphTools(server, sessionId, registry);
   tagCategory(registry, categoryOf, "codegraph");
 
-  const ctx = getSessionContext(sessionId);
   const policyKeyId = keySettings?.keyId || "primary-key";
-  // A GitHub PAT enables only the default GitHub tool set (the "core" group, see
-  // toolDefaults.ts). Issue/PR/admin tools stay opt-in per key, even with a PAT.
-  const activeCategories = new Set(ctx.enabledCategories);
-  if (githubToken?.trim()) {
-    // A valid GitHub PAT unlocks the complete sandbox tool group, including remote Git helpers.
-    activeCategories.add("sandbox");
-  }
-  // Render credentials are available to the user, but Render tools remain opt-in per key.
-
   const credentials = {
     github: Boolean(githubToken?.trim()),
     render: Boolean(renderToken?.trim()),
@@ -442,32 +458,52 @@ function createMasterServer(
     process.env.ENABLE_SANDBOX === "true" &&
     process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
     process.env.SANDBOX_REQUIRE_ISOLATION === "false";
-  for (const [name, handle] of Object.entries(registry)) {
-    const cat = categoryOf[name];
-    const sandboxAllowedHere =
-      cat !== "sandbox" || !onRenderService || renderSandboxOwnerOptIn;
-    const missingCredential = getMissingToolCredential(name, credentials, cat);
-    const policyEnabled = isToolEnabledForKey(
-      policyKeyId,
-      name,
-      cat,
-      activeCategories,
-    );
-    if (sandboxAllowedHere && !missingCredential && policyEnabled) {
-      handle.enable();
-      setToolRegistrationEnabled(sessionId, name, true);
-    } else {
-      handle.disable();
-      setToolRegistrationEnabled(
-        sessionId,
-        name,
-        false,
-        missingCredential
-          ? credentialRequiredMessage(missingCredential, name, "runtime")
-          : undefined,
-      );
+
+  // Evaluated at session start and again whenever the user changes tool settings.
+  const applyToolPolicy = () => {
+    const ctx = getSessionContext(sessionId);
+    // A GitHub PAT enables only the default GitHub tool set (the "core" group, see
+    // toolDefaults.ts). Issue/PR/admin tools stay opt-in per key, even with a PAT.
+    const activeCategories = new Set(ctx.enabledCategories);
+    if (githubToken?.trim()) {
+      // A valid GitHub PAT unlocks the complete sandbox tool group, including remote Git helpers.
+      activeCategories.add("sandbox");
     }
-  }
+    for (const [name, handle] of Object.entries(registry)) {
+      const cat = categoryOf[name];
+      const sandboxAllowedHere =
+        cat !== "sandbox" || !onRenderService || renderSandboxOwnerOptIn;
+      const missingCredential = getMissingToolCredential(
+        name,
+        credentials,
+        cat,
+      );
+      const policyEnabled = isToolEnabledForKey(
+        policyKeyId,
+        name,
+        cat,
+        activeCategories,
+      );
+      const shouldEnable =
+        sandboxAllowedHere && !missingCredential && policyEnabled;
+      if (shouldEnable) {
+        if (!handle.enabled) handle.enable();
+        setToolRegistrationEnabled(sessionId, name, true);
+      } else {
+        if (handle.enabled !== false) handle.disable();
+        setToolRegistrationEnabled(
+          sessionId,
+          name,
+          false,
+          missingCredential
+            ? credentialRequiredMessage(missingCredential, name, "runtime")
+            : undefined,
+        );
+      }
+    }
+  };
+  applyToolPolicy();
+  (server as any).applyToolPolicy = applyToolPolicy;
 
   // Ensure every tool returned to MCP clients (like Gemini) includes icons metadata (matching GitHub MCP Server)
   const rawServer = server.server as any;
@@ -938,10 +974,16 @@ app.all(
       const authKey = computeAuthKey(sessionIdentity);
       registerSessionSandboxId(newSessionId, authKey);
 
+      let masterServer: McpServer | undefined;
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => newSessionId,
         onsessioninitialized: (id) => {
-          transports.set(id, { transport, lastActive: Date.now(), keyId });
+          transports.set(id, {
+            transport,
+            lastActive: Date.now(),
+            keyId,
+            server: masterServer,
+          });
         },
       });
 
@@ -952,7 +994,7 @@ app.all(
         }
       };
 
-      const masterServer = createMasterServer(
+      masterServer = createMasterServer(
         githubToken,
         renderToken,
         newSessionId,
@@ -1777,10 +1819,14 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   settings.updatedAt = Date.now();
   saveSettingsToDisk();
   syncKeySettingsToMongo(settings).catch(() => {});
-  const closedSessions = closeSessionsForKey(id);
+  // Credential changes need a fresh session; tool-only changes apply live.
+  const credentialsChanged =
+    githubToken !== undefined || renderApiKey !== undefined;
+  const closedSessions = credentialsChanged ? closeSessionsForKey(id) : 0;
+  const refreshedSessions = credentialsChanged ? 0 : refreshSessionsForKey(id);
 
   res.setHeader("Cache-Control", "no-store");
-  res.json({ success: true, settings, closedSessions });
+  res.json({ success: true, settings, closedSessions, refreshedSessions });
 });
 
 app.post("/api/account/delete", async (req, res) => {
@@ -2562,11 +2608,11 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
       return;
     }
     const updated = toggleKeyTool(keyId, toolName, Boolean(enabled));
-    const closedSessions = closeSessionsForKey(keyId);
+    const refreshedSessions = refreshSessionsForKey(keyId);
     res.json({
       ok: true,
       credentialRequirement,
-      closedSessions,
+      refreshedSessions,
       enabledTools: updated.enabledTools,
       disabledTools: updated.disabledTools,
     });
@@ -2606,11 +2652,11 @@ app.post("/settings/api/tool-risk", express.json(), async (req, res) => {
       acknowledgeHighRisk === true,
     );
     await syncKeySettingsToMongo(updated);
-    const closedSessions = closeSessionsForKey(keyId);
+    const refreshedSessions = refreshSessionsForKey(keyId);
     res.setHeader("Cache-Control", "no-store");
     res.json({
       ok: true,
-      closedSessions,
+      refreshedSessions,
       riskLevel: updated.toolRiskLevels?.[toolName],
       acknowledged: updated.riskAcknowledgedTools?.includes(toolName) || false,
     });
@@ -2670,10 +2716,10 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
       Array.isArray(enabledTools) ? enabledTools : [],
       Array.isArray(disabledTools) ? disabledTools : [],
     );
-    const closedSessions = closeSessionsForKey(keyId);
+    const refreshedSessions = refreshSessionsForKey(keyId);
     res.json({
       ok: true,
-      closedSessions,
+      refreshedSessions,
       enabledTools: updated.enabledTools,
       disabledTools: updated.disabledTools,
     });
