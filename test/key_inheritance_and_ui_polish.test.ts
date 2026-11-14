@@ -1,6 +1,13 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+
+process.env.NODE_ENV = "test";
+process.env.MCP_API_KEY =
+  process.env.MCP_API_KEY || "krix-test-master-key-0123456789-abcdef";
+process.env.SESSION_SECRET =
+  process.env.SESSION_SECRET || "krix-test-session-secret-32-chars-long";
+
 import { getKeySettings, updateKeyCredentials } from "../src/userSettings.js";
 import { createDynamicKey, revokeDynamicKey } from "../src/googleAuth.js";
 import { renderToolsPage } from "../src/website/pages/tools.js";
@@ -252,5 +259,76 @@ describe("New Features & UI Polish Verification", () => {
       html.includes("Not configured (inherits workspace key)"),
       "Must show 'Not configured (inherits workspace key)' when custom Render key is empty",
     );
+  });
+
+  test("8. Dynamic tool configuration allows toggling when global workspace credentials are present", async () => {
+    const { getWorkspaceCredential, getEffectiveCredential } =
+      await import("../src/index.js");
+
+    // Set primary key workspace credential
+    const primary = getKeySettings("primary-key");
+    const prevPrimaryGh = primary.customGitHubToken;
+    try {
+      primary.customGitHubToken = "ghp_workspaceGlobalGitHubToken123456";
+
+      // Verify workspace credential resolution
+      assert.equal(
+        getWorkspaceCredential("github"),
+        "ghp_workspaceGlobalGitHubToken123456",
+        "Workspace should expose primary key GitHub token",
+      );
+
+      // Verify effective credential inheritance for a child key without override
+      const childSettings = getKeySettings("test-child-key-dynamic");
+      delete childSettings.customGitHubToken;
+      assert.equal(
+        getEffectiveCredential("test-child-key-dynamic", "github"),
+        "ghp_workspaceGlobalGitHubToken123456",
+        "Child key should dynamically inherit workspace credential",
+      );
+
+      // Verify that when a child key has its own override, it takes precedence
+      childSettings.customGitHubToken = "ghp_childKeyCustomOverride789";
+      assert.equal(
+        getEffectiveCredential("test-child-key-dynamic", "github"),
+        "ghp_childKeyCustomOverride789",
+        "Child key override takes precedence over workspace credential",
+      );
+
+      // Verify rendered HTML includes workspaceReady and dynamic providerReady logic
+      const html = renderApiKeySettingsPage({
+        base: "http://localhost:3000",
+        isOwner: true,
+        owner: { email: "owner@example.com" },
+        key: { id: "test-child-key-dynamic", name: "Dynamic Test Key" },
+        toolsCatalog: [
+          {
+            name: "get_file_contents",
+            category: "GitHub",
+            description: "Read file",
+          },
+        ],
+        keySettings: childSettings,
+        apiKeyToken: "krix_test_dynamic_1234",
+        credentialAvailability: {
+          github: true,
+          render: false,
+          workspaceGithub: true,
+          workspaceRender: false,
+        },
+      });
+
+      assert.ok(
+        html.includes("workspaceCredentialReady"),
+        "Rendered HTML script must define workspaceCredentialReady",
+      );
+      assert.ok(
+        html.includes("workspaceCredentialReady[provider]"),
+        "providerReady must dynamically check workspaceCredentialReady",
+      );
+    } finally {
+      if (prevPrimaryGh) primary.customGitHubToken = prevPrimaryGh;
+      else delete primary.customGitHubToken;
+    }
   });
 });

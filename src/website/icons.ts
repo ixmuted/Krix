@@ -7,9 +7,7 @@ export const SVG_ICONS: Record<string, string> = {
   render: `<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>`,
 
   // Top 24 Popular AI Application Logos & Connectors (OAuth 2.1 Handshake)
-  // Brand marks are intentionally not approximated here. Provider marks load from the
-  // provider website favicon; this neutral icon is only the failure/unknown fallback.
-  gemini: `<path d="M12 3v18M3 12h18M5.64 5.64l12.72 12.72M18.36 5.64 5.64 18.36"/><circle cx="12" cy="12" r="2.5"/>`,
+  gemini: `<path d="M12 2C12 7.523 7.523 12 2 12C7.523 12 12 16.477 12 22C12 16.477 16.477 12 22 12C16.477 12 12 7.523 12 2Z" fill="currentColor"/>`,
   claude: `<path d="M12 3.2 13.8 9l5.8 1.8-5.8 1.8-1.8 5.8-1.8-5.8L4.4 10.8 10.2 9 12 3.2Z"/>`,
   chatgpt: `<circle cx="12" cy="12" r="9"/><path d="m9 10 3-2 3 2v4l-3 2-3-2z"/>`,
   antigravity: `<polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="3"/>`,
@@ -192,7 +190,7 @@ function resolveFallbackIcon(name: string): string {
   return "layers";
 }
 
-/** Prefer the provider favicon, fallback through Google's favicon proxy, then use matching SVG vector. */
+/** Directly fetch provider favicon/logo from their URL, fallback to Google's favicon proxy, then vector SVG. */
 export function getAppLogoSvg(
   name: string,
   size: number = 20,
@@ -207,6 +205,21 @@ export function getAppLogoSvg(
   const fallbackSvg = renderSvg(fallbackIconName, size);
   const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
 
+  if (q.includes("gemini")) {
+    const primarySrc =
+      "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png";
+    const fallbackSrc =
+      "https://www.google.com/s2/favicons?domain_url=https://gemini.google.com&sz=64";
+    const safePrimary = primarySrc
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
+    const safeFallback = fallbackSrc
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
+    const onerrorAttr = `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`;
+    return `<img class="oauth-app-favicon" src="${safePrimary}" data-fallback-src="${safeFallback}" width="${size}" height="${size}" alt="Gemini" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+  }
+
   const isDirectImage = Boolean(
     websiteUrl &&
     (websiteUrl.startsWith("data:image/") ||
@@ -215,13 +228,14 @@ export function getAppLogoSvg(
 
   if (!origin && !isDirectImage) return fallback;
 
+  // Direct pull from their URL first, then fallback through Google's favicon proxy, then vector SVG
   const primarySrc = isDirectImage
     ? String(websiteUrl)
-    : `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin!)}&sz=64`;
+    : `${origin}/favicon.ico`;
   const fallbackSrc =
     isDirectImage && origin
-      ? `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`
-      : "";
+      ? `${origin}/favicon.ico`
+      : `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin!)}&sz=64`;
 
   const safePrimary = primarySrc.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
   const safeFallback = fallbackSrc

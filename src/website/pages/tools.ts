@@ -60,7 +60,7 @@ export function renderToolsPage(params: {
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
-          <select id="keySelector" onchange="onKeyFilterChange(this)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer;">
+          <select id="keySelector" onchange="onKeyFilterChange(this)" class="krix-select">
             <option value="">All Keys</option>
             ${(params.summary?.keys || [])
               .map((k: any) => {
@@ -90,7 +90,7 @@ export function renderToolsPage(params: {
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <label for="toolBreakdownSelect" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Select Tool:</label>
-          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer; max-width:260px;">
+          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" class="krix-select" style="max-width:260px;">
             <option value="">All Tools (Global)</option>
             ${tools.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${escapeHtml(t.category || "General")})</option>`).join("")}
           </select>
@@ -222,8 +222,15 @@ export function renderToolsPage(params: {
     </div>
 
     <style>
-      /* Keep the inspector below the persistent mobile app header. */
-      @media (max-width: 640px) {
+      /* Keep the inspector below the persistent mobile and desktop app headers. */
+      #toolDrawer {
+        top: 56px !important;
+        bottom: 0 !important;
+        height: calc(100dvh - 56px) !important;
+        max-height: calc(100dvh - 56px) !important;
+        z-index: 900 !important;
+      }
+      @media (max-width: 768px) {
         #toolDrawer {
           inset: 104px 0 0 0 !important;
           top: 104px !important;
@@ -239,12 +246,12 @@ export function renderToolsPage(params: {
           border-top: 1px solid var(--border-medium) !important;
           border-radius: 14px 14px 0 0 !important;
           box-sizing: border-box !important;
-          z-index: 640 !important;
+          z-index: 900 !important;
         }
         #toolDrawer .tool-drawer-header {
           position: sticky !important;
           top: 0 !important;
-          min-height: 58px !important;
+          min-height: 52px !important;
           padding: 10px 0 10px !important;
           margin: 0 0 12px !important;
           gap: 8px !important;
@@ -254,8 +261,13 @@ export function renderToolsPage(params: {
           min-width: 0 !important;
         }
         #toolDrawer .tool-drawer-header button {
-          min-width: 76px !important;
-          min-height: 38px !important;
+          width: 34px !important;
+          min-width: 34px !important;
+          height: 34px !important;
+          min-height: 34px !important;
+          padding: 0 !important;
+          display: inline-flex !important;
+          align-items: center !important;
           justify-content: center !important;
           white-space: nowrap !important;
           visibility: visible !important;
@@ -314,15 +326,14 @@ export function renderToolsPage(params: {
     </style>
 
     <!-- Slide-Over Inspector Drawer -->
-    <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; inset:0 0 0 auto; width:480px; max-width:100vw; height:100dvh; max-height:100dvh; box-sizing:border-box; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:650; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
+    <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; top:56px; right:0; bottom:0; width:480px; max-width:100vw; height:calc(100dvh - 56px); max-height:calc(100dvh - 56px); box-sizing:border-box; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:900; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
       <div class="tool-drawer-header" style="position:sticky; top:0; z-index:2; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-shrink:0; padding:18px 0 14px; background:var(--bg-surface-0); border-bottom:1px solid var(--border-subtle); margin-bottom:16px;">
         <div style="min-width:0; flex:1;">
           <div style="font-size:10px; font-weight:600; color:var(--geist-gray-50); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px;">Tool Inspector</div>
           <h2 id="drawerToolName" style="font-size:15px; font-weight:700; font-family:var(--font-mono); color:var(--fg); overflow-wrap:anywhere;"></h2>
         </div>
-        <button type="button" class="btn ghost" onclick="closeToolDrawer()" style="flex-shrink:0; padding:7px 10px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px; border:1px solid var(--border-medium); background:var(--bg-surface-1);" aria-label="Close tool inspector">
-          ${renderSvg("x", 14)}
-          <span>Close</span>
+        <button type="button" class="btn ghost icon-btn" onclick="closeToolDrawer()" style="width:34px; height:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:6px; border:1px solid var(--border-medium); background:var(--bg-surface-1); color:var(--fg); flex-shrink:0; cursor:pointer;" aria-label="Close tool inspector" title="Close">
+          ${renderSvg("x", 16)}
         </button>
       </div>
 

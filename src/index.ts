@@ -161,12 +161,52 @@ if (MCP_API_KEY.length < 24) {
 registerSecret(DEFAULT_GITHUB_PAT);
 registerSecret(DEFAULT_RENDER_API_KEY);
 
+/**
+ * Returns the workspace-level default credential for GitHub or Render.
+ * Evaluates environment variables first, then primary key workspace settings.
+ */
+export function getWorkspaceCredential(provider: "github" | "render"): string {
+  if (provider === "github") {
+    return (
+      process.env.GITHUB_PERSONAL_ACCESS_TOKEN ||
+      process.env.GITHUB_PAT ||
+      getKeySettings("primary-key")?.customGitHubToken ||
+      ""
+    );
+  }
+  return (
+    process.env.RENDER_API_KEY ||
+    process.env.RENDER_PAT ||
+    getKeySettings("primary-key")?.customRenderToken ||
+    ""
+  );
+}
+
+/**
+ * Returns the effective credential for a specific key (API key or OAuth client).
+ * Checks key-level override first; if unset or empty, inherits workspace credential.
+ */
+export function getEffectiveCredential(
+  keyId: string,
+  provider: "github" | "render",
+  keySettings?: KeySettings,
+): string {
+  const settings = keySettings || getKeySettings(keyId);
+  const override =
+    provider === "github"
+      ? settings.customGitHubToken
+      : settings.customRenderToken;
+  if (override && override.trim()) {
+    return override.trim();
+  }
+  return getWorkspaceCredential(provider);
+}
+
 /** Which provider credentials a key can actually use (own override, or workspace default). */
 function keyCredentialsReady(keyId: string, settings?: KeySettings) {
-  const s = settings || getKeySettings(keyId);
   return {
-    github: Boolean(s.customGitHubToken || DEFAULT_GITHUB_PAT),
-    render: Boolean(s.customRenderToken || DEFAULT_RENDER_API_KEY),
+    github: Boolean(getEffectiveCredential(keyId, "github", settings)),
+    render: Boolean(getEffectiveCredential(keyId, "render", settings)),
   };
 }
 
@@ -515,7 +555,7 @@ app.use("/auth", createGoogleAuthRouter());
 // Temporary web upload page: MCP key -> short-lived session -> files land in the caller's sandbox.
 registerUploadRoutes(app, {
   apiKey: MCP_API_KEY,
-  defaultGithubToken: DEFAULT_GITHUB_PAT,
+  defaultGithubToken: getWorkspaceCredential("github") || undefined,
   publicBaseUrl: process.env.PUBLIC_BASE_URL,
 });
 
@@ -690,15 +730,12 @@ app.all(
       (typeof req.headers["x-github-token"] === "string"
         ? req.headers["x-github-token"]
         : "") ||
-      keySettings.customGitHubToken ||
-      DEFAULT_GITHUB_PAT ||
-      "";
+      getEffectiveCredential(keySettings.keyId, "github", keySettings);
     const renderToken =
       (typeof req.headers["x-render-token"] === "string"
         ? req.headers["x-render-token"]
         : "") ||
-      keySettings.customRenderToken ||
-      DEFAULT_RENDER_API_KEY ||
+      getEffectiveCredential(keySettings.keyId, "render", keySettings) ||
       undefined;
     registerSecret(githubToken);
     registerSecret(renderToken);
@@ -1621,10 +1658,14 @@ app.get("/api/settings", async (req, res) => {
       keySettings,
       apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
       credentialAvailability: {
-        github: Boolean(keySettings.customGitHubToken || DEFAULT_GITHUB_PAT),
-        render: Boolean(
-          keySettings.customRenderToken || DEFAULT_RENDER_API_KEY,
+        github: Boolean(
+          getEffectiveCredential(effectiveKeyId, "github", keySettings),
         ),
+        render: Boolean(
+          getEffectiveCredential(effectiveKeyId, "render", keySettings),
+        ),
+        workspaceGithub: Boolean(getWorkspaceCredential("github")),
+        workspaceRender: Boolean(getWorkspaceCredential("render")),
       },
     }),
   );
@@ -1645,18 +1686,18 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     req.body || {};
   const settings = getKeySettings(id);
 
-  const nextGitHubToken =
+  const effectiveGitHubToken =
     githubToken !== undefined && String(githubToken).trim() !== ""
       ? String(githubToken).trim()
-      : settings.customGitHubToken || DEFAULT_GITHUB_PAT || "";
-  const nextRenderToken =
+      : settings.customGitHubToken || getWorkspaceCredential("github");
+  const effectiveRenderToken =
     renderApiKey !== undefined && String(renderApiKey).trim() !== ""
       ? String(renderApiKey).trim()
-      : settings.customRenderToken || DEFAULT_RENDER_API_KEY || "";
+      : settings.customRenderToken || getWorkspaceCredential("render");
   if (Array.isArray(enabledTools)) {
     const blocked = findToolMissingCredential(enabledTools, {
-      github: Boolean(nextGitHubToken),
-      render: Boolean(nextRenderToken),
+      github: Boolean(effectiveGitHubToken),
+      render: Boolean(effectiveRenderToken),
     });
     if (blocked) {
       res.status(409).json({
@@ -1808,10 +1849,14 @@ app.get("/tools", async (req, res) => {
     email: owner.email,
     role: isOwnerEmail(owner.email) ? "owner" : "user",
   };
-  const probeGithubToken =
-    probeSettings.customGitHubToken || DEFAULT_GITHUB_PAT || "";
+  const probeGithubToken = getEffectiveCredential(
+    probeSettings.keyId,
+    "github",
+    probeSettings,
+  );
   const probeRenderToken =
-    probeSettings.customRenderToken || DEFAULT_RENDER_API_KEY || undefined;
+    getEffectiveCredential(probeSettings.keyId, "render", probeSettings) ||
+    undefined;
   registerSessionAuth(
     probeSessionId,
     `krix_tool_catalog_${owner.email.toLowerCase()}_${probeSessionId}`,
@@ -1892,9 +1937,9 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
     email: owner.email,
     role: isOwnerEmail(owner.email) ? "owner" : "user",
   };
-  const githubToken = settings.customGitHubToken || DEFAULT_GITHUB_PAT || "";
+  const githubToken = getEffectiveCredential(keyId, "github", settings);
   const renderToken =
-    settings.customRenderToken || DEFAULT_RENDER_API_KEY || undefined;
+    getEffectiveCredential(keyId, "render", settings) || undefined;
 
   // A unique authenticated sandbox identity ensures every web execution gets
   // a disposable workspace and cannot read another key's persistent files.
@@ -2002,6 +2047,38 @@ app.get("/stats/api", async (req, res) => {
   res.json(summary);
 });
 
+app.get("/stats/api/timeline", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  const clientKey = extractClientKey(req);
+  const isAuth =
+    Boolean(owner) ||
+    Boolean(
+      clientKey &&
+      (isAuthorizedApiKey(clientKey) ||
+        (await verifyAccessToken(clientKey)).valid),
+    );
+
+  if (!isAuth) {
+    res
+      .status(401)
+      .json({ error: "Unauthorized access to telemetry timeline." });
+    return;
+  }
+
+  const month =
+    typeof req.query.month === "string" ? req.query.month.trim() : "";
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    res.status(400).json({
+      error: "Query parameter 'month' in YYYY-MM format is required.",
+    });
+    return;
+  }
+
+  const chunk = await statsTracker.loadHistoricalChunk(month);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, month, chunk });
+});
+
 app.get("/stats", async (req, res) => {
   await Promise.all([
     ensureMongoAuth().catch(() => {}),
@@ -2103,8 +2180,10 @@ app.get("/settings", async (req, res) => {
         selectedKeyId: "primary-key",
         keySettings: getKeySettings("primary-key"),
         credentialAvailability: {
-          github: Boolean(DEFAULT_GITHUB_PAT),
-          render: Boolean(DEFAULT_RENDER_API_KEY),
+          github: Boolean(getWorkspaceCredential("github")),
+          render: Boolean(getWorkspaceCredential("render")),
+          workspaceGithub: Boolean(getWorkspaceCredential("github")),
+          workspaceRender: Boolean(getWorkspaceCredential("render")),
         },
         toolsCatalog: statsTracker.getSummary("/tmp").toolsCatalog,
         userQuota: getUserQuota("user"),
@@ -2208,10 +2287,14 @@ app.get("/settings", async (req, res) => {
       selectedKeyId,
       keySettings,
       credentialAvailability: {
-        github: Boolean(keySettings.customGitHubToken || DEFAULT_GITHUB_PAT),
-        render: Boolean(
-          keySettings.customRenderToken || DEFAULT_RENDER_API_KEY,
+        github: Boolean(
+          getEffectiveCredential(selectedKeyId, "github", keySettings),
         ),
+        render: Boolean(
+          getEffectiveCredential(selectedKeyId, "render", keySettings),
+        ),
+        workspaceGithub: Boolean(getWorkspaceCredential("github")),
+        workspaceRender: Boolean(getWorkspaceCredential("render")),
       },
       toolsCatalog: summary.toolsCatalog,
       userQuota,

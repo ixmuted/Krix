@@ -54,5 +54,5 @@ export function credentialRequiredMessage(
   if (scope === "global") {
     return `${subject} needs a ${label}. Add one under Settings → Provider Credentials before enabling it.`;
   }
-  return `${subject} needs a ${label}. Add one for this API key (API Keys → Info → Credential Overrides) before enabling it.`;
+  return `${subject} needs a ${label}. Add one under Settings → Workspace Credentials or provide an override for this API key before enabling it.`;
 }

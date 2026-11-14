@@ -899,8 +899,15 @@ export class StatsTracker {
       const activeDynamicIds = new Set(dynamicKeys.map((k) => k.id));
       const activeOAuthClientIds = new Set(oauthClients.map((c) => c.clientId));
       for (const [existingKeyId] of Array.from(this.keys.entries())) {
-        if (existingKeyId === "primary-key" || existingKeyId === "master-env-key") continue;
-        if (!activeDynamicIds.has(existingKeyId) && !activeOAuthClientIds.has(existingKeyId)) {
+        if (
+          existingKeyId === "primary-key" ||
+          existingKeyId === "master-env-key"
+        )
+          continue;
+        if (
+          !activeDynamicIds.has(existingKeyId) &&
+          !activeOAuthClientIds.has(existingKeyId)
+        ) {
           this.keys.delete(existingKeyId);
           changed = true;
         }
@@ -1815,9 +1822,124 @@ export class StatsTracker {
     };
   }
 
+  public async loadHistoricalChunk(
+    monthKey: string,
+  ): Promise<
+    Record<string, { requests: number; tools: number; errors?: number }>
+  > {
+    const inMemory: Record<
+      string,
+      { requests: number; tools: number; errors?: number }
+    > = {};
+    for (const [k, v] of Object.entries(this.globalDaily)) {
+      if (k.startsWith(monthKey)) {
+        inMemory[k] = {
+          requests: v.requests || 0,
+          tools: v.tools || 0,
+          errors: v.errors || 0,
+        };
+      }
+    }
+    if (Object.keys(inMemory).length >= 28) return inMemory;
+
+    if (this.mongoDb) {
+      try {
+        const doc = await this.mongoDb
+          .collection("krix_stats_history")
+          .findOne({ _id: `history_${monthKey}` as any });
+        if (doc && doc.daily) {
+          for (const [d, m] of Object.entries(
+            doc.daily as Record<string, any>,
+          )) {
+            if (!this.globalDaily[d]) {
+              this.globalDaily[d] = {
+                requests: m.requests || 0,
+                errors: m.errors || 0,
+                tools: m.tools || 0,
+              };
+            }
+          }
+          return { ...doc.daily, ...inMemory };
+        }
+      } catch (err: any) {
+        console.warn(
+          "[stats] failed to lazy-load historical chunk for " + monthKey,
+          err?.message || err,
+        );
+      }
+    }
+    return inMemory;
+  }
+
   private persist(): Promise<void> {
     const writeSnapshot = async (): Promise<void> => {
+      // Chunking & Splitting Safeguard against 16MB MongoDB document limit:
+      // Archive historical days older than 60 days into companion collection 'krix_stats_history'.
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 60);
+      const cutoffKey = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}-${String(cutoffDate.getDate()).padStart(2, "0")}`;
+
+      const historicalDailyByMonth: Record<
+        string,
+        Record<string, { requests: number; tools: number; errors?: number }>
+      > = {};
+      const activeDaily: Record<
+        string,
+        { requests: number; tools: number; errors?: number }
+      > = {};
+
+      for (const [dayKey, metrics] of Object.entries(this.globalDaily)) {
+        const entry = {
+          requests: metrics.requests || 0,
+          tools: metrics.tools || 0,
+          errors: metrics.errors || 0,
+        };
+        if (dayKey < cutoffKey) {
+          const monthKey = dayKey.slice(0, 7);
+          if (!historicalDailyByMonth[monthKey])
+            historicalDailyByMonth[monthKey] = {};
+          historicalDailyByMonth[monthKey][dayKey] = entry;
+        } else {
+          activeDaily[dayKey] = entry;
+        }
+      }
+
+      if (
+        this.mongoConnected &&
+        this.mongoDb &&
+        Object.keys(historicalDailyByMonth).length > 0
+      ) {
+        try {
+          const historyColl = this.mongoDb.collection("krix_stats_history");
+          for (const [monthKey, chunk] of Object.entries(
+            historicalDailyByMonth,
+          )) {
+            await historyColl.updateOne(
+              { _id: `history_${monthKey}` as any },
+              {
+                $set: {
+                  _id: `history_${monthKey}` as any,
+                  month: monthKey,
+                  daily: chunk,
+                  updatedAt: new Date(),
+                },
+              },
+              { upsert: true },
+            );
+          }
+        } catch (err: any) {
+          console.warn(
+            "[stats] failed to archive historical chunk to krix_stats_history:",
+            err?.message || err,
+          );
+        }
+      }
+
       const data = this.snapshot();
+      if (Object.keys(historicalDailyByMonth).length > 0) {
+        data.globalDaily = activeDaily;
+      }
+
       // Keep the local fallback, but MongoDB remains the durable source of truth
       // whenever configured and connected.
       try {
@@ -1832,9 +1954,9 @@ export class StatsTracker {
 
       const mongoConfigured = Boolean(
         process.env.MONGODB_URI ||
-          process.env.MONGO_URL ||
-          process.env.DATABASE_URL ||
-          getMongoDb(),
+        process.env.MONGO_URL ||
+        process.env.DATABASE_URL ||
+        getMongoDb(),
       );
       // Retry the connection/restore here so a MongoDB that was down at boot is picked up
       // later instead of failing every save until shutdown.
@@ -1877,38 +1999,266 @@ export class StatsTracker {
     await this.persist();
   }
 
+  private mergeLoadedData(doc: any): void {
+    if (!doc) return;
+
+    if (Array.isArray(doc.keys)) {
+      for (const [kId, loadedKey] of doc.keys) {
+        if (!this.keys.has(kId)) {
+          this.keys.set(kId, loadedKey);
+        } else {
+          const curKey = this.keys.get(kId)!;
+          curKey.totalRequests =
+            (curKey.totalRequests || 0) + (loadedKey.totalRequests || 0);
+          curKey.successCount =
+            (curKey.successCount || 0) + (loadedKey.successCount || 0);
+          curKey.errorCount =
+            (curKey.errorCount || 0) + (loadedKey.errorCount || 0);
+          curKey.totalDurationMs =
+            (curKey.totalDurationMs || 0) + (loadedKey.totalDurationMs || 0);
+          curKey.avgDurationMs =
+            curKey.totalRequests > 0
+              ? Math.round(curKey.totalDurationMs / curKey.totalRequests)
+              : 0;
+          curKey.bytesIn = (curKey.bytesIn || 0) + (loadedKey.bytesIn || 0);
+          curKey.bytesOut = (curKey.bytesOut || 0) + (loadedKey.bytesOut || 0);
+          curKey.lastActiveAt = Math.max(
+            curKey.lastActiveAt || 0,
+            loadedKey.lastActiveAt || 0,
+          );
+          if (!curKey.label && loadedKey.label) curKey.label = loadedKey.label;
+          if (!curKey.type && loadedKey.type) curKey.type = loadedKey.type;
+
+          for (const [tool, count] of Object.entries(
+            loadedKey.toolCalls || {},
+          )) {
+            curKey.toolCalls[tool] =
+              (curKey.toolCalls[tool] || 0) + Number(count);
+          }
+          for (const [d, count] of Object.entries(loadedKey.daily || {})) {
+            curKey.daily[d] = (curKey.daily[d] || 0) + Number(count);
+          }
+          if (loadedKey.dailyErrors) {
+            if (!curKey.dailyErrors) curKey.dailyErrors = {};
+            for (const [d, count] of Object.entries(loadedKey.dailyErrors)) {
+              curKey.dailyErrors[d] =
+                (curKey.dailyErrors[d] || 0) + Number(count);
+            }
+          }
+          for (const [w, count] of Object.entries(loadedKey.weekly || {})) {
+            curKey.weekly[w] = (curKey.weekly[w] || 0) + Number(count);
+          }
+          for (const [m, count] of Object.entries(loadedKey.monthly || {})) {
+            curKey.monthly[m] = (curKey.monthly[m] || 0) + Number(count);
+          }
+          if (loadedKey.toolMetrics) {
+            if (!curKey.toolMetrics) curKey.toolMetrics = {};
+            for (const [t, tm] of Object.entries(
+              loadedKey.toolMetrics as Record<string, any>,
+            )) {
+              if (!curKey.toolMetrics[t]) {
+                curKey.toolMetrics[t] = { ...tm };
+              } else {
+                const ctm = curKey.toolMetrics[t];
+                ctm.totalCalls = (ctm.totalCalls || 0) + (tm.totalCalls || 0);
+                ctm.successCount =
+                  (ctm.successCount || 0) + (tm.successCount || 0);
+                ctm.errorCount =
+                  (ctm.errorCount || 0) + (tm.errorCount || 0);
+                ctm.totalDurationMs =
+                  (ctm.totalDurationMs || 0) + (tm.totalDurationMs || 0);
+                if (tm.daily) {
+                  if (!ctm.daily) ctm.daily = {};
+                  for (const [d, count] of Object.entries(tm.daily)) {
+                    ctm.daily[d] = (ctm.daily[d] || 0) + Number(count);
+                  }
+                }
+                if (tm.weekly) {
+                  if (!ctm.weekly) ctm.weekly = {};
+                  for (const [w, count] of Object.entries(tm.weekly)) {
+                    ctm.weekly[w] = (ctm.weekly[w] || 0) + Number(count);
+                  }
+                }
+                if (tm.monthly) {
+                  if (!ctm.monthly) ctm.monthly = {};
+                  for (const [m, count] of Object.entries(tm.monthly)) {
+                    ctm.monthly[m] = (ctm.monthly[m] || 0) + Number(count);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (doc.globalTools) {
+      for (const [t, count] of Object.entries(doc.globalTools)) {
+        this.globalTools[t] = (this.globalTools[t] || 0) + Number(count);
+      }
+    }
+
+    if (doc.toolMetrics) {
+      for (const [t, tm] of Object.entries(
+        doc.toolMetrics as Record<string, any>,
+      )) {
+        if (!this.toolMetrics[t]) {
+          this.toolMetrics[t] = { ...tm };
+        } else {
+          const ctm = this.toolMetrics[t];
+          ctm.totalCalls = (ctm.totalCalls || 0) + (tm.totalCalls || 0);
+          ctm.successCount = (ctm.successCount || 0) + (tm.successCount || 0);
+          ctm.errorCount = (ctm.errorCount || 0) + (tm.errorCount || 0);
+          ctm.totalDurationMs =
+            (ctm.totalDurationMs || 0) + (tm.totalDurationMs || 0);
+          if (tm.daily) {
+            if (!ctm.daily) ctm.daily = {};
+            for (const [d, count] of Object.entries(tm.daily)) {
+              ctm.daily[d] = (ctm.daily[d] || 0) + Number(count);
+            }
+          }
+          if (tm.weekly) {
+            if (!ctm.weekly) ctm.weekly = {};
+            for (const [w, count] of Object.entries(tm.weekly)) {
+              ctm.weekly[w] = (ctm.weekly[w] || 0) + Number(count);
+            }
+          }
+          if (tm.monthly) {
+            if (!ctm.monthly) ctm.monthly = {};
+            for (const [m, count] of Object.entries(tm.monthly)) {
+              ctm.monthly[m] = (ctm.monthly[m] || 0) + Number(count);
+            }
+          }
+        }
+      }
+    }
+
+    if (doc.globalProtocol) {
+      for (const [p, count] of Object.entries(doc.globalProtocol)) {
+        this.globalProtocol[p] = (this.globalProtocol[p] || 0) + Number(count);
+      }
+    }
+
+    if (doc.globalDaily) {
+      for (const [d, m] of Object.entries(
+        doc.globalDaily as Record<string, any>,
+      )) {
+        if (!this.globalDaily[d]) {
+          this.globalDaily[d] = {
+            requests: m.requests || 0,
+            errors: m.errors || 0,
+            tools: m.tools || 0,
+          };
+        } else {
+          this.globalDaily[d].requests =
+            (this.globalDaily[d].requests || 0) + (m.requests || 0);
+          this.globalDaily[d].errors =
+            (this.globalDaily[d].errors || 0) + (m.errors || 0);
+          this.globalDaily[d].tools =
+            (this.globalDaily[d].tools || 0) + (m.tools || 0);
+        }
+      }
+    }
+
+    if (doc.globalWeekly) {
+      for (const [w, m] of Object.entries(
+        doc.globalWeekly as Record<string, any>,
+      )) {
+        if (!this.globalWeekly[w]) {
+          this.globalWeekly[w] = {
+            requests: m.requests || 0,
+            errors: m.errors || 0,
+            tools: m.tools || 0,
+          };
+        } else {
+          this.globalWeekly[w].requests =
+            (this.globalWeekly[w].requests || 0) + (m.requests || 0);
+          this.globalWeekly[w].errors =
+            (this.globalWeekly[w].errors || 0) + (m.errors || 0);
+          this.globalWeekly[w].tools =
+            (this.globalWeekly[w].tools || 0) + (m.tools || 0);
+        }
+      }
+    }
+
+    if (doc.globalMonthly) {
+      for (const [mo, m] of Object.entries(
+        doc.globalMonthly as Record<string, any>,
+      )) {
+        if (!this.globalMonthly[mo]) {
+          this.globalMonthly[mo] = {
+            requests: m.requests || 0,
+            errors: m.errors || 0,
+            tools: m.tools || 0,
+          };
+        } else {
+          this.globalMonthly[mo].requests =
+            (this.globalMonthly[mo].requests || 0) + (m.requests || 0);
+          this.globalMonthly[mo].errors =
+            (this.globalMonthly[mo].errors || 0) + (m.errors || 0);
+          this.globalMonthly[mo].tools =
+            (this.globalMonthly[mo].tools || 0) + (m.tools || 0);
+        }
+      }
+    }
+
+    if (doc.statusCodes) {
+      for (const [c, count] of Object.entries(doc.statusCodes)) {
+        this.statusCodes[c] = (this.statusCodes[c] || 0) + Number(count);
+      }
+    }
+
+    if (doc.clientEcosystems) {
+      for (const [e, count] of Object.entries(doc.clientEcosystems)) {
+        this.clientEcosystems[e] =
+          (this.clientEcosystems[e] || 0) + Number(count);
+      }
+    }
+
+    if (Array.isArray(doc.recentErrors)) {
+      const combined = [...doc.recentErrors, ...this.recentErrors];
+      combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      this.recentErrors = combined.slice(0, 50);
+    }
+
+    if (Array.isArray(doc.recentTimestamps)) {
+      const valid = doc.recentTimestamps.filter(
+        (t: number) => Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000,
+      );
+      this.recentTimestamps = Array.from(
+        new Set([...valid, ...this.recentTimestamps]),
+      ).sort();
+    }
+
+    if (Array.isArray(doc.recentDurations)) {
+      this.recentDurations = [...doc.recentDurations, ...this.recentDurations]
+        .filter((n: number) => Number.isFinite(n))
+        .slice(-200);
+    }
+
+    if (Array.isArray(doc.hourlyCounts)) {
+      for (let i = 0; i < 24; i++) {
+        this.hourlyCounts[i] =
+          (this.hourlyCounts[i] || 0) + (doc.hourlyCounts[i] || 0);
+      }
+    }
+
+    if (Array.isArray(doc.dayOfWeekCounts)) {
+      for (let i = 0; i < 7; i++) {
+        this.dayOfWeekCounts[i] =
+          (this.dayOfWeekCounts[i] || 0) + (doc.dayOfWeekCounts[i] || 0);
+      }
+    }
+
+    this.purgeProtocolAndLegacyKeys();
+  }
+
   private loadFromFile(): void {
     try {
       if (fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, "utf-8");
         const data = JSON.parse(raw);
-        if (Array.isArray(data.keys)) {
-          this.keys = new Map(data.keys);
-        }
-        if (data.globalTools) this.globalTools = data.globalTools;
-        if (data.toolMetrics) this.toolMetrics = data.toolMetrics;
-        if (data.globalProtocol) this.globalProtocol = data.globalProtocol;
-        if (data.globalDaily) this.globalDaily = data.globalDaily;
-        if (data.globalWeekly) this.globalWeekly = data.globalWeekly;
-        if (data.globalMonthly) this.globalMonthly = data.globalMonthly;
-        if (data.statusCodes) this.statusCodes = data.statusCodes;
-        if (data.clientEcosystems)
-          this.clientEcosystems = data.clientEcosystems;
-        if (Array.isArray(data.recentErrors))
-          this.recentErrors = data.recentErrors;
-        if (Array.isArray(data.recentTimestamps))
-          this.recentTimestamps = data.recentTimestamps.filter(
-            (t: number) =>
-              Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000,
-          );
-        if (Array.isArray(data.recentDurations))
-          this.recentDurations = data.recentDurations
-            .filter((n: number) => Number.isFinite(n))
-            .slice(-200);
-        if (Array.isArray(data.hourlyCounts))
-          this.hourlyCounts = data.hourlyCounts;
-        if (data.dayOfWeekCounts) this.dayOfWeekCounts = data.dayOfWeekCounts;
-        this.purgeProtocolAndLegacyKeys();
+        this.mergeLoadedData(data);
       }
     } catch {}
   }
@@ -1953,32 +2303,7 @@ export class StatsTracker {
         return;
       }
       if (doc) {
-        if (Array.isArray(doc.keys)) {
-          this.keys = new Map(doc.keys);
-        }
-        if (doc.globalTools) this.globalTools = doc.globalTools;
-        if (doc.toolMetrics) this.toolMetrics = doc.toolMetrics;
-        if (doc.globalProtocol) this.globalProtocol = doc.globalProtocol;
-        if (doc.globalDaily) this.globalDaily = doc.globalDaily;
-        if (doc.globalWeekly) this.globalWeekly = doc.globalWeekly;
-        if (doc.globalMonthly) this.globalMonthly = doc.globalMonthly;
-        if (doc.statusCodes) this.statusCodes = doc.statusCodes;
-        if (doc.clientEcosystems) this.clientEcosystems = doc.clientEcosystems;
-        if (Array.isArray(doc.recentErrors))
-          this.recentErrors = doc.recentErrors;
-        if (Array.isArray(doc.recentTimestamps))
-          this.recentTimestamps = doc.recentTimestamps.filter(
-            (t: number) =>
-              Number.isFinite(t) && t >= Date.now() - 5 * 60 * 1000,
-          );
-        if (Array.isArray(doc.recentDurations))
-          this.recentDurations = doc.recentDurations
-            .filter((n: number) => Number.isFinite(n))
-            .slice(-200);
-        if (Array.isArray(doc.hourlyCounts))
-          this.hourlyCounts = doc.hourlyCounts;
-        if (doc.dayOfWeekCounts) this.dayOfWeekCounts = doc.dayOfWeekCounts;
-        this.purgeProtocolAndLegacyKeys();
+        this.mergeLoadedData(doc);
         this.mongoLoaded = true;
       }
     } catch (error: any) {

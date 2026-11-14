@@ -17,7 +17,12 @@ export function renderApiKeySettingsPage(params: {
   toolsCatalog: any[];
   keySettings: any;
   apiKeyToken?: string;
-  credentialAvailability?: { github?: boolean; render?: boolean };
+  credentialAvailability?: {
+    github?: boolean;
+    render?: boolean;
+    workspaceGithub?: boolean;
+    workspaceRender?: boolean;
+  };
 }): string {
   const key = params.key || {};
   const rawKeyId = String(key.id || key.clientId || "");
@@ -171,7 +176,10 @@ export function renderApiKeySettingsPage(params: {
           <div id="renderCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customRenderKey" value="${escapeHtml(renderSecret)}" placeholder="Leave blank to inherit workspace token" style="flex:1 1 200px;min-width:0;box-sizing:border-box;"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customRenderKey',this)" aria-label="Show Render token" style="height:36px;flex-shrink:0;">${renderSvg("eye", 14)}</button></div>
         </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:14px;"><button type="button" id="saveKeySettingsButton" class="btn primary" onclick="saveKeySettings()" style="display:none;border-radius:6px;">${renderSvg("save", 14)}<span>Save Changes</span></button></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;">
+        <button type="button" id="cancelKeySettingsButton" class="btn secondary" onclick="cancelKeySettings()" style="display:none;border-radius:6px;padding:8px 18px;"><span>Cancel Changes</span></button>
+        <button type="button" id="saveKeySettingsButton" class="btn primary" onclick="saveKeySettings()" style="display:none;border-radius:6px;">${renderSvg("save", 14)}<span>Save Changes</span></button>
+      </div>
     </section>
 
     <section class="card spotlight-card key-settings-card" style="padding:22px;">
@@ -204,8 +212,22 @@ export function renderApiKeySettingsPage(params: {
     </section>
 
     <script>
-      const credentialReady = { github: ${Boolean(params.credentialAvailability?.github)}, render: ${Boolean(params.credentialAvailability?.render)} };
-      const credentialMessages = { github: ${JSON.stringify(credentialRequiredMessage("github", undefined, "key")).replace(/</g, "\\u003c")}, render: ${JSON.stringify(credentialRequiredMessage("render", undefined, "key")).replace(/</g, "\\u003c")} };
+      const credentialReady = {
+        github: ${Boolean(params.credentialAvailability?.github)},
+        render: ${Boolean(params.credentialAvailability?.render)}
+      };
+      const workspaceCredentialReady = {
+        github: ${Boolean(params.credentialAvailability?.workspaceGithub ?? params.credentialAvailability?.github)},
+        render: ${Boolean(params.credentialAvailability?.workspaceRender ?? params.credentialAvailability?.render)}
+      };
+      const keyOverrideConfigured = {
+        github: ${Boolean(githubSecret)},
+        render: ${Boolean(renderSecret)}
+      };
+      const credentialMessages = {
+        github: ${JSON.stringify(credentialRequiredMessage("github", undefined, "key")).replace(/</g, "\\u003c")},
+        render: ${JSON.stringify(credentialRequiredMessage("render", undefined, "key")).replace(/</g, "\\u003c")}
+      };
       const keyToolPageSize = 12;
       let keyToolPage = 1;
       let keyToolCategory = 'All';
@@ -232,10 +254,14 @@ export function renderApiKeySettingsPage(params: {
         if (next) next.disabled = keyToolPage >= pages;
       }
       function providerReady(provider) {
-        // A credential typed into the override box (not yet saved) counts, an emptied one does not.
+        // A credential typed into the override box counts. If left blank/empty, it inherits the workspace credential.
         const inputId = provider === 'github' ? 'customGithubToken' : 'customRenderKey';
-        if (overrideEditing[provider]) return Boolean((document.getElementById(inputId)?.value || '').trim());
-        return Boolean(credentialReady[provider]);
+        if (overrideEditing[provider]) {
+          const val = (document.getElementById(inputId)?.value || '').trim();
+          if (val) return true;
+          return Boolean(workspaceCredentialReady[provider]);
+        }
+        return Boolean(keyOverrideConfigured[provider] || workspaceCredentialReady[provider] || credentialReady[provider]);
       }
       function onKeyToolToggle(input) {
         const requires = input.closest('.key-tool-row')?.dataset.requires || '';
@@ -258,14 +284,65 @@ export function renderApiKeySettingsPage(params: {
         });
         renderKeyToolsPage();
       }
+      let initialActiveState = Boolean(document.getElementById('keyActiveToggle')?.checked);
+      const initialToolCheckStates = new Map();
+      document.querySelectorAll('.key-tool-check').forEach(chk => {
+        initialToolCheckStates.set(chk.value, chk.checked);
+      });
+      let initialGithubSecret = ${JSON.stringify(githubSecret || "")};
+      let initialRenderSecret = ${JSON.stringify(renderSecret || "")};
+
       function updateKeyStatusLabel(active) {
         const label = document.getElementById('keyStatusText');
         if (label) { label.textContent = active ? 'Active' : 'Disabled'; label.style.color = active ? 'var(--success)' : 'var(--error)'; }
         showKeySettingsSave();
       }
       function showKeySettingsSave() {
-        const button = document.getElementById('saveKeySettingsButton');
-        if (button) button.style.display = 'inline-flex';
+        const saveBtn = document.getElementById('saveKeySettingsButton');
+        const cancelBtn = document.getElementById('cancelKeySettingsButton');
+        if (saveBtn) saveBtn.style.display = 'inline-flex';
+        if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+      }
+      function hideKeySettingsSave() {
+        const saveBtn = document.getElementById('saveKeySettingsButton');
+        const cancelBtn = document.getElementById('cancelKeySettingsButton');
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+      }
+      function cancelKeySettings() {
+        const toggle = document.getElementById('keyActiveToggle');
+        if (toggle) {
+          toggle.checked = initialActiveState;
+          const label = document.getElementById('keyStatusText');
+          if (label) {
+            label.textContent = initialActiveState ? 'Active' : 'Disabled';
+            label.style.color = initialActiveState ? 'var(--success)' : 'var(--error)';
+          }
+        }
+        document.querySelectorAll('.key-tool-check').forEach(chk => {
+          if (initialToolCheckStates.has(chk.value)) {
+            chk.checked = initialToolCheckStates.get(chk.value);
+          }
+        });
+        if (overrideEditing.github) {
+          const input = document.getElementById('customGithubToken');
+          if (input) input.value = initialGithubSecret;
+          const view = document.getElementById('githubCredentialView');
+          const edit = document.getElementById('githubCredentialEdit');
+          if (view) view.style.display = 'flex';
+          if (edit) edit.style.display = 'none';
+          overrideEditing.github = false;
+        }
+        if (overrideEditing.render) {
+          const input = document.getElementById('customRenderKey');
+          if (input) input.value = initialRenderSecret;
+          const view = document.getElementById('renderCredentialView');
+          const edit = document.getElementById('renderCredentialEdit');
+          if (view) view.style.display = 'flex';
+          if (edit) edit.style.display = 'none';
+          overrideEditing.render = false;
+        }
+        hideKeySettingsSave();
       }
       function toggleKeyIdentityReveal(id, button) {
         const el = document.getElementById(id);
@@ -321,6 +398,7 @@ export function renderApiKeySettingsPage(params: {
           showToast('Key settings saved successfully', 'success');
           if (overrideEditing.github) {
             const value = (document.getElementById('customGithubToken')?.value || '').trim();
+            keyOverrideConfigured.github = Boolean(value);
             const display = document.getElementById('githubCredentialMasked');
             const eyeBtn = document.getElementById('githubRevealBtn');
             if (display) {
@@ -338,6 +416,7 @@ export function renderApiKeySettingsPage(params: {
           }
           if (overrideEditing.render) {
             const value = (document.getElementById('customRenderKey')?.value || '').trim();
+            keyOverrideConfigured.render = Boolean(value);
             const display = document.getElementById('renderCredentialMasked');
             const eyeBtn = document.getElementById('renderRevealBtn');
             if (display) {
@@ -353,7 +432,14 @@ export function renderApiKeySettingsPage(params: {
             document.getElementById('renderCredentialEdit').style.display = 'none';
             overrideEditing.render = false;
           }
-          if (button) button.style.display = 'none';
+          initialActiveState = Boolean(document.getElementById('keyActiveToggle')?.checked);
+          initialToolCheckStates.clear();
+          document.querySelectorAll('.key-tool-check').forEach(chk => {
+            initialToolCheckStates.set(chk.value, chk.checked);
+          });
+          initialGithubSecret = (document.getElementById('customGithubToken')?.value || '').trim();
+          initialRenderSecret = (document.getElementById('customRenderKey')?.value || '').trim();
+          hideKeySettingsSave();
         } catch (error) { showToast(error.message || 'Failed to save key settings', 'error'); }
         finally { if (button) button.disabled = false; }
       }

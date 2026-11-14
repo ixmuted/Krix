@@ -83,7 +83,7 @@ export function renderStatsPage(params: {
   const keySelectorHtml = `
     <div style="display:flex; align-items:center; gap:8px;">
       <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
-      <select id="keySelector" onchange="window.location.search = this.value ? '?key=' + encodeURIComponent(this.value) : ''" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:5px 12px; font-size:12px; color:var(--fg); cursor:pointer;">
+      <select id="keySelector" onchange="window.location.search = this.value ? '?key=' + encodeURIComponent(this.value) : ''" class="krix-select">
         <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
         ${
           keys.length > 0
@@ -208,7 +208,7 @@ export function renderStatsPage(params: {
           </div>
 
           <!-- Smart Year Filter -->
-          <select id="yearFilter" onchange="renderTimelineChart()" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:4px 10px; font-size:11px; color:var(--fg);">
+          <select id="yearFilter" onchange="renderTimelineChart()" class="krix-select">
             <option value="all">All Years</option>
             ${availableYears.map((y: any) => `<option value="${escapeHtml(String(y))}">${escapeHtml(String(y))}</option>`).join("")}
           </select>
@@ -441,15 +441,69 @@ export function renderStatsPage(params: {
     </div>
 
     <script>
+      const fullDailyTimeline = ${JSON.stringify(summary.dailyTimeline || [])};
+      const firstCallIndex = fullDailyTimeline.findIndex(item => (item.requests || 0) > 0);
+      const maxPastOffset = firstCallIndex === -1
+        ? 0
+        : -Math.floor((fullDailyTimeline.length - 1 - firstCallIndex) / 10);
       let currentChunkOffset = 0;
 
-      function changeDailyChunk(direction) {
-        currentChunkOffset += direction;
-        if (currentChunkOffset > 0) currentChunkOffset = 0;
+      function updateTimelineView() {
+        const total = fullDailyTimeline.length;
+        const end = Math.max(0, total + currentChunkOffset * 10);
+        const start = Math.max(0, end - 10);
+        const chunkItems = fullDailyTimeline.slice(start, end);
+
+        // Update range label (invariant: Days X–Y)
         const lbl = document.getElementById("lblDailyChunkRange");
         if (lbl) {
-          lbl.textContent = currentChunkOffset === 0 ? "Days 21–30" : "Days " + (21 + currentChunkOffset * 10) + "–" + (30 + currentChunkOffset * 10);
+          const startNum = start + 1;
+          const endNum = Math.min(total, start + (chunkItems.length || 10));
+          lbl.textContent = "Days " + startNum + "–" + endNum;
         }
+
+        // Render chart bars dynamically for the selected chunk
+        const chart = document.getElementById("timelineChart");
+        if (chart) {
+          if (!chunkItems.length) {
+            chart.innerHTML = '<div style="width:100%; text-align:center; color:var(--geist-gray-50); font-size:12px; padding:40px 0;">No timeline data available for this range</div>';
+          } else {
+            chart.innerHTML = chunkItems.map(item => {
+              const reqs = item.requests || 0;
+              const h = Math.min(100, Math.max(8, reqs * 10));
+              return '<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">' +
+                '<div style="width:100%; height:' + h + 'px; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.85;" title="' + (item.date || '') + ': ' + reqs + ' calls"></div>' +
+                '<span style="font-size:10px; font-family:var(--font-mono); color:var(--geist-gray-50);">' + (item.date || '').slice(5) + '</span>' +
+              '</div>';
+            }).join('');
+          }
+        }
+
+        // Safeguard buttons: disable navigating before first call date or past today
+        const btnPrev = document.getElementById("btnPrevDailyChunk");
+        const btnNext = document.getElementById("btnNextDailyChunk");
+        if (btnPrev) {
+          const canGoPrev = currentChunkOffset > maxPastOffset && start > 0;
+          btnPrev.disabled = !canGoPrev;
+          btnPrev.style.opacity = canGoPrev ? '1' : '0.35';
+          btnPrev.style.cursor = canGoPrev ? 'pointer' : 'not-allowed';
+          btnPrev.setAttribute('aria-disabled', String(!canGoPrev));
+        }
+        if (btnNext) {
+          const canGoNext = currentChunkOffset < 0;
+          btnNext.disabled = !canGoNext;
+          btnNext.style.opacity = canGoNext ? '1' : '0.35';
+          btnNext.style.cursor = canGoNext ? 'pointer' : 'not-allowed';
+          btnNext.setAttribute('aria-disabled', String(!canGoNext));
+        }
+      }
+
+      function changeDailyChunk(direction) {
+        const target = currentChunkOffset + direction;
+        if (target > 0) return;
+        if (target < maxPastOffset) return;
+        currentChunkOffset = target;
+        updateTimelineView();
       }
 
       function filterStatsKeys(q) {
@@ -458,6 +512,9 @@ export function renderStatsPage(params: {
           row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
         });
       }
+
+      // Initialize initial chunk button states
+      updateTimelineView();
     </script>
   `;
 

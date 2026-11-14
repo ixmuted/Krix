@@ -164,7 +164,10 @@ export function renderSettingsPage(params: {
         </div>
       </div>
 
-      <div style="display:flex; justify-content:flex-end;">
+      <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+        <button type="button" id="settingsCancelCredentialsBtn" class="btn secondary" onclick="cancelSettingsCredentials()" style="display:none; border-radius:6px; padding:8px 18px;">
+          <span>Cancel Changes</span>
+        </button>
         <button type="button" id="settingsSaveCredentialsBtn" class="btn primary deploy-btn" onclick="saveSettingsCredentials()" style="display:none; border-radius:6px; padding:8px 18px;">
           ${renderSvg("shield", 14)}
           <span>Save Changes</span>
@@ -370,6 +373,8 @@ export function renderSettingsPage(params: {
             input.dataset.editing = 'true';
             input.dataset.revealed = 'false';
             document.getElementById('settingsSaveCredentialsBtn').style.display = 'inline-flex';
+            const cancelBtn = document.getElementById('settingsCancelCredentialsBtn');
+            if (cancelBtn) cancelBtn.style.display = 'inline-flex';
             input.focus();
           }
           return;
@@ -381,6 +386,23 @@ export function renderSettingsPage(params: {
         const reveal = input.dataset.revealed !== 'true';
         input.dataset.revealed = reveal ? 'true' : 'false';
         input.value = reveal ? (input.dataset.secret || '') : (input.dataset.masked || '');
+      }
+
+      function cancelSettingsCredentials() {
+        ['settingsGithubInput', 'settingsRenderInput'].forEach(id => {
+          const input = document.getElementById(id);
+          if (input && input.dataset.editing === 'true') {
+            input.value = input.dataset.masked || '';
+            input.readOnly = true;
+            input.type = 'text';
+            input.dataset.editing = 'false';
+            input.dataset.revealed = 'false';
+          }
+        });
+        const saveBtn = document.getElementById('settingsSaveCredentialsBtn');
+        const cancelBtn = document.getElementById('settingsCancelCredentialsBtn');
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
       }
 
       function saveSettingsCredentials() {
