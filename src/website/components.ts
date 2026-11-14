@@ -262,9 +262,9 @@ export function renderPageShell(options: PageShellOptions): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${pageTitle}</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=2">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=3">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png?v=3">
   <meta name="description" content="High-efficiency Model Context Protocol hub and isolated agent execution workbench.">
   <style ${nonceAttr}>
     ${getTokensCss()}
