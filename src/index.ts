@@ -124,6 +124,7 @@ import {
   removeKeyCredential,
   updateKeyTools,
   toggleKeyTool,
+  reconcileRiskAcknowledgements,
   updateKeyToolRiskLevel,
   isToolEnabledForKey,
   syncKeySettingsToMongo,
@@ -1800,11 +1801,19 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
       : undefined;
     if (settings.customRenderToken) registerSecret(settings.customRenderToken);
   }
+  const previouslyEnabled = new Set(settings.enabledTools || []);
   if (Array.isArray(enabledTools)) {
     settings.enabledTools = enabledTools.map(String);
   }
   if (Array.isArray(disabledTools)) {
     settings.disabledTools = disabledTools.map(String);
+  }
+  if (Array.isArray(enabledTools) || Array.isArray(disabledTools)) {
+    settings.riskAcknowledgedTools = reconcileRiskAcknowledgements(
+      settings.riskAcknowledgedTools,
+      (settings.enabledTools || []).filter((t) => !previouslyEnabled.has(t)),
+      settings.disabledTools || [],
+    );
   }
   if (typeof disabled === "boolean") {
     settings.disabled = disabled;

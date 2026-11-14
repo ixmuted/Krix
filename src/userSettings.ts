@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { isDefaultGithubTool } from "./toolDefaults.js";
 import fs from "node:fs";
 import path from "node:path";
 import { type Db } from "mongodb";
@@ -349,14 +350,37 @@ export function removeKeySettings(keyId: string): boolean {
   return deleted;
 }
 
+/**
+ * Explicitly enabling a tool acknowledges its risk; disabling clears the acknowledgement.
+ * Acknowledgements set elsewhere (the tool-risk endpoint) are otherwise preserved.
+ */
+export function reconcileRiskAcknowledgements(
+  current: string[] | undefined,
+  newlyEnabled: string[],
+  disabled: string[],
+): string[] {
+  const acknowledged = new Set(current || []);
+  for (const name of newlyEnabled) acknowledged.add(name);
+  for (const name of disabled) acknowledged.delete(name);
+  return Array.from(acknowledged);
+}
+
 export function updateKeyTools(
   keyId: string,
   enabledTools: string[],
   disabledTools: string[],
 ): KeySettings {
   const settings = getKeySettings(keyId);
+  const previouslyEnabled = new Set(settings.enabledTools || []);
   settings.enabledTools = Array.from(new Set(enabledTools));
   settings.disabledTools = Array.from(new Set(disabledTools));
+  // Turning a tool on is the user's explicit consent, so high/critical-risk tools
+  // newly enabled here must not stay silently hidden by the risk gate.
+  settings.riskAcknowledgedTools = reconcileRiskAcknowledgements(
+    settings.riskAcknowledgedTools,
+    settings.enabledTools.filter((t) => !previouslyEnabled.has(t)),
+    settings.disabledTools,
+  );
   settings.updatedAt = Date.now();
 
   saveSettingsToDisk();
@@ -383,6 +407,11 @@ export function toggleKeyTool(
 
   settings.enabledTools = Array.from(enabledSet);
   settings.disabledTools = Array.from(disabledSet);
+  settings.riskAcknowledgedTools = reconcileRiskAcknowledgements(
+    settings.riskAcknowledgedTools,
+    enable ? [toolName] : [],
+    enable ? [] : [toolName],
+  );
   settings.updatedAt = Date.now();
 
   saveSettingsToDisk();
@@ -479,6 +508,9 @@ export function isToolEnabledForKey(
   const enabled = explicitlyEnabled || categoryEnabled;
   if (!enabled) return false;
 
+  // The default-on GitHub tool set is advertised as enabled in Settings, so it is
+  // not held back by the risk gate (everything else needs explicit enabling).
+  if (category === "core" && isDefaultGithubTool(toolName)) return true;
   const riskLevel = getToolRiskLevel(keyId, toolName, category);
   if (
     (riskLevel === "high" || riskLevel === "critical") &&
