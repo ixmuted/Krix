@@ -128,6 +128,7 @@ import {
   updateKeyToolRiskLevel,
   isToolEnabledForKey,
   syncKeySettingsToMongo,
+  ensureSettingsFromMongo,
   saveSettingsToDisk,
   getUserRole,
   isOwnerEmail,
