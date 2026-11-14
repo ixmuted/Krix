@@ -37,7 +37,7 @@ test("SEP-2127 MCP server card, icon sizes, and metadata standard", () => {
 
   // Manifest JSON sizes check
   const manifest = JSON.parse(
-    fs.readFileSync(path.resolve("manifest.json"), "utf-8"),
+    fs.readFileSync(path.resolve("icons/manifest.json"), "utf-8"),
   );
   assert.ok(Array.isArray(manifest.icons), "manifest icons must be an array");
   const m48 = manifest.icons.find((i: any) => i.src.includes("48"));

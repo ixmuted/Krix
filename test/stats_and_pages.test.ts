@@ -665,7 +665,7 @@ test("Upload Page redesign, 12-char Client ID, 4-char unique API key enforcement
   );
 
   // 4. Unique key name enforcement
-  const uniqueName = `Suite-Key-${Date.now()}`;
+  const uniqueName = `K-${Date.now().toString(36)}`;
   const key1 = createDynamicKey(uniqueName);
   assert.ok(key1.clientId, "Key must have clientId property");
   assert.equal(key1.clientId.length, 12, "Key clientId must be 12 characters");

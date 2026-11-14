@@ -131,7 +131,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        client_name: "Claude Desktop Agent",
+        client_name: "Claude Desktop",
         redirect_uris: ["http://127.0.0.1:8999/callback"],
       }),
     });
@@ -140,7 +140,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     const client = (await regRes.json()) as any;
     assert.ok(client.client_id.startsWith("krix_client_"));
     assert.ok(client.client_secret.startsWith("krix_sec_"));
-    assert.equal(client.client_name, "Claude Desktop Agent");
+    assert.equal(client.client_name, "Claude Desktop");
     assert.deepEqual(client.redirect_uris, ["http://127.0.0.1:8999/callback"]);
   });
 
@@ -270,7 +270,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
 
   test("Stateless tokens survive server container restarts and memory wipes", async () => {
     // 1. Dynamic Key survives memory wipe
-    const keyLabel = `Persistent Client Key ${Date.now()}`;
+    const keyLabel = `PCK-${Date.now().toString(36)}`;
     const entry = createDynamicKey(keyLabel);
     assert.equal(isAuthorizedApiKey(entry.key), true);
 

@@ -305,7 +305,7 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
 
     test("Render workspace uploads succeed without owner-only sandbox opt-in gate", async () => {
       const userKey = createTrackedKey(
-        "Render Key " + Date.now(),
+        "R-" + Date.now().toString(36),
         USER_A_EMAIL,
       );
       try {
@@ -374,7 +374,7 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
     test("User A uploads file; User B cannot list, download, rename, or delete User A's file", async () => {
       // 1. User A creates session and uploads private file
       const userAKey = createTrackedKey(
-        "Alice Iso Key " + Date.now(),
+        "AI-" + Date.now().toString(36),
         USER_A_EMAIL,
       );
       try {
@@ -506,7 +506,7 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
   describe("3. Default Private Status for Uploaded Files", () => {
     test("Sandbox upload registers file as private by default in registry and store", async () => {
       const userAKey = createTrackedKey(
-        "Alice Def Key " + Date.now(),
+        "AD-" + Date.now().toString(36),
         USER_A_EMAIL,
       );
       try {

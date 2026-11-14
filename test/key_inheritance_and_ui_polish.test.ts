@@ -25,7 +25,7 @@ describe("New Features & UI Polish Verification", () => {
 
     const rand = crypto.randomBytes(4).toString("hex");
     const dynamicKey = createDynamicKey(
-      "Inherit Test Key " + rand,
+      "Inh-" + rand,
       "user@example.com",
     );
     try {

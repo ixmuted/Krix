@@ -163,7 +163,7 @@ describe('Icons and Asset Metadata', () => {
   test('manifests (gemini-extension.json, server.json, manifest.json) have matching icon properties and valid endpoints', () => {
     const serverJsonPath = path.resolve(process.cwd(), 'server.json');
     const geminiJsonPath = path.resolve(process.cwd(), 'gemini-extension.json');
-    const manifestJsonPath = path.resolve(process.cwd(), 'manifest.json');
+    const manifestJsonPath = path.resolve(process.cwd(), 'icons/manifest.json');
 
     assert.ok(fs.existsSync(serverJsonPath), 'server.json must exist');
     assert.ok(fs.existsSync(geminiJsonPath), 'gemini-extension.json must exist');

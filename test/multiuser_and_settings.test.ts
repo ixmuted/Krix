@@ -470,8 +470,8 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
     test("listDynamicKeys filters keys so non-owners only see their own keys", () => {
       const rand = crypto.randomBytes(4).toString("hex");
       // Create a key for user1 and a key for user2
-      const key1 = createDynamicKey("User 1 Key " + rand, USER_EMAIL);
-      const key2 = createDynamicKey("User 2 Key " + rand, OTHER_EMAIL);
+      const key1 = createDynamicKey("U1-" + rand, USER_EMAIL);
+      const key2 = createDynamicKey("U2-" + rand, OTHER_EMAIL);
 
       const user1Keys = listDynamicKeys(USER_EMAIL);
       assert.ok(user1Keys.some((k) => k.id === key1.id));
@@ -636,7 +636,7 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
 
     test("User can successfully save their custom GitHub & Render credentials", async () => {
       const rand = crypto.randomBytes(4).toString("hex");
-      const userKey = createDynamicKey("User Endpoint Key " + rand, USER_EMAIL);
+      const userKey = createDynamicKey("UE-" + rand, USER_EMAIL);
       const userCookie = makeSessionCookie(USER_EMAIL, "user");
 
       const res = await fetch(`${base}/settings/api/credentials`, {
@@ -672,7 +672,7 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
 
     test("User can toggle specific Code Graph tool on and off via API", async () => {
       const rand = crypto.randomBytes(4).toString("hex");
-      const userKey = createDynamicKey("User Toggle Key " + rand, USER_EMAIL);
+      const userKey = createDynamicKey("UT-" + rand, USER_EMAIL);
       const userCookie = makeSessionCookie(USER_EMAIL, "user");
 
       // Enable find_code
