@@ -2639,6 +2639,7 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
       return;
     }
     const updated = toggleKeyTool(keyId, toolName, Boolean(enabled));
+    await syncKeySettingsToMongo(updated);
     const refreshedSessions = refreshSessionsForKey(keyId);
     res.json({
       ok: true,
@@ -2747,6 +2748,7 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
       Array.isArray(enabledTools) ? enabledTools : [],
       Array.isArray(disabledTools) ? disabledTools : [],
     );
+    await syncKeySettingsToMongo(updated);
     const refreshedSessions = refreshSessionsForKey(keyId);
     res.json({
       ok: true,
@@ -2758,6 +2760,70 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
     res
       .status(500)
       .json({ ok: false, error: err?.message || "Failed to update tools." });
+  }
+});
+
+app.post("/settings/api/tools/sync-all", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { sourceKeyId } = req.body || {};
+  if (!sourceKeyId || typeof sourceKeyId !== "string") {
+    res.status(400).json({ ok: false, error: "Invalid sourceKeyId." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, sourceKeyId)) {
+    res.status(403).json({
+      ok: false,
+      error: "Forbidden: You do not have permission to manage this key.",
+    });
+    return;
+  }
+  try {
+    const source = getKeySettings(sourceKeyId);
+    const targetIds = new Set<string>();
+    if (isOwnerEmail(owner.email)) targetIds.add("primary-key");
+    for (const k of listDynamicKeys(owner.email)) targetIds.add(k.id);
+    for (const oa of listActiveOAuthAuthorizations()) {
+      if (oa.ownerEmail?.toLowerCase() === owner.email.toLowerCase()) {
+        targetIds.add(oa.clientId);
+      }
+    }
+
+    let updatedCount = 0;
+    let refreshedSessions = 0;
+    for (const targetId of targetIds) {
+      if (targetId === sourceKeyId) continue;
+      const ready = keyCredentialsReady(targetId);
+      const filteredEnabled = (source.enabledTools || []).filter(
+        (t) => !getMissingToolCredential(t, ready),
+      );
+      const target = updateKeyTools(
+        targetId,
+        filteredEnabled,
+        [...(source.disabledTools || [])],
+      );
+      target.enabledCategories = [...(source.enabledCategories || [])];
+      if (source.toolRiskLevels) {
+        target.toolRiskLevels = { ...source.toolRiskLevels };
+      }
+      target.riskAcknowledgedTools = [...(source.riskAcknowledgedTools || [])];
+      target.updatedAt = Date.now();
+      saveSettingsToDisk();
+      await syncKeySettingsToMongo(target);
+      refreshedSessions += refreshSessionsForKey(targetId);
+      updatedCount += 1;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, updatedCount, refreshedSessions });
+  } catch (err: any) {
+    res.status(500).json({
+      ok: false,
+      error: err?.message || "Failed to sync tool permissions.",
+    });
   }
 });
 
