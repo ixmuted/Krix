@@ -858,7 +858,10 @@ export async function loadSettingsFromMongo(): Promise<void> {
           createdAt: d.createdAt || Date.now(),
           updatedAt: d.updatedAt || Date.now(),
         };
-        keySettingsMap.set(d.keyId, s);
+        const existing = keySettingsMap.get(d.keyId);
+        if (!existing || (d.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          keySettingsMap.set(d.keyId, s);
+        }
         if (s.customGitHubToken) registerSecret(s.customGitHubToken);
         if (s.customRenderToken) registerSecret(s.customRenderToken);
         if (d.customGitHubToken || d.customRenderToken)
@@ -870,5 +873,17 @@ export async function loadSettingsFromMongo(): Promise<void> {
   }
 }
 
+let initialMongoSettingsPromise: Promise<void> | null = null;
+
+export function ensureSettingsFromMongo(): Promise<void> {
+  if (!initialMongoSettingsPromise) {
+    initialMongoSettingsPromise = loadSettingsFromMongo().catch((err) => {
+      initialMongoSettingsPromise = null;
+      throw err;
+    });
+  }
+  return initialMongoSettingsPromise;
+}
+
 // Background sync on startup
-loadSettingsFromMongo().catch(() => {});
+ensureSettingsFromMongo().catch(() => {});
