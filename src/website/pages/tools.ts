@@ -16,7 +16,8 @@ export function renderToolsPage(params: {
   summary?: any;
   selectedKeyId?: string;
 }): string {
-  if (!params.isOwner) {
+  const isAuthenticated = Boolean(params.owner || params.isOwner);
+  if (!isAuthenticated) {
     return renderPageShell({
       title: "Tools",
       activeTab: "tools",

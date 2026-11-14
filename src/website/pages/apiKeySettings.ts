@@ -4,7 +4,10 @@
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
 import { getToolCredentialRequirement } from "../../security.js";
-import { credentialRequiredMessage, isDefaultGithubTool } from "../../toolDefaults.js";
+import {
+  credentialRequiredMessage,
+  isDefaultGithubTool,
+} from "../../toolDefaults.js";
 
 export function renderApiKeySettingsPage(params: {
   base: string;
@@ -24,9 +27,15 @@ export function renderApiKeySettingsPage(params: {
   );
   const tools = Array.isArray(params.toolsCatalog) ? params.toolsCatalog : [];
   const settings = params.keySettings || {};
-  const enabledTools = new Set<string>(Array.isArray(settings.enabledTools) ? settings.enabledTools : []);
-  const disabledTools = new Set<string>(Array.isArray(settings.disabledTools) ? settings.disabledTools : []);
-  const enabledCategories = new Set<string>(Array.isArray(settings.enabledCategories) ? settings.enabledCategories : []);
+  const enabledTools = new Set<string>(
+    Array.isArray(settings.enabledTools) ? settings.enabledTools : [],
+  );
+  const disabledTools = new Set<string>(
+    Array.isArray(settings.disabledTools) ? settings.disabledTools : [],
+  );
+  const enabledCategories = new Set<string>(
+    Array.isArray(settings.enabledCategories) ? settings.enabledCategories : [],
+  );
   const isKeyDisabled = !!settings.disabled;
   const isToolEnabled = (tool: any): boolean => {
     const name = String(tool.name || "");
@@ -44,20 +53,35 @@ export function renderApiKeySettingsPage(params: {
       Search: ["search"],
     };
     // With a GitHub token only the default GitHub tool set is on; everything else is opt-in.
-    if (category === "GitHub" && params.credentialAvailability?.github) return isDefaultGithubTool(name);
-    if (category === "Sandbox" && params.credentialAvailability?.github) return true;
-    return category !== "Code Graph" && category !== "Search" &&
-      (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
+    if (category === "GitHub" && params.credentialAvailability?.github)
+      return isDefaultGithubTool(name);
+    if (category === "Sandbox" && params.credentialAvailability?.github)
+      return true;
+    return (
+      category !== "Code Graph" &&
+      category !== "Search" &&
+      (categoryKeys[category] || []).some((item) => enabledCategories.has(item))
+    );
   };
 
-  const createdDate = key.createdAt ? new Date(key.createdAt).toLocaleDateString() : "Recent";
+  const createdDate = key.createdAt
+    ? new Date(key.createdAt).toLocaleDateString()
+    : "Recent";
   const appName = escapeHtml(
-    key.clientName || key.app || (key.type === "oauth" ? "OAuth Client" : "Direct API Integration"),
+    key.clientName ||
+      key.app ||
+      (key.type === "oauth" ? "OAuth Client" : "Direct API Integration"),
   );
-  const requestCount = Number(key.totalRequests || key.requestCount || 0).toLocaleString();
-  const lastActive = key.lastActiveAt ? new Date(key.lastActiveAt).toLocaleString() : "No recent activity";
+  const requestCount = Number(
+    key.totalRequests || key.requestCount || 0,
+  ).toLocaleString();
+  const lastActive = key.lastActiveAt
+    ? new Date(key.lastActiveAt).toLocaleString()
+    : "No recent activity";
   const rawApiToken = String(params.apiKeyToken || "");
-  const clientId = String(key.clientId || (key.type === "oauth" ? key.id : "") || "");
+  const clientId = String(
+    key.clientId || (key.type === "oauth" ? key.id : "") || "",
+  );
   const maskedApiToken = rawApiToken
     ? `${rawApiToken.slice(0, 4)}••••••••${rawApiToken.slice(-4)}`
     : "Not available for this key";
@@ -66,10 +90,16 @@ export function renderApiKeySettingsPage(params: {
     : rawKeyId;
   const githubSecret = String(settings.customGitHubToken || "");
   const renderSecret = String(settings.customRenderToken || "");
-  const maskSecret = (value: string) => value
-    ? `${value.slice(0, 4)}••••••••${value.slice(-4)}`
-    : "Not configured · inherits workspace credential";
-  const categories = ["All", ...Array.from(new Set(tools.map((tool) => String(tool.category || "General"))))];
+  const maskSecret = (value: string) =>
+    value
+      ? `${value.slice(0, 4)}••••••••${value.slice(-4)}`
+      : "Not configured · inherits workspace credential";
+  const categories = [
+    "All",
+    ...Array.from(
+      new Set(tools.map((tool) => String(tool.category || "General"))),
+    ),
+  ];
   const categoryCounts = new Map<string, number>();
   for (const tool of tools) {
     const category = String(tool.category || "General");
@@ -114,9 +144,13 @@ export function renderApiKeySettingsPage(params: {
       <h2 style="font-size:16px;font-weight:650;color:var(--fg);margin-bottom:5px;">Key Identity</h2>
       <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:14px;">View this key's token and OAuth client identifier.</p>
       <div class="key-identity-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
-        ${rawApiToken ? `<div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
+        ${
+          rawApiToken
+            ? `<div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
           <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(maskedApiToken)}" data-is-visible="false">${escapeHtml(maskedApiToken)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('apiKeyTokenValue').dataset.raw,this)" title="Copy token" aria-label="Copy token">${renderSvg("copy", 14)}</button></div></div>
-        </div>` : ""}
+        </div>`
+            : ""
+        }
         <div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">Client ID</label>
           <div class="key-secret-row"><code id="oauthClientIdValue" class="key-secret-value" data-raw="${escapeHtml(clientId || rawKeyId)}" data-masked="${escapeHtml(maskedClientId)}" data-is-visible="false">${escapeHtml(maskedClientId)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('oauthClientIdValue',this)" title="Reveal client ID" aria-label="Reveal client ID">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('oauthClientIdValue').dataset.raw,this)" title="Copy client ID" aria-label="Copy client ID">${renderSvg("copy", 14)}</button></div></div>
         </div>
@@ -129,15 +163,15 @@ export function renderApiKeySettingsPage(params: {
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
         <div style="min-width:0;"><label for="customGithubToken" style="display:block;font-size:12px;font-weight:600;color:var(--fg);margin-bottom:6px;">Custom GitHub Token</label>
-          <div class="key-secret-row" id="githubCredentialView"><code id="githubCredentialMasked" class="key-secret-value" data-raw="${escapeHtml(githubSecret)}">${escapeHtml(maskSecret(githubSecret))}</code><div class="key-secret-actions"><button type="button" onclick="toggleOverrideReveal('github',this)" title="Reveal token" aria-label="Reveal GitHub token">${renderSvg("eye",14)}</button><button type="button" onclick="editOverride('github')" title="Edit token" aria-label="Edit GitHub token">${renderSvg("edit",14)}</button></div></div>
-          <div id="githubCredentialEdit" style="display:none;gap:6px;align-items:center;"><input class="key-credential-input" type="password" id="customGithubToken" value="${escapeHtml(githubSecret)}" placeholder="Leave blank to inherit workspace token"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customGithubToken',this)" aria-label="Show GitHub token">${renderSvg("eye",14)}</button></div>
+          <div class="key-secret-row" id="githubCredentialView"><code id="githubCredentialMasked" class="key-secret-value${!githubSecret ? " not-configured" : ""}" data-raw="${escapeHtml(githubSecret)}" data-is-configured="${githubSecret ? "true" : "false"}" style="${!githubSecret ? "color:var(--geist-gray-50);font-style:italic;" : ""}">${githubSecret ? escapeHtml(maskSecret(githubSecret)) : "Not configured (inherits workspace token)"}</code><div class="key-secret-actions"><button type="button" id="githubRevealBtn" onclick="toggleOverrideReveal('github',this)" title="Reveal token" aria-label="Reveal GitHub token" style="${githubSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('github')" title="Edit token" aria-label="Edit GitHub token">${renderSvg("edit", 14)}</button></div></div>
+          <div id="githubCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customGithubToken" value="${escapeHtml(githubSecret)}" placeholder="Leave blank to inherit workspace token" style="flex:1 1 200px;min-width:0;box-sizing:border-box;"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customGithubToken',this)" aria-label="Show GitHub token" style="height:36px;flex-shrink:0;">${renderSvg("eye", 14)}</button></div>
         </div>
         <div style="min-width:0;"><label for="customRenderKey" style="display:block;font-size:12px;font-weight:600;color:var(--fg);margin-bottom:6px;">Custom Render API Key</label>
-          <div class="key-secret-row" id="renderCredentialView"><code id="renderCredentialMasked" class="key-secret-value" data-raw="${escapeHtml(renderSecret)}">${escapeHtml(maskSecret(renderSecret))}</code><div class="key-secret-actions"><button type="button" onclick="toggleOverrideReveal('render',this)" title="Reveal token" aria-label="Reveal Render token">${renderSvg("eye",14)}</button><button type="button" onclick="editOverride('render')" title="Edit token" aria-label="Edit Render token">${renderSvg("edit",14)}</button></div></div>
-          <div id="renderCredentialEdit" style="display:none;gap:6px;align-items:center;"><input class="key-credential-input" type="password" id="customRenderKey" value="${escapeHtml(renderSecret)}" placeholder="Leave blank to inherit workspace token"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customRenderKey',this)" aria-label="Show Render token">${renderSvg("eye",14)}</button></div>
+          <div class="key-secret-row" id="renderCredentialView"><code id="renderCredentialMasked" class="key-secret-value${!renderSecret ? " not-configured" : ""}" data-raw="${escapeHtml(renderSecret)}" data-is-configured="${renderSecret ? "true" : "false"}" style="${!renderSecret ? "color:var(--geist-gray-50);font-style:italic;" : ""}">${renderSecret ? escapeHtml(maskSecret(renderSecret)) : "Not configured (inherits workspace key)"}</code><div class="key-secret-actions"><button type="button" id="renderRevealBtn" onclick="toggleOverrideReveal('render',this)" title="Reveal token" aria-label="Reveal Render token" style="${renderSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('render')" title="Edit token" aria-label="Edit Render token">${renderSvg("edit", 14)}</button></div></div>
+          <div id="renderCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customRenderKey" value="${escapeHtml(renderSecret)}" placeholder="Leave blank to inherit workspace token" style="flex:1 1 200px;min-width:0;box-sizing:border-box;"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customRenderKey',this)" aria-label="Show Render token" style="height:36px;flex-shrink:0;">${renderSvg("eye", 14)}</button></div>
         </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:14px;"><button type="button" id="saveKeySettingsButton" class="btn primary" onclick="saveKeySettings()" style="display:none;border-radius:6px;">${renderSvg("save",14)}<span>Save Changes</span></button></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;"><button type="button" id="saveKeySettingsButton" class="btn primary" onclick="saveKeySettings()" style="display:none;border-radius:6px;">${renderSvg("save", 14)}<span>Save Changes</span></button></div>
     </section>
 
     <section class="card spotlight-card key-settings-card" style="padding:22px;">
@@ -149,16 +183,22 @@ export function renderApiKeySettingsPage(params: {
         ${categories.map((category) => `<button type="button" class="settings-cat-pill${category === "All" ? " active" : ""}" data-cat="${escapeHtml(category)}" onclick="selectKeyToolCategory('${escapeHtml(category).replace(/'/g, "\\'")}',this)" style="padding:5px 10px;font-size:11px;border:1px solid var(--border-subtle);border-radius:6px;background:${category === "All" ? "var(--bg-surface-2)" : "var(--bg-surface-1)"};color:${category === "All" ? "var(--fg)" : "var(--geist-gray-50)"};">${escapeHtml(category)} (${category === "All" ? tools.length : categoryCounts.get(category) || 0})</button>`).join("")}
       </div>
       <div id="keyToolGrid" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto;padding:2px;">
-        ${tools.length ? tools.map((tool) => {
-          const toolName = String(tool.name || "");
-          const category = String(tool.category || "General");
-          const checked = isToolEnabled(tool);
-          const requires = getToolCredentialRequirement(toolName) || "";
-          return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
+        ${
+          tools.length
+            ? tools
+                .map((tool) => {
+                  const toolName = String(tool.name || "");
+                  const category = String(tool.category || "General");
+                  const checked = isToolEnabled(tool);
+                  const requires = getToolCredentialRequirement(toolName) || "";
+                  return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
             <div style="min-width:0;flex:1;"><div style="font:600 12px var(--font-mono);color:var(--fg);overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:2px;">${escapeHtml(category)}</div></div>
             <label class="switch krix-switch" title="Toggle permission for ${escapeHtml(toolName)}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
-        }).join("") : `<div style="text-align:center;padding:28px;color:var(--geist-gray-50);font-size:12px;">No tools available.</div>`}
+                })
+                .join("")
+            : `<div style="text-align:center;padding:28px;color:var(--geist-gray-50);font-size:12px;">No tools available.</div>`
+        }
       </div>
       <div class="key-pagination"><button type="button" class="pager-btn pager-prev" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button><span id="keyToolsPageInfo" style="font-size:11px;color:var(--geist-gray-50);">Page 1 of 1</span><button type="button" class="pager-btn pager-next" id="keyToolsNext" onclick="changeKeyToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button></div>
     </section>
@@ -233,7 +273,7 @@ export function renderApiKeySettingsPage(params: {
         const visible = el.dataset.isVisible === 'true';
         el.textContent = visible ? el.dataset.masked : el.dataset.raw;
         el.dataset.isVisible = visible ? 'false' : 'true';
-        if (button) button.innerHTML = visible ? '${renderSvg("eye",14)}' : '${renderSvg("eye-off",14)}';
+        if (button) button.innerHTML = visible ? '${renderSvg("eye", 14)}' : '${renderSvg("eye-off", 14)}';
       }
       function editOverride(provider) {
         overrideEditing[provider] = true;
@@ -249,16 +289,18 @@ export function renderApiKeySettingsPage(params: {
         const id = provider === 'github' ? 'githubCredentialMasked' : 'renderCredentialMasked';
         const el = document.getElementById(id);
         if (!el) return;
+        const raw = el.dataset.raw || '';
+        if (!raw) return;
         const isVisible = el.dataset.visible === 'true';
-        el.textContent = isVisible ? (el.dataset.raw ? el.dataset.raw.slice(0,4) + '••••••••' + el.dataset.raw.slice(-4) : 'Not configured · inherits workspace credential') : (el.dataset.raw || 'Not configured · inherits workspace credential');
+        el.textContent = isVisible ? (raw.slice(0,4) + '••••••••' + raw.slice(-4)) : raw;
         el.dataset.visible = isVisible ? 'false' : 'true';
-        if (button) button.innerHTML = isVisible ? '${renderSvg("eye",14)}' : '${renderSvg("eye-off",14)}';
+        if (button) button.innerHTML = isVisible ? '${renderSvg("eye", 14)}' : '${renderSvg("eye-off", 14)}';
       }
       function toggleOverrideInput(id, button) {
         const input = document.getElementById(id);
         if (!input) return;
         input.type = input.type === 'password' ? 'text' : 'password';
-        if (button) button.innerHTML = input.type === 'password' ? '${renderSvg("eye",14)}' : '${renderSvg("eye-off",14)}';
+        if (button) button.innerHTML = input.type === 'password' ? '${renderSvg("eye", 14)}' : '${renderSvg("eye-off", 14)}';
       }
       async function saveKeySettings() {
         const button = document.getElementById('saveKeySettingsButton');
@@ -278,17 +320,35 @@ export function renderApiKeySettingsPage(params: {
           if (!response.ok || data.success === false) throw new Error(data.error || 'Could not save key settings.');
           showToast('Key settings saved successfully', 'success');
           if (overrideEditing.github) {
-            const value = document.getElementById('customGithubToken')?.value || '';
+            const value = (document.getElementById('customGithubToken')?.value || '').trim();
             const display = document.getElementById('githubCredentialMasked');
-            if (display) { display.dataset.raw = value; display.textContent = value ? value.slice(0,4) + '••••••••' + value.slice(-4) : 'Not configured · inherits workspace credential'; display.dataset.visible = 'false'; }
+            const eyeBtn = document.getElementById('githubRevealBtn');
+            if (display) {
+              display.dataset.raw = value;
+              display.dataset.isConfigured = value ? 'true' : 'false';
+              display.textContent = value ? value.slice(0,4) + '••••••••' + value.slice(-4) : 'Not configured (inherits workspace token)';
+              display.style.fontStyle = value ? 'normal' : 'italic';
+              display.style.color = value ? 'var(--fg)' : 'var(--geist-gray-50)';
+              display.dataset.visible = 'false';
+            }
+            if (eyeBtn) eyeBtn.style.display = value ? 'inline-flex' : 'none';
             document.getElementById('githubCredentialView').style.display = 'flex';
             document.getElementById('githubCredentialEdit').style.display = 'none';
             overrideEditing.github = false;
           }
           if (overrideEditing.render) {
-            const value = document.getElementById('customRenderKey')?.value || '';
+            const value = (document.getElementById('customRenderKey')?.value || '').trim();
             const display = document.getElementById('renderCredentialMasked');
-            if (display) { display.dataset.raw = value; display.textContent = value ? value.slice(0,4) + '••••••••' + value.slice(-4) : 'Not configured · inherits workspace credential'; display.dataset.visible = 'false'; }
+            const eyeBtn = document.getElementById('renderRevealBtn');
+            if (display) {
+              display.dataset.raw = value;
+              display.dataset.isConfigured = value ? 'true' : 'false';
+              display.textContent = value ? value.slice(0,4) + '••••••••' + value.slice(-4) : 'Not configured (inherits workspace key)';
+              display.style.fontStyle = value ? 'normal' : 'italic';
+              display.style.color = value ? 'var(--fg)' : 'var(--geist-gray-50)';
+              display.dataset.visible = 'false';
+            }
+            if (eyeBtn) eyeBtn.style.display = value ? 'inline-flex' : 'none';
             document.getElementById('renderCredentialView').style.display = 'flex';
             document.getElementById('renderCredentialEdit').style.display = 'none';
             overrideEditing.render = false;

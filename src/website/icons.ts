@@ -151,29 +151,90 @@ const APP_FAVICON_HOSTS: Array<[string[], string]> = [
   [["ollama"], "https://ollama.com"],
   [["bolt"], "https://bolt.new"],
   [["lovable"], "https://lovable.dev"],
+  [["cline"], "https://cline.bot"],
+  [["roocode"], "https://roocode.com"],
+  [["continue"], "https://continue.dev"],
+  [["aider"], "https://aider.chat"],
+  [["lmstudio"], "https://lmstudio.ai"],
+  [["openwebui"], "https://openwebui.com"],
+  [["antigravity"], "https://deepmind.google"],
 ];
 
 function safeWebsiteOrigin(value?: string): string | undefined {
   if (!value) return undefined;
+  const trimmed = value.trim();
   try {
-    const parsed = new URL(value.startsWith("http") ? value : `https://${value}`);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+    const parsed = new URL(
+      trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`,
+    );
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+      return undefined;
+    if (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname.endsWith(".local")
+    ) {
+      return undefined;
+    }
     return parsed.origin;
   } catch {
     return undefined;
   }
 }
 
-/** Prefer the provider favicon, retry through Google's favicon proxy, then use a neutral SVG. */
-export function getAppLogoSvg(name: string, size: number = 20, websiteUrl?: string): string {
+function resolveFallbackIcon(name: string): string {
   const q = (name || "").toLowerCase();
-  const matched = APP_FAVICON_HOSTS.find(([aliases]) => aliases.some((alias) => q.includes(alias)));
+  for (const key of Object.keys(SVG_ICONS)) {
+    if (q.includes(key)) return key;
+  }
+  return "layers";
+}
+
+/** Prefer the provider favicon, fallback through Google's favicon proxy, then use matching SVG vector. */
+export function getAppLogoSvg(
+  name: string,
+  size: number = 20,
+  websiteUrl?: string,
+): string {
+  const q = (name || "").toLowerCase();
+  const matched = APP_FAVICON_HOSTS.find(([aliases]) =>
+    aliases.some((alias) => q.includes(alias)),
+  );
   const origin = safeWebsiteOrigin(websiteUrl) || matched?.[1];
-  const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
-  if (!origin) return fallback;
-  const favicon = `${origin}/favicon.ico`;
-  const proxy = `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`;
-  const safeFavicon = favicon.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-  const safeProxy = proxy.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-  return `<img class="oauth-app-favicon" src="${safeFavicon}" data-proxy-src="${safeProxy}" width="${size}" height="${size}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="if(this.dataset.proxySrc && this.src!==this.dataset.proxySrc){this.src=this.dataset.proxySrc;this.dataset.proxySrc='';}else{this.style.display='none';this.nextElementSibling.style.display='inline-flex';}"><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${renderSvg("layers", size)}</span>`;
+  const fallbackIconName = resolveFallbackIcon(name);
+  const fallbackSvg = renderSvg(fallbackIconName, size);
+  const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+
+  const isDirectImage = Boolean(
+    websiteUrl &&
+    (websiteUrl.startsWith("data:image/") ||
+      /\.(png|jpe?g|svg|webp|ico)(\?.*)?$/i.test(websiteUrl)),
+  );
+
+  if (!origin && !isDirectImage) return fallback;
+
+  const primarySrc = isDirectImage
+    ? String(websiteUrl)
+    : `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin!)}&sz=64`;
+  const fallbackSrc =
+    isDirectImage && origin
+      ? `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`
+      : "";
+
+  const safePrimary = primarySrc.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  const safeFallback = fallbackSrc
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;");
+
+  const onerrorAttr = safeFallback
+    ? `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`
+    : `onerror="this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}"`;
+
+  const dataFallbackAttr = safeFallback
+    ? ` data-fallback-src="${safeFallback}"`
+    : "";
+
+  return `<img class="oauth-app-favicon" src="${safePrimary}"${dataFallbackAttr} width="${size}" height="${size}" alt="" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
 }

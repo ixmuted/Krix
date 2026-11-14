@@ -15,7 +15,8 @@ export function renderStatsPage(params: {
   owner?: any;
   summary?: any;
 }): string {
-  if (!params.isOwner) {
+  const isAuthenticated = Boolean(params.owner || params.isOwner);
+  if (!isAuthenticated) {
     return renderPageShell({
       title: "Stats",
       activeTab: "stats",

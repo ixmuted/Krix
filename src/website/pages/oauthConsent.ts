@@ -36,8 +36,17 @@ export function renderOAuthConsentPage(params: {
     domain = url.hostname;
   } catch {}
 
-  // Determine client icon from 24 popular AI logos
-  const clientIconSvg = getAppLogoSvg(safeName, 32);
+  // Determine client icon using the same mechanism as the active authorizations table
+  const clientWebsite =
+    (params as any).clientUri ||
+    (params as any).logoUri ||
+    params.redirectUri ||
+    domain;
+  const clientIconSvg = getAppLogoSvg(
+    params.clientName || safeName,
+    32,
+    clientWebsite,
+  );
 
   const cancelUrl = `${params.redirectUri}${params.redirectUri.includes("?") ? "&" : "?"}error=access_denied&state=${encodeURIComponent(params.state || "")}`;
 
@@ -156,7 +165,11 @@ export function renderOAuthConsentPage(params: {
       </a>
     </form>
 
-    <div style="text-align:center; margin-top:20px; display:flex; flex-direction:column; gap:6px;">
+    <div style="text-align:center; margin-top:20px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
+        <a href="/privacy" target="_blank" class="btn ghost" style="padding:6px 14px; font-size:12px; border-radius:var(--radius-full); text-decoration:none;">Privacy Policy</a>
+        <a href="/terms" target="_blank" class="btn ghost" style="padding:6px 14px; font-size:12px; border-radius:var(--radius-full); text-decoration:none;">Terms of Service</a>
+      </div>
       <span style="font-size:11px; color:var(--geist-gray-50);">
         By connecting, you agree to Krix's <a href="/terms" target="_blank" style="color:var(--fg); text-decoration:underline;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color:var(--fg); text-decoration:underline;">Privacy Policy</a>.
       </span>

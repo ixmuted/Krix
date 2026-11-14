@@ -204,17 +204,19 @@ export function getKeySettings(keyId: string): KeySettings {
     const isOwnerKey = keyId === "primary-key";
     const ownerEmail = getOwnerEmail() || "owner@localhost";
     const sandboxId = generateSandboxId(keyId, isOwnerKey);
+    const primary = !isOwnerKey ? keySettingsMap.get("primary-key") : undefined;
 
     settings = {
       keyId,
       email: isOwnerKey ? ownerEmail : "anonymous",
       role: isOwnerKey ? "owner" : "user",
       sandboxId,
-      enabledTools: [],
-      disabledTools: [],
-      // Only the default GitHub tool set ("core") is on by default. Issue/PR/admin
-      // GitHub tools and Render tools are opt-in per key.
-      enabledCategories: ["core", "sandbox", "files"],
+      enabledTools: primary ? [...(primary.enabledTools || [])] : [],
+      disabledTools: primary ? [...(primary.disabledTools || [])] : [],
+      // Inherit global tool access categories from primary key if present, otherwise default set
+      enabledCategories: primary
+        ? [...(primary.enabledCategories || ["core", "sandbox", "files"])]
+        : ["core", "sandbox", "files"],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };

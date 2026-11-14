@@ -11,12 +11,16 @@ import {
   ensureMongoAuth,
 } from "./googleAuth.js";
 import { safeEqual, registerSecret } from "./security.js";
+import { getKeySettings } from "./userSettings.js";
+import { renderSvg } from "./website/icons.js";
 
 export interface OAuthClient {
   clientId: string;
   clientSecret?: string;
   clientName: string;
   redirectUris: string[];
+  clientUri?: string;
+  logoUri?: string;
   createdAt: number;
 }
 
@@ -85,10 +89,12 @@ export function loadOAuthFromDisk(): void {
         }
       }
       if (Array.isArray(data.revokedClientIds)) {
-        for (const id of data.revokedClientIds) if (typeof id === "string") revokedClientIds.add(id);
+        for (const id of data.revokedClientIds)
+          if (typeof id === "string") revokedClientIds.add(id);
       }
       if (Array.isArray(data.revokedTokenIds)) {
-        for (const id of data.revokedTokenIds) if (typeof id === "string") revokedTokenIds.add(id);
+        for (const id of data.revokedTokenIds)
+          if (typeof id === "string") revokedTokenIds.add(id);
       }
       if (Array.isArray(data.tokens)) {
         for (const [tok, entry] of data.tokens) {
@@ -109,8 +115,14 @@ export async function loadOAuthFromMongo(): Promise<void> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB is configured but unavailable; OAuth client was not persisted.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB is configured but unavailable; OAuth client was not persisted.",
+      );
     }
     return;
   }
@@ -179,7 +191,11 @@ export async function loadOAuthFromMongo(): Promise<void> {
   }
 }
 loadOAuthFromMongo().catch((err) => {
-  if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+  if (
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URL ||
+    process.env.DATABASE_URL
+  ) {
     console.error("[mongo-oauth] initial restore failed:", err?.message || err);
   }
 });
@@ -191,8 +207,14 @@ export async function syncOAuthClientToMongo(
   revokedClientIds.delete(client.clientId);
   const db = getMongoDb();
   if (!db) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB is configured but unavailable; OAuth client was not persisted.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB is configured but unavailable; OAuth client was not persisted.",
+      );
     }
     return;
   }
@@ -215,8 +237,14 @@ export async function revokeOAuthClientInMongo(
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB unavailable; cannot confirm OAuth client revocation.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB unavailable; cannot confirm OAuth client revocation.",
+      );
     }
     return false;
   }
@@ -228,7 +256,10 @@ export async function revokeOAuthClientInMongo(
     );
     return result.matchedCount > 0 || result.upsertedCount > 0;
   } catch (err: any) {
-    console.error("[mongo-oauth] revokeOAuthClientInMongo error:", err?.message);
+    console.error(
+      "[mongo-oauth] revokeOAuthClientInMongo error:",
+      err?.message,
+    );
     throw err;
   }
 }
@@ -240,8 +271,14 @@ export async function syncOAuthTokenToMongo(
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB is configured but unavailable; OAuth token was not persisted.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB is configured but unavailable; OAuth token was not persisted.",
+      );
     }
     return;
   }
@@ -258,7 +295,13 @@ export async function syncOAuthTokenToMongo(
   }
 }
 
-export async function recordIssuedToken(entry: IssuedTokenEntry): Promise<void> {
+export async function recordIssuedToken(
+  entry: IssuedTokenEntry,
+): Promise<void> {
+  // Ensure newly authorized OAuth clients inherit global default tool settings
+  if (entry.clientId) {
+    getKeySettings(entry.clientId);
+  }
   // Persist first; do not issue credentials that cannot be restored after restart.
   await syncOAuthTokenToMongo(entry.token, entry);
   issuedTokens.set(entry.token, entry);
@@ -266,10 +309,16 @@ export async function recordIssuedToken(entry: IssuedTokenEntry): Promise<void> 
   for (const raw of [entry.token, entry.refreshToken]) {
     if (!raw) continue;
     try {
-      const normalized = raw.startsWith("krix_rf_") ? raw.slice("krix_rf_".length) :
-        raw.startsWith("krix_rs_") ? raw.slice("krix_rs_".length) :
-        raw.startsWith("krix_tok_") ? raw.slice("krix_tok_".length) : raw;
-      const payload = JSON.parse(Buffer.from(normalized.split(".")[1], "base64url").toString("utf8"));
+      const normalized = raw.startsWith("krix_rf_")
+        ? raw.slice("krix_rf_".length)
+        : raw.startsWith("krix_rs_")
+          ? raw.slice("krix_rs_".length)
+          : raw.startsWith("krix_tok_")
+            ? raw.slice("krix_tok_".length)
+            : raw;
+      const payload = JSON.parse(
+        Buffer.from(normalized.split(".")[1], "base64url").toString("utf8"),
+      );
       if (payload.jti) revokedTokenIds.delete(String(payload.jti));
     } catch {}
   }
@@ -277,12 +326,20 @@ export async function recordIssuedToken(entry: IssuedTokenEntry): Promise<void> 
   saveOAuthToDisk();
 }
 
-export async function revokeOAuthTokenInMongo(clientId: string): Promise<boolean> {
+export async function revokeOAuthTokenInMongo(
+  clientId: string,
+): Promise<boolean> {
   await ensureMongoAuth().catch(() => {});
   const db = getMongoDb();
   if (!db) {
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-      throw new Error("MongoDB unavailable; cannot confirm OAuth token revocation.");
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
+      throw new Error(
+        "MongoDB unavailable; cannot confirm OAuth token revocation.",
+      );
     }
     return false;
   }
@@ -457,7 +514,8 @@ export async function verifyAccessToken(tokenString?: string | null): Promise<{
 
   let token = tokenString.trim();
   if (token.startsWith("krix_rs_")) token = token.slice("krix_rs_".length);
-  else if (token.startsWith("krix_tok_")) token = token.slice("krix_tok_".length);
+  else if (token.startsWith("krix_tok_"))
+    token = token.slice("krix_tok_".length);
 
   const parts = token.split(".");
   if (parts.length !== 3) return { valid: false };
@@ -472,8 +530,10 @@ export async function verifyAccessToken(tokenString?: string | null): Promise<{
       verifier.update(`${h64}.${p64}`);
       signatureValid = verifier.verify(rsa.publicKey, sig64, "base64url");
     } else if (header.alg === "HS256") {
-      const expectedSig = crypto.createHmac("sha256", getSigningSecret())
-        .update(`${h64}.${p64}`).digest("base64url");
+      const expectedSig = crypto
+        .createHmac("sha256", getSigningSecret())
+        .update(`${h64}.${p64}`)
+        .digest("base64url");
       signatureValid = safeEqual(sig64, expectedSig);
     }
     if (!signatureValid) return { valid: false };
@@ -484,12 +544,17 @@ export async function verifyAccessToken(tokenString?: string | null): Promise<{
     }
     // Require a token identifier and a matching issued-token record. A valid
     // signature alone is never sufficient after revocation.
-    if (typeof payload.jti !== "string" || !payload.jti) return { valid: false };
-    if (revokedTokenIds.has(payload.jti) || revokedClientIds.has(String(payload.client_id || ""))) {
+    if (typeof payload.jti !== "string" || !payload.jti)
+      return { valid: false };
+    if (
+      revokedTokenIds.has(payload.jti) ||
+      revokedClientIds.has(String(payload.client_id || ""))
+    ) {
       return { valid: false };
     }
 
-    const memoryEntry = issuedTokens.get(tokenString) || issuedTokens.get(token);
+    const memoryEntry =
+      issuedTokens.get(tokenString) || issuedTokens.get(token);
 
     await ensureMongoAuth().catch(() => {});
     const db = getMongoDb();
@@ -499,9 +564,12 @@ export async function verifyAccessToken(tokenString?: string | null): Promise<{
         revoked: { $ne: true },
       });
       if (!tokenDoc) return { valid: false };
-      const clientId = tokenDoc.clientId || tokenDoc.client_id || payload.client_id;
+      const clientId =
+        tokenDoc.clientId || tokenDoc.client_id || payload.client_id;
       if (!clientId) return { valid: false };
-      const clientDoc = await db.collection("oauth_clients").findOne({ clientId });
+      const clientDoc = await db
+        .collection("oauth_clients")
+        .findOne({ clientId });
       if (!clientDoc || clientDoc.revoked === true) return { valid: false };
       return { valid: true, payload };
     }
@@ -509,32 +577,51 @@ export async function verifyAccessToken(tokenString?: string | null): Promise<{
     // Without MongoDB, only accept tokens present in the process's persisted
     // local cache. This keeps local development functional but avoids trusting
     // arbitrary self-signed/old JWTs.
-    if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+    if (
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL
+    ) {
       return { valid: false };
     }
-    if (!memoryEntry || Date.now() >= memoryEntry.expiresAt) return { valid: false };
-    if (revokedClientIds.has(memoryEntry.clientId) || !registeredClients.has(memoryEntry.clientId)) return { valid: false };
+    if (!memoryEntry || Date.now() >= memoryEntry.expiresAt)
+      return { valid: false };
+    if (
+      revokedClientIds.has(memoryEntry.clientId) ||
+      !registeredClients.has(memoryEntry.clientId)
+    )
+      return { valid: false };
     return { valid: true, payload };
   } catch (error: any) {
-    console.error("[oauth] access-token verification failed:", error?.message || error);
+    console.error(
+      "[oauth] access-token verification failed:",
+      error?.message || error,
+    );
     return { valid: false };
   }
 }
 
 async function revokeOAuthTokenRecord(token: string): Promise<void> {
-  const normalized = token.startsWith("krix_rs_") || token.startsWith("krix_tok_")
-    ? token.slice(token.indexOf("_", 5) + 1)
-    : token;
+  const normalized =
+    token.startsWith("krix_rs_") || token.startsWith("krix_tok_")
+      ? token.slice(token.indexOf("_", 5) + 1)
+      : token;
   const accessEntry = issuedTokens.get(token) || issuedTokens.get(normalized);
   const refreshEntry = refreshTokens.get(token);
   const family = accessEntry || refreshEntry;
   for (const raw of [token, family?.token, family?.refreshToken]) {
     if (!raw) continue;
     try {
-      const stripped = raw.startsWith("krix_rf_") ? raw.slice("krix_rf_".length) :
-        raw.startsWith("krix_rs_") ? raw.slice("krix_rs_".length) :
-        raw.startsWith("krix_tok_") ? raw.slice("krix_tok_".length) : raw;
-      const payload = JSON.parse(Buffer.from(stripped.split(".")[1], "base64url").toString("utf8"));
+      const stripped = raw.startsWith("krix_rf_")
+        ? raw.slice("krix_rf_".length)
+        : raw.startsWith("krix_rs_")
+          ? raw.slice("krix_rs_".length)
+          : raw.startsWith("krix_tok_")
+            ? raw.slice("krix_tok_".length)
+            : raw;
+      const payload = JSON.parse(
+        Buffer.from(stripped.split(".")[1], "base64url").toString("utf8"),
+      );
       if (payload.jti) revokedTokenIds.add(String(payload.jti));
     } catch {}
   }
@@ -552,11 +639,21 @@ async function revokeOAuthTokenRecord(token: string): Promise<void> {
   const db = getMongoDb();
   if (db) {
     await db.collection("oauth_tokens").updateMany(
-      { $or: [{ token: { $in: [token, normalized] } }, { refreshToken: token }] },
-      { $set: { revoked: true, revokedAt: Date.now(), updatedAt: Date.now() } },
+      {
+        $or: [{ token: { $in: [token, normalized] } }, { refreshToken: token }],
+      },
+      {
+        $set: { revoked: true, revokedAt: Date.now(), updatedAt: Date.now() },
+      },
     );
-  } else if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
-    throw new Error("MongoDB unavailable; token revocation could not be persisted.");
+  } else if (
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URL ||
+    process.env.DATABASE_URL
+  ) {
+    throw new Error(
+      "MongoDB unavailable; token revocation could not be persisted.",
+    );
   }
 }
 
@@ -728,16 +825,33 @@ export function createMcpOAuthRouter(): Router {
       const clientSecret = "krix_sec_" + crypto.randomBytes(32).toString("hex");
       registerSecret(clientSecret);
 
+      const clientUri =
+        typeof body.client_uri === "string" && body.client_uri.trim()
+          ? body.client_uri.trim()
+          : undefined;
+      const logoUri =
+        typeof body.logo_uri === "string" && body.logo_uri.trim()
+          ? body.logo_uri.trim()
+          : undefined;
+
       const client: OAuthClient = {
         clientId,
         clientSecret,
         clientName,
         redirectUris,
+        clientUri,
+        logoUri,
         createdAt: Date.now(),
       };
       registeredClients.set(clientId, client);
+      getKeySettings(clientId);
       saveOAuthToDisk();
-      syncOAuthClientToMongo(client).catch((error) => console.error("[mongo-oauth] client rename persistence failed:", error?.message || error));
+      syncOAuthClientToMongo(client).catch((error) =>
+        console.error(
+          "[mongo-oauth] client rename persistence failed:",
+          error?.message || error,
+        ),
+      );
 
       res.status(201).json({
         client_id: clientId,
@@ -808,6 +922,47 @@ export function createMcpOAuthRouter(): Router {
     const effectiveChallenge = codeChallenge || "direct_client_auth";
     const effectiveMethod = codeChallengeMethod === "plain" ? "plain" : "S256";
 
+    let domain = "";
+    try {
+      const u = new URL(redirectUri);
+      domain = u.hostname;
+    } catch {}
+    const clientRecord = getOAuthClient(clientId);
+    const clientWebsite =
+      clientRecord?.logoUri ||
+      clientRecord?.clientUri ||
+      (Array.isArray(clientRecord?.redirectUris)
+        ? clientRecord?.redirectUris.find(
+            (u: string) => !u.includes("localhost") && !u.includes("127.0.0.1"),
+          )
+        : undefined) ||
+      (domain && !domain.includes("localhost") && !domain.includes("127.0.0.1")
+        ? `https://${domain}`
+        : undefined);
+
+    const q = (clientName || clientId || "").toLowerCase();
+    const matchedHost = q.includes("gemini")
+      ? "https://gemini.google.com"
+      : q.includes("claude")
+        ? "https://claude.ai"
+        : q.includes("chatgpt") || q.includes("openai")
+          ? "https://chatgpt.com"
+          : q.includes("cursor")
+            ? "https://cursor.com"
+            : q.includes("windsurf")
+              ? "https://windsurf.com"
+              : q.includes("github")
+                ? "https://github.com"
+                : undefined;
+    const resolvedOrigin = clientWebsite || matchedHost;
+    const faviconProxyUrl = resolvedOrigin
+      ? `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(resolvedOrigin)}&sz=64`
+      : "";
+
+    const cancelUrl = redirectUri
+      ? `${redirectUri}${redirectUri.includes("?") ? "&" : "?"}error=access_denied&state=${encodeURIComponent(state || "")}`
+      : "/";
+
     const nonce = crypto.randomBytes(16).toString("base64");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader(
@@ -836,6 +991,7 @@ export function createMcpOAuthRouter(): Router {
       --border: var(--accents-2);
       --card: #ffffff;
       --accent: #0070f3;
+      --success: #10b981;
     }
     .dark {
       --bg: #000000;
@@ -848,6 +1004,7 @@ export function createMcpOAuthRouter(): Router {
       --border: var(--accents-2);
       --card: #0a0a0a;
       --accent: #0070f3;
+      --success: #10b981;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -865,19 +1022,19 @@ export function createMcpOAuthRouter(): Router {
     }
     .card {
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 32px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+      border-radius: 16px;
+      padding: 32px 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05);
     }
     .brand-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 14px;
       border-bottom: 1px solid var(--border);
     }
     .brand {
@@ -888,9 +1045,9 @@ export function createMcpOAuthRouter(): Router {
       font-size: 15px;
       color: var(--fg);
     }
-    .avatar {
-      width: 32px;
-      height: 32px;
+    .brand-avatar {
+      width: 28px;
+      height: 28px;
       border-radius: 8px;
       overflow: hidden;
       border: 1px solid var(--border);
@@ -899,13 +1056,111 @@ export function createMcpOAuthRouter(): Router {
       justify-content: center;
       background: var(--accents-1);
     }
-    .avatar img {
+    .brand-avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--fg); margin-bottom: 6px; word-break: break-word; overflow-wrap: anywhere; }
-    p.sub { color: var(--accents-5); font-size: 13px; margin-bottom: 20px; line-height: 1.5; word-break: break-word; overflow-wrap: anywhere; }
+    .oauth-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--accents-1);
+      color: #0070f3;
+    }
+    @keyframes pulse-beam {
+      0%, 100% { opacity: 0.4; transform: scaleX(0.9); }
+      50% { opacity: 1; transform: scaleX(1.1); }
+    }
+    .handshake-lockup {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+    .handshake-avatar-card {
+      width: 58px;
+      height: 58px;
+      border-radius: 14px;
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      overflow: hidden;
+      color: var(--fg);
+    }
+    .handshake-avatar-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .handshake-avatar-card img.client-logo-img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+    }
+    .handshake-beam {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #10b981;
+      animation: pulse-beam 2s ease-in-out infinite;
+    }
+    .handshake-beam-line {
+      width: 22px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--border), #10b981);
+    }
+    .handshake-beam-line.right {
+      background: linear-gradient(90deg, #10b981, var(--border));
+    }
+    .handshake-beam-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .app-logo-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+    }
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--fg); margin-bottom: 6px; word-break: break-word; overflow-wrap: anywhere; text-align: center; }
+    p.sub { color: var(--accents-5); font-size: 13px; margin-bottom: 20px; line-height: 1.5; word-break: break-word; overflow-wrap: anywhere; text-align: center; }
+    .domain-badge-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 6px;
+      margin-bottom: 18px;
+    }
+    .domain-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--accents-1);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--accents-5);
+    }
+    .domain-badge img {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
     .user-badge {
       display: flex;
       align-items: center;
@@ -974,14 +1229,37 @@ export function createMcpOAuthRouter(): Router {
       color: var(--fg);
     }
     .btn.secondary:hover { background: var(--accents-2); border-color: var(--accents-4); }
-    .oauth-pill {
+    .legal-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .legal-btn {
       font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
+      color: var(--accents-5);
+      text-decoration: none;
+      padding: 4px 12px;
       border-radius: 20px;
       border: 1px solid var(--border);
       background: var(--accents-1);
-      color: #0070f3;
+      transition: all .15s ease;
+    }
+    .legal-btn:hover {
+      color: var(--fg);
+      border-color: var(--accents-4);
+    }
+    .legal-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--accents-4);
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .legal-note a {
+      color: var(--fg);
+      text-decoration: underline;
     }
     @media (max-width: 480px) {
       body {
@@ -1001,6 +1279,8 @@ export function createMcpOAuthRouter(): Router {
       .scope-item svg { margin-top: 2px; flex-shrink: 0; }
       .actions { flex-direction: column-reverse; gap: 8px; }
       .btn { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+      .handshake-avatar-card { width: 48px; height: 48px; border-radius: 12px; }
+      .handshake-avatar-card img.client-logo-img { width: 26px; height: 26px; }
     }
   </style>
   <script nonce="${nonce}">
@@ -1012,7 +1292,7 @@ export function createMcpOAuthRouter(): Router {
   <div class="card">
     <div class="brand-bar">
       <div class="brand">
-        <div class="avatar">
+        <div class="brand-avatar">
           <img src="/icon-48.png?v=2" alt="Krix">
         </div>
         <span>Krix</span>
@@ -1020,8 +1300,25 @@ export function createMcpOAuthRouter(): Router {
       <span class="oauth-pill">OAuth</span>
     </div>
 
+    <!-- Peer-to-Peer Visual Handshake Lockup -->
+    <div class="handshake-lockup">
+      <div class="handshake-avatar-card">
+        ${faviconProxyUrl ? `<img class="client-logo-img" src="${escapeHtml(faviconProxyUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.classList.add('hidden');if(this.nextElementSibling)this.nextElementSibling.classList.remove('hidden');"><div class="app-logo-fallback hidden">${renderSvg("layers", 28)}</div>` : `<div class="app-logo-fallback">${renderSvg("layers", 28)}</div>`}
+      </div>
+      <div class="handshake-beam">
+        <span class="handshake-beam-line"></span>
+        <span class="handshake-beam-dot"></span>
+        <span class="handshake-beam-line right"></span>
+      </div>
+      <div class="handshake-avatar-card">
+        <img src="/icon-48.png?v=2" alt="Krix">
+      </div>
+    </div>
+
     <h1>Authorize Access</h1>
-    <p class="sub"><strong>${escapeHtml(clientName)}</strong> requests access to your isolated Krix MCP execution environment.</p>
+    <p class="sub">Authorize Connection: <strong>${escapeHtml(clientName)}</strong> requests permission to connect to your isolated Krix MCP execution environment.</p>
+
+    ${domain ? `<div class="domain-badge-wrap"><span class="domain-badge"><img src="https://www.google.com/s2/favicons?domain=${escapeHtml(domain)}&amp;sz=32" alt="" onerror="this.classList.add('hidden')"><span>${escapeHtml(domain)}</span></span></div>` : ""}
 
     <div class="user-badge">
       ${owner.picture ? `<img src="${escapeHtml(owner.picture)}" alt="">` : ""}
@@ -1052,10 +1349,19 @@ export function createMcpOAuthRouter(): Router {
       <input type="hidden" name="scope" value="${escapeHtml(scope)}">
       <input type="hidden" name="state" value="${escapeHtml(state)}">
       <div class="actions">
-        <a href="/" class="btn secondary">Cancel</a>
+        <a href="${escapeHtml(cancelUrl)}" class="btn secondary">Cancel</a>
         <button type="submit" class="btn primary">Approve &amp; Connect</button>
       </div>
     </form>
+
+    <div class="legal-buttons">
+      <a href="/privacy" target="_blank" class="legal-btn">Privacy Policy</a>
+      <a href="/terms" target="_blank" class="legal-btn">Terms of Service</a>
+    </div>
+
+    <p class="legal-note">
+      By approving access, you agree to Krix's <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>. You can revoke access anytime in Credentials &amp; Settings.
+    </p>
   </div>
 </body>
 </html>`);
@@ -1238,7 +1544,11 @@ export function createMcpOAuthRouter(): Router {
         try {
           await recordIssuedToken(tokenRecord);
         } catch (error: any) {
-          res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth token storage is unavailable; no token was issued." });
+          res.status(503).json({
+            error: "temporarily_unavailable",
+            error_description:
+              "OAuth token storage is unavailable; no token was issued.",
+          });
           return;
         }
 
@@ -1271,7 +1581,10 @@ export function createMcpOAuthRouter(): Router {
           try {
             await syncOAuthClientToMongo(clientRecord);
           } catch (error: any) {
-            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth client storage is unavailable." });
+            res.status(503).json({
+              error: "temporarily_unavailable",
+              error_description: "OAuth client storage is unavailable.",
+            });
             return;
           }
         }
@@ -1349,7 +1662,11 @@ export function createMcpOAuthRouter(): Router {
         try {
           await recordIssuedToken(tokenRecord);
         } catch (error: any) {
-          res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth token storage is unavailable; no token was issued." });
+          res.status(503).json({
+            error: "temporarily_unavailable",
+            error_description:
+              "OAuth token storage is unavailable; no token was issued.",
+          });
           return;
         }
 
@@ -1370,7 +1687,10 @@ export function createMcpOAuthRouter(): Router {
           try {
             await syncOAuthClientToMongo(clientRecord);
           } catch (error: any) {
-            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth client storage is unavailable." });
+            res.status(503).json({
+              error: "temporarily_unavailable",
+              error_description: "OAuth client storage is unavailable.",
+            });
             return;
           }
         }
@@ -1434,32 +1754,61 @@ export function createMcpOAuthRouter(): Router {
 
         await ensureMongoAuth().catch(() => {});
         const oauthDb = getMongoDb();
-        if (process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL) {
+        if (
+          process.env.MONGODB_URI ||
+          process.env.MONGO_URL ||
+          process.env.DATABASE_URL
+        ) {
           if (!oauthDb) {
-            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth authorization storage is unavailable." });
+            res.status(503).json({
+              error: "temporarily_unavailable",
+              error_description: "OAuth authorization storage is unavailable.",
+            });
             return;
           }
           try {
-            const storedGrant = await oauthDb.collection("oauth_tokens").findOne({
-              refreshToken: rawRefresh,
-              revoked: { $ne: true },
-            });
-            const activeClient = await oauthDb.collection("oauth_clients").findOne({
-              clientId: record.clientId,
-              revoked: { $ne: true },
-            });
-            if (!storedGrant || !activeClient || revokedClientIds.has(record.clientId)) {
-              res.status(400).json({ error: "invalid_grant", error_description: "Refresh token has been revoked or its client is no longer authorized." });
+            const storedGrant = await oauthDb
+              .collection("oauth_tokens")
+              .findOne({
+                refreshToken: rawRefresh,
+                revoked: { $ne: true },
+              });
+            const activeClient = await oauthDb
+              .collection("oauth_clients")
+              .findOne({
+                clientId: record.clientId,
+                revoked: { $ne: true },
+              });
+            if (
+              !storedGrant ||
+              !activeClient ||
+              revokedClientIds.has(record.clientId)
+            ) {
+              res.status(400).json({
+                error: "invalid_grant",
+                error_description:
+                  "Refresh token has been revoked or its client is no longer authorized.",
+              });
               return;
             }
           } catch (error: any) {
-            console.error("[oauth] refresh authorization lookup failed:", error?.message || error);
-            res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth authorization storage is unavailable." });
+            console.error(
+              "[oauth] refresh authorization lookup failed:",
+              error?.message || error,
+            );
+            res.status(503).json({
+              error: "temporarily_unavailable",
+              error_description: "OAuth authorization storage is unavailable.",
+            });
             return;
           }
         } else {
           if (revokedClientIds.has(record.clientId)) {
-            res.status(400).json({ error: "invalid_grant", error_description: "This OAuth client authorization has been revoked." });
+            res.status(400).json({
+              error: "invalid_grant",
+              error_description:
+                "This OAuth client authorization has been revoked.",
+            });
             return;
           }
           // A valid server-signed refresh token can restore its client record in
@@ -1469,7 +1818,8 @@ export function createMcpOAuthRouter(): Router {
               clientId: record.clientId,
               clientSecret: "",
               clientName: record.clientId.toLowerCase().includes("gemini")
-                ? "Google Gemini" : `Client (${record.clientId.slice(0, 16)})`,
+                ? "Google Gemini"
+                : `Client (${record.clientId.slice(0, 16)})`,
               redirectUris: [],
               createdAt: Date.now(),
             });
@@ -1482,7 +1832,11 @@ export function createMcpOAuthRouter(): Router {
           try {
             await revokeOAuthTokenRecord(record.token);
           } catch (error: any) {
-            res.status(503).json({ error: "temporarily_unavailable", error_description: "Could not safely rotate the refresh token. Retry later." });
+            res.status(503).json({
+              error: "temporarily_unavailable",
+              error_description:
+                "Could not safely rotate the refresh token. Retry later.",
+            });
             return;
           }
         }
@@ -1519,7 +1873,11 @@ export function createMcpOAuthRouter(): Router {
         try {
           await recordIssuedToken(updated);
         } catch (error: any) {
-          res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth token storage is unavailable; token rotation was not completed." });
+          res.status(503).json({
+            error: "temporarily_unavailable",
+            error_description:
+              "OAuth token storage is unavailable; token rotation was not completed.",
+          });
           return;
         }
 
@@ -1554,8 +1912,15 @@ export function createMcpOAuthRouter(): Router {
         // RFC 7009 intentionally returns 200 for unknown tokens too.
         res.status(200).json({ revoked: true });
       } catch (error: any) {
-        console.error("[oauth] token revocation persistence failed:", error?.message || error);
-        res.status(503).json({ error: "temporarily_unavailable", error_description: "Revocation could not be persisted. Retry the request." });
+        console.error(
+          "[oauth] token revocation persistence failed:",
+          error?.message || error,
+        );
+        res.status(503).json({
+          error: "temporarily_unavailable",
+          error_description:
+            "Revocation could not be persisted. Retry the request.",
+        });
       }
     },
   );
@@ -1563,19 +1928,24 @@ export function createMcpOAuthRouter(): Router {
   // ---------------------------------------------------------------------------
   // Owner Active OAuth Authorizations Management
   // ---------------------------------------------------------------------------
-  router.get("/oauth/authorizations", async (req: Request, res: Response): Promise<void> => {
-    const owner = parseOwnerCookie(req);
-    if (!owner) {
-      res.status(401).json({ error: "Unauthorized." });
-      return;
-    }
-    try {
-      await loadOAuthFromMongo();
-      res.json({ authorizations: listActiveOAuthAuthorizations() });
-    } catch (error: any) {
-      res.status(503).json({ error: "OAuth authorization storage is unavailable." });
-    }
-  });
+  router.get(
+    "/oauth/authorizations",
+    async (req: Request, res: Response): Promise<void> => {
+      const owner = parseOwnerCookie(req);
+      if (!owner) {
+        res.status(401).json({ error: "Unauthorized." });
+        return;
+      }
+      try {
+        await loadOAuthFromMongo();
+        res.json({ authorizations: listActiveOAuthAuthorizations() });
+      } catch (error: any) {
+        res
+          .status(503)
+          .json({ error: "OAuth authorization storage is unavailable." });
+      }
+    },
+  );
 
   router.delete(
     "/oauth/authorizations/:clientId",
@@ -1591,13 +1961,21 @@ export function createMcpOAuthRouter(): Router {
         return;
       }
       // Non-admin owners may only revoke authorizations that belong to them.
-      const adminEmail = String(process.env.OWNER_EMAIL || "").trim().toLowerCase();
+      const adminEmail = String(process.env.OWNER_EMAIL || "")
+        .trim()
+        .toLowerCase();
       if (String(owner.email || "").toLowerCase() !== adminEmail) {
         const mine = Array.from(issuedTokens.values()).some(
-          (t) => t.clientId === clientId && String(t.ownerEmail || "").toLowerCase() === String(owner.email || "").toLowerCase(),
+          (t) =>
+            t.clientId === clientId &&
+            String(t.ownerEmail || "").toLowerCase() ===
+              String(owner.email || "").toLowerCase(),
         );
         if (!mine) {
-          res.status(403).json({ success: false, error: "You can only revoke your own OAuth authorizations." });
+          res.status(403).json({
+            success: false,
+            error: "You can only revoke your own OAuth authorizations.",
+          });
           return;
         }
       }
@@ -1609,13 +1987,23 @@ export function createMcpOAuthRouter(): Router {
           if (await revokeOAuthAuthorization(id)) success = true;
         }
         if (!success) {
-          res.status(404).json({ success: false, error: "This authorization no longer exists. Refresh the page." });
+          res.status(404).json({
+            success: false,
+            error: "This authorization no longer exists. Refresh the page.",
+          });
           return;
         }
         res.json({ success });
       } catch (error: any) {
-        console.error("[oauth] authorization revocation failed:", error?.message || error);
-        res.status(503).json({ success: false, error: "Revocation could not be persisted. Retry when MongoDB is available." });
+        console.error(
+          "[oauth] authorization revocation failed:",
+          error?.message || error,
+        );
+        res.status(503).json({
+          success: false,
+          error:
+            "Revocation could not be persisted. Retry when MongoDB is available.",
+        });
       }
     },
   );
@@ -1659,6 +2047,9 @@ export interface ActiveOAuthInfo {
   ownerEmail: string;
   createdAt: number;
   lastUsedAt?: number;
+  redirectUris?: string[];
+  clientUri?: string;
+  logoUri?: string;
 }
 
 export function getOAuthClient(clientId: string): OAuthClient | undefined {
@@ -1680,7 +2071,8 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
     const existing = result.get(entry.clientId);
     const info: ActiveOAuthInfo = {
       clientId: entry.clientId,
-      clientName: client?.clientName ||
+      clientName:
+        client?.clientName ||
         (entry.clientId.toLowerCase().includes("gemini")
           ? "Google Gemini"
           : `Client (${entry.clientId.slice(0, 16)})`),
@@ -1688,6 +2080,9 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
       ownerEmail: entry.ownerEmail || process.env.OWNER_EMAIL || "owner",
       createdAt: client?.createdAt || entry.expiresAt - 86400 * 1000,
       lastUsedAt: entry.expiresAt - 86400 * 1000,
+      redirectUris: client?.redirectUris,
+      clientUri: client?.clientUri,
+      logoUri: client?.logoUri,
     };
     if (!existing || (info.lastUsedAt || 0) > (existing.lastUsedAt || 0)) {
       result.set(entry.clientId, info);
@@ -1722,12 +2117,15 @@ export function findClientIdsSharingName(clientId: string): string[] {
   const target = displayNameForClient(clientId);
   const ids = new Set<string>([clientId]);
   for (const entry of issuedTokens.values()) {
-    if (displayNameForClient(entry.clientId) === target) ids.add(entry.clientId);
+    if (displayNameForClient(entry.clientId) === target)
+      ids.add(entry.clientId);
   }
   return Array.from(ids);
 }
 
-export async function revokeOAuthAuthorization(clientId: string): Promise<boolean> {
+export async function revokeOAuthAuthorization(
+  clientId: string,
+): Promise<boolean> {
   let found = false;
   if (registeredClients.has(clientId)) {
     registeredClients.delete(clientId);
@@ -1782,7 +2180,12 @@ export function renameOAuthClient(
   }
   client.clientName = cleanName;
   saveOAuthToDisk();
-  syncOAuthClientToMongo(client).catch((error) => console.error("[mongo-oauth] client rename persistence failed:", error?.message || error));
+  syncOAuthClientToMongo(client).catch((error) =>
+    console.error(
+      "[mongo-oauth] client rename persistence failed:",
+      error?.message || error,
+    ),
+  );
   return client;
 }
 

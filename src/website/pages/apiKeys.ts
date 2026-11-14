@@ -168,7 +168,9 @@ export function renderApiKeysPage(params: {
                     .map((k, idx) => {
                       const rawKeyId = String(k.id || "");
                       const keyId = escapeHtml(rawKeyId);
-                      const rawKeyLabel = String(k.label || k.name || `Key ${rawKeyId.slice(0, 4)}`);
+                      const rawKeyLabel = String(
+                        k.label || k.name || `Key ${rawKeyId.slice(0, 4)}`,
+                      );
                       const keyLabel = escapeHtml(rawKeyLabel);
                       const keyIdArg = inlineJsString(rawKeyId);
                       const keyLabelArg = inlineJsString(rawKeyLabel);
@@ -224,8 +226,8 @@ export function renderApiKeysPage(params: {
           <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Applications granted access to your MCP instance</p>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 12px; width:220px; max-width:100%;">
-          ${renderSvg("search", 13, "text-muted")}
+        <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%;">
+          ${renderSvg("search", 14, "text-muted")}
           <input type="text" id="oauthSearchInput" class="filterOAuth" placeholder="Filter applications" oninput="filterOAuthClients(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
         </div>
       </div>
@@ -268,13 +270,35 @@ export function renderApiKeysPage(params: {
                     // Scopes are derived server-side from the tools actually enabled for this client.
                     const scopeList: string[] = Array.isArray(client.scopes)
                       ? client.scopes.map((x: unknown) => String(x))
-                      : String(client.scope || "mcp:tools").split(/\s+/).filter(Boolean);
+                      : String(client.scope || "mcp:tools")
+                          .split(/\s+/)
+                          .filter(Boolean);
                     const scopeChips = scopeList.length
                       ? scopeList
-                          .map((sc) => `<span class="oauth-scope-chip">${escapeHtml(sc)}</span>`)
+                          .map(
+                            (sc) =>
+                              `<span class="oauth-scope-chip">${escapeHtml(sc)}</span>`,
+                          )
                           .join("")
                       : `<span class="oauth-scope-chip" style="opacity:.7;">none</span>`;
-                    const appLogo = getAppLogoSvg(displayName, 18, client.clientUri || client.client_uri || client.website || client.url);
+                    const clientWebsite =
+                      client.logoUri ||
+                      client.clientUri ||
+                      client.client_uri ||
+                      client.website ||
+                      client.url ||
+                      (Array.isArray(client.redirectUris)
+                        ? client.redirectUris.find(
+                            (u: string) =>
+                              !u.includes("localhost") &&
+                              !u.includes("127.0.0.1"),
+                          )
+                        : undefined);
+                    const appLogo = getAppLogoSvg(
+                      displayName,
+                      18,
+                      clientWebsite,
+                    );
                     const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
                     return `

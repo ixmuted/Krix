@@ -40,9 +40,17 @@ export function renderSettingsPage(params: {
   const maskedRender = renderSecret
     ? `${renderSecret.slice(0, 4)}••••••••${renderSecret.slice(-4)}`
     : "";
-  const enabledTools = new Set<string>(Array.isArray(keySettings.enabledTools) ? keySettings.enabledTools : []);
-  const disabledTools = new Set<string>(Array.isArray(keySettings.disabledTools) ? keySettings.disabledTools : []);
-  const enabledCategories = new Set<string>(Array.isArray(keySettings.enabledCategories) ? keySettings.enabledCategories : []);
+  const enabledTools = new Set<string>(
+    Array.isArray(keySettings.enabledTools) ? keySettings.enabledTools : [],
+  );
+  const disabledTools = new Set<string>(
+    Array.isArray(keySettings.disabledTools) ? keySettings.disabledTools : [],
+  );
+  const enabledCategories = new Set<string>(
+    Array.isArray(keySettings.enabledCategories)
+      ? keySettings.enabledCategories
+      : [],
+  );
   const isToolEnabled = (tool: any): boolean => {
     const name = String(tool.name || "");
     if (disabledTools.has(name)) return false;
@@ -59,10 +67,15 @@ export function renderSettingsPage(params: {
       Search: ["search"],
     };
     // With a GitHub token only the default GitHub tool set is on; everything else is opt-in.
-    if (category === "GitHub" && params.credentialAvailability?.github) return isDefaultGithubTool(name);
-    if (category === "Sandbox" && params.credentialAvailability?.github) return true;
-    return category !== "Code Graph" && category !== "Search" &&
-      (categoryKeys[category] || []).some((item) => enabledCategories.has(item));
+    if (category === "GitHub" && params.credentialAvailability?.github)
+      return isDefaultGithubTool(name);
+    if (category === "Sandbox" && params.credentialAvailability?.github)
+      return true;
+    return (
+      category !== "Code Graph" &&
+      category !== "Search" &&
+      (categoryKeys[category] || []).some((item) => enabledCategories.has(item))
+    );
   };
 
   const codeGraphTools = (params.toolsCatalog || []).filter(
@@ -259,13 +272,16 @@ export function renderSettingsPage(params: {
     <div class="card spotlight-card" style="padding:24px; border-color:rgba(239, 68, 68, 0.3); margin-bottom:24px;">
       <h2 style="font-size:16px; font-weight:600; color:var(--error); margin-bottom:16px;">Danger Zone</h2>
 
-      <div class="settings-action-row" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;">
-        <button type="button" class="btn danger" onclick="resetToolDefaults()" style="border:1px solid rgba(239,68,68,.35); border-radius:6px; width:180px; min-width:180px; height:38px; min-height:38px; padding:8px 18px; justify-content:center; box-sizing:border-box;">
-          ${renderSvg("refresh", 15)}<span>Reset Tools</span>
-        </button>
-      </div>
-
       <div style="display:flex; flex-direction:column; gap:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding-bottom:16px; border-bottom:1px solid var(--border-subtle);">
+          <div>
+            <div style="font-size:13px; font-weight:600; color:var(--fg);">Reset Tool Permissions</div>
+            <div style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Reset all tool access overrides to their default permissions.</div>
+          </div>
+          <button type="button" class="btn danger" onclick="resetToolDefaults()" style="border:1px solid rgba(239,68,68,.35); border-radius:6px; min-width:180px; min-height:38px; padding:8px 18px; justify-content:center; box-sizing:border-box;">
+            ${renderSvg("refresh", 15)}<span>Reset Tools</span>
+          </button>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding-bottom:16px; border-bottom:1px solid var(--border-subtle);">
           <div>
             <div style="font-size:13px; font-weight:600; color:var(--fg);">Session Termination</div>

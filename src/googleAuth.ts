@@ -567,11 +567,32 @@ export function createDynamicKey(
   dynamicApiKeys.set(id, entry);
   saveKeysToDisk();
   syncKeyToMongo(entry).catch(() => {});
-  // Persist the account association and a distinct sandbox ID for this key.
+  // Persist the account association, inherited global tool permissions, and sandbox ID for this key.
+  const primarySettings = getKeySettings("primary-key");
   const settings = getKeySettings(id);
   settings.email = effectiveEmail.trim().toLowerCase();
   settings.role = role;
   settings.sandboxId = generateSandboxId(id, role === "owner");
+  if (primarySettings) {
+    if (
+      Array.isArray(primarySettings.enabledTools) &&
+      primarySettings.enabledTools.length
+    ) {
+      settings.enabledTools = [...primarySettings.enabledTools];
+    }
+    if (
+      Array.isArray(primarySettings.disabledTools) &&
+      primarySettings.disabledTools.length
+    ) {
+      settings.disabledTools = [...primarySettings.disabledTools];
+    }
+    if (
+      Array.isArray(primarySettings.enabledCategories) &&
+      primarySettings.enabledCategories.length
+    ) {
+      settings.enabledCategories = [...primarySettings.enabledCategories];
+    }
+  }
   settings.updatedAt = Date.now();
   updateKeyCredentials(id, effectiveEmail);
   return entry;

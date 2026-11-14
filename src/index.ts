@@ -161,17 +161,12 @@ if (MCP_API_KEY.length < 24) {
 registerSecret(DEFAULT_GITHUB_PAT);
 registerSecret(DEFAULT_RENDER_API_KEY);
 
-/** Which provider credentials a key can actually use (own override, or the workspace default for the primary key). */
+/** Which provider credentials a key can actually use (own override, or workspace default). */
 function keyCredentialsReady(keyId: string, settings?: KeySettings) {
   const s = settings || getKeySettings(keyId);
   return {
-    github: Boolean(
-      s.customGitHubToken || (keyId === "primary-key" && DEFAULT_GITHUB_PAT),
-    ),
-    render: Boolean(
-      s.customRenderToken ||
-      (keyId === "primary-key" && DEFAULT_RENDER_API_KEY),
-    ),
+    github: Boolean(s.customGitHubToken || DEFAULT_GITHUB_PAT),
+    render: Boolean(s.customRenderToken || DEFAULT_RENDER_API_KEY),
   };
 }
 
@@ -696,14 +691,15 @@ app.all(
         ? req.headers["x-github-token"]
         : "") ||
       keySettings.customGitHubToken ||
-      (keyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") ||
+      DEFAULT_GITHUB_PAT ||
       "";
     const renderToken =
       (typeof req.headers["x-render-token"] === "string"
         ? req.headers["x-render-token"]
         : "") ||
       keySettings.customRenderToken ||
-      (keyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
+      DEFAULT_RENDER_API_KEY ||
+      undefined;
     registerSecret(githubToken);
     registerSecret(renderToken);
     const sessionId =
@@ -1625,13 +1621,9 @@ app.get("/api/settings", async (req, res) => {
       keySettings,
       apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
       credentialAvailability: {
-        github: Boolean(
-          keySettings.customGitHubToken ||
-          (effectiveKeyId === "primary-key" && DEFAULT_GITHUB_PAT),
-        ),
+        github: Boolean(keySettings.customGitHubToken || DEFAULT_GITHUB_PAT),
         render: Boolean(
-          keySettings.customRenderToken ||
-          (effectiveKeyId === "primary-key" && DEFAULT_RENDER_API_KEY),
+          keySettings.customRenderToken || DEFAULT_RENDER_API_KEY,
         ),
       },
     }),
@@ -1654,15 +1646,13 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   const settings = getKeySettings(id);
 
   const nextGitHubToken =
-    githubToken !== undefined
+    githubToken !== undefined && String(githubToken).trim() !== ""
       ? String(githubToken).trim()
-      : settings.customGitHubToken ||
-        (id === "primary-key" ? DEFAULT_GITHUB_PAT : "");
+      : settings.customGitHubToken || DEFAULT_GITHUB_PAT || "";
   const nextRenderToken =
-    renderApiKey !== undefined
+    renderApiKey !== undefined && String(renderApiKey).trim() !== ""
       ? String(renderApiKey).trim()
-      : settings.customRenderToken ||
-        (id === "primary-key" ? DEFAULT_RENDER_API_KEY : "");
+      : settings.customRenderToken || DEFAULT_RENDER_API_KEY || "";
   if (Array.isArray(enabledTools)) {
     const blocked = findToolMissingCredential(enabledTools, {
       github: Boolean(nextGitHubToken),
@@ -1819,12 +1809,9 @@ app.get("/tools", async (req, res) => {
     role: isOwnerEmail(owner.email) ? "owner" : "user",
   };
   const probeGithubToken =
-    probeSettings.customGitHubToken ||
-    (selectedKeyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") ||
-    "";
+    probeSettings.customGitHubToken || DEFAULT_GITHUB_PAT || "";
   const probeRenderToken =
-    probeSettings.customRenderToken ||
-    (selectedKeyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
+    probeSettings.customRenderToken || DEFAULT_RENDER_API_KEY || undefined;
   registerSessionAuth(
     probeSessionId,
     `krix_tool_catalog_${owner.email.toLowerCase()}_${probeSessionId}`,
@@ -1905,13 +1892,9 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
     email: owner.email,
     role: isOwnerEmail(owner.email) ? "owner" : "user",
   };
-  const githubToken =
-    settings.customGitHubToken ||
-    (keyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") ||
-    "";
+  const githubToken = settings.customGitHubToken || DEFAULT_GITHUB_PAT || "";
   const renderToken =
-    settings.customRenderToken ||
-    (keyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
+    settings.customRenderToken || DEFAULT_RENDER_API_KEY || undefined;
 
   // A unique authenticated sandbox identity ensures every web execution gets
   // a disposable workspace and cannot read another key's persistent files.
@@ -2225,13 +2208,9 @@ app.get("/settings", async (req, res) => {
       selectedKeyId,
       keySettings,
       credentialAvailability: {
-        github: Boolean(
-          keySettings.customGitHubToken ||
-          (selectedKeyId === "primary-key" && DEFAULT_GITHUB_PAT),
-        ),
+        github: Boolean(keySettings.customGitHubToken || DEFAULT_GITHUB_PAT),
         render: Boolean(
-          keySettings.customRenderToken ||
-          (selectedKeyId === "primary-key" && DEFAULT_RENDER_API_KEY),
+          keySettings.customRenderToken || DEFAULT_RENDER_API_KEY,
         ),
       },
       toolsCatalog: summary.toolsCatalog,
