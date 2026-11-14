@@ -142,8 +142,8 @@ describe("New Features & UI Polish Verification", () => {
       "Must pull favicon via Google favicon proxy",
     );
     assert.ok(
-      geminiLogo.includes("onerror="),
-      "Must include onerror fallback handler",
+      geminiLogo.includes("data-fallback-srcs="),
+      "Must include a fallback source chain handled by the shared watcher",
     );
     assert.ok(
       geminiLogo.includes("app-logo-fallback"),
