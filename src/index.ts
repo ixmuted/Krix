@@ -1843,7 +1843,7 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   }
   settings.updatedAt = Date.now();
   saveSettingsToDisk();
-  syncKeySettingsToMongo(settings).catch(() => {});
+  await syncKeySettingsToMongo(settings);
   // Credential changes need a fresh session; tool-only changes apply live.
   const credentialsChanged =
     githubToken !== undefined || renderApiKey !== undefined;
