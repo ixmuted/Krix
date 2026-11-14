@@ -91,7 +91,7 @@ import {
   renderHelpPage,
   type StoredFileInfo,
 } from "./views.js";
-import { logIsolationStatus } from "./sandboxProc.js";
+import { logIsolationStatus, assertInsideRealRoot } from "./sandboxProc.js";
 import {
   browserOriginGuard,
   createSecurityAuditMiddleware,
@@ -108,6 +108,8 @@ import {
   getSandboxIdForSession,
   getAuthKeyForSession,
   computeAuthKey,
+  computeUserAuthKey,
+  canonicalUserIdentity,
   safeEqual,
   registerSecret,
   sanitizeOutput,
@@ -129,6 +131,7 @@ import {
   saveSettingsToDisk,
   getUserRole,
   isOwnerEmail,
+  getOwnerEmail,
   maskSecret,
   generateSandboxId,
   type KeySettings,
@@ -162,8 +165,13 @@ registerSecret(DEFAULT_RENDER_API_KEY);
 function keyCredentialsReady(keyId: string, settings?: KeySettings) {
   const s = settings || getKeySettings(keyId);
   return {
-    github: Boolean(s.customGitHubToken || (keyId === "primary-key" && DEFAULT_GITHUB_PAT)),
-    render: Boolean(s.customRenderToken || (keyId === "primary-key" && DEFAULT_RENDER_API_KEY)),
+    github: Boolean(
+      s.customGitHubToken || (keyId === "primary-key" && DEFAULT_GITHUB_PAT),
+    ),
+    render: Boolean(
+      s.customRenderToken ||
+      (keyId === "primary-key" && DEFAULT_RENDER_API_KEY),
+    ),
   };
 }
 
@@ -190,13 +198,16 @@ function findToolMissingCredential(
 function effectiveOAuthScopes(clientId: string): string[] {
   const ready = keyCredentialsReady(clientId);
   const sessionCategories = new Set<string>(["core", "files"]);
-  if (process.env.ENABLE_SANDBOX === "true" || ready.github) sessionCategories.add("sandbox");
+  if (process.env.ENABLE_SANDBOX === "true" || ready.github)
+    sessionCategories.add("sandbox");
   const scopes = new Set<string>();
   for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
     if (getMissingToolCredential(toolName, ready, category)) continue;
-    if (!isToolEnabledForKey(clientId, toolName, category, sessionCategories)) continue;
+    if (!isToolEnabledForKey(clientId, toolName, category, sessionCategories))
+      continue;
     if (category === "sandbox") scopes.add("mcp:sandbox");
-    else if (category === "github_admin" || category === "render") scopes.add("mcp:admin");
+    else if (category === "github_admin" || category === "render")
+      scopes.add("mcp:admin");
     else scopes.add("mcp:tools");
   }
   return ["mcp:tools", "mcp:sandbox", "mcp:admin"].filter((s) => scopes.has(s));
@@ -443,7 +454,7 @@ function createMasterServer(
 // HTTP layer
 // ---------------------------------------------------------------------------------------------
 
-const app = express();
+export const app = express();
 app.disable("x-powered-by");
 app.disable("etag");
 {
@@ -820,10 +831,19 @@ app.all(
           return;
         }
         // A session is bound to the identity that created it.
-        const sessionIdentity = `user_${(keySettings.email || `key_${keyId}`).toLowerCase()}`;
+        const sessionEmail =
+          keySettings.email ||
+          (keyId === "primary-key"
+            ? getOwnerEmail() || "owner@localhost"
+            : undefined);
+        const sessionIdentity = canonicalUserIdentity({
+          email: sessionEmail,
+          keyId,
+        });
+        const expectedAuthKey = computeAuthKey(sessionIdentity);
         if (
           entry.keyId !== keyId ||
-          getAuthKeyForSession(sessionId) !== computeAuthKey(sessionIdentity)
+          getAuthKeyForSession(sessionId) !== expectedAuthKey
         ) {
           jsonRpcError(
             res,
@@ -865,13 +885,19 @@ app.all(
       }
 
       const newSessionId = crypto.randomUUID();
-      const sessionIdentity = `user_${(keySettings.email || `key_${keyId}`).toLowerCase()}`;
+      const sessionEmail =
+        keySettings.email ||
+        (keyId === "primary-key"
+          ? getOwnerEmail() || "owner@localhost"
+          : undefined);
+      const sessionIdentity = canonicalUserIdentity({
+        email: sessionEmail,
+        keyId,
+      });
       registerSessionAuth(newSessionId, sessionIdentity);
 
-      const effectiveSandboxId =
-        keySettings.sandboxId ||
-        (keyId === "primary-key" ? "owner" : `sbx_${keyId}`);
-      registerSessionSandboxId(newSessionId, effectiveSandboxId);
+      const authKey = computeAuthKey(sessionIdentity);
+      registerSessionSandboxId(newSessionId, authKey);
 
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => newSessionId,
@@ -1113,34 +1139,38 @@ app.get("/gemini-extension.json", (req, res) => {
   });
 });
 
-app.get(["/mcp/server-card", "/server-card", "/.well-known/mcp/server-card.json"], (req, res) => {
-  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  res.json({
-    $schema:
-      "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/server-card.json",
-    name: "krix",
-    title: "Krix",
-    version: "1.1.0",
-    description:
-      "Remote GitHub discovery, Render management, and sandboxed execution.",
-    websiteUrl: "https://github.com/imunmuted/Krix",
-    icons: getServerInfoIcons(base),
-    remotes: [
-      {
-        type: "sse",
-        url: `${base}/sse`,
-      },
-      {
-        type: "streamable-http",
-        url: `${base}/mcp`,
-      },
-    ],
-  });
-});
+app.get(
+  ["/mcp/server-card", "/server-card", "/.well-known/mcp/server-card.json"],
+  (req, res) => {
+    const base =
+      process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.json({
+      $schema:
+        "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/server-card.json",
+      name: "krix",
+      title: "Krix",
+      version: "1.1.0",
+      description:
+        "Remote GitHub discovery, Render management, and sandboxed execution.",
+      websiteUrl: "https://github.com/imunmuted/Krix",
+      icons: getServerInfoIcons(base),
+      remotes: [
+        {
+          type: "sse",
+          url: `${base}/sse`,
+        },
+        {
+          type: "streamable-http",
+          url: `${base}/mcp`,
+        },
+      ],
+    });
+  },
+);
 
 app.get(["/", "/home"], async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
@@ -1167,7 +1197,10 @@ app.get(["/", "/home"], async (req, res) => {
 
 app.get(["/api", "/keys"], async (req, res) => {
   const statsMongoConfigured = Boolean(
-    getMongoDb() || process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL,
+    getMongoDb() ||
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URL ||
+    process.env.DATABASE_URL,
   );
   try {
     await Promise.all([
@@ -1176,9 +1209,15 @@ app.get(["/api", "/keys"], async (req, res) => {
       statsTracker.ensureMongo(),
     ]);
   } catch (error: any) {
-    console.error("[stats] MongoDB restore failed before API response:", error?.message || error);
+    console.error(
+      "[stats] MongoDB restore failed before API response:",
+      error?.message || error,
+    );
     if (statsMongoConfigured) {
-      res.status(503).json({ error: "Statistics are temporarily unavailable because MongoDB could not be reached. No stale local snapshot was served." });
+      res.status(503).json({
+        error:
+          "Statistics are temporarily unavailable because MongoDB could not be reached. No stale local snapshot was served.",
+      });
       return;
     }
   }
@@ -1243,7 +1282,10 @@ app.get(["/api", "/keys"], async (req, res) => {
 
 app.get("/api/keys", async (req, res) => {
   const statsMongoConfigured = Boolean(
-    getMongoDb() || process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL,
+    getMongoDb() ||
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URL ||
+    process.env.DATABASE_URL,
   );
   try {
     await Promise.all([
@@ -1252,9 +1294,16 @@ app.get("/api/keys", async (req, res) => {
       statsTracker.ensureMongo(),
     ]);
   } catch (error: any) {
-    console.error("[stats] MongoDB restore failed before page response:", error?.message || error);
+    console.error(
+      "[stats] MongoDB restore failed before page response:",
+      error?.message || error,
+    );
     if (statsMongoConfigured) {
-      res.status(503).send("Statistics are temporarily unavailable because MongoDB could not be reached. No stale local snapshot was served.");
+      res
+        .status(503)
+        .send(
+          "Statistics are temporarily unavailable because MongoDB could not be reached. No stale local snapshot was served.",
+        );
       return;
     }
   }
@@ -1514,7 +1563,9 @@ app.get("/api/settings", async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
   if (!owner) {
-    res.redirect("/auth/google?returnTo=" + encodeURIComponent(req.originalUrl));
+    res.redirect(
+      "/auth/google?returnTo=" + encodeURIComponent(req.originalUrl),
+    );
     return;
   }
   const keyId = typeof req.query.key === "string" ? req.query.key.trim() : "";
@@ -1598,15 +1649,20 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
-  const { githubToken, renderApiKey, enabledTools, disabledTools, disabled } = req.body || {};
+  const { githubToken, renderApiKey, enabledTools, disabledTools, disabled } =
+    req.body || {};
   const settings = getKeySettings(id);
 
-  const nextGitHubToken = githubToken !== undefined
-    ? String(githubToken).trim()
-    : settings.customGitHubToken || (id === "primary-key" ? DEFAULT_GITHUB_PAT : "");
-  const nextRenderToken = renderApiKey !== undefined
-    ? String(renderApiKey).trim()
-    : settings.customRenderToken || (id === "primary-key" ? DEFAULT_RENDER_API_KEY : "");
+  const nextGitHubToken =
+    githubToken !== undefined
+      ? String(githubToken).trim()
+      : settings.customGitHubToken ||
+        (id === "primary-key" ? DEFAULT_GITHUB_PAT : "");
+  const nextRenderToken =
+    renderApiKey !== undefined
+      ? String(renderApiKey).trim()
+      : settings.customRenderToken ||
+        (id === "primary-key" ? DEFAULT_RENDER_API_KEY : "");
   if (Array.isArray(enabledTools)) {
     const blocked = findToolMissingCredential(enabledTools, {
       github: Boolean(nextGitHubToken),
@@ -1615,20 +1671,31 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     if (blocked) {
       res.status(409).json({
         success: false,
-        code: blocked.provider === "github" ? "GITHUB_TOKEN_REQUIRED" : "RENDER_KEY_REQUIRED",
+        code:
+          blocked.provider === "github"
+            ? "GITHUB_TOKEN_REQUIRED"
+            : "RENDER_KEY_REQUIRED",
         tool: blocked.toolName,
-        error: credentialRequiredMessage(blocked.provider, blocked.toolName, "key"),
+        error: credentialRequiredMessage(
+          blocked.provider,
+          blocked.toolName,
+          "key",
+        ),
       });
       return;
     }
   }
 
   if (githubToken !== undefined) {
-    settings.customGitHubToken = githubToken ? String(githubToken).trim() : undefined;
+    settings.customGitHubToken = githubToken
+      ? String(githubToken).trim()
+      : undefined;
     if (settings.customGitHubToken) registerSecret(settings.customGitHubToken);
   }
   if (renderApiKey !== undefined) {
-    settings.customRenderToken = renderApiKey ? String(renderApiKey).trim() : undefined;
+    settings.customRenderToken = renderApiKey
+      ? String(renderApiKey).trim()
+      : undefined;
     if (settings.customRenderToken) registerSecret(settings.customRenderToken);
   }
   if (Array.isArray(enabledTools)) {
@@ -1675,7 +1742,10 @@ app.post("/api/account/delete", async (req, res) => {
   );
 
   res.clearCookie("krix_owner");
-  res.json({ success: true, message: "Account and associated tokens deleted." });
+  res.json({
+    success: true,
+    message: "Account and associated tokens deleted.",
+  });
 });
 
 app.get("/privacy", (req, res) => {
@@ -1750,7 +1820,8 @@ app.get("/tools", async (req, res) => {
   };
   const probeGithubToken =
     probeSettings.customGitHubToken ||
-    (selectedKeyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") || "";
+    (selectedKeyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") ||
+    "";
   const probeRenderToken =
     probeSettings.customRenderToken ||
     (selectedKeyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
@@ -1798,19 +1869,32 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
     return;
   }
 
-  const toolName = typeof req.body?.toolName === "string" ? req.body.toolName : "";
+  const toolName =
+    typeof req.body?.toolName === "string" ? req.body.toolName : "";
   const keyId = typeof req.body?.keyId === "string" ? req.body.keyId : "";
   const args = req.body?.arguments;
-  if (!keyId || !toolName || !["sandbox_exec", "sandbox_run"].includes(toolName)) {
-    res.status(400).json({ ok: false, error: "Only sandbox_exec and sandbox_run can be run from the web inspector." });
+  if (
+    !keyId ||
+    !toolName ||
+    !["sandbox_exec", "sandbox_run"].includes(toolName)
+  ) {
+    res.status(400).json({
+      ok: false,
+      error:
+        "Only sandbox_exec and sandbox_run can be run from the web inspector.",
+    });
     return;
   }
   if (!userOwnsKey(owner.email, keyId)) {
-    res.status(403).json({ ok: false, error: "You do not own the selected key." });
+    res
+      .status(403)
+      .json({ ok: false, error: "You do not own the selected key." });
     return;
   }
   if (!args || typeof args !== "object" || Array.isArray(args)) {
-    res.status(400).json({ ok: false, error: "Arguments must be a JSON object." });
+    res
+      .status(400)
+      .json({ ok: false, error: "Arguments must be a JSON object." });
     return;
   }
 
@@ -1823,7 +1907,8 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
   };
   const githubToken =
     settings.customGitHubToken ||
-    (keyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") || "";
+    (keyId === "primary-key" ? DEFAULT_GITHUB_PAT : "") ||
+    "";
   const renderToken =
     settings.customRenderToken ||
     (keyId === "primary-key" ? DEFAULT_RENDER_API_KEY : undefined);
@@ -2180,21 +2265,45 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
     // Validate newly supplied provider credentials before persisting them.
     if (typeof githubToken === "string" && githubToken.trim()) {
       const validation = await fetch("https://api.github.com/user", {
-        headers: { Authorization: `Bearer ${githubToken.trim()}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+        headers: {
+          Authorization: `Bearer ${githubToken.trim()}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
         signal: AbortSignal.timeout(10000),
       });
       if (!validation.ok) {
-        res.status(422).json({ ok: false, code: "INVALID_GITHUB_TOKEN", error: validation.status === 401 ? "GitHub rejected this token. Check that it is valid and has not expired." : `GitHub credential validation failed (${validation.status}).` });
+        res.status(422).json({
+          ok: false,
+          code: "INVALID_GITHUB_TOKEN",
+          error:
+            validation.status === 401
+              ? "GitHub rejected this token. Check that it is valid and has not expired."
+              : `GitHub credential validation failed (${validation.status}).`,
+        });
         return;
       }
     }
     if (typeof renderToken === "string" && renderToken.trim()) {
-      const validation = await fetch("https://api.render.com/v1/owners?limit=1", {
-        headers: { Authorization: `Bearer ${renderToken.trim()}`, Accept: "application/json" },
-        signal: AbortSignal.timeout(10000),
-      });
+      const validation = await fetch(
+        "https://api.render.com/v1/owners?limit=1",
+        {
+          headers: {
+            Authorization: `Bearer ${renderToken.trim()}`,
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(10000),
+        },
+      );
       if (!validation.ok) {
-        res.status(422).json({ ok: false, code: "INVALID_RENDER_TOKEN", error: validation.status === 401 || validation.status === 403 ? "Render rejected this API key. Check that it is valid and has not been revoked." : `Render credential validation failed (${validation.status}).` });
+        res.status(422).json({
+          ok: false,
+          code: "INVALID_RENDER_TOKEN",
+          error:
+            validation.status === 401 || validation.status === 403
+              ? "Render rejected this API key. Check that it is valid and has not been revoked."
+              : `Render credential validation failed (${validation.status}).`,
+        });
         return;
       }
     }
@@ -2299,7 +2408,10 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
     if (enabled && missingCredential) {
       res.status(409).json({
         ok: false,
-        code: missingCredential === "github" ? "GITHUB_TOKEN_REQUIRED" : "RENDER_KEY_REQUIRED",
+        code:
+          missingCredential === "github"
+            ? "GITHUB_TOKEN_REQUIRED"
+            : "RENDER_KEY_REQUIRED",
         tool: toolName,
         error: credentialRequiredMessage(missingCredential, toolName, "global"),
       });
@@ -2389,13 +2501,23 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
 
   try {
     // The bulk endpoint must enforce the same credential rules as the single-tool toggle.
-    const blocked = findToolMissingCredential(enabledTools, keyCredentialsReady(keyId));
+    const blocked = findToolMissingCredential(
+      enabledTools,
+      keyCredentialsReady(keyId),
+    );
     if (blocked) {
       res.status(409).json({
         ok: false,
-        code: blocked.provider === "github" ? "GITHUB_TOKEN_REQUIRED" : "RENDER_KEY_REQUIRED",
+        code:
+          blocked.provider === "github"
+            ? "GITHUB_TOKEN_REQUIRED"
+            : "RENDER_KEY_REQUIRED",
         tool: blocked.toolName,
-        error: credentialRequiredMessage(blocked.provider, blocked.toolName, "global"),
+        error: credentialRequiredMessage(
+          blocked.provider,
+          blocked.toolName,
+          "global",
+        ),
       });
       return;
     }
@@ -2449,6 +2571,25 @@ app.get("/settings/api/data", async (req, res) => {
 });
 
 // Dedicated Store Page & Download Endpoints
+function extractCallerAuthKey(req: Request): string | null {
+  const owner = parseOwnerCookie(req);
+  if (owner && owner.email) {
+    return computeUserAuthKey({ email: owner.email });
+  }
+  const clientKey = extractClientKey(req);
+  if (clientKey) {
+    const dyn = findAuthorizedApiKey(clientKey);
+    if (dyn?.email) return computeUserAuthKey({ email: dyn.email });
+    if (dyn?.id) return computeUserAuthKey({ keyId: dyn.id });
+    if (MCP_API_KEY && safeEqual(clientKey, MCP_API_KEY)) {
+      return computeUserAuthKey({
+        email: getOwnerEmail() || "owner@localhost",
+      });
+    }
+  }
+  return null;
+}
+
 app.get("/store", async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
@@ -2472,7 +2613,7 @@ app.get("/store", async (req, res) => {
   if (dbStore) fileShareRegistry.setMongoDb(dbStore);
 
   try {
-    const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
+    const authKey = computeUserAuthKey({ email: owner.email });
     const root = sandboxRootForAuthKey(authKey);
     const fileStore = getFileStore();
 
@@ -2489,6 +2630,8 @@ app.get("/store", async (req, res) => {
         name: f.name,
         source: "store",
         contentType: f.contentType,
+        ownerKey: authKey,
+        isPublic: f.isPublic,
       });
       return {
         id: f.id,
@@ -2502,6 +2645,7 @@ app.get("/store", async (req, res) => {
         shareUrl: `${base}/store/share/${share.shareToken}`,
         isPublic: share.isPublic,
         permanent: !f.expiresAt,
+        isOwned: true,
       };
     });
 
@@ -2519,6 +2663,7 @@ app.get("/store", async (req, res) => {
               name: entry.name,
               source: "sandbox",
               sandboxPath: filePath,
+              ownerKey: authKey,
             });
             files.push({
               id: sbxId,
@@ -2532,10 +2677,35 @@ app.get("/store", async (req, res) => {
               shareUrl: `${base}/store/share/${share.shareToken}`,
               isPublic: share.isPublic,
               permanent: false,
+              isOwned: true,
             });
           }
         }
       } catch {}
+    }
+
+    // Include public files from other users so they can be viewed and downloaded by anyone
+    const knownIds = new Set(files.map((f) => f.id));
+    const publicShares = fileShareRegistry.listPublicShares();
+    for (const p of publicShares) {
+      if (knownIds.has(p.fileId)) continue;
+      if (p.ownerKey && p.ownerKey !== authKey) {
+        files.push({
+          id: p.fileId,
+          name: p.name,
+          size: 0,
+          contentType: p.contentType || "application/octet-stream",
+          createdAt: p.updatedAt,
+          expiresAt: null,
+          source: p.source,
+          downloadUrl: `${base}/store/share/${p.shareToken}`,
+          shareUrl: `${base}/store/share/${p.shareToken}`,
+          isPublic: true,
+          permanent: false,
+          isOwned: false,
+        });
+        knownIds.add(p.fileId);
+      }
     }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -2563,7 +2733,7 @@ app.get("/store/api/files", async (req, res) => {
   const dbFiles = getMongoDb();
   if (dbFiles) fileShareRegistry.setMongoDb(dbFiles);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
+  const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
   const fileStore = getFileStore();
 
@@ -2580,6 +2750,8 @@ app.get("/store/api/files", async (req, res) => {
       name: f.name,
       source: "store",
       contentType: f.contentType,
+      ownerKey: authKey,
+      isPublic: f.isPublic,
     });
     return {
       id: f.id,
@@ -2593,6 +2765,7 @@ app.get("/store/api/files", async (req, res) => {
       shareUrl: `${base}/store/share/${share.shareToken}`,
       isPublic: share.isPublic,
       permanent: !f.expiresAt,
+      isOwned: true,
     };
   });
 
@@ -2610,6 +2783,7 @@ app.get("/store/api/files", async (req, res) => {
             name: entry.name,
             source: "sandbox",
             sandboxPath: filePath,
+            ownerKey: authKey,
           });
           files.push({
             id: sbxId,
@@ -2623,10 +2797,35 @@ app.get("/store/api/files", async (req, res) => {
             shareUrl: `${base}/store/share/${share.shareToken}`,
             isPublic: share.isPublic,
             permanent: false,
+            isOwned: true,
           });
         }
       }
     } catch {}
+  }
+
+  // Include public files from other users
+  const knownIds = new Set(files.map((f) => f.id));
+  const publicShares = fileShareRegistry.listPublicShares();
+  for (const p of publicShares) {
+    if (knownIds.has(p.fileId)) continue;
+    if (p.ownerKey && p.ownerKey !== authKey) {
+      files.push({
+        id: p.fileId,
+        name: p.name,
+        size: 0,
+        contentType: p.contentType || "application/octet-stream",
+        createdAt: p.updatedAt,
+        expiresAt: null,
+        source: p.source,
+        downloadUrl: `${base}/store/share/${p.shareToken}`,
+        shareUrl: `${base}/store/share/${p.shareToken}`,
+        isPublic: true,
+        permanent: false,
+        isOwned: false,
+      });
+      knownIds.add(p.fileId);
+    }
   }
 
   res.json({ files, usage });
@@ -2639,9 +2838,41 @@ app.post("/store/files/:id/privacy", express.json(), async (req, res) => {
     return;
   }
   const id = req.params.id;
+  const authKey = computeUserAuthKey({ email: owner.email });
+  const share = fileShareRegistry.getById(id);
+
+  if (share && share.ownerKey && share.ownerKey !== authKey) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
+    return;
+  }
+
+  if (id.startsWith("sbx_")) {
+    const root = sandboxRootForAuthKey(authKey);
+    const fileName = share
+      ? share.name
+      : Buffer.from(id.slice(4), "hex").toString("utf-8");
+    const filePath = path.join(root, UPLOAD_DIR, fileName);
+    if (!share && !fs.existsSync(filePath)) {
+      res.status(404).json({ error: "File not found." });
+      return;
+    }
+  } else {
+    const file = await getFileStore().openById(authKey, id);
+    if (!file) {
+      res.status(403).json({
+        error: "Forbidden: You do not own this file or it does not exist.",
+      });
+      return;
+    }
+  }
+
   const explicitIsPublic =
     typeof req.body?.isPublic === "boolean" ? req.body.isPublic : undefined;
-  const isPublic = fileShareRegistry.togglePrivacy(id, explicitIsPublic);
+  const isPublic = fileShareRegistry.togglePrivacy(
+    id,
+    explicitIsPublic,
+    authKey,
+  );
   res.json({ success: true, id, isPublic });
 });
 
@@ -2653,18 +2884,11 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
   const share =
     fileShareRegistry.getByToken(token) || fileShareRegistry.getById(token);
 
+  const callerAuthKey = extractCallerAuthKey(req);
+
   if (share) {
     if (!share.isPublic) {
-      const owner = parseOwnerCookie(req);
-      const clientKey = extractClientKey(req);
-      const isAuth =
-        Boolean(owner) ||
-        Boolean(
-          clientKey &&
-          (isAuthorizedApiKey(clientKey) ||
-            (await verifyAccessToken(clientKey)).valid),
-        );
-      if (!isAuth) {
+      if (!callerAuthKey) {
         res
           .status(401)
           .type("text/plain")
@@ -2673,11 +2897,23 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
           );
         return;
       }
+      if (share.ownerKey && callerAuthKey !== share.ownerKey) {
+        res
+          .status(403)
+          .type("text/plain")
+          .send(
+            "Forbidden: You do not have permission to access this private file.",
+          );
+        return;
+      }
     }
 
     try {
       if (share.source === "store") {
-        const file = await getFileStore().openById("*", share.fileId);
+        const file = await getFileStore().openById(
+          share.isPublic ? "*" : callerAuthKey || "*",
+          share.fileId,
+        );
         if (!file) {
           res.status(404).type("text/plain").send("File not found or expired.");
           return;
@@ -2697,10 +2933,11 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
       } else {
         let targetPath = share.sandboxPath;
         if (!targetPath || !fs.existsSync(targetPath)) {
-          const authKey = computeAuthKey(DEFAULT_GITHUB_PAT || "");
-          const root = sandboxRootForAuthKey(authKey);
-          const candidate = path.join(root, UPLOAD_DIR, share.name);
-          if (fs.existsSync(candidate)) targetPath = candidate;
+          if (share.ownerKey) {
+            const root = sandboxRootForAuthKey(share.ownerKey);
+            const candidate = path.join(root, UPLOAD_DIR, share.name);
+            if (fs.existsSync(candidate)) targetPath = candidate;
+          }
         }
         if (!targetPath || !fs.existsSync(targetPath)) {
           res
@@ -2708,6 +2945,12 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
             .type("text/plain")
             .send("Sandbox file not found on disk.");
           return;
+        }
+        if (share.ownerKey) {
+          await assertInsideRealRoot(
+            sandboxRootForAuthKey(share.ownerKey),
+            targetPath,
+          );
         }
         const stat = fs.statSync(targetPath);
         res.setHeader(
@@ -2742,6 +2985,26 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
       res.status(404).type("text/plain").send("File not found or expired.");
       return;
     }
+    if (file.isPublic === false) {
+      if (!callerAuthKey) {
+        res
+          .status(401)
+          .type("text/plain")
+          .send(
+            "Access denied. This file is private and requires authentication.",
+          );
+        return;
+      }
+      if (file.ownerKey && callerAuthKey !== file.ownerKey) {
+        res
+          .status(403)
+          .type("text/plain")
+          .send(
+            "Forbidden: You do not have permission to access this private file.",
+          );
+        return;
+      }
+    }
     res.setHeader(
       "Content-Type",
       file.contentType || "application/octet-stream",
@@ -2763,16 +3026,8 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
 });
 
 app.get("/store/download", async (req, res) => {
-  const owner = parseOwnerCookie(req);
-  const clientKey = extractClientKey(req);
-  const isAuth =
-    Boolean(owner) ||
-    Boolean(
-      clientKey &&
-      (isAuthorizedApiKey(clientKey) ||
-        (await verifyAccessToken(clientKey)).valid),
-    );
-  if (!isAuth) {
+  const callerAuthKey = extractCallerAuthKey(req);
+  if (!callerAuthKey) {
     res.status(401).type("text/plain").send("Unauthorized.");
     return;
   }
@@ -2788,13 +3043,16 @@ app.get("/store/download", async (req, res) => {
     return;
   }
 
-  const authKey = computeAuthKey(
-    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
-  );
-  const root = sandboxRootForAuthKey(authKey);
+  const root = sandboxRootForAuthKey(callerAuthKey);
   const filePath = path.join(root, UPLOAD_DIR, filename);
   if (!fs.existsSync(filePath)) {
     res.status(404).type("text/plain").send("File not found.");
+    return;
+  }
+  try {
+    await assertInsideRealRoot(root, filePath);
+  } catch {
+    res.status(400).type("text/plain").send("Invalid path.");
     return;
   }
   res.download(filePath, filename);
@@ -2807,9 +3065,11 @@ app.post("/store/permanent/:id", async (req, res) => {
     return;
   }
   const id = req.params.id;
-  const ok = await getFileStore().makePermanent("*", id);
+  const authKey = computeUserAuthKey({ email: owner.email });
+  const ok = await getFileStore().makePermanent(authKey, id);
   if (ok) res.json({ success: true, permanent: true });
-  else res.status(404).json({ error: "File not found." });
+  else
+    res.status(404).json({ error: "File not found or not owned by caller." });
 });
 
 app.post("/store/revert-permanent/:id", async (req, res) => {
@@ -2819,9 +3079,11 @@ app.post("/store/revert-permanent/:id", async (req, res) => {
     return;
   }
   const id = req.params.id;
-  const ok = await getFileStore().revertPermanent("*", id);
+  const authKey = computeUserAuthKey({ email: owner.email });
+  const ok = await getFileStore().revertPermanent(authKey, id);
   if (ok) res.json({ success: true, permanent: false });
-  else res.status(404).json({ error: "File not found." });
+  else
+    res.status(404).json({ error: "File not found or not owned by caller." });
 });
 
 app.delete("/store/files/:id", async (req, res) => {
@@ -2831,12 +3093,18 @@ app.delete("/store/files/:id", async (req, res) => {
     return;
   }
   const id = req.params.id;
-  const ok = await getFileStore().deleteOwned("*", id);
+  const authKey = computeUserAuthKey({ email: owner.email });
+  const share = fileShareRegistry.getById(id);
+  if (share && share.ownerKey && share.ownerKey !== authKey) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
+    return;
+  }
+  const ok = await getFileStore().deleteOwned(authKey, id);
   if (ok) {
     fileShareRegistry.removeFile(id);
     res.json({ success: true, deleted: id });
   } else {
-    res.status(404).json({ error: "File not found." });
+    res.status(404).json({ error: "File not found or not owned by caller." });
   }
 });
 
@@ -2852,7 +3120,13 @@ app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
     res.status(400).json({ error: "File name is required." });
     return;
   }
-  const ok = await getFileStore().rename("*", id, name);
+  const authKey = computeUserAuthKey({ email: owner.email });
+  const share = fileShareRegistry.getById(id);
+  if (share && share.ownerKey && share.ownerKey !== authKey) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
+    return;
+  }
+  const ok = await getFileStore().rename(authKey, id, name);
   if (ok) {
     fileShareRegistry.renameFile(id, name);
     res.json({ success: true, id, name });
@@ -2867,7 +3141,13 @@ app.delete("/store/sandbox-file", async (req, res) => {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }
-  const name = typeof req.query.name === "string" ? req.query.name : "";
+  const name = (
+    typeof req.query.name === "string"
+      ? req.query.name
+      : typeof req.query.file === "string"
+        ? req.query.file
+        : ""
+  ).trim();
   if (
     !name ||
     name.includes("..") ||
@@ -2877,17 +3157,28 @@ app.delete("/store/sandbox-file", async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
+  const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
   const filePath = path.join(root, UPLOAD_DIR, name);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
-    fileShareRegistry.removeFile(sbxId);
-    res.json({ success: true, deleted: name });
-  } else {
-    res.status(404).json({ error: "File not found." });
+  const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
+  const share = fileShareRegistry.getById(sbxId);
+  if (share && share.ownerKey && share.ownerKey !== authKey) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
+    return;
   }
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "File not found." });
+    return;
+  }
+  try {
+    await assertInsideRealRoot(root, filePath);
+  } catch {
+    res.status(400).json({ error: "Invalid filename." });
+    return;
+  }
+  fs.unlinkSync(filePath);
+  fileShareRegistry.removeFile(sbxId);
+  res.json({ success: true, deleted: name });
 });
 
 app.post("/upload/rename", express.json(), async (req, res) => {
@@ -2913,16 +3204,32 @@ app.post("/upload/rename", express.json(), async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
+  const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
   const oldPath = path.join(root, UPLOAD_DIR, oldName);
   const newPath = path.join(root, UPLOAD_DIR, newName);
+  const oldSbxId = `sbx_${Buffer.from(oldName).toString("hex").slice(0, 16)}`;
+  const share = fileShareRegistry.getById(oldSbxId);
+  if (share && share.ownerKey && share.ownerKey !== authKey) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
+    return;
+  }
   if (!fs.existsSync(oldPath)) {
     res.status(404).json({ error: "File not found." });
     return;
   }
   try {
+    await assertInsideRealRoot(root, oldPath);
+    await assertInsideRealRoot(root, newPath);
+  } catch {
+    res.status(400).json({ error: "Invalid filename." });
+    return;
+  }
+  try {
     fs.renameSync(oldPath, newPath);
+    if (share) {
+      fileShareRegistry.renameFile(oldSbxId, newName);
+    }
     res.json({ success: true, oldName, newName });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to rename file." });
@@ -3035,13 +3342,17 @@ async function shutdown() {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-startServer().catch((err) => {
-  console.error(
-    "[startup] refusing to serve with unsafe or unavailable production dependencies:",
-    sanitizeOutput(String(err?.message || err)).slice(0, 500),
-  );
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== "test") {
+  startServer().catch((err) => {
+    console.error(
+      "[startup] refusing to serve with unsafe or unavailable production dependencies:",
+      sanitizeOutput(String(err?.message || err)).slice(0, 500),
+    );
+    process.exit(1);
+  });
+}
+
+export { startServer, shutdown };
 process.on("unhandledRejection", (reason) => {
   console.error(
     "[process] unhandledRejection:",

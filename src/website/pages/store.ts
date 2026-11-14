@@ -20,7 +20,11 @@ const FILE_TYPES: Array<[RegExp, string, string]> = [
   [/\.(mp3|wav|flac|ogg|m4a|aac)$/i, "file-audio", "#f472b6"],
   [/\.(mp4|mov|mkv|webm|avi)$/i, "file-video", "#fb7185"],
   [/\.(pdf)$/i, "file-text", "#ef6b5f"],
-  [/\.(js|jsx|ts|tsx|py|rb|go|rs|java|c|h|cpp|cs|php|sh|sql|json|ya?ml|toml|html|css|md|xml|ipynb)$/i, "file-code", "#5b8def"],
+  [
+    /\.(js|jsx|ts|tsx|py|rb|go|rs|java|c|h|cpp|cs|php|sh|sql|json|ya?ml|toml|html|css|md|xml|ipynb)$/i,
+    "file-code",
+    "#5b8def",
+  ],
 ];
 
 /** A tinted tile with an icon that matches the file type (by extension). */
@@ -179,6 +183,7 @@ export function renderStorePage(params: {
                       const fSize = formatBytes(file.size || 0);
                       const isPermanent = !!file.permanent;
                       const isPublic = !!file.isPublic;
+                      const isOwned = file.isOwned !== false;
                       const source =
                         file.source === "sandbox" ? "sandbox" : "store";
                       const downloadUrl = file.downloadUrl
@@ -188,7 +193,13 @@ export function renderStorePage(params: {
                           : `/store/download/${encodeURIComponent(fId)}`;
                       const menuId = `menu_${fId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
-                      const kebabItems = [
+                      const kebabItems: Array<{
+                        label: string;
+                        icon: string;
+                        onclick?: string;
+                        href?: string;
+                        danger?: boolean;
+                      }> = [
                         {
                           label: "Copy URL",
                           icon: "copy",
@@ -199,34 +210,39 @@ export function renderStorePage(params: {
                           icon: "download",
                           href: downloadUrl,
                         },
-                        isPermanent
-                          ? {
-                              label: "Revert",
-                              icon: "clock",
-                              onclick: `togglePermanent('${fId}', false)`,
-                            }
-                          : {
-                              label: "Keep",
-                              icon: "shield",
-                              onclick: `togglePermanent('${fId}', true)`,
-                            },
-                        {
-                          label: "Toggle Privacy",
-                          icon: "lock",
-                          onclick: `toggleFilePrivacy('${fId}')`,
-                        },
-                        {
-                          label: "Rename",
-                          icon: "edit",
-                          onclick: `openRenameFileModal('${fId}', '${fName}', '${source}')`,
-                        },
-                        {
-                          label: "Delete",
-                          icon: "trash",
-                          onclick: `openDeleteFileModal('${fId}', '${fName}', '${source}')`,
-                          danger: true,
-                        },
                       ];
+
+                      if (isOwned) {
+                        kebabItems.push(
+                          isPermanent
+                            ? {
+                                label: "Revert",
+                                icon: "clock",
+                                onclick: `togglePermanent('${fId}', false)`,
+                              }
+                            : {
+                                label: "Keep",
+                                icon: "shield",
+                                onclick: `togglePermanent('${fId}', true)`,
+                              },
+                          {
+                            label: "Toggle Privacy",
+                            icon: "lock",
+                            onclick: `toggleFilePrivacy('${fId}')`,
+                          },
+                          {
+                            label: "Rename",
+                            icon: "edit",
+                            onclick: `openRenameFileModal('${fId}', '${fName}', '${source}')`,
+                          },
+                          {
+                            label: "Delete",
+                            icon: "trash",
+                            onclick: `openDeleteFileModal('${fId}', '${fName}', '${source}')`,
+                            danger: true,
+                          },
+                        );
+                      }
 
                       return `
                   <tr class="store-row" data-name="${fName.toLowerCase()}" style="border-bottom:1px solid var(--border-subtle);">
@@ -292,6 +308,7 @@ export function renderStorePage(params: {
             const fSize = formatBytes(file.size || 0);
             const isPermanent = !!file.permanent;
             const isPublic = !!file.isPublic;
+            const isOwned = file.isOwned !== false;
             const source = file.source === "sandbox" ? "sandbox" : "store";
             const downloadUrl = file.downloadUrl
               ? file.downloadUrl
@@ -299,41 +316,52 @@ export function renderStorePage(params: {
                 ? `/store/download?file=${encodeURIComponent(fName)}`
                 : `/store/download/${encodeURIComponent(fId)}`;
             const gridMenuId = `grid_menu_${fId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
-            const kebabItems = [
+            const kebabItems: Array<{
+              label: string;
+              icon: string;
+              onclick?: string;
+              href?: string;
+              danger?: boolean;
+            }> = [
               {
                 label: "Copy URL",
                 icon: "copy",
                 onclick: `copyStoreUrl('${escapeHtml(downloadUrl)}')`,
               },
               { label: "Download File", icon: "download", href: downloadUrl },
-              isPermanent
-                ? {
-                    label: "Revert",
-                    icon: "clock",
-                    onclick: `togglePermanent('${fId}', false)`,
-                  }
-                : {
-                    label: "Keep",
-                    icon: "shield",
-                    onclick: `togglePermanent('${fId}', true)`,
-                  },
-              {
-                label: "Toggle Privacy",
-                icon: "lock",
-                onclick: `toggleFilePrivacy('${fId}')`,
-              },
-              {
-                label: "Rename",
-                icon: "edit",
-                onclick: `openRenameFileModal('${fId}', '${fName}', '${source}')`,
-              },
-              {
-                label: "Delete",
-                icon: "trash",
-                onclick: `openDeleteFileModal('${fId}', '${fName}', '${source}')`,
-                danger: true,
-              },
             ];
+
+            if (isOwned) {
+              kebabItems.push(
+                isPermanent
+                  ? {
+                      label: "Revert",
+                      icon: "clock",
+                      onclick: `togglePermanent('${fId}', false)`,
+                    }
+                  : {
+                      label: "Keep",
+                      icon: "shield",
+                      onclick: `togglePermanent('${fId}', true)`,
+                    },
+                {
+                  label: "Toggle Privacy",
+                  icon: "lock",
+                  onclick: `toggleFilePrivacy('${fId}')`,
+                },
+                {
+                  label: "Rename",
+                  icon: "edit",
+                  onclick: `openRenameFileModal('${fId}', '${fName}', '${source}')`,
+                },
+                {
+                  label: "Delete",
+                  icon: "trash",
+                  onclick: `openDeleteFileModal('${fId}', '${fName}', '${source}')`,
+                  danger: true,
+                },
+              );
+            }
             return `
               <div class="store-grid-card card spotlight-card" data-name="${fName.toLowerCase()}" style="padding:16px; display:flex; flex-direction:column; gap:10px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -343,9 +371,12 @@ export function renderStorePage(params: {
                   </div>
                   ${renderKebabMenu(kebabItems, gridMenuId)}
                 </div>
-                <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:auto; padding-top:6px; border-top:1px solid var(--border-subtle);">
+                <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:auto; padding-top:6px; border-top:1px solid var(--border-subtle); gap:6px;">
                   <span>${fSize}</span>
-                  <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPermanent ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPermanent ? "Permanent" : "24h Ephemeral"}</span>
+                  <div style="display:inline-flex; align-items:center; gap:6px;">
+                    <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPublic ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPublic ? "Public" : "Private"}</span>
+                    <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPermanent ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPermanent ? "Permanent" : "24h Ephemeral"}</span>
+                  </div>
                 </div>
               </div>
             `;

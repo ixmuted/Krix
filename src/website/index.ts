@@ -45,6 +45,7 @@ export interface StoredFileInfo {
   permanent: boolean;
   shareUrl?: string;
   isPublic?: boolean;
+  isOwned?: boolean;
 }
 
 export interface PageInfo {

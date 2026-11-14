@@ -27,6 +27,7 @@ import {
   sbxWriteText,
   assertSandboxAllowed,
 } from "./sandboxProc.js";
+import { fileShareRegistry } from "./fileShareRegistry.js";
 
 /**
  * Sandbox store tool (share / list / delete / download / view).
@@ -85,6 +86,8 @@ export interface StoredFileMeta {
   contentType: string;
   createdAt: Date;
   expiresAt: Date | null;
+  ownerKey?: string;
+  isPublic?: boolean;
 }
 
 export interface ListOwnerOptions {
@@ -104,6 +107,7 @@ export interface FileStore {
       ownerKey: string;
       tokenHash: string;
       expiresAt: Date | null;
+      isPublic?: boolean;
     },
     data: Buffer,
   ): Promise<StoredFileMeta>;
@@ -199,6 +203,8 @@ class MongoFileStore implements FileStore {
       expiresAt: doc.metadata?.expiresAt
         ? new Date(doc.metadata.expiresAt)
         : null,
+      ownerKey: doc.metadata?.ownerKey,
+      isPublic: doc.metadata?.isPublic === true,
     };
   }
 
@@ -209,16 +215,19 @@ class MongoFileStore implements FileStore {
       ownerKey: string;
       tokenHash: string;
       expiresAt: Date | null;
+      isPublic?: boolean;
     },
     data: Buffer,
   ): Promise<StoredFileMeta> {
     const { bucket } = await this.init();
+    const isPublic = meta.isPublic === true; // Default private (false)
     const up = bucket.openUploadStream(meta.name, {
       metadata: {
         ownerKey: meta.ownerKey,
         tokenHash: meta.tokenHash,
         contentType: meta.contentType,
         expiresAt: meta.expiresAt,
+        isPublic,
       },
     });
     await new Promise<void>((resolve, reject) => {
@@ -236,6 +245,8 @@ class MongoFileStore implements FileStore {
       contentType: meta.contentType,
       createdAt: new Date(),
       expiresAt: meta.expiresAt,
+      ownerKey: meta.ownerKey,
+      isPublic,
     };
   }
 
@@ -273,10 +284,10 @@ class MongoFileStore implements FileStore {
 
   async makePermanent(ownerKey: string, id: string): Promise<boolean> {
     if (!/^[a-f0-9]{24}$/i.test(id)) return false;
+    if (!ownerKey || ownerKey === "*") return false;
     const { db } = await this.init();
     const _id = new ObjectId(id);
-    const filter =
-      ownerKey === "*" ? { _id } : { _id, "metadata.ownerKey": ownerKey };
+    const filter = { _id, "metadata.ownerKey": ownerKey };
     const res = await db
       .collection(`${BUCKET}.files`)
       .updateOne(filter, { $set: { "metadata.expiresAt": null } });
@@ -289,10 +300,10 @@ class MongoFileStore implements FileStore {
     ttlHours = 72,
   ): Promise<boolean> {
     if (!/^[a-f0-9]{24}$/i.test(id)) return false;
+    if (!ownerKey || ownerKey === "*") return false;
     const { db } = await this.init();
     const _id = new ObjectId(id);
-    const filter =
-      ownerKey === "*" ? { _id } : { _id, "metadata.ownerKey": ownerKey };
+    const filter = { _id, "metadata.ownerKey": ownerKey };
     const expiresAt = new Date(
       Date.now() + Math.max(1, ttlHours) * 3600 * 1000,
     );
@@ -308,12 +319,12 @@ class MongoFileStore implements FileStore {
     newName: string,
   ): Promise<boolean> {
     if (!/^[a-f0-9]{24}$/i.test(id)) return false;
+    if (!ownerKey || ownerKey === "*") return false;
     const cleanName = path.basename(newName.trim());
     if (!cleanName || cleanName.length < 1) return false;
     const { db } = await this.init();
     const _id = new ObjectId(id);
-    const filter =
-      ownerKey === "*" ? { _id } : { _id, "metadata.ownerKey": ownerKey };
+    const filter = { _id, "metadata.ownerKey": ownerKey };
     const res = await db.collection(`${BUCKET}.files`).updateOne(filter, {
       $set: { filename: cleanName, "metadata.name": cleanName },
     });
@@ -421,10 +432,10 @@ class MongoFileStore implements FileStore {
 
   async deleteOwned(ownerKey: string, id: string): Promise<boolean> {
     if (!/^[a-f0-9]{24}$/i.test(id)) return false;
+    if (!ownerKey || ownerKey === "*") return false;
     const { bucket } = await this.init();
     const _id = new ObjectId(id);
-    const filter =
-      ownerKey === "*" ? { _id } : { _id, "metadata.ownerKey": ownerKey };
+    const filter = { _id, "metadata.ownerKey": ownerKey };
     const doc = await bucket.find(filter).limit(1).next();
     if (!doc) return false;
     await bucket.delete(_id);
@@ -436,11 +447,9 @@ class MongoFileStore implements FileStore {
       .filter((id) => /^[a-f0-9]{24}$/i.test(id))
       .map((id) => new ObjectId(id));
     if (!validIds.length) return 0;
+    if (!ownerKey || ownerKey === "*") return 0;
     const { bucket } = await this.init();
-    const filter =
-      ownerKey === "*"
-        ? { _id: { $in: validIds } }
-        : { _id: { $in: validIds }, "metadata.ownerKey": ownerKey };
+    const filter = { _id: { $in: validIds }, "metadata.ownerKey": ownerKey };
     const docs = await bucket.find(filter).toArray();
     let deleted = 0;
     for (const d of docs) {
@@ -1062,9 +1071,24 @@ export async function shareFile(
   const contentType = contentTypeFor(name);
 
   const meta = await store.put(
-    { name, contentType, ownerKey, tokenHash: sha256Hex(token), expiresAt },
+    {
+      name,
+      contentType,
+      ownerKey,
+      tokenHash: sha256Hex(token),
+      expiresAt,
+      isPublic: false,
+    },
     data,
   );
+  fileShareRegistry.ensureFileShare({
+    fileId: meta.id,
+    name,
+    source: "store",
+    contentType,
+    ownerKey,
+    isPublic: false,
+  });
   const base = (process.env.PUBLIC_BASE_URL?.trim() || baseUrl).replace(
     /\/+$/,
     "",

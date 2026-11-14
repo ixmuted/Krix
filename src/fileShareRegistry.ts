@@ -11,13 +11,18 @@ export interface FileShareMeta {
   contentType: string;
   source: "store" | "sandbox";
   sandboxPath?: string;
+  ownerKey?: string;
   updatedAt: number;
 }
 
 class FileShareRegistry {
   private byToken = new Map<string, FileShareMeta>();
   private byId = new Map<string, FileShareMeta>();
-  private filePath = path.resolve(process.cwd(), "data", ".krix_file_shares.json");
+  private filePath = path.resolve(
+    process.cwd(),
+    "data",
+    ".krix_file_shares.json",
+  );
   private mongoDb: Db | null = null;
   private saveTimer: NodeJS.Timeout | null = null;
 
@@ -36,6 +41,8 @@ class FileShareRegistry {
     source: "store" | "sandbox";
     contentType?: string;
     sandboxPath?: string;
+    ownerKey?: string;
+    isPublic?: boolean;
   }): { shareToken: string; isPublic: boolean } {
     let existing = this.byId.get(params.fileId);
     if (!existing) {
@@ -44,11 +51,12 @@ class FileShareRegistry {
       existing = {
         fileId: params.fileId,
         shareToken,
-        isPublic: true, // Default to public per specification
+        isPublic: params.isPublic !== undefined ? params.isPublic : false, // Default to private per specification
         name: params.name,
         contentType: params.contentType || "application/octet-stream",
         source: params.source,
         sandboxPath: params.sandboxPath,
+        ownerKey: params.ownerKey,
         updatedAt: Date.now(),
       };
       this.byId.set(params.fileId, existing);
@@ -56,6 +64,10 @@ class FileShareRegistry {
       this.scheduleSave();
     } else {
       let changed = false;
+      if (params.ownerKey && existing.ownerKey !== params.ownerKey) {
+        existing.ownerKey = params.ownerKey;
+        changed = true;
+      }
       if (params.name && existing.name !== params.name) {
         existing.name = params.name;
         changed = true;
@@ -80,12 +92,20 @@ class FileShareRegistry {
     return this.byId.get(fileId);
   }
 
-  public togglePrivacy(fileId: string, explicitIsPublic?: boolean): boolean {
+  public listPublicShares(): FileShareMeta[] {
+    return Array.from(this.byId.values()).filter((f) => f.isPublic);
+  }
+
+  public togglePrivacy(
+    fileId: string,
+    explicitIsPublic?: boolean,
+    ownerKey?: string,
+  ): boolean {
     const entry = this.byId.get(fileId);
     if (!entry) {
       // Create if it didn't exist yet
       const shareToken = crypto.randomBytes(32).toString("hex");
-      const isPublic = explicitIsPublic !== undefined ? explicitIsPublic : false; // toggling from default true -> false
+      const isPublic = explicitIsPublic !== undefined ? explicitIsPublic : true; // toggling from default false -> true
       const newEntry: FileShareMeta = {
         fileId,
         shareToken,
@@ -93,6 +113,7 @@ class FileShareRegistry {
         name: fileId,
         contentType: "application/octet-stream",
         source: fileId.startsWith("sbx_") ? "sandbox" : "store",
+        ownerKey,
         updatedAt: Date.now(),
       };
       this.byId.set(fileId, newEntry);
@@ -101,6 +122,9 @@ class FileShareRegistry {
       return isPublic;
     }
 
+    if (ownerKey && !entry.ownerKey) {
+      entry.ownerKey = ownerKey;
+    }
     entry.isPublic =
       explicitIsPublic !== undefined ? explicitIsPublic : !entry.isPublic;
     entry.updatedAt = Date.now();
@@ -155,8 +179,19 @@ class FileShareRegistry {
         if (Array.isArray(data)) {
           for (const item of data) {
             if (item.fileId && item.shareToken) {
-              this.byId.set(item.fileId, item);
-              this.byToken.set(item.shareToken, item);
+              const meta: FileShareMeta = {
+                fileId: String(item.fileId),
+                shareToken: String(item.shareToken),
+                isPublic: Boolean(item.isPublic),
+                name: item.name || "",
+                contentType: item.contentType || "application/octet-stream",
+                source: item.source || "store",
+                sandboxPath: item.sandboxPath,
+                ownerKey: item.ownerKey ? String(item.ownerKey) : undefined,
+                updatedAt: item.updatedAt || Date.now(),
+              };
+              this.byId.set(meta.fileId, meta);
+              this.byToken.set(meta.shareToken, meta);
             }
           }
         }
@@ -174,11 +209,7 @@ class FileShareRegistry {
       }));
       if (docs.length === 0) return;
       for (const doc of docs) {
-        await coll.updateOne(
-          { _id: doc._id },
-          { $set: doc },
-          { upsert: true },
-        );
+        await coll.updateOne({ _id: doc._id }, { $set: doc }, { upsert: true });
       }
     } catch {}
   }
@@ -193,11 +224,12 @@ class FileShareRegistry {
           const item: FileShareMeta = {
             fileId: String(d.fileId),
             shareToken: String(d.shareToken),
-            isPublic: d.isPublic !== false,
+            isPublic: Boolean(d.isPublic),
             name: d.name || "",
             contentType: d.contentType || "application/octet-stream",
             source: d.source || "store",
             sandboxPath: d.sandboxPath,
+            ownerKey: d.ownerKey ? String(d.ownerKey) : undefined,
             updatedAt: d.updatedAt || Date.now(),
           };
           this.byId.set(item.fileId, item);

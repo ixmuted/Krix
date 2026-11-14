@@ -159,10 +159,13 @@ export function getSessionContext(sessionId: string): SessionContext {
 
     // Arbitrary code execution is opt-in. Disable it on Render's shared web-service
     // runtime; use a separate disposable container/VM service for untrusted tenants.
-    const onRender = process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
+    const onRender =
+      process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
     const enableSandbox =
       process.env.ENABLE_SANDBOX === "true" &&
-      (!onRender || (process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" && process.env.SANDBOX_REQUIRE_ISOLATION === "false")) &&
+      (!onRender ||
+        (process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
+          process.env.SANDBOX_REQUIRE_ISOLATION === "false")) &&
       process.env.ENABLE_SANDBOX_TOOLS !== "false" &&
       process.env.DISABLE_SANDBOX !== "true" &&
       process.env.DISABLE_SANDBOX_TOOLS !== "true";
@@ -581,8 +584,13 @@ export function getToolCredentialRequirement(
   category: ToolCategory | string = TOOL_CATEGORY[toolName],
 ): ToolCredentialRequirement | null {
   if (category === "render") return "render";
-  if (category === "github_issues_prs" || category === "github_admin") return "github";
-  if (category === "core" && !CORE_TOOLS_WITHOUT_GITHUB_CREDENTIAL.has(toolName)) return "github";
+  if (category === "github_issues_prs" || category === "github_admin")
+    return "github";
+  if (
+    category === "core" &&
+    !CORE_TOOLS_WITHOUT_GITHUB_CREDENTIAL.has(toolName)
+  )
+    return "github";
   if (SANDBOX_TOOLS_WITH_GITHUB_REMOTE_ACCESS.has(toolName)) return "github";
   return null;
 }
@@ -876,6 +884,72 @@ export function sandboxRootPath(sessionId: string): string {
 /** Sandbox root for an auth key (used by the web upload page, which has no MCP session). */
 export function sandboxRootForAuthKey(authKey: string): string {
   return path.join(os.tmpdir(), `krix_sbx_${authKey}`);
+}
+
+function isEnvOwnerEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const owner = (
+    process.env.OWNER_EMAIL ||
+    process.env.GOOGLE_ALLOWED_EMAIL ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+  return owner !== "" && email.trim().toLowerCase() === owner;
+}
+
+/**
+ * Compute the canonical user identity string.
+ * Format: "owner" for the system owner or primary key;
+ * "user_<normalized_email>" for non-owner users;
+ * "key_<keyId>" for api keys without email.
+ */
+export function canonicalUserIdentity(
+  identity?: { email?: string | null; keyId?: string | null } | string | null,
+): string {
+  if (!identity) return "anonymous";
+  if (typeof identity === "string") {
+    const trimmed = identity.trim();
+    if (!trimmed) return "anonymous";
+    if (trimmed === "primary-key" || trimmed === "owner") return "owner";
+    if (trimmed.includes("@")) {
+      const email = trimmed.toLowerCase();
+      if (isEnvOwnerEmail(email)) return "owner";
+      return `user_${email}`;
+    }
+    return trimmed;
+  }
+  if (identity.keyId === "primary-key") return "owner";
+  if (identity.email && identity.email.trim()) {
+    const email = identity.email.trim().toLowerCase();
+    if (isEnvOwnerEmail(email)) return "owner";
+    return `user_${email}`;
+  }
+  if (identity.keyId && identity.keyId.trim()) {
+    return `key_${identity.keyId.trim()}`;
+  }
+  return "anonymous";
+}
+
+/**
+ * Compute the canonical authKey for a user or key identity.
+ */
+export function computeUserAuthKey(
+  identity?: { email?: string | null; keyId?: string | null } | string | null,
+): string {
+  const canon = canonicalUserIdentity(identity);
+  if (canon === "owner") return "owner";
+  return computeAuthKey(canon);
+}
+
+/**
+ * Compute the canonical sandbox root for a user or key identity.
+ */
+export function sandboxRootForUser(
+  identity?: { email?: string | null; keyId?: string | null } | string | null,
+): string {
+  const authKey = computeUserAuthKey(identity);
+  return sandboxRootForAuthKey(authKey);
 }
 
 function validateSandboxCwd(sessionId: string, cwd: string): string {

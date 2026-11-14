@@ -10,6 +10,7 @@ import express, {
 } from "express";
 import {
   computeAuthKey,
+  computeUserAuthKey,
   safeEqual,
   sandboxRootForAuthKey,
 } from "./security.js";
@@ -24,6 +25,7 @@ import {
   assertInsideRealRoot,
 } from "./sandboxProc.js";
 import { safeFileName } from "./fileShare.js";
+import { fileShareRegistry } from "./fileShareRegistry.js";
 import {
   parseOwnerCookie,
   isAuthorizedApiKey,
@@ -31,7 +33,7 @@ import {
   listDynamicKeys,
   type OwnerProfile,
 } from "./googleAuth.js";
-import { getKeySettings, isOwnerEmail } from "./userSettings.js";
+import { getKeySettings, isOwnerEmail, getOwnerEmail } from "./userSettings.js";
 import { renderUploadPage, type PageInfo } from "./views.js";
 
 /**
@@ -90,6 +92,7 @@ interface UploadedFile {
 
 interface UploadSession {
   root: string;
+  authKey: string;
   expiresAt: number;
   files: UploadedFile[];
   bytes: number;
@@ -330,14 +333,6 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       const apiKeyEntry = findAuthorizedApiKey(key);
       const isPrimaryKey = Boolean(key && safeEqual(key, opts.apiKey));
       const isKeyAuthorized = isAuthorizedApiKey(key) || isPrimaryKey;
-      const onRenderService =
-        process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
-      const renderSandboxOptIn =
-        process.env.ENABLE_SANDBOX === "true" &&
-        process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-        process.env.SANDBOX_REQUIRE_ISOLATION === "false";
-      const authenticatedOwnerKey =
-        isOwner || apiKeyEntry?.role === "owner" || isPrimaryKey;
 
       if (!isOwner && !isKeyAuthorized) {
         if (!failedKeyLimiter.hit(ip, 0)) {
@@ -359,24 +354,20 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       }
       failedKeyLimiter.reset(ip);
 
-      if (onRenderService && (!renderSandboxOptIn || !authenticatedOwnerKey)) {
-        json(res, 403, {
-          error:
-            "On Render, workspace uploads are available only to the configured owner after explicit owner-only sandbox opt-in.",
-        });
-        return;
-      }
-
-      try {
-        assertSandboxAllowed();
-      } catch (e: any) {
-        json(res, 503, {
-          error: String(e?.message || "Sandbox is not available.").slice(
-            0,
-            300,
-          ),
-        });
-        return;
+      const onRenderService =
+        process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
+      if (!onRenderService) {
+        try {
+          assertSandboxAllowed();
+        } catch (e: any) {
+          json(res, 503, {
+            error: String(e?.message || "Sandbox is not available.").slice(
+              0,
+              300,
+            ),
+          });
+          return;
+        }
       }
       if (sessions.size >= uploadConfig.maxSessions) {
         res.setHeader("Retry-After", "60");
@@ -386,23 +377,21 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         return;
       }
 
-      // Uploads must land in the same sandbox root used by the MCP session.
-      // Never derive workspace ownership from a shared provider token.
-      let sandboxKeyId = "primary-key";
-      if (apiKeyEntry?.id) sandboxKeyId = apiKeyEntry.id;
-      else if (owner && !isOwner) {
-        const userKey = listDynamicKeys(owner.email)[0];
-        if (!userKey) {
-          json(res, 409, {
-            error:
-              "Create an API key for this account before opening a sandbox upload session.",
-          });
-          return;
-        }
-        sandboxKeyId = userKey.id;
+      // Uploads land in the consistent, isolated per-user sandbox root shared with MCP and Store.
+      let userEmail: string | null = null;
+      let keyId: string | null = null;
+      if (owner && owner.email) {
+        userEmail = owner.email;
+      } else if (apiKeyEntry?.email) {
+        userEmail = apiKeyEntry.email;
+      } else if (isPrimaryKey) {
+        keyId = "primary-key";
+      } else if (apiKeyEntry?.id) {
+        keyId = apiKeyEntry.id;
       }
-      const sandboxId = getKeySettings(sandboxKeyId).sandboxId;
-      const root = sandboxRootForAuthKey(sandboxId);
+
+      const authKey = computeUserAuthKey({ email: userEmail, keyId });
+      const root = sandboxRootForAuthKey(authKey);
       try {
         await ensureSandboxRoot(root);
         await sbxMkdirp(root, path.join(root, UPLOAD_DIR));
@@ -446,6 +435,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
 
       const session: UploadSession = {
         root,
+        authKey,
         expiresAt: Date.now() + ttlMs,
         files: [],
         bytes: 0,
@@ -583,6 +573,17 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         s.files.push({ name, size: data.length, abs, permanent: isPerm });
         s.bytes += data.length;
 
+        // Register into fileShareRegistry as private by default with user's ownerKey
+        const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
+        fileShareRegistry.ensureFileShare({
+          fileId: sbxId,
+          name,
+          source: "sandbox",
+          sandboxPath: abs,
+          ownerKey: s.authKey,
+          isPublic: false,
+        });
+
         // Schedule for automatic retention cleanup only if not permanent
         if (!isPerm) {
           retentionTracker.push({
@@ -660,6 +661,8 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         s.files = s.files.filter((f) => f.name !== name);
         const idx = retentionTracker.findIndex((r) => r.abs === abs);
         if (idx !== -1) retentionTracker.splice(idx, 1);
+        const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
+        fileShareRegistry.removeFile(sbxId);
         json(res, 200, { success: true, removed: name });
         return;
       }
