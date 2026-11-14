@@ -23,8 +23,10 @@ export function renderApiKeySettingsPage(params: {
     workspaceGithub?: boolean;
     workspaceRender?: boolean;
   };
+  sandboxAllowed?: boolean;
 }): string {
   const key = params.key || {};
+  const sandboxAllowed = params.sandboxAllowed !== false;
   const rawKeyId = String(key.id || key.clientId || "");
   const keyId = escapeHtml(rawKeyId);
   const keyName = escapeHtml(
