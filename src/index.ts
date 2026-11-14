@@ -19,7 +19,6 @@ import {
   SERVER_ICONS,
   getServerIcons,
   getServerInfoIcons,
-  getToolIcons,
   ICON_48_DATA_URI,
   ICON_48_BUFFER,
   ICON_24_BUFFER,
@@ -372,7 +371,7 @@ function createMasterServer(
   keySettings?: KeySettings,
 ) {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const toolIcons = getToolIcons();
+  const serverIcons = getServerIcons(base);
   const serverInfoIcons = getServerInfoIcons(base);
   const server = new McpServer(
     {
@@ -482,7 +481,7 @@ function createMasterServer(
           ...result,
           tools: (result.tools || []).map((t: any) => ({
             ...t,
-            icons: toolIcons,
+            icons: serverIcons,
           })),
         };
       },
@@ -1164,7 +1163,7 @@ app.get("/gemini-extension.json", (req, res) => {
     iconUrl: ICON_48_DATA_URI,
     logo: ICON_48_DATA_URI,
     logoUrl: ICON_48_DATA_URI,
-    icons: getServerInfoIcons(base),
+    icons: getServerIcons(base),
     mcpServers: {
       krix: {
         description:
@@ -1197,7 +1196,7 @@ app.get(
       description:
         "Remote GitHub discovery, Render management, and sandboxed execution.",
       websiteUrl: "https://github.com/imunmuted/Krix",
-      icons: getServerInfoIcons(base),
+      icons: getServerIcons(base),
       remotes: [
         {
           type: "sse",
@@ -1425,9 +1424,19 @@ app.post("/api/keys", express.json(), async (req, res) => {
   } catch (err: any) {
     // A key that could not be durably recorded must never be handed to the client.
     if (createdKeyId) revokeDynamicKey(createdKeyId);
+    console.error("[keys] create persist failed:", err?.message || err);
+    if (err?.code === 11000) {
+      res.status(409).json({
+        error:
+          "That key name is already recorded in storage (possibly from a deleted key). Choose a different name.",
+      });
+      return;
+    }
+    const detail = String(err?.message || "").slice(0, 160);
     res.status(503).json({
       error:
-        "API key creation could not be persisted. Try again after storage is healthy.",
+        "API key creation could not be persisted. Try again after storage is healthy." +
+        (detail ? ` (${detail})` : ""),
     });
   }
 });
