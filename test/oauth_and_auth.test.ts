@@ -70,10 +70,10 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.deepEqual(data.code_challenge_methods_supported, ["S256"]);
     assert.ok(data.grant_types_supported.includes("authorization_code"));
     assert.ok(data.grant_types_supported.includes("refresh_token"));
-    assert.ok(
-      typeof data.logo_uri === "string" &&
-        data.logo_uri.startsWith("data:image/png;base64,"),
-      "logo_uri must use embedded PNG data URI to pass Gemini img-src CSP",
+    assert.equal(
+      data.logo_uri,
+      undefined,
+      "logo_uri should be omitted by default to satisfy both RFC 8414 and Gemini img-src CSP",
     );
   });
 
