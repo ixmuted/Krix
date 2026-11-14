@@ -1137,5 +1137,26 @@ select {
   .settings-action-row { grid-template-columns: minmax(0, 1fr) !important; }
 }
 
+
+/* Shared pagination buttons (Previous / Next and icon-only chevrons) */
+.pager-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; min-width: 34px; padding: 0 14px 0 10px; margin: 0;
+  font: 500 12.5px/1 var(--font-sans, inherit); letter-spacing: -0.005em;
+  color: var(--fg); background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle); border-radius: 10px;
+  cursor: pointer; white-space: nowrap; user-select: none;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease, opacity .15s ease;
+}
+.pager-btn.pager-next { padding: 0 10px 0 14px; }
+.pager-btn.pager-icon { padding: 0; width: 30px; height: 30px; min-width: 30px; border-radius: 999px; }
+.pager-btn svg { flex: 0 0 auto; stroke-width: 2.2; transition: transform .15s ease; }
+.pager-btn:hover:not(:disabled) { background: var(--bg-surface-2); border-color: var(--border-medium); }
+.pager-btn:not(.pager-icon):hover:not(:disabled) .pager-prev-ico,
+.pager-btn.pager-prev:hover:not(:disabled) svg { transform: translateX(-2px); }
+.pager-btn.pager-next:hover:not(:disabled) svg { transform: translateX(2px); }
+.pager-btn:active:not(:disabled) { transform: scale(0.97); }
+.pager-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pager-btn:disabled { opacity: .38; cursor: not-allowed; }
 `;
 }
