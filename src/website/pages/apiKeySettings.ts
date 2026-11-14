@@ -65,7 +65,7 @@ export function renderApiKeySettingsPage(params: {
       return isDefaultGithubTool(name);
     if (
       ["Sandbox", "Files", "Execution", "Filesystem"].includes(category) &&
-      params.credentialAvailability?.sandboxEnabled === false
+      (!sandboxAllowed || params.credentialAvailability?.sandboxEnabled === false)
     ) {
       return false;
     }
