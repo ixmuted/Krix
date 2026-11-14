@@ -1004,7 +1004,6 @@ th:has(.krix-dropdown),
   margin: 0 auto;
   padding: 32px 24px 64px;
   position: relative;
-  z-index: 1;
   width: 100%;
 }
 
