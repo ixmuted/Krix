@@ -212,15 +212,9 @@ export function getKeySettings(keyId: string): KeySettings {
       sandboxId,
       enabledTools: [],
       disabledTools: [],
-      enabledCategories: isOwnerKey
-        ? [
-            "core",
-            "github_issues_prs",
-            "github_admin",
-            "sandbox",
-            "files",
-          ]
-        : ["core", "sandbox", "files"],
+      // Only the default GitHub tool set ("core") is on by default. Issue/PR/admin
+      // GitHub tools and Render tools are opt-in per key.
+      enabledCategories: ["core", "sandbox", "files"],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };

@@ -5,6 +5,7 @@ type ToolRecord = {
   jsonSchema: Record<string, unknown>;
   handler: (args: any, extra?: any) => Promise<any> | any;
   enabled: boolean;
+  disabledReason?: string;
 };
 
 const records = new Map<string, Map<string, ToolRecord>>();
@@ -55,9 +56,13 @@ export function setToolRegistrationEnabled(
   sessionId: string,
   name: string,
   enabled: boolean,
+  disabledReason?: string,
 ): void {
   const record = records.get(sessionId)?.get(name);
-  if (record) record.enabled = enabled;
+  if (record) {
+    record.enabled = enabled;
+    record.disabledReason = enabled ? undefined : disabledReason;
+  }
 }
 
 export function getToolInputSchema(name: string): Record<string, unknown> {
@@ -78,7 +83,10 @@ export async function executeRegisteredTool(
   const record = records.get(sessionId)?.get(name);
   if (!record) throw new Error("The requested tool is not registered.");
   if (!record.enabled) {
-    throw new Error("This tool is disabled by the selected key's permissions or provider configuration.");
+    throw new Error(
+      record.disabledReason ||
+        "This tool is disabled by the selected key's permissions or provider configuration.",
+    );
   }
   const validated = z.object(record.shape).parse(args ?? {});
   return await record.handler(validated, {

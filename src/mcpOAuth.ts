@@ -614,10 +614,7 @@ export function createMcpOAuthRouter(): Router {
         registration_endpoint: `${base}/oauth/register`,
         revocation_endpoint: `${base}/oauth/revoke`,
         jwks_uri: `${base}/.well-known/jwks.json`,
-        logo_uri: `${base}/logo.png`,
         service_documentation: `${base}`,
-        client_name: "Krix",
-        client_uri: `${base}`,
         ui_locales_supported: ["en"],
         response_types_supported: ["code"],
         code_challenge_methods_supported: ["S256"],
@@ -1589,8 +1586,32 @@ export function createMcpOAuthRouter(): Router {
         return;
       }
       const clientId = String(req.params.clientId || "");
+      if (!clientId) {
+        res.status(400).json({ success: false, error: "Missing client id." });
+        return;
+      }
+      // Non-admin owners may only revoke authorizations that belong to them.
+      const adminEmail = String(process.env.OWNER_EMAIL || "").trim().toLowerCase();
+      if (String(owner.email || "").toLowerCase() !== adminEmail) {
+        const mine = Array.from(issuedTokens.values()).some(
+          (t) => t.clientId === clientId && String(t.ownerEmail || "").toLowerCase() === String(owner.email || "").toLowerCase(),
+        );
+        if (!mine) {
+          res.status(403).json({ success: false, error: "You can only revoke your own OAuth authorizations." });
+          return;
+        }
+      }
       try {
-        const success = await revokeOAuthAuthorization(clientId);
+        // The list view merges clients that share a display name, so revoke the whole
+        // group; otherwise a duplicate would reappear right after deleting.
+        let success = false;
+        for (const id of findClientIdsSharingName(clientId)) {
+          if (await revokeOAuthAuthorization(id)) success = true;
+        }
+        if (!success) {
+          res.status(404).json({ success: false, error: "This authorization no longer exists. Refresh the page." });
+          return;
+        }
         res.json({ success });
       } catch (error: any) {
         console.error("[oauth] authorization revocation failed:", error?.message || error);
@@ -1682,6 +1703,28 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
     }
   }
   return Array.from(deduplicated.values());
+}
+
+function displayNameForClient(clientId: string): string {
+  const client = registeredClients.get(clientId);
+  return (
+    client?.clientName ||
+    (clientId.toLowerCase().includes("gemini")
+      ? "Google Gemini"
+      : `Client (${clientId.slice(0, 16)})`)
+  )
+    .trim()
+    .toLowerCase();
+}
+
+/** Every client id with live tokens that the authorizations list shows under the same name. */
+export function findClientIdsSharingName(clientId: string): string[] {
+  const target = displayNameForClient(clientId);
+  const ids = new Set<string>([clientId]);
+  for (const entry of issuedTokens.values()) {
+    if (displayNameForClient(entry.clientId) === target) ids.add(entry.clientId);
+  }
+  return Array.from(ids);
 }
 
 export async function revokeOAuthAuthorization(clientId: string): Promise<boolean> {

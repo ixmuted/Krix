@@ -178,31 +178,26 @@ export function getServerIcons(
   return icons;
 }
 
-// Icons for the MCP initialize response (serverInfo). Like the official GitHub MCP server, the first
-// entries are embedded PNG data URIs so clients (e.g. Gemini) can render them without fetching a remote
-// URL; the HTTPS variants follow as fallbacks. Kept out of getServerIcons() so tool listings and the
-// registry manifests stay small.
+// Icons for the MCP initialize response (serverInfo) and runtime server cards.
+// Only embedded PNG data URIs are returned so web hosts with strict CSP img-src
+// directives (such as gemini.google.com, which allows `data:` but blocks external hosts)
+// never pick a blocked https:// URL over the data URI.
 export function getServerInfoIcons(
-  baseUrl: string = DEFAULT_PUBLIC_URL,
+  _baseUrl: string = DEFAULT_PUBLIC_URL,
 ): McpIcon[] {
   return [
-    {
-      src: ICON_48_DATA_URI,
-      url: ICON_48_DATA_URI,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["48x48"],
-      theme: "light",
-    },
-    {
-      src: ICON_48_DATA_URI,
-      url: ICON_48_DATA_URI,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["48x48"],
-      theme: "dark",
-    },
-    ...getServerIcons(baseUrl),
+    { src: ICON_48_DATA_URI, mimeType: "image/png", sizes: ["48x48"] },
+    { src: ICON_48_DATA_URI, mimeType: "image/png", sizes: ["48x48"], theme: "light" },
+    { src: ICON_48_DATA_URI, mimeType: "image/png", sizes: ["48x48"], theme: "dark" },
+  ];
+}
+
+// Compact 24x24 embedded PNG data URIs for tools/list (matching github-mcp-server's pattern).
+export function getToolIcons(): McpIcon[] {
+  return [
+    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"] },
+    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"], theme: "light" },
+    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"], theme: "dark" },
   ];
 }
 

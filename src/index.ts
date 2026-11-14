@@ -19,6 +19,7 @@ import {
   SERVER_ICONS,
   getServerIcons,
   getServerInfoIcons,
+  getToolIcons,
   ICON_48_DATA_URI,
   ICON_48_BUFFER,
   ICON_24_BUFFER,
@@ -132,6 +133,10 @@ import {
   generateSandboxId,
   type KeySettings,
 } from "./userSettings.js";
+import {
+  credentialRequiredMessage,
+  type CredentialProvider,
+} from "./toolDefaults.js";
 
 const DEFAULT_GITHUB_PAT =
   process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_PAT;
@@ -152,6 +157,66 @@ if (MCP_API_KEY.length < 24) {
 }
 registerSecret(DEFAULT_GITHUB_PAT);
 registerSecret(DEFAULT_RENDER_API_KEY);
+
+/** Which provider credentials a key can actually use (own override, or the workspace default for the primary key). */
+function keyCredentialsReady(keyId: string, settings?: KeySettings) {
+  const s = settings || getKeySettings(keyId);
+  return {
+    github: Boolean(s.customGitHubToken || (keyId === "primary-key" && DEFAULT_GITHUB_PAT)),
+    render: Boolean(s.customRenderToken || (keyId === "primary-key" && DEFAULT_RENDER_API_KEY)),
+  };
+}
+
+/** Returns the first tool in `names` that needs a credential the key lacks, or null. */
+function findToolMissingCredential(
+  names: unknown,
+  ready: { github?: boolean; render?: boolean },
+): { toolName: string; provider: CredentialProvider } | null {
+  if (!Array.isArray(names)) return null;
+  for (const raw of names) {
+    const toolName = String(raw);
+    const provider = getMissingToolCredential(toolName, ready);
+    if (provider) return { toolName, provider };
+  }
+  return null;
+}
+
+/**
+ * Scopes an OAuth client effectively has right now, derived from which tool groups are
+ * actually enabled for it. A scope disappears when none of its tools are enabled.
+ *   mcp:sandbox -> sandbox tools        mcp:admin -> GitHub admin + Render tools
+ *   mcp:tools   -> core GitHub, issue/PR, file and code-graph tools
+ */
+function effectiveOAuthScopes(clientId: string): string[] {
+  const ready = keyCredentialsReady(clientId);
+  const sessionCategories = new Set<string>(["core", "files"]);
+  if (process.env.ENABLE_SANDBOX === "true" || ready.github) sessionCategories.add("sandbox");
+  const scopes = new Set<string>();
+  for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
+    if (getMissingToolCredential(toolName, ready, category)) continue;
+    if (!isToolEnabledForKey(clientId, toolName, category, sessionCategories)) continue;
+    if (category === "sandbox") scopes.add("mcp:sandbox");
+    else if (category === "github_admin" || category === "render") scopes.add("mcp:admin");
+    else scopes.add("mcp:tools");
+  }
+  return ["mcp:tools", "mcp:sandbox", "mcp:admin"].filter((s) => scopes.has(s));
+}
+
+/** After a credential is removed, switch off any explicitly-enabled tool that now lacks it. */
+function pruneToolsMissingCredentials(keyId: string): string[] {
+  const settings = getKeySettings(keyId);
+  const ready = keyCredentialsReady(keyId, settings);
+  const enabled = settings.enabledTools || [];
+  const removed = enabled.filter((t) => getMissingToolCredential(t, ready));
+  if (removed.length) {
+    updateKeyTools(
+      keyId,
+      enabled.filter((t) => !removed.includes(t)),
+      settings.disabledTools || [],
+    );
+  }
+  return removed;
+}
 
 const ALLOW_QUERY_API_KEY = process.env.ALLOW_QUERY_API_KEY === "true";
 
@@ -252,7 +317,7 @@ function createMasterServer(
   keySettings?: KeySettings,
 ) {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const serverIcons = getServerIcons(base);
+  const toolIcons = getToolIcons();
   const serverInfoIcons = getServerInfoIcons(base);
   const server = new McpServer(
     {
@@ -304,12 +369,10 @@ function createMasterServer(
 
   const ctx = getSessionContext(sessionId);
   const policyKeyId = keySettings?.keyId || "primary-key";
-  // Supplying a credential is the explicit opt-in for its provider's tool group.
-  // Keep all credential-free tools available under their existing category policy.
+  // A GitHub PAT enables only the default GitHub tool set (the "core" group, see
+  // toolDefaults.ts). Issue/PR/admin tools stay opt-in per key, even with a PAT.
   const activeCategories = new Set(ctx.enabledCategories);
   if (githubToken?.trim()) {
-    activeCategories.add("github_issues_prs");
-    activeCategories.add("github_admin");
     // A valid GitHub PAT unlocks the complete sandbox tool group, including remote Git helpers.
     activeCategories.add("sandbox");
   }
@@ -343,7 +406,14 @@ function createMasterServer(
       setToolRegistrationEnabled(sessionId, name, true);
     } else {
       handle.disable();
-      setToolRegistrationEnabled(sessionId, name, false);
+      setToolRegistrationEnabled(
+        sessionId,
+        name,
+        false,
+        missingCredential
+          ? credentialRequiredMessage(missingCredential, name, "runtime")
+          : undefined,
+      );
     }
   }
 
@@ -359,7 +429,7 @@ function createMasterServer(
           ...result,
           tools: (result.tools || []).map((t: any) => ({
             ...t,
-            icons: serverIcons,
+            icons: toolIcons,
           })),
         };
       },
@@ -865,6 +935,7 @@ const staticAssetPaths = [
   "/gemini-extension.json",
   "/mcp/server-card",
   "/server-card",
+  "/.well-known/mcp/server-card.json",
 ];
 
 app.options(staticAssetPaths, (_req, res) => {
@@ -1042,7 +1113,7 @@ app.get("/gemini-extension.json", (req, res) => {
   });
 });
 
-app.get(["/mcp/server-card", "/server-card"], (req, res) => {
+app.get(["/mcp/server-card", "/server-card", "/.well-known/mcp/server-card.json"], (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1057,7 +1128,7 @@ app.get(["/mcp/server-card", "/server-card"], (req, res) => {
     description:
       "Remote GitHub discovery, Render management, and sandboxed execution.",
     websiteUrl: "https://github.com/imunmuted/Krix",
-    icons: getServerIcons(base),
+    icons: getServerInfoIcons(base),
     remotes: [
       {
         type: "sse",
@@ -1162,7 +1233,10 @@ app.get(["/api", "/keys"], async (req, res) => {
       owner,
       // Key secrets are never embedded in server-rendered markup.
       keys: dynamicKeys.map((entry) => ({ ...entry, key: "" })),
-      oauthAuthorizations,
+      oauthAuthorizations: oauthAuthorizations.map((item: any) => ({
+        ...item,
+        scopes: effectiveOAuthScopes(String(item.clientId || "")),
+      })),
     }),
   );
 });
@@ -1534,18 +1608,18 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     ? String(renderApiKey).trim()
     : settings.customRenderToken || (id === "primary-key" ? DEFAULT_RENDER_API_KEY : "");
   if (Array.isArray(enabledTools)) {
-    for (const toolName of enabledTools.map(String)) {
-      const missing = getMissingToolCredential(toolName, {
-        github: Boolean(nextGitHubToken),
-        render: Boolean(nextRenderToken),
+    const blocked = findToolMissingCredential(enabledTools, {
+      github: Boolean(nextGitHubToken),
+      render: Boolean(nextRenderToken),
+    });
+    if (blocked) {
+      res.status(409).json({
+        success: false,
+        code: blocked.provider === "github" ? "GITHUB_TOKEN_REQUIRED" : "RENDER_KEY_REQUIRED",
+        tool: blocked.toolName,
+        error: credentialRequiredMessage(blocked.provider, blocked.toolName, "key"),
       });
-      if (missing) {
-        res.status(409).json({
-          success: false,
-          error: `This tool requires a saved ${missing === "github" ? "GitHub personal access token" : "Render API key"}. Add the credential override before enabling it.`,
-        });
-        return;
-      }
+      return;
     }
   }
 
@@ -1565,6 +1639,13 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   }
   if (typeof disabled === "boolean") {
     settings.disabled = disabled;
+  }
+  // If a credential was just cleared, drop any explicitly-enabled tool that now lacks it.
+  {
+    const ready = keyCredentialsReady(id, settings);
+    settings.enabledTools = (settings.enabledTools || []).filter(
+      (t) => !getMissingToolCredential(t, ready),
+    );
   }
   settings.updatedAt = Date.now();
   saveSettingsToDisk();
@@ -2167,7 +2248,9 @@ app.post(
       return;
     }
     try {
-      const updated = removeKeyCredential(keyId, provider);
+      removeKeyCredential(keyId, provider);
+      pruneToolsMissingCredentials(keyId);
+      const updated = getKeySettings(keyId);
       await syncKeySettingsToMongo(updated);
       const closedSessions = closeSessionsForKey(keyId);
       res.setHeader("Cache-Control", "no-store");
@@ -2208,30 +2291,17 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
   }
 
   try {
-    const settings = getKeySettings(keyId);
     const credentialRequirement = getToolCredentialRequirement(toolName);
-    const credentialsReady = {
-      github: Boolean(
-        settings.customGitHubToken ||
-        (keyId === "primary-key" && DEFAULT_GITHUB_PAT),
-      ),
-      render: Boolean(
-        settings.customRenderToken ||
-        (keyId === "primary-key" && DEFAULT_RENDER_API_KEY),
-      ),
-    };
     const missingCredential = getMissingToolCredential(
       toolName,
-      credentialsReady,
+      keyCredentialsReady(keyId),
     );
     if (enabled && missingCredential) {
-      const providerLabel =
-        missingCredential === "github"
-          ? "GitHub personal access token"
-          : "Render API key";
       res.status(409).json({
         ok: false,
-        error: `This tool requires a saved ${providerLabel}. Add the credential in Settings to enable it.`,
+        code: missingCredential === "github" ? "GITHUB_TOKEN_REQUIRED" : "RENDER_KEY_REQUIRED",
+        tool: toolName,
+        error: credentialRequiredMessage(missingCredential, toolName, "global"),
       });
       return;
     }
@@ -2318,6 +2388,17 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
   }
 
   try {
+    // The bulk endpoint must enforce the same credential rules as the single-tool toggle.
+    const blocked = findToolMissingCredential(enabledTools, keyCredentialsReady(keyId));
+    if (blocked) {
+      res.status(409).json({
+        ok: false,
+        code: blocked.provider === "github" ? "GITHUB_TOKEN_REQUIRED" : "RENDER_KEY_REQUIRED",
+        tool: blocked.toolName,
+        error: credentialRequiredMessage(blocked.provider, blocked.toolName, "global"),
+      });
+      return;
+    }
     const updated = updateKeyTools(
       keyId,
       Array.isArray(enabledTools) ? enabledTools : [],
