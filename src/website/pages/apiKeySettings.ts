@@ -60,6 +60,12 @@ export function renderApiKeySettingsPage(params: {
     // With a GitHub token only the default GitHub tool set is on; everything else is opt-in.
     if (category === "GitHub" && params.credentialAvailability?.github)
       return isDefaultGithubTool(name);
+    if (
+      ["Sandbox", "Files", "Execution", "Filesystem"].includes(category) &&
+      params.credentialAvailability?.sandboxEnabled === false
+    ) {
+      return false;
+    }
     if (category === "Sandbox" && params.credentialAvailability?.github)
       return true;
     return (
