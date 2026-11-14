@@ -138,7 +138,8 @@ describe("New Features & UI Polish Verification", () => {
     // Check known client
     const geminiLogo = getAppLogoSvg("Google Gemini Desktop", 18);
     assert.ok(
-      geminiLogo.includes("google.com/s2/favicons"),
+      geminiLogo.includes("google.com/s2/favicons") ||
+        geminiLogo.includes(encodeURIComponent("https://www.google.com/s2/favicons")),
       "Must pull favicon via Google favicon proxy",
     );
     assert.ok(

@@ -1223,7 +1223,7 @@ test("Exact page titles, 10-day slider, error/working graph, store privacy, and 
     true,
     "Share token must be cryptographic hex",
   );
-  assert.equal(meta.isPublic, true, "Default privacy must be public");
+  assert.equal(meta.isPublic, false, "Default privacy must be private");
 
   const toggledFalse = fileShareRegistry.togglePrivacy("test_file_123", false);
   assert.equal(toggledFalse, false, "Must toggle privacy to false");

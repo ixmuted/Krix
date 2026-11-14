@@ -9,7 +9,7 @@ import {
   ICON_48_DATA_URI, ICON_24_DATA_URI, ICON_48_BUFFER, ICON_24_BUFFER,
   GITHUB_RAW_BASE_URL, GITHUB_ICON_48_URL, GITHUB_ICON_128_URL, GITHUB_LOGO_URL,
   RENDER_PUBLIC_URL, RENDER_ICON_48_URL, RENDER_ICON_128_URL, RENDER_LOGO_URL,
-  DEFAULT_PUBLIC_URL, getServerIcons, getServerInfoIcons, getToolIcons, SERVER_ICONS
+  DEFAULT_PUBLIC_URL, getServerIcons, getServerInfoIcons, getToolIcons
 } from '../src/icons.js';
 import { isBinaryBuffer, resolveInputBuffer, resolveInputString } from '../src/security.js';
 
