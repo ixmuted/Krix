@@ -1762,6 +1762,7 @@ app.get("/api/settings", async (req, res) => {
       key: targetKey,
       toolsCatalog: summary.toolsCatalog,
       keySettings,
+      globalKeySettings: getKeySettings("primary-key"),
       apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
       sandboxAllowed,
       credentialAvailability: {
