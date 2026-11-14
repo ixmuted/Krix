@@ -22,6 +22,7 @@ export function renderApiKeySettingsPage(params: {
     render?: boolean;
     workspaceGithub?: boolean;
     workspaceRender?: boolean;
+    sandboxEnabled?: boolean;
   };
   sandboxAllowed?: boolean;
 }): string {
