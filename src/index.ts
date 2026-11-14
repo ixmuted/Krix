@@ -380,7 +380,7 @@ function createMasterServer(
       version: "1.1.0",
       description:
         "Remote GitHub discovery, Render management, and sandboxed execution.",
-      websiteUrl: "https://github.com/imunmuted/Krix",
+      websiteUrl: "https://github.com/ixmuted/Krix",
       icons: serverInfoIcons,
     },
     {
@@ -1121,12 +1121,12 @@ app.get(["/server.json", "/.well-known/mcp.json"], (req, res) => {
   res.json({
     $schema:
       "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-    name: "io.github.imunmuted/krix",
+    name: "io.github.ixmuted/krix",
     description:
       "Remote GitHub discovery, Render management, and sandboxed execution.",
     title: "Krix",
     repository: {
-      url: "https://github.com/imunmuted/Krix",
+      url: "https://github.com/ixmuted/Krix",
       source: "github",
     },
     version: "1.1.0",
@@ -1195,7 +1195,7 @@ app.get(
       version: "1.1.0",
       description:
         "Remote GitHub discovery, Render management, and sandboxed execution.",
-      websiteUrl: "https://github.com/imunmuted/Krix",
+      websiteUrl: "https://github.com/ixmuted/Krix",
       icons: getServerInfoIcons(base),
       remotes: [
         {

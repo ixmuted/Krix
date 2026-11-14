@@ -24,7 +24,7 @@ export const ICON_24_BUFFER = Buffer.from(
   "base64",
 );
 export const GITHUB_RAW_BASE_URL =
-  "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets";
+  "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets";
 export const GITHUB_ICON_48_URL = `${GITHUB_RAW_BASE_URL}/icon-48.png`;
 export const GITHUB_ICON_128_URL = `${GITHUB_RAW_BASE_URL}/icon-128.png`;
 export const GITHUB_ICON_192_URL = `${GITHUB_RAW_BASE_URL}/icon-192.png`;
@@ -55,15 +55,6 @@ export function getServerIcons(
       mimeType: "image/png",
       type: "image/png",
       sizes: ["48x48"],
-      theme: "light",
-    },
-    {
-      src: GITHUB_ICON_48_URL,
-      url: GITHUB_ICON_48_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["48x48"],
-      theme: "dark",
     },
     // 2. Active Render web service HTTPS endpoints (HTTP 200, immutable cache)
     {
@@ -72,15 +63,6 @@ export function getServerIcons(
       mimeType: "image/png",
       type: "image/png",
       sizes: ["48x48"],
-      theme: "light",
-    },
-    {
-      src: RENDER_ICON_48_URL,
-      url: RENDER_ICON_48_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["48x48"],
-      theme: "dark",
     },
     // 3. Higher resolution assets
     {
@@ -127,15 +109,6 @@ export function getServerIcons(
         mimeType: "image/png",
         type: "image/png",
         sizes: ["48x48"],
-        theme: "light",
-      },
-      {
-        src: `${base}/icon-48.png`,
-        url: `${base}/icon-48.png`,
-        mimeType: "image/png",
-        type: "image/png",
-        sizes: ["48x48"],
-        theme: "dark",
       },
       {
         src: `${base}/icon-128.png`,
