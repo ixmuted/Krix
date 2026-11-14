@@ -11,7 +11,6 @@ import {
   ensureMongoAuth,
 } from "./googleAuth.js";
 import { safeEqual, registerSecret } from "./security.js";
-import { ICON_48_DATA_URI } from "./icons.js";
 import { getKeySettings } from "./userSettings.js";
 import { renderSvg } from "./website/icons.js";
 import { renderOAuthConsentPage } from "./website/pages/oauthConsent.js";
