@@ -424,11 +424,12 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
       );
       assert.ok(html.includes("204 PIDs"), "Must show 1/10th ulimit proc");
       assert.ok(
-        html.includes("Code Graph Context (29 tools)"),
-        "Must list Code Graph tools",
+        !html.includes("Code Graph Context (29 tools)") &&
+          !html.includes("Deep structural AST inspection"),
+        "Code Graph Context banner must be removed from tool permissions",
       );
       assert.ok(
-        html.includes("Granular Tool Permissions & Code Graph"),
+        html.includes(">Tool Permissions<"),
         "Must include tool permission manager",
       );
     });

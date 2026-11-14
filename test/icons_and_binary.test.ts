@@ -9,7 +9,7 @@ import {
   ICON_48_DATA_URI, ICON_24_DATA_URI, ICON_48_BUFFER, ICON_24_BUFFER,
   GITHUB_RAW_BASE_URL, GITHUB_ICON_48_URL, GITHUB_ICON_128_URL, GITHUB_LOGO_URL,
   RENDER_PUBLIC_URL, RENDER_ICON_48_URL, RENDER_ICON_128_URL, RENDER_LOGO_URL,
-  DEFAULT_PUBLIC_URL, getServerIcons, SERVER_ICONS
+  DEFAULT_PUBLIC_URL, getServerIcons, getServerInfoIcons, getToolIcons, SERVER_ICONS
 } from '../src/icons.js';
 import { isBinaryBuffer, resolveInputBuffer, resolveInputString } from '../src/security.js';
 
@@ -299,4 +299,12 @@ describe('Binary-Safe Buffer Handling in Security & Tools', () => {
     const b64 = ' ' + Buffer.from(text).toString('base64') + ' \r\n';
     assert.equal(resolveInputString(undefined, b64), text);
   });
+});
+
+test('getServerInfoIcons and getToolIcons only emit PNG data URIs for browser CSP compatibility', () => {
+  for (const icon of [...getServerInfoIcons('https://krix.onrender.com'), ...getToolIcons()]) {
+    assert.ok(icon.src.startsWith('data:image/png;base64,'), `Expected data URI, got: ${icon.src}`);
+    assert.equal(icon.mimeType, 'image/png');
+    IconSchema.parse(icon);
+  }
 });

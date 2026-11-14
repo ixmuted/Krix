@@ -294,10 +294,10 @@ test("Home and Stats pages adhere to Geist Minimalist Design, Zero-Neon, and Zer
   assert.ok(homeHtml.includes("qw-theme"));
   assert.ok(statsHtml.includes("qw-theme"));
   assert.ok(
-    homeHtml.includes("document.documentElement.classList.toggle('dark')"),
+    homeHtml.includes("document.documentElement.classList.toggle('dark'"),
   );
   assert.ok(
-    statsHtml.includes("document.documentElement.classList.toggle('dark')"),
+    statsHtml.includes("document.documentElement.classList.toggle('dark'"),
   );
 
   // 4. Contact and Security Hardening Audit

@@ -60,7 +60,9 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.match(html, /Page Not Found/);
     assert.match(html, /\/missing-subsystem/);
     assert.match(html, /\/home/);
-    assert.match(html, /\/tools/);
+    // The 404 page only offers a way back home.
+    assert.doesNotMatch(html, /Browse Tools/);
+    assert.doesNotMatch(html, /href="\/tools"/);
   });
 
   test("renderToolsPage adheres to exact title and empty placeholder invariants", () => {
@@ -97,8 +99,10 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
         renderApiKey: "rnd_987654321",
       },
     });
-    assert.match(html, /key-display-scroll/);
-    assert.match(html, /toggleKeyReveal/);
+    // Token / client id / status / created now live on the key's Info page, not in the list.
+    assert.doesNotMatch(html, /krix_live_secret_token_12345/);
+    assert.match(html, /<span>Info<\/span>/);
+    assert.doesNotMatch(html, /<span>Edit<\/span>/);
     assert.match(html, /oauthSearchInput/);
     assert.match(html, /filterOAuth/);
     assert.match(html, /id="providerCredentialsCard"/);

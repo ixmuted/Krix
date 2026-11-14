@@ -917,8 +917,8 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "404 page must provide Back to Home link",
   );
   assert.ok(
-    notFoundHtml.includes("/tools"),
-    "404 page must provide Browse Tools link",
+    !notFoundHtml.includes("Browse Tools") && !notFoundHtml.includes('href="/tools"'),
+    "404 page must only offer the Back to Home action",
   );
 
   // 2. Mobile-only Horizontally Scrollable Navigation Sub-bar in header
@@ -1038,8 +1038,8 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "API keys must have scrollable container to prevent overflow",
   );
   assert.ok(
-    apiKeysHtml.includes("toggleKeyReveal"),
-    "API keys must have toggleKeyReveal function",
+    !apiKeysHtml.includes("toggleKeyReveal") && apiKeysHtml.includes("<span>Info</span>"),
+    "Token reveal/copy now lives on the key Info page; the list only offers Info",
   );
   assert.ok(
     apiKeysHtml.includes("oauthSearchInput"),
