@@ -479,6 +479,13 @@ export function renderApiKeysPage(params: {
         document.body.appendChild(menu);
         menu.style.display = 'flex';
         menu.style.flexDirection = 'column';
+        // Measure the real, settled size: no entry animation/transform, border-box sizing.
+        menu.style.animation = 'none';
+        menu.style.transform = 'none';
+        menu.style.boxSizing = 'border-box';
+        menu.style.width = 'auto';
+        menu.style.bottom = 'auto';
+        menu.style.margin = '0';
         menu.style.position = 'fixed';
         menu.style.zIndex = '99999';
         menu.style.right = 'auto';
@@ -502,8 +509,6 @@ export function renderApiKeysPage(params: {
         menu.style.top = top + 'px';
         activeKeyMenuId = id;
       }
-
-      window.addEventListener('resize', function () { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); });
 
       function closeKeyDropdown(id) {
         const menu = document.getElementById(id);
@@ -529,7 +534,13 @@ export function renderApiKeysPage(params: {
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && activeKeyMenuId) closeKeyDropdown(activeKeyMenuId);
       });
-      window.addEventListener('resize', function() { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); });
+      // Mobile browsers fire resize when the URL bar shows/hides (height only); that must not close the menu.
+      let lastViewportWidth = window.innerWidth;
+      window.addEventListener('resize', function() {
+        const widthChanged = window.innerWidth !== lastViewportWidth;
+        lastViewportWidth = window.innerWidth;
+        if (activeKeyMenuId && widthChanged) closeKeyDropdown(activeKeyMenuId);
+      });
       window.addEventListener('scroll', function() { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); }, true);
 
       function showToast(message, type = 'success') {
