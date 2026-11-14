@@ -1,4 +1,11 @@
-import { test, describe, before, after, beforeEach } from "node:test";
+import {
+  test,
+  describe,
+  before,
+  after,
+  beforeEach,
+  afterEach,
+} from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +28,11 @@ import {
 } from "../src/fileShare.js";
 import { fileShareRegistry } from "../src/fileShareRegistry.js";
 import { shutdownUploadSessions, UPLOAD_DIR } from "../src/uploadSessions.js";
-import { createDynamicKey } from "../src/googleAuth.js";
+import {
+  createDynamicKey,
+  revokeDynamicKey,
+  listDynamicKeys,
+} from "../src/googleAuth.js";
 
 // Ensure test environment is configured before importing app
 process.env.NODE_ENV = "test";
@@ -216,8 +227,30 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
   const rootA = sandboxRootForAuthKey(authKeyA);
   const rootB = sandboxRootForAuthKey(authKeyB);
 
+  const createdKeysForCleanup: string[] = [];
+
+  function createTrackedKey(label: string, email: string) {
+    const key = createDynamicKey(label, email);
+    createdKeysForCleanup.push(key.id);
+    return key;
+  }
+
+  function cleanupStaleTestKeys(): void {
+    for (const key of listDynamicKeys(USER_A_EMAIL)) {
+      try {
+        revokeDynamicKey(key.id);
+      } catch {}
+    }
+    for (const key of listDynamicKeys(USER_B_EMAIL)) {
+      try {
+        revokeDynamicKey(key.id);
+      } catch {}
+    }
+  }
+
   before(async () => {
-    // Clean up directories if pre-existing
+    // Clean up directories and stale keys if pre-existing
+    cleanupStaleTestKeys();
     fs.rmSync(rootA, { recursive: true, force: true });
     fs.rmSync(rootB, { recursive: true, force: true });
 
@@ -231,7 +264,19 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
     baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 
+  afterEach(() => {
+    while (createdKeysForCleanup.length > 0) {
+      const id = createdKeysForCleanup.pop();
+      if (id) {
+        try {
+          revokeDynamicKey(id);
+        } catch {}
+      }
+    }
+  });
+
   after(async () => {
+    cleanupStaleTestKeys();
     await shutdownUploadSessions().catch(() => {});
     await new Promise<void>((resolve) => server.close(() => resolve()));
     fs.rmSync(rootA, { recursive: true, force: true });
@@ -259,48 +304,54 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
     });
 
     test("Render workspace uploads succeed without owner-only sandbox opt-in gate", async () => {
-      const userKey = createDynamicKey(
+      const userKey = createTrackedKey(
         "Render Key " + Date.now(),
         USER_A_EMAIL,
       );
+      try {
+        const sessionRes = await fetch(`${baseUrl}/upload/api/session`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: baseUrl,
+            Cookie: cookieUserA,
+          },
+          body: JSON.stringify({ apiKey: userKey.key }),
+        });
 
-      const sessionRes = await fetch(`${baseUrl}/upload/api/session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: baseUrl,
-          Cookie: cookieUserA,
-        },
-        body: JSON.stringify({ apiKey: userKey.key }),
-      });
+        assert.equal(sessionRes.status, 201);
+        const sessionData = (await sessionRes.json()) as any;
+        assert.ok(sessionData.token, "Must return upload token");
+        assert.equal(sessionData.folder, UPLOAD_DIR);
 
-      assert.equal(sessionRes.status, 201);
-      const sessionData = (await sessionRes.json()) as any;
-      assert.ok(sessionData.token, "Must return upload token");
-      assert.equal(sessionData.folder, UPLOAD_DIR);
+        // Upload file to the session
+        const uploadRes = await fetch(`${baseUrl}/upload/api/files`, {
+          method: "POST",
+          headers: {
+            "x-upload-token": sessionData.token,
+            "x-filename": encodeURIComponent("render_allowed.txt"),
+          },
+          body: "Render upload without opt-in gate verification",
+        });
 
-      // Upload file to the session
-      const uploadRes = await fetch(`${baseUrl}/upload/api/files`, {
-        method: "POST",
-        headers: {
-          "x-upload-token": sessionData.token,
-          "x-filename": encodeURIComponent("render_allowed.txt"),
-        },
-        body: "Render upload without opt-in gate verification",
-      });
+        assert.equal(uploadRes.status, 201);
+        const uploadData = (await uploadRes.json()) as any;
+        assert.ok(
+          uploadData.file,
+          "Upload response must include file metadata",
+        );
+        assert.equal(uploadData.file.name, "render_allowed.txt");
 
-      assert.equal(uploadRes.status, 201);
-      const uploadData = (await uploadRes.json()) as any;
-      assert.ok(uploadData.file, "Upload response must include file metadata");
-      assert.equal(uploadData.file.name, "render_allowed.txt");
-
-      // Verify that the legacy error string was not emitted
-      const text = JSON.stringify(uploadData);
-      assert.ok(
-        !text.includes(
-          "On Render, workspace uploads are available only to the configured owner",
-        ),
-      );
+        // Verify that the legacy error string was not emitted
+        const text = JSON.stringify(uploadData);
+        assert.ok(
+          !text.includes(
+            "On Render, workspace uploads are available only to the configured owner",
+          ),
+        );
+      } finally {
+        revokeDynamicKey(userKey.id);
+      }
     });
   });
 
@@ -322,181 +373,189 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
 
     test("User A uploads file; User B cannot list, download, rename, or delete User A's file", async () => {
       // 1. User A creates session and uploads private file
-      const userAKey = createDynamicKey(
+      const userAKey = createTrackedKey(
         "Alice Iso Key " + Date.now(),
         USER_A_EMAIL,
       );
-      const sessionRes = await fetch(`${baseUrl}/upload/api/session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: baseUrl,
-        },
-        body: JSON.stringify({ apiKey: userAKey.key }),
-      });
-      assert.equal(sessionRes.status, 201);
-      const { token } = (await sessionRes.json()) as any;
-
-      const uploadRes = await fetch(`${baseUrl}/upload/api/files`, {
-        method: "POST",
-        headers: {
-          "x-upload-token": token,
-          "x-filename": "alice_secret_financials.txt",
-        },
-        body: "CONFIDENTIAL_ALICE_DATA_3892719",
-      });
-      assert.equal(uploadRes.status, 201);
-
-      // Verify file exists on disk inside User A's sandbox root and NOT User B's root
-      const fileOnA = path.join(
-        rootA,
-        UPLOAD_DIR,
-        "alice_secret_financials.txt",
-      );
-      const fileOnB = path.join(
-        rootB,
-        UPLOAD_DIR,
-        "alice_secret_financials.txt",
-      );
-      assert.equal(fs.existsSync(fileOnA), true);
-      assert.equal(fs.existsSync(fileOnB), false);
-
-      // 2. User B lists /store/api/files: User A's file must NOT appear in User B's listing
-      const listResB = await fetch(`${baseUrl}/store/api/files`, {
-        headers: { Cookie: cookieUserB },
-      });
-      assert.equal(listResB.status, 200);
-      const listB = (await listResB.json()) as any;
-      const bFoundA = listB.files.some(
-        (f: any) => f.name === "alice_secret_financials.txt",
-      );
-      assert.equal(
-        bFoundA,
-        false,
-        "User B must not see User A's private sandbox file in /store/api/files",
-      );
-
-      // 3. User B attempts to download via direct sandbox file endpoint /store/download?file=...
-      const downloadResB = await fetch(
-        `${baseUrl}/store/download?file=alice_secret_financials.txt`,
-        { headers: { Cookie: cookieUserB } },
-      );
-      assert.equal(
-        downloadResB.status,
-        404,
-        "User B cannot download User A's sandbox file",
-      );
-
-      // 4. User B attempts path traversal to read User A's root
-      const traversalResB = await fetch(
-        `${baseUrl}/store/download?file=../../${path.basename(rootA)}/upload/alice_secret_financials.txt`,
-        { headers: { Cookie: cookieUserB } },
-      );
-      assert.equal(
-        traversalResB.status,
-        400,
-        "Path traversal attempt must be rejected with 400",
-      );
-
-      // 5. User B attempts to rename User A's file via /upload/rename
-      const renameResB = await fetch(`${baseUrl}/upload/rename`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: baseUrl,
-          Cookie: cookieUserB,
-        },
-        body: JSON.stringify({
-          oldName: "alice_secret_financials.txt",
-          newName: "hacked.txt",
-        }),
-      });
-      assert.ok(
-        renameResB.status === 403 || renameResB.status === 404,
-        "Renaming another user's file must be rejected (403 or 404)",
-      );
-      assert.equal(
-        fs.existsSync(fileOnA),
-        true,
-        "File on A must remain unchanged",
-      );
-      assert.equal(
-        fs.existsSync(path.join(rootA, UPLOAD_DIR, "hacked.txt")),
-        false,
-      );
-
-      // 6. User B attempts to delete User A's file via /store/sandbox-file
-      const deleteResB = await fetch(
-        `${baseUrl}/store/sandbox-file?name=alice_secret_financials.txt`,
-        {
-          method: "DELETE",
+      try {
+        const sessionRes = await fetch(`${baseUrl}/upload/api/session`, {
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
+            Origin: baseUrl,
+          },
+          body: JSON.stringify({ apiKey: userAKey.key }),
+        });
+        assert.equal(sessionRes.status, 201);
+        const { token } = (await sessionRes.json()) as any;
+
+        const uploadRes = await fetch(`${baseUrl}/upload/api/files`, {
+          method: "POST",
+          headers: {
+            "x-upload-token": token,
+            "x-filename": "alice_secret_financials.txt",
+          },
+          body: "CONFIDENTIAL_ALICE_DATA_3892719",
+        });
+        assert.equal(uploadRes.status, 201);
+
+        // Verify file exists on disk inside User A's sandbox root and NOT User B's root
+        const fileOnA = path.join(
+          rootA,
+          UPLOAD_DIR,
+          "alice_secret_financials.txt",
+        );
+        const fileOnB = path.join(
+          rootB,
+          UPLOAD_DIR,
+          "alice_secret_financials.txt",
+        );
+        assert.equal(fs.existsSync(fileOnA), true);
+        assert.equal(fs.existsSync(fileOnB), false);
+
+        // 2. User B lists /store/api/files: User A's file must NOT appear in User B's listing
+        const listResB = await fetch(`${baseUrl}/store/api/files`, {
+          headers: { Cookie: cookieUserB },
+        });
+        assert.equal(listResB.status, 200);
+        const listB = (await listResB.json()) as any;
+        const bFoundA = listB.files.some(
+          (f: any) => f.name === "alice_secret_financials.txt",
+        );
+        assert.equal(
+          bFoundA,
+          false,
+          "User B must not see User A's private sandbox file in /store/api/files",
+        );
+
+        // 3. User B attempts to download via direct sandbox file endpoint /store/download?file=...
+        const downloadResB = await fetch(
+          `${baseUrl}/store/download?file=alice_secret_financials.txt`,
+          { headers: { Cookie: cookieUserB } },
+        );
+        assert.equal(
+          downloadResB.status,
+          404,
+          "User B cannot download User A's sandbox file",
+        );
+
+        // 4. User B attempts path traversal to read User A's root
+        const traversalResB = await fetch(
+          `${baseUrl}/store/download?file=../../${path.basename(rootA)}/upload/alice_secret_financials.txt`,
+          { headers: { Cookie: cookieUserB } },
+        );
+        assert.equal(
+          traversalResB.status,
+          400,
+          "Path traversal attempt must be rejected with 400",
+        );
+
+        // 5. User B attempts to rename User A's file via /upload/rename
+        const renameResB = await fetch(`${baseUrl}/upload/rename`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
             Origin: baseUrl,
             Cookie: cookieUserB,
           },
-        },
-      );
-      assert.ok(
-        deleteResB.status === 403 || deleteResB.status === 404,
-        "Deleting another user's file must be rejected (403 or 404)",
-      );
-      assert.equal(
-        fs.existsSync(fileOnA),
-        true,
-        "File on A must survive deletion attempt by User B",
-      );
+          body: JSON.stringify({
+            oldName: "alice_secret_financials.txt",
+            newName: "hacked.txt",
+          }),
+        });
+        assert.ok(
+          renameResB.status === 403 || renameResB.status === 404,
+          "Renaming another user's file must be rejected (403 or 404)",
+        );
+        assert.equal(
+          fs.existsSync(fileOnA),
+          true,
+          "File on A must remain unchanged",
+        );
+        assert.equal(
+          fs.existsSync(path.join(rootA, UPLOAD_DIR, "hacked.txt")),
+          false,
+        );
+
+        // 6. User B attempts to delete User A's file via /store/sandbox-file
+        const deleteResB = await fetch(
+          `${baseUrl}/store/sandbox-file?name=alice_secret_financials.txt`,
+          {
+            method: "DELETE",
+            headers: {
+              Origin: baseUrl,
+              Cookie: cookieUserB,
+            },
+          },
+        );
+        assert.ok(
+          deleteResB.status === 403 || deleteResB.status === 404,
+          "Deleting another user's file must be rejected (403 or 404)",
+        );
+        assert.equal(
+          fs.existsSync(fileOnA),
+          true,
+          "File on A must survive deletion attempt by User B",
+        );
+      } finally {
+        revokeDynamicKey(userAKey.id);
+      }
     });
   });
 
   describe("3. Default Private Status for Uploaded Files", () => {
     test("Sandbox upload registers file as private by default in registry and store", async () => {
-      const userAKey = createDynamicKey(
+      const userAKey = createTrackedKey(
         "Alice Def Key " + Date.now(),
         USER_A_EMAIL,
       );
-      const sessionRes = await fetch(`${baseUrl}/upload/api/session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: baseUrl,
-        },
-        body: JSON.stringify({ apiKey: userAKey.key }),
-      });
-      const { token } = (await sessionRes.json()) as any;
+      try {
+        const sessionRes = await fetch(`${baseUrl}/upload/api/session`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: baseUrl,
+          },
+          body: JSON.stringify({ apiKey: userAKey.key }),
+        });
+        const { token } = (await sessionRes.json()) as any;
 
-      const fileName = "private_by_default.txt";
-      const uploadRes = await fetch(`${baseUrl}/upload/api/files`, {
-        method: "POST",
-        headers: {
-          "x-upload-token": token,
-          "x-filename": fileName,
-        },
-        body: "Top secret default private payload",
-      });
-      assert.equal(uploadRes.status, 201);
+        const fileName = "private_by_default.txt";
+        const uploadRes = await fetch(`${baseUrl}/upload/api/files`, {
+          method: "POST",
+          headers: {
+            "x-upload-token": token,
+            "x-filename": fileName,
+          },
+          body: "Top secret default private payload",
+        });
+        assert.equal(uploadRes.status, 201);
 
-      const sbxId = `sbx_${Buffer.from(fileName).toString("hex").slice(0, 16)}`;
-      const regEntry = fileShareRegistry.getById(sbxId);
-      assert.ok(regEntry, "File share registry must have an entry");
-      assert.equal(
-        regEntry.isPublic,
-        false,
-        "Registry entry must be private by default (isPublic: false)",
-      );
-      assert.equal(regEntry.ownerKey, authKeyA);
+        const sbxId = `sbx_${Buffer.from(fileName).toString("hex").slice(0, 16)}`;
+        const regEntry = fileShareRegistry.getById(sbxId);
+        assert.ok(regEntry, "File share registry must have an entry");
+        assert.equal(
+          regEntry.isPublic,
+          false,
+          "Registry entry must be private by default (isPublic: false)",
+        );
+        assert.equal(regEntry.ownerKey, authKeyA);
 
-      // Verify in /store/api/files
-      const listResA = await fetch(`${baseUrl}/store/api/files`, {
-        headers: { Cookie: cookieUserA },
-      });
-      const listA = (await listResA.json()) as any;
-      const fileMeta = listA.files.find((f: any) => f.name === fileName);
-      assert.ok(fileMeta, "File must appear in User A's store list");
-      assert.equal(
-        fileMeta.isPublic,
-        false,
-        "Store API must report isPublic: false",
-      );
+        // Verify in /store/api/files
+        const listResA = await fetch(`${baseUrl}/store/api/files`, {
+          headers: { Cookie: cookieUserA },
+        });
+        const listA = (await listResA.json()) as any;
+        const fileMeta = listA.files.find((f: any) => f.name === fileName);
+        assert.ok(fileMeta, "File must appear in User A's store list");
+        assert.equal(
+          fileMeta.isPublic,
+          false,
+          "Store API must report isPublic: false",
+        );
+      } finally {
+        revokeDynamicKey(userAKey.id);
+      }
     });
 
     test("Cloud file store put() creates private file by default with ownerKey", async () => {
