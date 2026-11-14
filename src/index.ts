@@ -454,14 +454,9 @@ function createMasterServer(
     github: Boolean(githubToken?.trim()),
     render: Boolean(renderToken?.trim()),
   };
-  const onRenderService =
-    process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
-  const renderSandboxOwnerOptIn =
-    process.env.ENABLE_SANDBOX === "true" &&
-    process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-    process.env.SANDBOX_REQUIRE_ISOLATION === "false";
+  const sandboxAllowedHere = isSandboxAllowedOnServer();
 
-  // Evaluated at session start and again whenever the user changes tool settings.
+  // Evaluated at session start, on tools/list, and whenever the user changes tool settings.
   const applyToolPolicy = () => {
     const ctx = getSessionContext(sessionId);
     // A GitHub PAT enables only the default GitHub tool set (the "core" group, see
@@ -471,37 +466,44 @@ function createMasterServer(
       // A valid GitHub PAT unlocks the complete sandbox tool group, including remote Git helpers.
       activeCategories.add("sandbox");
     }
-    for (const [name, handle] of Object.entries(registry)) {
-      const cat = categoryOf[name];
-      const sandboxAllowedHere =
-        cat !== "sandbox" || !onRenderService || renderSandboxOwnerOptIn;
-      const missingCredential = getMissingToolCredential(
-        name,
-        credentials,
-        cat,
-      );
-      const policyEnabled = isToolEnabledForKey(
-        policyKeyId,
-        name,
-        cat,
-        activeCategories,
-      );
-      const shouldEnable =
-        sandboxAllowedHere && !missingCredential && policyEnabled;
-      if (shouldEnable) {
-        if (!handle.enabled) handle.enable();
-        setToolRegistrationEnabled(sessionId, name, true);
-      } else {
-        if (handle.enabled !== false) handle.disable();
-        setToolRegistrationEnabled(
-          sessionId,
+    // Suppress per-tool notifications inside the loop; refreshSessionsForKey sends a single
+    // batched notifications/tools/list_changed once the full policy pass finishes.
+    const origSendToolListChanged = server.sendToolListChanged.bind(server);
+    (server as any).sendToolListChanged = async () => {};
+    try {
+      for (const [name, handle] of Object.entries(registry)) {
+        const cat = categoryOf[name];
+        const catSandboxAllowed = cat !== "sandbox" || sandboxAllowedHere;
+        const missingCredential = getMissingToolCredential(
           name,
-          false,
-          missingCredential
-            ? credentialRequiredMessage(missingCredential, name, "runtime")
-            : undefined,
+          credentials,
+          cat,
         );
+        const policyEnabled = isToolEnabledForKey(
+          policyKeyId,
+          name,
+          cat,
+          activeCategories,
+        );
+        const shouldEnable =
+          catSandboxAllowed && !missingCredential && policyEnabled;
+        if (shouldEnable) {
+          if (!handle.enabled) handle.enable();
+          setToolRegistrationEnabled(sessionId, name, true);
+        } else {
+          if (handle.enabled !== false) handle.disable();
+          setToolRegistrationEnabled(
+            sessionId,
+            name,
+            false,
+            missingCredential
+              ? credentialRequiredMessage(missingCredential, name, "runtime")
+              : undefined,
+          );
+        }
       }
+    } finally {
+      (server as any).sendToolListChanged = origSendToolListChanged;
     }
   };
   applyToolPolicy();
@@ -514,6 +516,7 @@ function createMasterServer(
     server.server.setRequestHandler(
       ListToolsRequestSchema,
       async (request, extra) => {
+        applyToolPolicy();
         const result = await originalListTools(request, extra);
         return {
           ...result,
