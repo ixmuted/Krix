@@ -19,6 +19,7 @@ import {
   SERVER_ICONS,
   getServerIcons,
   getServerInfoIcons,
+  getToolIcons,
   ICON_48_DATA_URI,
   ICON_48_BUFFER,
   ICON_24_BUFFER,
@@ -371,7 +372,7 @@ function createMasterServer(
   keySettings?: KeySettings,
 ) {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const serverIcons = getServerIcons(base);
+  const toolIcons = getToolIcons();
   const serverInfoIcons = getServerInfoIcons(base);
   const server = new McpServer(
     {
@@ -481,7 +482,7 @@ function createMasterServer(
           ...result,
           tools: (result.tools || []).map((t: any) => ({
             ...t,
-            icons: serverIcons,
+            icons: toolIcons,
           })),
         };
       },
@@ -1163,7 +1164,7 @@ app.get("/gemini-extension.json", (req, res) => {
     iconUrl: ICON_48_DATA_URI,
     logo: ICON_48_DATA_URI,
     logoUrl: ICON_48_DATA_URI,
-    icons: getServerIcons(base),
+    icons: getServerInfoIcons(base),
     mcpServers: {
       krix: {
         description:
@@ -1196,7 +1197,7 @@ app.get(
       description:
         "Remote GitHub discovery, Render management, and sandboxed execution.",
       websiteUrl: "https://github.com/imunmuted/Krix",
-      icons: getServerIcons(base),
+      icons: getServerInfoIcons(base),
       remotes: [
         {
           type: "sse",
