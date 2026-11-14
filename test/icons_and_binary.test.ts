@@ -25,10 +25,10 @@ describe('Icons and Asset Metadata', () => {
   });
 
   test('GitHub raw URLs and Render URLs point to canonical endpoints', () => {
-    assert.equal(GITHUB_RAW_BASE_URL, 'https://raw.githubusercontent.com/imunmuted/Krix/gem/assets');
-    assert.equal(GITHUB_ICON_48_URL, 'https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png');
-    assert.equal(GITHUB_ICON_128_URL, 'https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-128.png');
-    assert.equal(GITHUB_LOGO_URL, 'https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png');
+    assert.equal(GITHUB_RAW_BASE_URL, 'https://raw.githubusercontent.com/ixmuted/Krix/gem/assets');
+    assert.equal(GITHUB_ICON_48_URL, 'https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-48.png');
+    assert.equal(GITHUB_ICON_128_URL, 'https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-128.png');
+    assert.equal(GITHUB_LOGO_URL, 'https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/logo.png');
 
     assert.equal(RENDER_PUBLIC_URL, 'https://krix.onrender.com');
     assert.equal(RENDER_ICON_48_URL, 'https://krix.onrender.com/icon-48.png');
@@ -40,7 +40,7 @@ describe('Icons and Asset Metadata', () => {
 
   test('getServerIcons strictly returns SEP-973 compliant HTTPS icon objects without oversized data URIs', () => {
     const icons = getServerIcons();
-    assert.ok(icons.length >= 8);
+    assert.ok(icons.length >= 6);
 
     // SEP-973 / MCP schema requirements:
     for (const icon of icons) {
@@ -65,16 +65,11 @@ describe('Icons and Asset Metadata', () => {
     }
 
     // Canonical GitHub raw URLs
-    const githubLight = icons.find(i => i.src === GITHUB_ICON_48_URL && i.theme === 'light');
-    const githubDark = icons.find(i => i.src === GITHUB_ICON_48_URL && i.theme === 'dark');
-    assert.ok(githubLight, 'Should include light theme GitHub icon-48');
-    assert.ok(githubDark, 'Should include dark theme GitHub icon-48');
+    assert.equal(icons.filter(i => i.src === GITHUB_ICON_48_URL).length, 1, 'GitHub icon-48 must be listed exactly once');
 
     // Live Render web service endpoints
-    const renderLight = icons.find(i => i.src === RENDER_ICON_48_URL && i.theme === 'light');
-    const renderDark = icons.find(i => i.src === RENDER_ICON_48_URL && i.theme === 'dark');
-    assert.ok(renderLight, 'Should include light theme Render icon-48');
-    assert.ok(renderDark, 'Should include dark theme Render icon-48');
+    assert.equal(icons.filter(i => i.src === RENDER_ICON_48_URL).length, 1, 'Render icon-48 must be listed exactly once');
+    assert.equal(new Set(icons.map(i => i.src)).size, icons.length, 'No icon src may be listed twice');
   });
 
   test('getServerIcons appends custom host endpoints when distinct baseUrl is provided', () => {
@@ -92,7 +87,7 @@ describe('Icons and Asset Metadata', () => {
       title: 'Krix',
       version: '1.1.0',
       description: 'Advanced agentic gateway for remote GitHub discovery, Render management, and sandboxed execution.',
-      websiteUrl: 'https://github.com/imunmuted/Krix',
+      websiteUrl: 'https://github.com/ixmuted/Krix',
       icons: serverIcons
     });
 
@@ -120,7 +115,7 @@ describe('Icons and Asset Metadata', () => {
 
     const icons = initResult.serverInfo.icons;
     assert.ok(Array.isArray(icons), 'serverInfo.icons must be an array');
-    assert.ok(icons.length >= 8, 'serverInfo.icons must have at least 8 variants');
+    assert.ok(icons.length >= 6, 'serverInfo.icons must have at least 6 variants');
 
     // Primary icon must be an accessible HTTPS URL <= 255 chars
     const primaryIcon = icons[0];
@@ -145,7 +140,7 @@ describe('Icons and Asset Metadata', () => {
     // Validate entire serverInfo against ImplementationSchema
     const validatedServerInfo = ImplementationSchema.parse(initResult.serverInfo);
     assert.equal(validatedServerInfo.name, 'krix');
-    assert.ok(validatedServerInfo.icons && validatedServerInfo.icons.length >= 8);
+    assert.ok(validatedServerInfo.icons && validatedServerInfo.icons.length >= 6);
   });
 
   test('server.json validates successfully against official Model Context Protocol schema', () => {
