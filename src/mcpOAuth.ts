@@ -718,10 +718,10 @@ export function createMcpOAuthRouter(): Router {
         registration_endpoint: `${base}/oauth/register`,
         revocation_endpoint: `${base}/oauth/revoke`,
         jwks_uri: `${base}/.well-known/jwks.json`,
-        // Set KRIX_OAUTH_LOGO_URI=0 to omit this (gemini.google.com blocks external image hosts).
+        // gemini.google.com img-src CSP allows data: URIs but blocks external image hosts.
         ...(process.env.KRIX_OAUTH_LOGO_URI === "0"
           ? {}
-          : { logo_uri: `${base}/logo.png` }),
+          : { logo_uri: ICON_48_DATA_URI }),
         service_documentation: `${base}`,
         client_name: "Krix",
         client_uri: `${base}`,
