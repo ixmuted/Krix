@@ -625,18 +625,9 @@ export function createDynamicKey(
   settings.role = role;
   settings.sandboxId = generateSandboxId(id, role === "owner");
   if (primarySettings) {
-    if (
-      Array.isArray(primarySettings.enabledTools) &&
-      primarySettings.enabledTools.length
-    ) {
-      settings.enabledTools = [...primarySettings.enabledTools];
-    }
-    if (
-      Array.isArray(primarySettings.disabledTools) &&
-      primarySettings.disabledTools.length
-    ) {
-      settings.disabledTools = [...primarySettings.disabledTools];
-    }
+    // Tool enable/disable lists are intentionally NOT copied: per-key lists always win over
+    // the workspace (primary-key) lists, so a snapshot here would freeze this key and make
+    // later workspace toggles silently have no effect. The key inherits them live instead.
     if (
       Array.isArray(primarySettings.enabledCategories) &&
       primarySettings.enabledCategories.length

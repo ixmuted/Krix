@@ -299,8 +299,10 @@ const transports = new Map<string, SessionEntry>();
 /** Close every live MCP session for a key so credential changes take effect immediately. */
 function closeSessionsForKey(keyId: string): number {
   let closed = 0;
-  for (const [sessionId, entry] of transports) {
-    if (entry.keyId !== keyId) continue;
+  // Every API key / OAuth client inherits the workspace (primary-key) credentials, so a
+  // workspace credential change must invalidate all sessions, not just the primary key's.
+  for (const [sessionId, entry] of Array.from(transports)) {
+    if (keyId !== "primary-key" && entry.keyId !== keyId) continue;
     transports.delete(sessionId);
     closed += 1;
     try {
@@ -341,10 +343,14 @@ function refreshSessionsForKey(keyId: string): number {
     if (!entry.server) continue;
     try {
       (entry.server as any).applyToolPolicy?.();
-      const t = entry.transport as any;
+      // SDK >=1.3x wraps the real transport in `_webStandardTransport`; the SSE stream
+      // bookkeeping lives there, not on the outer Node wrapper. Reading it from the wrapper
+      // always reported "no stream", which tore down the session on every toggle.
+      const t = ((entry.transport as any)?._webStandardTransport ??
+        entry.transport) as any;
       const standaloneId = t?._standaloneSseStreamId;
       const hasLiveSseStream = Boolean(
-        standaloneId && t?._streamMapping?.has(standaloneId),
+        standaloneId && t?._streamMapping?.get(standaloneId),
       );
       if (hasLiveSseStream) {
         Promise.resolve(entry.server.sendToolListChanged()).catch(() => {});
