@@ -590,23 +590,34 @@ export function renderApiKeysPage(params: {
         });
       }
 
+      function showPageModal(modal) {
+        if (!modal) return;
+        if (modal.parentNode !== document.body) {
+          document.body.appendChild(modal);
+        }
+        modal.style.overscrollBehavior = 'contain';
+        modal.hidden = false;
+        modal.style.display = 'flex';
+      }
+
+      function hidePageModal(modal) {
+        if (!modal) return;
+        modal.hidden = true;
+        modal.style.display = 'none';
+      }
+
       function openCreateKeyModal() {
         const modal = document.getElementById('createKeyModal');
         const input = document.getElementById('createKeyInput');
         if (input) input.value = '';
         if (modal) {
-          modal.hidden = false;
-          modal.style.display = 'flex';
+          showPageModal(modal);
           input?.focus();
         }
       }
 
       function closeCreateKeyModal() {
-        const modal = document.getElementById('createKeyModal');
-        if (modal) {
-          modal.hidden = true;
-          modal.style.display = 'none';
-        }
+        hidePageModal(document.getElementById('createKeyModal'));
       }
 
       function handleCreateKey(event) {
