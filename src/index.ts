@@ -16,7 +16,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import {
-  SERVER_ICONS,
   getServerIcons,
   getServerInfoIcons,
   getToolIcons,
