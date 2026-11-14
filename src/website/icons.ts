@@ -205,33 +205,60 @@ export function getAppLogoSvg(
   const fallbackSvg = renderSvg(fallbackIconName, size);
   const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
 
+  const hostOf = (o?: string): string => {
+    try {
+      return o ? new URL(o).hostname : "";
+    } catch {
+      return "";
+    }
+  };
+  const googleFavicon = (host: string) =>
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  const ddgFavicon = (host: string) =>
+    `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`;
+  // Registrable-ish parent domain (api.example.com -> example.com) for redirect URIs on subdomains.
+  const parentHost = (host: string): string => {
+    const parts = host.split(".");
+    return parts.length > 2 ? parts.slice(-2).join(".") : host;
+  };
+
+  const buildImg = (sources: string[], alt: string): string => {
+    const unique = Array.from(new Set(sources.filter(Boolean)));
+    if (!unique.length) return fallback;
+    const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const [primary, ...rest] = unique;
+    // One shared watcher (clientScripts.ts) walks data-fallback-srcs; no inline onerror,
+    // otherwise two handlers fire on the same error and skip straight to the SVG.
+    const fallbackAttr = rest.length
+      ? ` data-fallback-srcs="${rest.map((u) => esc(encodeURIComponent(u))).join("|")}"`
+      : "";
+    return `<img class="oauth-app-favicon" src="${esc(primary)}"${fallbackAttr} width="${size}" height="${size}" alt="${esc(alt)}" loading="eager" decoding="async" referrerpolicy="no-referrer"><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+  };
+
   if (q.includes("gemini") || (origin && origin.includes("gemini"))) {
-    const primarySrc =
-      "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png";
-    const fallbackSrc =
-      "https://www.google.com/s2/favicons?domain_url=https://gemini.google.com&sz=64";
-    const safePrimary = primarySrc
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;");
-    const safeFallback = fallbackSrc
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;");
-    const onerrorAttr = `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`;
-    return `<img class="oauth-app-favicon" src="${safePrimary}" data-fallback-src="${safeFallback}" width="${size}" height="${size}" alt="Gemini" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+    return buildImg(
+      [
+        "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png",
+        googleFavicon("gemini.google.com"),
+        ddgFavicon("gemini.google.com"),
+      ],
+      "Gemini",
+    );
   }
 
-  if (q.includes("claude") || q.includes("anthropic") || (origin && (origin.includes("claude") || origin.includes("anthropic")))) {
-    const primarySrc = "https://claude.ai/favicon.ico";
-    const fallbackSrc =
-      "https://www.google.com/s2/favicons?domain_url=https://claude.ai&sz=64";
-    const safePrimary = primarySrc
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;");
-    const safeFallback = fallbackSrc
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;");
-    const onerrorAttr = `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`;
-    return `<img class="oauth-app-favicon" src="${safePrimary}" data-fallback-src="${safeFallback}" width="${size}" height="${size}" alt="Claude" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+  if (
+    q.includes("claude") ||
+    q.includes("anthropic") ||
+    (origin && (origin.includes("claude") || origin.includes("anthropic")))
+  ) {
+    return buildImg(
+      [
+        "https://claude.ai/favicon.ico",
+        googleFavicon("claude.ai"),
+        ddgFavicon("claude.ai"),
+      ],
+      "Claude",
+    );
   }
 
   const isDirectImage = Boolean(
@@ -242,27 +269,14 @@ export function getAppLogoSvg(
 
   if (!origin && !isDirectImage) return fallback;
 
-  // Direct pull from their URL first, then fallback through Google's favicon proxy, then vector SVG
-  const primarySrc = isDirectImage
-    ? String(websiteUrl)
-    : `${origin}/favicon.ico`;
-  const fallbackSrc =
-    isDirectImage && origin
-      ? `${origin}/favicon.ico`
-      : `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin!)}&sz=64`;
-
-  const safePrimary = primarySrc.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-  const safeFallback = fallbackSrc
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;");
-
-  const onerrorAttr = safeFallback
-    ? `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`
-    : `onerror="this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}"`;
-
-  const dataFallbackAttr = safeFallback
-    ? ` data-fallback-src="${safeFallback}"`
-    : "";
-
-  return `<img class="oauth-app-favicon" src="${safePrimary}"${dataFallbackAttr} width="${size}" height="${size}" alt="" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+  const host = hostOf(origin);
+  const sources: string[] = [];
+  if (isDirectImage) sources.push(String(websiteUrl));
+  if (origin) sources.push(`${origin}/favicon.ico`);
+  if (host) {
+    sources.push(googleFavicon(host), ddgFavicon(host));
+    const parent = parentHost(host);
+    if (parent !== host) sources.push(googleFavicon(parent));
+  }
+  return buildImg(sources, "");
 }

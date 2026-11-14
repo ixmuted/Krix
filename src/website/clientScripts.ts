@@ -293,22 +293,43 @@ export function getClientScripts(): string {
   });
 
   // Resilient App Logo & Favicon Fallback Watcher (Zero Broken Browser Icon Policy)
-  window.addEventListener('error', function(e) {
-    const target = e.target;
-    if (target && target.tagName === 'IMG' && (target.classList.contains('oauth-app-favicon') || target.classList.contains('client-logo-img'))) {
-      if (target.dataset.fallbackSrc && target.src !== target.dataset.fallbackSrc) {
-        target.src = target.dataset.fallbackSrc;
-        target.dataset.fallbackSrc = '';
-      } else {
-        target.style.display = 'none';
-        target.classList.add('hidden');
-        if (target.nextElementSibling) {
-          target.nextElementSibling.classList.remove('hidden');
-          target.nextElementSibling.style.display = 'inline-flex';
-        }
-      }
+  // Walks data-fallback-srcs (pipe-separated, URI-encoded) one source at a time, then the legacy
+  // single data-fallback-src, then reveals the vector fallback sibling.
+  function isLogoImg(el) {
+    return el && el.tagName === 'IMG' && (el.classList.contains('oauth-app-favicon') || el.classList.contains('client-logo-img'));
+  }
+  function advanceLogo(img) {
+    var list = img.dataset.fallbackSrcs ? img.dataset.fallbackSrcs.split('|').filter(Boolean) : [];
+    var next = list.length ? decodeURIComponent(list.shift()) : '';
+    img.dataset.fallbackSrcs = list.join('|');
+    if (!next && img.dataset.fallbackSrc) {
+      next = img.dataset.fallbackSrc;
+      img.dataset.fallbackSrc = '';
     }
+    if (next && img.src !== next) {
+      img.src = next;
+      return;
+    }
+    img.style.display = 'none';
+    img.classList.add('hidden');
+    var sib = img.nextElementSibling;
+    if (sib) {
+      sib.classList.remove('hidden');
+      sib.style.display = 'inline-flex';
+    }
+  }
+  window.addEventListener('error', function(e) {
+    if (isLogoImg(e.target)) advanceLogo(e.target);
   }, true);
+  // Catch images that already failed before this listener was attached.
+  function sweepLogos() {
+    var imgs = document.querySelectorAll('img.oauth-app-favicon, img.client-logo-img');
+    for (var i = 0; i < imgs.length; i++) {
+      var im = imgs[i];
+      if (im.complete && im.naturalWidth === 0 && im.getAttribute('src')) advanceLogo(im);
+    }
+  }
+  window.addEventListener('load', sweepLogos);
 
   // DOM Ready Initializer
   if (document.readyState === 'loading') {
