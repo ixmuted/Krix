@@ -336,10 +336,12 @@ export function getClientScripts(): string {
     document.addEventListener('DOMContentLoaded', function() {
       initSpotlight();
       initScrollProgress();
+      initModalPortalObserver();
     });
   } else {
     initSpotlight();
     initScrollProgress();
+    initModalPortalObserver();
   }
 })();
 `;
