@@ -37,6 +37,19 @@ function safeWebsiteOrigin(value?: string): string | undefined {
   }
 }
 
+
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+const GEMINI_LOGO_DATA_URI = svgDataUri(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="3" y1="21" x2="21" y2="3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4285F4"/><stop offset="0.55" stop-color="#9B72CB"/><stop offset="1" stop-color="#D96570"/></linearGradient></defs><path fill="url(#g)" d="M12 0C12 6.63 17.37 12 24 12C17.37 12 12 17.37 12 24C12 17.37 6.63 12 0 12C6.63 12 12 6.63 12 0Z"/></svg>`,
+);
+
+const CLAUDE_LOGO_DATA_URI = svgDataUri(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g stroke="#D97757" stroke-width="2.4" stroke-linecap="round"><path d="M12 2.5v19"/><path d="M2.5 12h19"/><path d="M5.3 5.3l13.4 13.4"/><path d="M18.7 5.3L5.3 18.7"/></g></svg>`,
+);
+
 export function renderOAuthConsentPage(params: {
   clientId: string;
   clientName: string;
@@ -84,23 +97,29 @@ export function renderOAuthConsentPage(params: {
     safeWebsiteOrigin(websiteUrl) ||
     (domain && !domain.includes("localhost") ? `https://${domain}` : undefined);
 
+  // Detect well-known clients from every signal we have (name, id, redirect
+  // host, logo/client URI). Gemini registers with Google-hosted URIs, so a
+  // name-only check misses it and a remote favicon lookup returns a broken image.
+  const signals = [
+    q,
+    domain.toLowerCase(),
+    (params.logoUri || "").toLowerCase(),
+    (params.clientUri || "").toLowerCase(),
+  ].join(" ");
+  const isGemini = /gemini|bard|google\.com|googleusercontent|gstatic|googleapis/.test(
+    signals,
+  );
+  const isClaude = !isGemini && /claude|anthropic/.test(signals);
+
   let primarySrc = "";
   let fallbackSrc = "";
 
-  if (q.includes("gemini") || (origin && origin.includes("gemini"))) {
-    primarySrc =
-      "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png";
-    fallbackSrc =
-      "https://www.google.com/s2/favicons?domain_url=https://gemini.google.com&sz=64";
-  } else if (
-    q.includes("claude") ||
-    q.includes("anthropic") ||
-    (origin && (origin.includes("claude") || origin.includes("anthropic")))
-  ) {
-    primarySrc = "https://claude.ai/favicon.ico";
-    fallbackSrc =
-      "https://www.google.com/s2/favicons?domain_url=https://claude.ai&sz=64";
-  } else if (params.logoUri) {
+  if (isGemini) {
+    // Embedded: no network fetch, immune to CSP / broken remote URLs.
+    primarySrc = GEMINI_LOGO_DATA_URI;
+  } else if (isClaude) {
+    primarySrc = CLAUDE_LOGO_DATA_URI;
+  } else if (params.logoUri && safeWebsiteOrigin(params.logoUri)) {
     primarySrc = params.logoUri;
     fallbackSrc = origin
       ? `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(origin)}&sz=64`
@@ -328,18 +347,6 @@ export function renderOAuthConsentPage(params: {
       flex-direction: column;
       gap: 8px;
     }
-    .oauth-legal-buttons {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .oauth-legal-btn {
-      padding: 6px 14px;
-      font-size: 12px;
-      border-radius: var(--radius-full);
-      text-decoration: none;
-    }
     .oauth-legal-text {
       font-size: 11px;
       color: var(--geist-gray-50);
@@ -381,7 +388,7 @@ export function renderOAuthConsentPage(params: {
       </div>
 
       <div class="oauth-avatar-card">
-        <img src="/icon-48.png?v=2" alt="Krix">
+        <img src="/icon-512.png?v=3" srcset="/icon-128.png?v=3 1x, /icon-512.png?v=3 2x" width="64" height="64" alt="Krix">
       </div>
     </div>
 
@@ -451,10 +458,6 @@ export function renderOAuthConsentPage(params: {
     </form>
 
     <div class="oauth-legal">
-      <div class="oauth-legal-buttons">
-        <a href="/privacy" target="_blank" class="btn ghost oauth-legal-btn">Privacy Policy</a>
-        <a href="/terms" target="_blank" class="btn ghost oauth-legal-btn">Terms of Service</a>
-      </div>
       <span class="oauth-legal-text">
         By connecting, you agree to Krix's <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.
       </span>
