@@ -1,65 +1,61 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.imunmuted/krix",
+  "name": "io.github.ixmuted/krix",
   "description": "Remote GitHub discovery, Render management, and sandboxed execution.",
   "title": "Krix",
   "repository": {
-    "url": "https://github.com/imunmuted/Krix",
+    "url": "https://github.com/ixmuted/Krix",
     "source": "github"
   },
   "version": "1.1.0",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png",
-      "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png",
+      "src": "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-48.png",
+      "url": "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-48.png",
       "mimeType": "image/png",
-      "sizes": ["48x48"],
-      "theme": "light"
-    },
-    {
-      "src": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png",
-      "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png",
-      "mimeType": "image/png",
-      "sizes": ["48x48"],
-      "theme": "dark"
+      "sizes": [
+        "48x48"
+      ]
     },
     {
       "src": "https://krix.onrender.com/icon-48.png",
       "url": "https://krix.onrender.com/icon-48.png",
       "mimeType": "image/png",
-      "sizes": ["48x48"],
-      "theme": "light"
+      "sizes": [
+        "48x48"
+      ]
     },
     {
-      "src": "https://krix.onrender.com/icon-48.png",
-      "url": "https://krix.onrender.com/icon-48.png",
+      "src": "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-128.png",
+      "url": "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-128.png",
       "mimeType": "image/png",
-      "sizes": ["48x48"],
-      "theme": "dark"
-    },
-    {
-      "src": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-128.png",
-      "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-128.png",
-      "mimeType": "image/png",
-      "sizes": ["128x128"]
+      "sizes": [
+        "128x128"
+      ]
     },
     {
       "src": "https://krix.onrender.com/icon-128.png",
       "url": "https://krix.onrender.com/icon-128.png",
       "mimeType": "image/png",
-      "sizes": ["128x128"]
+      "sizes": [
+        "128x128"
+      ]
     },
     {
-      "src": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png",
-      "url": "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/logo.png",
+      "src": "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/logo.png",
+      "url": "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/logo.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"]
+      "sizes": [
+        "512x512"
+      ]
     },
     {
       "src": "https://krix.onrender.com/logo.png",
       "url": "https://krix.onrender.com/logo.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"]
+      "sizes": [
+        "512x512"
+      ]
     }
   ],
   "remotes": [

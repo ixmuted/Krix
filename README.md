@@ -89,7 +89,7 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/imunmuted/Krix.git
+git clone https://github.com/ixmuted/Krix.git
 cd Krix
 
 # 2. Install dependencies
