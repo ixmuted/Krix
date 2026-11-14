@@ -58,23 +58,72 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
   });
 
   test("RFC 8414: authorization server metadata endpoint advertises OAuth 2.1 endpoints", async () => {
-    const res = await fetch(`${base}/.well-known/oauth-authorization-server`);
-    assert.equal(res.status, 200);
+    const prevLogoUri = process.env.KRIX_OAUTH_LOGO_URI;
+    delete process.env.KRIX_OAUTH_LOGO_URI;
+    const expectedDefaultLogoUri =
+      "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgXnD-oa2Sq5fyenIpK-LsUIGB0zAfg7anir5-GoJUS2_zzUd5c2URXkTuVzYFmk6pGl0oj5tt-c6pFISZ6obq1eLdhaKAF_tZnFC0LD4Fv2amf6gVWxxI88EYQm9bO3A199-HnYoSI5_GCJvwwNbVr-IWhB3lzmpwTsr1RO9HJGDNZAbxuS_Lss4YBPJs/s512/logo.png";
 
-    const data = (await res.json()) as any;
-    assert.ok(data.issuer);
-    assert.ok(data.authorization_endpoint.endsWith("/oauth/authorize"));
-    assert.ok(data.token_endpoint.endsWith("/oauth/token"));
-    assert.ok(data.registration_endpoint.endsWith("/oauth/register"));
-    assert.deepEqual(data.response_types_supported, ["code"]);
-    assert.deepEqual(data.code_challenge_methods_supported, ["S256"]);
-    assert.ok(data.grant_types_supported.includes("authorization_code"));
-    assert.ok(data.grant_types_supported.includes("refresh_token"));
-    assert.equal(
-      data.logo_uri,
-      undefined,
-      "logo_uri should be omitted by default to satisfy both RFC 8414 and Gemini img-src CSP",
-    );
+    try {
+      const res = await fetch(`${base}/.well-known/oauth-authorization-server`);
+      assert.equal(res.status, 200);
+
+      const data = (await res.json()) as any;
+      assert.ok(data.issuer);
+      assert.ok(data.authorization_endpoint.endsWith("/oauth/authorize"));
+      assert.ok(data.token_endpoint.endsWith("/oauth/token"));
+      assert.ok(data.registration_endpoint.endsWith("/oauth/register"));
+      assert.deepEqual(data.response_types_supported, ["code"]);
+      assert.deepEqual(data.code_challenge_methods_supported, ["S256"]);
+      assert.ok(data.grant_types_supported.includes("authorization_code"));
+      assert.ok(data.grant_types_supported.includes("refresh_token"));
+      assert.equal(
+        data.logo_uri,
+        expectedDefaultLogoUri,
+        "logo_uri should default to the hosted Krix logo URL",
+      );
+
+      process.env.KRIX_OAUTH_LOGO_URI = "0";
+      const disabledRes = await fetch(
+        `${base}/.well-known/oauth-authorization-server`,
+      );
+      assert.equal(disabledRes.status, 200);
+      const disabledData = (await disabledRes.json()) as any;
+      assert.equal(
+        disabledData.logo_uri,
+        undefined,
+        "logo_uri should be omitted when KRIX_OAUTH_LOGO_URI is '0'",
+      );
+
+      process.env.KRIX_OAUTH_LOGO_URI = "https://example.com/custom-logo.png";
+      const customRes = await fetch(
+        `${base}/.well-known/oauth-authorization-server`,
+      );
+      assert.equal(customRes.status, 200);
+      const customData = (await customRes.json()) as any;
+      assert.equal(
+        customData.logo_uri,
+        "https://example.com/custom-logo.png",
+        "logo_uri should allow overriding with a custom https:// URL",
+      );
+
+      process.env.KRIX_OAUTH_LOGO_URI = "http://example.com/logo.png";
+      const insecureRes = await fetch(
+        `${base}/.well-known/oauth-authorization-server`,
+      );
+      assert.equal(insecureRes.status, 200);
+      const insecureData = (await insecureRes.json()) as any;
+      assert.equal(
+        insecureData.logo_uri,
+        expectedDefaultLogoUri,
+        "non-https KRIX_OAUTH_LOGO_URI should fall back to the default https:// logo_uri",
+      );
+    } finally {
+      if (prevLogoUri === undefined) {
+        delete process.env.KRIX_OAUTH_LOGO_URI;
+      } else {
+        process.env.KRIX_OAUTH_LOGO_URI = prevLogoUri;
+      }
+    }
   });
 
   test("RFC 7591: dynamic client registration registers an MCP client", async () => {
