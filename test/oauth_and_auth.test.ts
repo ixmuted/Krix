@@ -426,7 +426,7 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
       !html.includes("%40"),
       "Must not contain percent-encoded %40 in email",
     );
-    assert.ok(html.includes("/icon-48.png"), "Must display anime avatar icon");
+    assert.ok(html.includes("/icon-512.png"), "Must display the Krix avatar icon");
     assert.ok(!html.includes("..."), "Must not contain ellipsis in microcopy");
     const csp = getRes.headers.get("content-security-policy") || "";
     assert.ok(
