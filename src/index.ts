@@ -1733,6 +1733,7 @@ app.get("/api/settings", async (req, res) => {
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
+  const sandboxAllowed = isSandboxAllowedOnServer();
   res.send(
     renderApiKeySettingsPage({
       base,
@@ -1742,6 +1743,7 @@ app.get("/api/settings", async (req, res) => {
       toolsCatalog: summary.toolsCatalog,
       keySettings,
       apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
+      sandboxAllowed,
       credentialAvailability: {
         github: Boolean(
           getEffectiveCredential(effectiveKeyId, "github", keySettings),
@@ -1751,6 +1753,7 @@ app.get("/api/settings", async (req, res) => {
         ),
         workspaceGithub: Boolean(getWorkspaceCredential("github")),
         workspaceRender: Boolean(getWorkspaceCredential("render")),
+        sandboxEnabled: sandboxAllowed,
       },
     }),
   );
