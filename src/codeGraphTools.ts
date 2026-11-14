@@ -218,10 +218,10 @@ export const CODE_GRAPH_TOOLS_CATALOG: CodeGraphToolMeta[] = [
     readOnly: true,
   },
 
-  // 2. Web Search Tool (1 Tool) - Merged into Sandbox category
+  // 2. Web Search Tool (1 Tool)
   {
     name: "web_search",
-    category: "Sandbox",
+    category: "Search",
     description:
       "Performs a fast, secure web search for a given query, returning titles, snippets, and source URLs.",
     readOnly: true,

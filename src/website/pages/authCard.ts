@@ -50,12 +50,6 @@ export function renderAuthRequiredCard(
           ${renderGoogleLogoSvg(18)}
           <span>Sign in with Google</span>
         </a>
-
-        <!-- Security Clarification Footnote -->
-        <span style="font-size:11px; color:var(--geist-gray-50); display:flex; align-items:center; gap:5px;">
-          ${renderSvg("lock", 12)}
-          <span>Single-User Access Control</span>
-        </span>
       </div>
     </div>
   `;

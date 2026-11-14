@@ -113,6 +113,22 @@ export function renderStatsPage(params: {
     </div>
   `;
 
+  const initialChunk = (summary.dailyTimeline || []).slice(-10);
+  let initialRangeText = "Days 1–10";
+  if (initialChunk.length > 0) {
+    const firstDate = initialChunk[0].date;
+    const lastDate = initialChunk[initialChunk.length - 1].date;
+    if (firstDate && lastDate) {
+      const d1 = parseInt(firstDate.split("-")[2], 10);
+      const d2 = parseInt(lastDate.split("-")[2], 10);
+      initialRangeText = `Days ${d1}–${d2}`;
+    } else {
+      const total = (summary.dailyTimeline || []).length;
+      const startNum = Math.max(1, total - 9);
+      initialRangeText = `Days ${startNum}–${total}`;
+    }
+  }
+
   const content = `
     <!-- Top Header Deck -->
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; flex-wrap:wrap; gap:16px;">
@@ -196,7 +212,7 @@ export function renderStatsPage(params: {
             <button type="button" class="pager-btn pager-icon btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--fg); cursor:pointer; padding:0;">
               ${renderSvg("chevron-left", 14)}
             </button>
-            <span id="lblDailyChunkRange" style="font-size:11px; font-family:var(--font-mono); color:var(--fg); padding:0 4px; text-align:center;">Days 21–30</span>
+            <span id="lblDailyChunkRange" style="font-size:11px; font-family:var(--font-mono); color:var(--fg); padding:0 4px; text-align:center;">${initialRangeText}</span>
             <button type="button" class="pager-btn pager-icon btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--fg); cursor:pointer; padding:0;">
               ${renderSvg("chevron-right", 14)}
             </button>
@@ -379,7 +395,7 @@ export function renderStatsPage(params: {
           <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
           <span class="badge" style="font-size:11px;">${keys.length} keys</span>
         </div>
-        <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px;">
+        <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; width:260px; height:34px; min-height:34px; box-sizing:border-box;">
           ${renderSvg("search", 14, "text-muted")}
           <input type="text" id="statsKeySearchInput" class="statsKeySearchInput" placeholder="Filter keys" oninput="filterStatsKeys(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
         </div>
@@ -451,19 +467,26 @@ export function renderStatsPage(params: {
         ? 0
         : -Math.floor((fullDailyTimeline.length - 1 - firstCallIndex) / 10);
       let currentChunkOffset = 0;
+      let activeTimelineData = fullDailyTimeline;
 
       function updateTimelineView() {
-        const total = fullDailyTimeline.length;
+        const total = activeTimelineData.length;
         const end = Math.max(0, total + currentChunkOffset * 10);
         const start = Math.max(0, end - 10);
-        const chunkItems = fullDailyTimeline.slice(start, end);
+        const chunkItems = activeTimelineData.slice(start, end);
 
-        // Update range label (invariant: Days X–Y)
+        // Update range label (reflecting the real days displayed)
         const lbl = document.getElementById("lblDailyChunkRange");
         if (lbl) {
-          const startNum = start + 1;
-          const endNum = Math.min(total, start + (chunkItems.length || 10));
-          lbl.textContent = "Days " + startNum + "–" + endNum;
+          if (chunkItems.length > 0 && chunkItems[0].date && chunkItems[chunkItems.length - 1].date) {
+            const d1 = parseInt(chunkItems[0].date.split("-")[2], 10);
+            const d2 = parseInt(chunkItems[chunkItems.length - 1].date.split("-")[2], 10);
+            lbl.textContent = "Days " + d1 + "–" + d2;
+          } else {
+            const startNum = start + 1;
+            const endNum = Math.min(total, start + (chunkItems.length || 10));
+            lbl.textContent = "Days " + startNum + "–" + endNum;
+          }
         }
 
         // Render chart bars dynamically for the selected chunk
@@ -509,6 +532,19 @@ export function renderStatsPage(params: {
         currentChunkOffset = target;
         updateTimelineView();
       }
+
+      function renderTimelineChart() {
+        const yearSelect = document.getElementById("yearFilter");
+        const selectedYear = yearSelect ? yearSelect.value : "all";
+        if (selectedYear && selectedYear !== "all") {
+          activeTimelineData = fullDailyTimeline.filter(item => (item.date || "").startsWith(selectedYear));
+        } else {
+          activeTimelineData = fullDailyTimeline;
+        }
+        currentChunkOffset = 0;
+        updateTimelineView();
+      }
+      window.renderTimelineChart = renderTimelineChart;
 
       function filterStatsKeys(q) {
         const query = q.toLowerCase();

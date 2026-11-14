@@ -145,9 +145,9 @@ export function renderToolsPage(params: {
 
     <!-- Search & Category Filters (Contract Invariants: id="toolSearchInput" placeholder="", data-cat pills) -->
     <div class="card spotlight-card" style="padding:16px 20px; margin-bottom:24px; display:flex; flex-direction:column; gap:12px;">
-      <div style="display:flex; align-items:center; gap:10px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:8px 12px;">
+      <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:10px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; height:38px; min-height:38px; box-sizing:border-box;">
         ${renderSvg("search", 16, "text-muted")}
-        <input type="text" id="toolSearchInput" placeholder="" oninput="filterTools(this.value)" style="flex:1; font-size:13px; color:var(--fg);">
+        <input type="text" id="toolSearchInput" placeholder="" oninput="filterTools(this.value)" style="flex:1; font-size:13px; color:var(--fg); background:transparent; border:none; outline:none;">
       </div>
 
       <div class="category-filter-grid">

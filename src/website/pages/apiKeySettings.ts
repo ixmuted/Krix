@@ -470,7 +470,7 @@ export function renderApiKeySettingsPage(params: {
   `;
 
   return renderPageShell({
-    title: `Configure ${keyName} - Krix`,
+    title: keyName,
     activeTab: "api",
     content,
     owner: params.owner,

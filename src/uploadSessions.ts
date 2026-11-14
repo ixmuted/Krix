@@ -329,12 +329,12 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
           : {};
       const key = typeof body.apiKey === "string" ? body.apiKey : "";
 
-      const isOwner = Boolean(owner && isOwnerEmail(owner.email));
+      const isAuthedUser = Boolean(owner && owner.email);
       const apiKeyEntry = findAuthorizedApiKey(key);
       const isPrimaryKey = Boolean(key && safeEqual(key, opts.apiKey));
       const isKeyAuthorized = isAuthorizedApiKey(key) || isPrimaryKey;
 
-      if (!isOwner && !isKeyAuthorized) {
+      if (!isAuthedUser && !isKeyAuthorized) {
         if (!failedKeyLimiter.hit(ip, 0)) {
           res.setHeader(
             "Retry-After",

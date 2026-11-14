@@ -146,7 +146,7 @@ export function renderApiKeysPage(params: {
           <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Active API Keys</h2>
           <span class="badge ${keys.length > 0 ? "success" : ""}" id="keysCountBadge" style="font-family:var(--font-mono);">${keys.length} active</span>
         </div>
-        <div class="search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%; box-sizing:border-box;">
+        <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; width:260px; max-width:100%; height:34px; min-height:34px; box-sizing:border-box;">
           ${renderSvg("search", 14, "text-muted")}
           <input type="text" id="keySearchInput" placeholder="Search API keys" oninput="filterApiKeys(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
         </div>
@@ -226,7 +226,7 @@ export function renderApiKeysPage(params: {
           <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Applications granted access to your MCP instance</p>
         </div>
 
-        <div class="search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%; box-sizing:border-box;">
+        <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; width:260px; max-width:100%; height:34px; min-height:34px; box-sizing:border-box;">
           ${renderSvg("search", 14, "text-muted")}
           <input type="text" id="oauthSearchInput" class="filterOAuth" placeholder="Filter applications" oninput="filterOAuthClients(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
         </div>

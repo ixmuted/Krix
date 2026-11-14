@@ -573,17 +573,17 @@ th:has(.krix-dropdown),
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  height: 30px;
-  line-height: 28px;
-  padding: 0 28px 0 12px;
+  height: 34px;
+  line-height: 32px;
+  padding: 0 28px 0 14px;
   font-size: 12px;
   font-weight: 500;
   color: var(--fg);
   background-color: var(--bg-surface-1);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 9px center;
-  border: 1px solid var(--border-subtle);
+  background-position: right 11px center;
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-full);
   outline: none;
   cursor: pointer;
@@ -729,21 +729,21 @@ th:has(.krix-dropdown),
   width: 100%;
   height: 34px;
   min-height: 34px;
-  padding: 0 8px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full) !important;
+  border: 1px solid var(--border-medium);
   background: var(--bg-surface-1);
   color: var(--geist-gray-50);
   cursor: pointer;
   user-select: none;
   box-sizing: border-box;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -752,14 +752,15 @@ th:has(.krix-dropdown),
 .category-filter-pill:hover {
   background: var(--bg-surface-2);
   color: var(--fg);
-  border-color: var(--border-medium);
+  border-color: var(--border-strong);
 }
 
 .category-filter-pill.active {
   background: var(--bg-surface-2);
   color: var(--fg);
-  border-color: var(--border-medium);
+  border-color: var(--border-strong);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 @media (max-width: 768px) {
@@ -1137,8 +1138,6 @@ th:has(.krix-dropdown),
   border-color: var(--border-subtle);
 }
 
-.nav-pill,
-.nav-pill.active,
 .tool-cat-pill,
 .settings-cat-pill {
   border-radius: 6px !important;
@@ -1195,9 +1194,45 @@ th:has(.krix-dropdown),
   -webkit-overflow-scrolling: touch;
 }
 .oauth-app-favicon { display:block; width:100%; height:100%; object-fit:contain; }
-.density-toggle { border-radius:6px !important; }
+.density-toggle {
+  border-radius: var(--radius-full) !important;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-medium);
+  height: 34px;
+  box-sizing: border-box;
+}
 .density-toggle .nav-pill,
-.density-toggle .nav-pill.active { border-radius:4px !important; }
+.density-toggle .nav-pill.active {
+  border-radius: var(--radius-full) !important;
+}
+
+/* Pill Search Bar Style */
+.krix-pill-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 16px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full) !important;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.krix-pill-search:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.2);
+}
+.krix-pill-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+  font-size: 12.5px;
+  font-family: inherit;
+}
 
 @media (max-width: 768px) {
   .oauth-clients-scroll .oauth-client-row { min-width:0; flex:0 0 auto; width:100%; }

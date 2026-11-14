@@ -20,7 +20,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
       nonce,
       content: renderAuthRequiredCard(
         "Upload",
-        "You must sign in as the verified service owner or authenticate with your MCP API key to access the Upload page.",
+        "You must sign in with Google or authenticate with your MCP API key to access the Upload page.",
         "/upload",
       ),
     });
@@ -135,7 +135,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           </div>
 
           <!-- Search Input (Contract Invariant: Search files) -->
-          <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:8px 12px; margin-bottom:14px;">
+          <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; height:38px; min-height:38px; margin-bottom:14px; box-sizing:border-box;">
             ${renderSvg("search", 15, "text-muted")}
             <input
               type="text"

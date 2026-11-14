@@ -133,18 +133,18 @@ export function renderStorePage(params: {
           <span class="badge" id="fileCountBadge">${files.length} items</span>
         </div>
 
-        <div style="display:flex; align-items:center; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <!-- List vs Grid View Toggle (Pure SVGs, No words) -->
-          <div class="store-view-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px; gap:2px;">
-            <button type="button" id="viewListBtn" class="nav-pill active" onclick="setStoreView('list')" title="List View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
+          <div class="store-view-toggle" style="display:inline-flex; align-items:center; justify-content:center; height:34px; min-height:34px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:3px; gap:2px; box-sizing:border-box;">
+            <button type="button" id="viewListBtn" class="nav-pill active" onclick="setStoreView('list')" title="List View" style="padding:4px 10px; height:26px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
               ${renderSvg("rows", 14)}
             </button>
-            <button type="button" id="viewGridBtn" class="nav-pill" onclick="setStoreView('grid')" title="Grid View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
+            <button type="button" id="viewGridBtn" class="nav-pill" onclick="setStoreView('grid')" title="Grid View" style="padding:4px 10px; height:26px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
               ${renderSvg("grid", 14)}
             </button>
           </div>
 
-          <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 12px; min-width:0; flex:1 1 240px; max-width:100%;">
+          <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 14px; height:34px; min-height:34px; min-width:0; flex:1 1 240px; max-width:100%; box-sizing:border-box;">
             ${renderSvg("search", 14, "text-muted")}
             <input
               type="text"

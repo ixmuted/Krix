@@ -2609,10 +2609,14 @@ app.get("/settings/api/data", async (req, res) => {
     return;
   }
   const isOwner = isOwnerEmail(owner.email);
+  const userKeys = listDynamicKeys(owner.email);
+  const defaultKeyId = isOwner ? "primary-key" : userKeys[0]?.id || "no-keys";
   const keyId =
-    typeof req.query.key === "string" ? req.query.key.trim() : "primary-key";
+    typeof req.query.key === "string" && req.query.key.trim()
+      ? req.query.key.trim()
+      : defaultKeyId;
 
-  if (!userOwnsKey(owner.email, keyId)) {
+  if (keyId !== "no-keys" && !userOwnsKey(owner.email, keyId)) {
     res.status(403).json({ ok: false, error: "Forbidden." });
     return;
   }
