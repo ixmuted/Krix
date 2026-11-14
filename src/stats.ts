@@ -200,6 +200,9 @@ export class StatsTracker {
   private mongoDb: Db | null = null;
   private mongoConnected = false;
   private mongoInitPromise: Promise<void> | null = null;
+  // True only after the stored stats document was read. Nothing may be written to MongoDB
+  // before that, or a fresh in-memory state could overwrite the saved statistics.
+  private mongoLoaded = false;
 
   constructor(customPath?: string) {
     if (customPath) {
@@ -263,9 +266,9 @@ export class StatsTracker {
       const dbName =
         process.env.MONGODB_DB_NAME || process.env.MONGODB_DB || "krix";
       this.mongoDb = this.mongoClient.db(dbName);
-      this.mongoConnected = true;
       fileShareRegistry.setMongoDb(this.mongoDb);
       await this.loadFromMongo();
+      this.mongoConnected = true;
     } catch (error: any) {
       this.mongoConnected = false;
       this.mongoDb = null;
@@ -1827,7 +1830,19 @@ export class StatsTracker {
         );
       }
 
-      if (this.mongoConnected && this.mongoDb) {
+      const mongoConfigured = Boolean(
+        process.env.MONGODB_URI ||
+          process.env.MONGO_URL ||
+          process.env.DATABASE_URL ||
+          getMongoDb(),
+      );
+      // Retry the connection/restore here so a MongoDB that was down at boot is picked up
+      // later instead of failing every save until shutdown.
+      if (mongoConfigured && !(this.mongoConnected && this.mongoLoaded)) {
+        await this.ensureMongo().catch(() => {});
+      }
+
+      if (this.mongoConnected && this.mongoDb && this.mongoLoaded) {
         await this.mongoDb
           .collection("krix_stats")
           .updateOne(
@@ -1835,11 +1850,7 @@ export class StatsTracker {
             { $set: data },
             { upsert: true },
           );
-      } else if (
-        process.env.MONGODB_URI ||
-        process.env.MONGO_URL ||
-        process.env.DATABASE_URL
-      ) {
+      } else if (mongoConfigured) {
         throw new Error(
           "MongoDB is configured but unavailable; statistics were only written to local fallback.",
         );
@@ -1938,6 +1949,7 @@ export class StatsTracker {
           { $set: this.snapshot() },
           { upsert: true },
         );
+        this.mongoLoaded = true;
         return;
       }
       if (doc) {
@@ -1967,6 +1979,7 @@ export class StatsTracker {
           this.hourlyCounts = doc.hourlyCounts;
         if (doc.dayOfWeekCounts) this.dayOfWeekCounts = doc.dayOfWeekCounts;
         this.purgeProtocolAndLegacyKeys();
+        this.mongoLoaded = true;
       }
     } catch (error: any) {
       console.error("[stats] MongoDB restore failed:", error?.message || error);
