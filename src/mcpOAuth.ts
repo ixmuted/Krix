@@ -703,10 +703,26 @@ export function createMcpOAuthRouter(): Router {
   // ---------------------------------------------------------------------------
   // RFC 8414: Authorization Server Metadata
   // ---------------------------------------------------------------------------
+  const DEFAULT_OAUTH_LOGO_URI =
+    "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgXnD-oa2Sq5fyenIpK-LsUIGB0zAfg7anir5-GoJUS2_zzUd5c2URXkTuVzYFmk6pGl0oj5tt-c6pFISZ6obq1eLdhaKAF_tZnFC0LD4Fv2amf6gVWxxI88EYQm9bO3A199-HnYoSI5_GCJvwwNbVr-IWhB3lzmpwTsr1RO9HJGDNZAbxuS_Lss4YBPJs/s512/logo.png";
+
+  const resolveOAuthLogoUri = (): string | undefined => {
+    const raw = (process.env.KRIX_OAUTH_LOGO_URI || "").trim();
+    if (raw === "0") return undefined;
+    if (raw.startsWith("https://")) {
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol === "https:") return raw;
+      } catch {}
+    }
+    return DEFAULT_OAUTH_LOGO_URI;
+  };
+
   router.get(
     "/.well-known/oauth-authorization-server",
     (req: Request, res: Response): void => {
       const base = getPublicBaseUrl(req);
+      const logoUri = resolveOAuthLogoUri();
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -717,11 +733,7 @@ export function createMcpOAuthRouter(): Router {
         registration_endpoint: `${base}/oauth/register`,
         revocation_endpoint: `${base}/oauth/revoke`,
         jwks_uri: `${base}/.well-known/jwks.json`,
-        // Omit logo_uri by default: RFC 8414 requires an https:// URL if present,
-        // while gemini.google.com's img-src CSP blocks external image hosts.
-        ...(process.env.KRIX_OAUTH_LOGO_URI === "1"
-          ? { logo_uri: `${base}/logo.png` }
-          : {}),
+        ...(logoUri ? { logo_uri: logoUri } : {}),
         service_documentation: `${base}`,
         client_name: "Krix",
         client_uri: `${base}`,
