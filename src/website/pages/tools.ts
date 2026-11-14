@@ -214,9 +214,9 @@ export function renderToolsPage(params: {
     <div id="toolsPagination" class="permission-pagination" style="display:flex; justify-content:space-between; align-items:center; padding:16px 4px 0; border-top:1px solid var(--border-subtle); margin:16px 0 28px; font-size:12px; color:var(--geist-gray-50); flex-wrap:wrap; gap:10px;">
       <div id="toolsPageInfo">Showing 1-${Math.min(tools.length, 10)} of ${tools.length} tools</div>
       <div style="display:flex; align-items:center; gap:6px;">
-        <button type="button" class="btn ghost" id="toolsPrevPage" onclick="changeToolsPage(-1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">&larr; Previous</button>
+        <button type="button" class="pager-btn pager-prev" id="toolsPrevPage" onclick="changeToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button>
         <span id="toolsPageIndicator" style="font-family:var(--font-mono); font-size:11px; padding:0 6px;">1 / 1</span>
-        <button type="button" class="btn ghost" id="toolsNextPage" onclick="changeToolsPage(1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">Next &rarr;</button>
+        <button type="button" class="pager-btn pager-next" id="toolsNextPage" onclick="changeToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button>
       </div>
     </div>
 

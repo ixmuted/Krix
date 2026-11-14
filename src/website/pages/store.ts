@@ -13,6 +13,28 @@ import {
 import { renderAuthRequiredCard } from "./authCard.js";
 import { renderSvg } from "../icons.js";
 
+const FILE_TYPES: Array<[RegExp, string, string]> = [
+  [/\.(png|jpe?g|gif|webp|svg|bmp|ico|avif|heic)$/i, "file-image", "#a78bfa"],
+  [/\.(zip|tar|gz|tgz|bz2|xz|7z|rar)$/i, "file-archive", "#f0b429"],
+  [/\.(csv|tsv|xlsx?|parquet|ods)$/i, "file-sheet", "#34c38f"],
+  [/\.(mp3|wav|flac|ogg|m4a|aac)$/i, "file-audio", "#f472b6"],
+  [/\.(mp4|mov|mkv|webm|avi)$/i, "file-video", "#fb7185"],
+  [/\.(pdf)$/i, "file-text", "#ef6b5f"],
+  [/\.(js|jsx|ts|tsx|py|rb|go|rs|java|c|h|cpp|cs|php|sh|sql|json|ya?ml|toml|html|css|md|xml|ipynb)$/i, "file-code", "#5b8def"],
+];
+
+/** A tinted tile with an icon that matches the file type (by extension). */
+function fileTile(name: string, tile: number, icon: number): string {
+  const hit = FILE_TYPES.find(([re]) => re.test(name));
+  const iconName = hit ? hit[1] : "file-text";
+  const hue = hit ? hit[2] : "#94a3b8";
+  return `<span style="display:inline-flex; align-items:center; justify-content:center; width:${tile}px; height:${tile}px; flex:0 0 ${tile}px; border-radius:${Math.round(tile / 3.2)}px; color:${hue}; background:color-mix(in srgb, ${hue} 14%, transparent); border:1px solid color-mix(in srgb, ${hue} 28%, transparent);">${renderSvg(iconName, icon)}</span>`;
+}
+
+function statIconTile(iconName: string): string {
+  return `<span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:9px; color:var(--fg); background:var(--bg-surface-2); border:1px solid var(--border-subtle);">${renderSvg(iconName, 16)}</span>`;
+}
+
 export function renderStorePage(params: {
   base: string;
   isOwner?: boolean;
@@ -75,25 +97,25 @@ export function renderStorePage(params: {
     <!-- Storage Telemetry Metrics Cards -->
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:16px; margin-bottom:24px;">
       <div class="card spotlight-card card-top-border" style="padding:18px 20px;">
-        <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Total Stored Files</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Total Stored Files</div>${statIconTile("folder")}</div>
         <div id="valTotalFiles" style="font-size:22px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${totalFiles}</div>
         <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">Registered repository objects</div>
       </div>
 
       <div class="card spotlight-card card-top-border" style="padding:18px 20px;">
-        <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Storage Used</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Storage Used</div>${statIconTile("database")}</div>
         <div id="valTotalBytes" style="font-size:22px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${formatBytes(totalBytes)}</div>
         <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">Current storage consumed</div>
       </div>
 
       <div class="card spotlight-card card-top-border" style="padding:18px 20px;">
-        <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Permanent Files</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Permanent Files</div>${statIconTile("shield-check")}</div>
         <div id="valPermanentFiles" style="font-size:22px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${permanentCount}</div>
         <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">Protected from auto-cleanup</div>
       </div>
 
       <div class="card spotlight-card card-top-border" style="padding:18px 20px;">
-        <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Expiring Files</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Expiring Files</div>${statIconTile("clock")}</div>
         <div id="valExpiringFiles" style="font-size:22px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${expiringCount}</div>
         <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">24h ephemeral lifecycle</div>
       </div>
@@ -111,7 +133,7 @@ export function renderStorePage(params: {
           <!-- List vs Grid View Toggle (Pure SVGs, No words) -->
           <div class="store-view-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px; gap:2px;">
             <button type="button" id="viewListBtn" class="nav-pill active" onclick="setStoreView('list')" title="List View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
-              ${renderSvg("list", 14)}
+              ${renderSvg("rows", 14)}
             </button>
             <button type="button" id="viewGridBtn" class="nav-pill" onclick="setStoreView('grid')" title="Grid View" style="padding:5px 9px; font-size:11px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center;">
               ${renderSvg("grid", 14)}
@@ -210,7 +232,7 @@ export function renderStorePage(params: {
                   <tr class="store-row" data-name="${fName.toLowerCase()}" style="border-bottom:1px solid var(--border-subtle);">
                     <td style="padding:12px;">
                       <div style="display:flex; align-items:center; gap:8px;">
-                        ${renderSvg("file-text", 16, "text-muted")}
+                        ${fileTile(fName, 30, 16)}
                         <span style="font-weight:600; font-family:var(--font-mono); color:var(--fg);">${fName}</span>
                       </div>
                     </td>
@@ -316,9 +338,7 @@ export function renderStorePage(params: {
               <div class="store-grid-card card spotlight-card" data-name="${fName.toLowerCase()}" style="padding:16px; display:flex; flex-direction:column; gap:10px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
-                    <div style="width:32px; height:32px; border-radius:6px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; color:var(--fg); flex-shrink:0;">
-                      ${renderSvg("file-text", 16)}
-                    </div>
+                    ${fileTile(fName, 34, 17)}
                     <div style="font-weight:600; font-family:var(--font-mono); font-size:13px; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${fName}">${fName}</div>
                   </div>
                   ${renderKebabMenu(kebabItems, gridMenuId)}
@@ -337,9 +357,9 @@ export function renderStorePage(params: {
       <div id="storePagination" style="display:flex; justify-content:space-between; align-items:center; padding:16px 4px 0; border-top:1px solid var(--border-subtle); margin-top:16px; font-size:12px; color:var(--geist-gray-50); flex-wrap:wrap; gap:10px;">
         <div id="pageInfo">Showing 1-${Math.min(files.length, 10)} of ${files.length} items</div>
         <div style="display:flex; align-items:center; gap:6px;">
-          <button type="button" class="btn ghost" id="prevPageBtn" onclick="changeStorePage(-1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">&larr; Previous</button>
+          <button type="button" class="pager-btn pager-prev" id="prevPageBtn" onclick="changeStorePage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button>
           <span id="pageIndicator" style="font-family:var(--font-mono); font-size:11px; padding:0 6px;">1</span>
-          <button type="button" class="btn ghost" id="nextPageBtn" onclick="changeStorePage(1)" style="font-size:12px; padding:4px 10px; border-radius:var(--radius-sm);">Next &rarr;</button>
+          <button type="button" class="pager-btn pager-next" id="nextPageBtn" onclick="changeStorePage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button>
         </div>
       </div>
     </div>

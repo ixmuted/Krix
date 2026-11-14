@@ -231,8 +231,8 @@ export function renderSettingsPage(params: {
       </div>
       <div class="permission-pagination" style="display:flex; align-items:center; gap:10px; margin-top:14px;">
         <span id="settingsToolsPageInfo" style="font-size:12px; color:var(--geist-gray-50); margin-right:auto;">Page 1 of 1</span>
-        <button type="button" id="settingsToolsPrev" class="btn ghost" onclick="changeSettingsToolsPage(-1)" style="height:34px; min-width:92px; border-radius:6px;">Previous</button>
-        <button type="button" id="settingsToolsNext" class="btn ghost" onclick="changeSettingsToolsPage(1)" style="height:34px; min-width:92px; border-radius:6px;">Next</button>
+        <button type="button" id="settingsToolsPrev" class="pager-btn pager-prev" onclick="changeSettingsToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button>
+        <button type="button" id="settingsToolsNext" class="pager-btn pager-next" onclick="changeSettingsToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button>
       </div>
     </div>
 

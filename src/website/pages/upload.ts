@@ -106,9 +106,9 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           </div>
 
           <!-- Drag & Drop Zone (Contract Invariants: drop-zone class and exact text) -->
-          <div class="drop-zone" id="drop" tabindex="0" role="button" aria-label="Drop files to upload" onclick="document.getElementById('picker').click()" style="border:2px dashed var(--border-medium); border-radius:var(--radius-md); padding:36px 20px; text-align:center; background:var(--bg-surface-1); cursor:pointer; transition:all 0.2s ease;">
-            <div style="margin-bottom:12px; display:flex; justify-content:center; color:var(--fg);">
-              ${renderSvg("upload", 32)}
+          <div class="drop-zone" id="drop" tabindex="0" role="button" aria-label="Drop files to upload" style="border:2px dashed var(--border-medium); border-radius:var(--radius-md); padding:36px 20px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;">
+            <div style="width:56px; height:56px; margin:0 auto 14px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--bg-surface-2); border:1px solid var(--border-subtle); color:var(--fg);">
+              ${renderSvg("upload", 26)}
             </div>
             <div style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:4px;">
               Drag and drop files here, or click to browse
@@ -116,8 +116,12 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
             <div style="font-size:12px; color:var(--geist-gray-50);">
               Up to ${maxFiles} files &middot; ${maxFileMb} MB each &middot; ${maxTotalMb} MB total
             </div>
+            <button type="button" id="browseBtn" class="btn" style="margin-top:16px; border-radius:var(--radius-full); gap:6px;">
+              ${renderSvg("upload", 14)}
+              <span>Choose files</span>
+            </button>
           </div>
-          <input id="picker" type="file" multiple hidden onchange="handleFileSelect(this.files)">
+          <input id="picker" type="file" multiple hidden>
         </div>
 
         <!-- Right: Uploaded Files Manager Card -->
@@ -138,7 +142,6 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
               id="fileFilter"
               class="search-input"
               placeholder="Search files"
-              oninput="renderFileList()"
               style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;"
             >
           </div>
@@ -146,9 +149,13 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           <!-- Files List -->
           <ul id="list" style="list-style:none; padding:0; margin:0; max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></ul>
           <div id="emptyFilesMsg" style="text-align:center; padding:32px 16px; color:var(--geist-gray-50); font-size:13px;">
-            No files uploaded in this session yet. Drag and drop above to begin.
+            No files yet. Drop files on the left or choose them to begin.
           </div>
 
+          <a href="/store" id="viewStoreLink" class="btn" style="display:none; margin-top:12px; border-radius:var(--radius-full); gap:6px;">
+            ${renderSvg("folder", 14)}
+            <span>View in Store</span>
+          </a>
           <div class="err" id="upErr" role="alert" style="color:var(--error); font-size:12px; margin-top:8px;"></div>
         </div>
       </div>
@@ -163,60 +170,212 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         <h3 id="modalTitle" style="font-size:16px; font-weight:700; margin-bottom:8px; color:var(--fg);">Confirm Action</h3>
         <p id="modalDesc" style="font-size:13px; color:var(--geist-gray-50); margin-bottom:20px; line-height:1.5;"></p>
         <div style="display:flex; justify-content:flex-end; gap:10px;">
-          <button type="button" class="btn" onclick="closeConfirmModal()">Cancel</button>
+          <button type="button" class="btn" id="modalCancelBtn">Cancel</button>
           <button type="button" id="modalConfirmBtn" class="btn" style="background:var(--error); color:#fff; border-color:var(--error);">Delete</button>
         </div>
       </div>
     </div>
 
+    <style ${nonceAttr}>
+      .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent) !important; background: var(--bg-surface-1); }
+      .up-row { border:1px solid var(--border-subtle); background:var(--bg-surface-1); border-radius:var(--radius-md); padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+      .up-row-top { display:flex; justify-content:space-between; align-items:center; gap:10px; min-width:0; }
+      .up-name { font-size:13px; font-weight:600; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+      .up-meta { font-size:11px; color:var(--geist-gray-50); white-space:nowrap; }
+      .up-bar { height:4px; border-radius:999px; background:var(--bg-surface-2); overflow:hidden; }
+      .up-bar > span { display:block; height:100%; width:0; background:var(--accent); transition:width .15s linear; }
+      .up-row.done .up-bar > span { background:var(--success, #2ea043); }
+      .up-row.error .up-bar > span { background:var(--error); }
+      .up-row.error .up-meta { color:var(--error); }
+    </style>
     <script ${nonceAttr}>
-      function closeConfirmModal() {
-        const m = document.getElementById('confirmModal');
-        if (m) {
-          m.hidden = true;
-          m.style.display = 'none';
+      (function () {
+        var MAX_FILES = ${maxFiles};
+        var MAX_FILE_BYTES = ${maxFileMb} * 1024 * 1024;
+        var drop = document.getElementById('drop');
+        var picker = document.getElementById('picker');
+        var browseBtn = document.getElementById('browseBtn');
+        var list = document.getElementById('list');
+        var emptyMsg = document.getElementById('emptyFilesMsg');
+        var errBox = document.getElementById('upErr');
+        var storeLink = document.getElementById('viewStoreLink');
+        var token = null;
+        var uploading = false;
+        var count = 0;
+        var bytes = 0;
+
+        function toast(msg, type) { if (window.showToast) window.showToast(msg, type); }
+        function fmt(n) {
+          if (n < 1024) return n + ' B';
+          if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+          return (n / 1048576).toFixed(1) + ' MB';
         }
-      }
+        function updateSummary() {
+          var label = count + (count === 1 ? ' file' : ' files');
+          var el;
+          el = document.getElementById('valUploadCount'); if (el) el.textContent = label;
+          el = document.getElementById('valUploadSub'); if (el) el.textContent = fmt(bytes) + ' in sandbox';
+          el = document.getElementById('filesCountBadge'); if (el) el.textContent = label;
+          if (emptyMsg) emptyMsg.style.display = list.children.length ? 'none' : '';
+          if (storeLink) storeLink.style.display = count ? 'inline-flex' : 'none';
+        }
+        function makeRow(name, size) {
+          var li = document.createElement('li');
+          li.className = 'up-row';
+          var top = document.createElement('div'); top.className = 'up-row-top';
+          var n = document.createElement('span'); n.className = 'up-name'; n.textContent = name; n.title = name;
+          var m = document.createElement('span'); m.className = 'up-meta'; m.textContent = fmt(size) + ' - waiting';
+          top.appendChild(n); top.appendChild(m);
+          var bar = document.createElement('div'); bar.className = 'up-bar';
+          var fill = document.createElement('span'); bar.appendChild(fill);
+          li.appendChild(top); li.appendChild(bar);
+          list.insertBefore(li, list.firstChild);
+          return { li: li, meta: m, fill: fill };
+        }
+        function setRow(row, state, text, pct) {
+          row.li.className = 'up-row ' + state;
+          row.meta.textContent = text;
+          if (typeof pct === 'number') row.fill.style.width = pct + '%';
+        }
 
-      async function handleFileSelect(files) {
-        if (!files || files.length === 0) return;
-        const keep = document.getElementById('permSave')?.checked;
-        const total = files.length;
-
-        for (let i = 0; i < total; i++) {
-          const file = files[i];
-          if (window.showToast) {
-            window.showToast('Uploading ' + (i + 1) + ' of ' + total + ': ' + file.name, 'info');
-          }
-          const formData = new FormData();
-          formData.append('files', file);
-          if (keep) formData.append('keep', 'true');
-
-          try {
-            const res = await fetch('/upload', {
-              method: 'POST',
-              body: formData
+        function openSession() {
+          return fetch('/upload/api/session', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (d) {
+              if (!r.ok) throw new Error(d.error || 'Could not open an upload session (HTTP ' + r.status + ')');
+              token = d.token;
+              return d;
             });
-            if (!res.ok) {
-              if (window.showToast) window.showToast('Upload failed for ' + file.name, 'error');
-              return;
+          });
+        }
+
+        function sendFile(file, row, keep) {
+          return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload/api/files');
+            xhr.setRequestHeader('x-upload-token', token);
+            xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+            xhr.setRequestHeader('x-permanent', keep ? 'true' : 'false');
+            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+            xhr.upload.onprogress = function (e) {
+              if (e.lengthComputable) setRow(row, '', fmt(file.size) + ' - ' + Math.round(e.loaded / e.total * 100) + '%', e.loaded / e.total * 100);
+            };
+            xhr.onerror = function () { reject(new Error('Network error')); };
+            xhr.onload = function () {
+              var data = {};
+              try { data = JSON.parse(xhr.responseText || '{}'); } catch (e) {}
+              if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+              else { var err = new Error(data.error || ('Upload failed (HTTP ' + xhr.status + ')')); err.status = xhr.status; reject(err); }
+            };
+            xhr.send(file);
+          });
+        }
+
+        async function uploadOne(file, row, keep) {
+          if (file.size === 0) { setRow(row, 'error', 'Empty file', 100); return false; }
+          if (file.size > MAX_FILE_BYTES) { setRow(row, 'error', 'Larger than ' + fmt(MAX_FILE_BYTES), 100); return false; }
+          try {
+            if (!token) await openSession();
+            var data;
+            try { data = await sendFile(file, row, keep); }
+            catch (e) {
+              if (e.status === 401) { await openSession(); data = await sendFile(file, row, keep); }
+              else throw e;
             }
-          } catch (err) {
-            if (window.showToast) window.showToast('Upload failed: ' + err.message, 'error');
-            return;
+            setRow(row, 'done', fmt(file.size) + ' - uploaded' + (keep ? ' - kept' : ''), 100);
+            count += 1; bytes += file.size;
+            return true;
+          } catch (e) {
+            setRow(row, 'error', e.message || 'Upload failed', 100);
+            if (errBox) errBox.textContent = e.message || 'Upload failed';
+            return false;
           }
         }
 
-        if (window.showToast) window.showToast('All ' + total + ' file(s) uploaded successfully', 'success');
-        setTimeout(() => { window.location.href = '/store'; }, 800);
-      }
+        async function handleFiles(fileList) {
+          var files = Array.prototype.slice.call(fileList || []);
+          if (!files.length) return;
+          if (uploading) { toast('An upload is already running. Wait for it to finish.', 'info'); return; }
+          if (errBox) errBox.textContent = '';
+          uploading = true;
+          drop.style.opacity = '.7';
+          var keepEl = document.getElementById('permSave');
+          var keep = Boolean(keepEl && keepEl.checked);
+          var rows = files.map(function (f) { return makeRow(f.name, f.size); });
+          updateSummary();
+          var ok = 0;
+          for (var i = 0; i < files.length; i++) {
+            if (await uploadOne(files[i], rows[i], keep)) ok += 1;
+            updateSummary();
+          }
+          uploading = false;
+          drop.style.opacity = '';
+          if (ok === files.length) toast(ok + (ok === 1 ? ' file uploaded' : ' files uploaded'), 'success');
+          else if (ok > 0) toast(ok + ' of ' + files.length + ' files uploaded', 'info');
+          else toast('Upload failed', 'error');
+        }
 
-      function renderFileList() {
-        const q = (document.getElementById('fileFilter')?.value || '').toLowerCase();
-        document.querySelectorAll('#list li').forEach(item => {
-          item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+        drop.addEventListener('click', function (e) {
+          if (e.target.closest && e.target.closest('#browseBtn')) return;
+          picker.click();
         });
-      }
+        browseBtn.addEventListener('click', function (e) { e.stopPropagation(); picker.click(); });
+        drop.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }
+        });
+        ['dragenter', 'dragover'].forEach(function (t) {
+          drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('dragover'); });
+        });
+        ['dragleave', 'dragend'].forEach(function (t) {
+          drop.addEventListener(t, function () { drop.classList.remove('dragover'); });
+        });
+        drop.addEventListener('drop', function (e) {
+          e.preventDefault();
+          drop.classList.remove('dragover');
+          handleFiles(e.dataTransfer && e.dataTransfer.files);
+        });
+        picker.addEventListener('change', function () {
+          var chosen = Array.prototype.slice.call(picker.files || []);
+          picker.value = '';
+          handleFiles(chosen);
+        });
+
+        var filter = document.getElementById('fileFilter');
+        if (filter) filter.addEventListener('input', function () {
+          var q = filter.value.toLowerCase();
+          Array.prototype.forEach.call(list.children, function (li) {
+            li.style.display = li.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+          });
+        });
+
+        var cancel = document.getElementById('modalCancelBtn');
+        if (cancel) cancel.addEventListener('click', function () {
+          var m = document.getElementById('confirmModal');
+          if (m) { m.hidden = true; m.style.display = 'none'; }
+        });
+
+        // Show files already in the upload folder (opens a session; failure is not fatal).
+        openSession().then(function (d) {
+          (d.files || []).forEach(function (f) {
+            var row = makeRow(f.name, f.size);
+            setRow(row, 'done', fmt(f.size) + (f.permanent ? ' - kept' : ''), 100);
+            count += 1; bytes += f.size;
+          });
+          updateSummary();
+        }).catch(function (e) {
+          if (errBox) errBox.textContent = e.message || '';
+        });
+
+        window.addEventListener('pagehide', function () {
+          if (token && navigator.sendBeacon) {
+            navigator.sendBeacon('/upload/api/end', new Blob([JSON.stringify({ token: token })], { type: 'application/json' }));
+          }
+        });
+      })();
     </script>
   `;
 

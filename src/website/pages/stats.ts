@@ -197,11 +197,11 @@ export function renderStatsPage(params: {
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <!-- 10-Day Desktop Chunk Slider (Contract Invariants: dailyChunkNav, btnPrevDailyChunk, btnNextDailyChunk) -->
           <div id="dailyChunkNav" class="dailyChunkNav" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px 8px; gap:4px;">
-            <button type="button" class="btn ghost btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)" style="padding:4px;">
+            <button type="button" class="pager-btn pager-icon btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)">
               ${renderSvg("chevron-left", 14)}
             </button>
             <span id="lblDailyChunkRange" style="font-size:11px; font-family:var(--font-mono); color:var(--fg); padding:0 4px;">Days 21–30</span>
-            <button type="button" class="btn ghost btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)" style="padding:4px;">
+            <button type="button" class="pager-btn pager-icon btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)">
               ${renderSvg("chevron-right", 14)}
             </button>
           </div>

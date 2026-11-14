@@ -106,8 +106,6 @@ export function renderApiKeySettingsPage(params: {
       .key-tool-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:6px;background:var(--bg-surface-1);border:1px solid var(--border-subtle)}
       .key-tool-row[hidden]{display:none!important}
       .key-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px}
-      .key-pagination button{min-width:86px;border:1px solid var(--border-subtle);background:var(--bg-surface-1);color:var(--fg);padding:7px 10px;border-radius:6px}
-      .key-pagination button:disabled{opacity:.35;cursor:not-allowed}
       @media(max-width:900px){.key-metadata-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.key-metadata-grid>div:first-child{grid-column:span 2}}
       @media(max-width:540px){.key-metadata-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.key-meta-value{font-size:12px}.key-identity-grid{grid-template-columns:minmax(0,1fr)!important}.key-settings-card{padding:16px!important}.key-tool-row{padding:9px 10px}}
     </style>
@@ -162,7 +160,7 @@ export function renderApiKeySettingsPage(params: {
           </div>`;
         }).join("") : `<div style="text-align:center;padding:28px;color:var(--geist-gray-50);font-size:12px;">No tools available.</div>`}
       </div>
-      <div class="key-pagination"><button type="button" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)">Previous</button><span id="keyToolsPageInfo" style="font-size:11px;color:var(--geist-gray-50);">Page 1 of 1</span><button type="button" id="keyToolsNext" onclick="changeKeyToolsPage(1)">Next</button></div>
+      <div class="key-pagination"><button type="button" class="pager-btn pager-prev" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button><span id="keyToolsPageInfo" style="font-size:11px;color:var(--geist-gray-50);">Page 1 of 1</span><button type="button" class="pager-btn pager-next" id="keyToolsNext" onclick="changeKeyToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button></div>
     </section>
 
     <script>
