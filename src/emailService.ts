@@ -7,7 +7,7 @@
  *
  * Automatically sends notifications for:
  * - Account creation (first sign-in)
- * - Account deletion
+ * - Account deletion (30-day asynchronous grace period)
  * - New logged-in IP detection
  * - OAuth client authorization / setup
  */
@@ -43,9 +43,24 @@ export interface SendResult {
   skipped?: boolean;
 }
 
+export interface SendAccountDeletedParams {
+  email: string;
+  name?: string;
+  ip?: string;
+  userAgent?: string;
+  deletionDeadline?: number;
+  gracePeriodDays?: number;
+}
+
 // ---------------------------------------------------------------------------
-// Configuration
+// Configuration & Brand Assets
 // ---------------------------------------------------------------------------
+
+export const KRIX_LOGO_URL =
+  process.env.PUBLIC_BASE_URL &&
+  !process.env.PUBLIC_BASE_URL.includes("example.com")
+    ? `${process.env.PUBLIC_BASE_URL.replace(/\/+$/, "")}/icon-48.png`
+    : "https://raw.githubusercontent.com/imunmuted/Krix/gem/assets/icon-48.png";
 
 export function isGmailApiConfigured(): boolean {
   return Boolean(
@@ -299,15 +314,10 @@ export function escapeHtml(str = ""): string {
 }
 
 // ---------------------------------------------------------------------------
-// SVG Glyphs for High-DPI Email Clients
+// SVG Glyphs for Email Clients
 // ---------------------------------------------------------------------------
 
 const ICONS = {
-  krixLogo: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M2 17L12 22L22 17" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M2 12L12 17L22 12" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`,
   profile: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
   laptop: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/></svg>`,
   mobile: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`,
@@ -324,7 +334,7 @@ const ICONS = {
 };
 
 // ---------------------------------------------------------------------------
-// Modern Geist-Inspired Email Shell & Component Templates
+// Bulletproof Email Shell & Symmetrical Info Table
 // ---------------------------------------------------------------------------
 
 function renderEmailShell(params: {
@@ -363,231 +373,97 @@ function renderEmailShell(params: {
           ? "#15803d"
           : "#e4e4e7";
 
-  return `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(params.title)} - Krix</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background-color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      padding: 40px 16px 48px;
-      -webkit-font-smoothing: antialiased;
-      color: #0f172a;
-      line-height: 1.5;
-    }
-    .wrapper { max-width: 580px; margin: 0 auto; }
-    .card {
-      background: #ffffff;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 15px -3px rgba(0,0,0,0.03);
-    }
-    .krix-header {
-      background: #09090b;
-      padding: 24px 32px;
-      border-bottom: 1px solid #27272a;
-    }
-    .krix-header-table { width: 100%; border-collapse: collapse; }
-    .krix-brand { display: inline-flex; align-items: center; gap: 10px; }
-    .krix-logo-chip {
-      display: inline-block;
-      vertical-align: middle;
-      width: 32px;
-      height: 32px;
-      background: #18181b;
-      border: 1px solid #3f3f46;
-      border-radius: 8px;
-      text-align: center;
-      line-height: 32px;
-    }
-    .krix-logo-chip svg { display: inline-block; vertical-align: middle; }
-    .krix-brand-title {
-      color: #ffffff;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      vertical-align: middle;
-      display: inline-block;
-      margin-left: 8px;
-    }
-    .krix-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      background: ${badgeBg};
-      border: 1px solid ${badgeBorder};
-      color: ${badgeColor};
-      border-radius: 9999px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .krix-body { padding: 32px; }
-    .krix-heading {
-      font-size: 20px;
-      font-weight: 700;
-      color: #09090b;
-      letter-spacing: -0.01em;
-      margin-bottom: 8px;
-    }
-    .krix-desc {
-      font-size: 14.5px;
-      color: #52525b;
-      line-height: 1.6;
-      margin-bottom: 24px;
-    }
-    .info-table {
-      width: 100%;
-      background: #fafafa;
-      border: 1px solid #e4e4e7;
-      border-radius: 12px;
-      border-collapse: separate;
-      border-spacing: 0;
-      margin: 20px 0;
-      overflow: hidden;
-    }
-    .info-row td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #f4f4f5;
-      font-size: 13.5px;
-      vertical-align: middle;
-    }
-    .info-row:last-child td { border-bottom: none; }
-    .info-icon-cell { width: 34px; padding-right: 0 !important; }
-    .info-icon-box {
-      width: 28px;
-      height: 28px;
-      border-radius: 7px;
-      background: #ffffff;
-      border: 1px solid #e4e4e7;
-      text-align: center;
-      line-height: 26px;
-    }
-    .info-icon-box svg { display: inline-block; vertical-align: middle; }
-    .info-label {
-      width: 130px;
-      color: #71717a;
-      font-weight: 600;
-      font-size: 12.5px;
-    }
-    .info-value {
-      color: #18181b;
-      font-weight: 500;
-      word-break: break-all;
-    }
-    .pill-val {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 12px;
-      background: #f4f4f5;
-      color: #09090b;
-      border: 1px solid #e4e4e7;
-      padding: 3px 8px;
-      border-radius: 9999px;
-      display: inline-block;
-    }
-    .alert-banner {
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin: 20px 0;
-      font-size: 13.5px;
-      line-height: 1.55;
-    }
-    .alert-amber {
-      background: #fffbeb;
-      border: 1px solid #fef3c7;
-      border-left: 4px solid #f59e0b;
-      color: #92400e;
-    }
-    .alert-red {
-      background: #fef2f2;
-      border: 1px solid #fee2e2;
-      border-left: 4px solid #ef4444;
-      color: #991b1b;
-    }
-    .alert-emerald {
-      background: #f0fdf4;
-      border: 1px solid #dcfce7;
-      border-left: 4px solid #10b981;
-      color: #166534;
-    }
-    .cta-wrap { text-align: center; margin: 28px 0 10px; }
-    .cta-btn {
-      display: inline-block;
-      background: #09090b;
-      color: #ffffff !important;
-      text-decoration: none !important;
-      padding: 12px 28px;
-      border-radius: 9999px;
-      font-size: 13.5px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-    .krix-footer {
-      padding: 20px 32px;
-      background: #fafafa;
-      border-top: 1px solid #e4e4e7;
-      font-size: 12px;
-      color: #71717a;
-      line-height: 1.6;
-    }
-    @media (max-width: 600px) {
-      body { padding: 20px 12px 32px; }
-      .krix-header { padding: 18px 20px; }
-      .krix-body { padding: 22px 20px; }
-      .krix-footer { padding: 16px 20px; }
-      .info-label { width: 105px; font-size: 12px; }
-      .info-row td { padding: 10px 12px; font-size: 13px; }
-    }
-  </style>
 </head>
-<body>
-<div class="wrapper">
-  <div class="card">
-    <div class="krix-header">
-      <table class="krix-header-table" role="presentation">
-        <tr>
-          <td>
-            <div class="krix-brand">
-              <span class="krix-logo-chip">${ICONS.krixLogo}</span>
-              <span class="krix-brand-title">KRIX</span>
-            </div>
-          </td>
-          <td align="right">
-            <span class="krix-badge">${escapeHtml(params.badge)}</span>
-          </td>
-        </tr>
-      </table>
-    </div>
-    <div class="krix-body">
-      <h1 class="krix-heading">${escapeHtml(params.title)}</h1>
-      <p class="krix-desc">${escapeHtml(params.description)}</p>
-      ${params.bodyContent}
-      ${
-        params.ctaText && params.ctaUrl
-          ? `
-      <div class="cta-wrap">
-        <a href="${escapeHtml(params.ctaUrl)}" class="cta-btn">${escapeHtml(params.ctaText)}</a>
-      </div>`
-          : ""
-      }
-    </div>
-    <div class="krix-footer">
-      <p>Recipient: <strong>${escapeHtml(params.footerAccount)}</strong> &nbsp;&middot;&nbsp; Recorded: <strong>${escapeHtml(params.timestamp)}</strong></p>
-      <p style="margin-top:4px; font-size:11.5px; color:#a1a1aa;">This is an automated security and account notification from your Krix instance.</p>
-    </div>
-  </div>
-</div>
+<body style="margin:0; padding:0; background-color:#f8fafc; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing:antialiased; color:#0f172a;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#f8fafc; padding:32px 12px 48px;">
+    <tr>
+      <td align="center" style="vertical-align:top;">
+        <!-- Card Container with Fixed Alignment -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:580px; margin:0 auto; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+          <!-- Header with Krix Brand Logo and Title -->
+          <tr>
+            <td style="background-color:#09090b; padding:22px 28px; border-bottom:1px solid #27272a;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" style="vertical-align:middle;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="vertical-align:middle; padding-right:12px; width:36px; min-width:36px; max-width:36px;">
+                          <img src="${KRIX_LOGO_URL}" width="36" height="36" alt="Krix" style="display:block; width:36px; height:36px; border-radius:8px; border:1px solid #3f3f46; object-fit:cover;" />
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <span style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:17px; font-weight:800; color:#ffffff; letter-spacing:0.08em; text-transform:uppercase; line-height:1; display:inline-block;">KRIX</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align:middle;">
+                    <span style="display:inline-block; padding:4px 12px; background-color:${badgeBg}; border:1px solid ${badgeBorder}; color:${badgeColor}; border-radius:9999px; font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                      ${escapeHtml(params.badge)}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Body -->
+          <tr>
+            <td style="padding:32px 28px 24px; background-color:#ffffff; text-align:left;">
+              <h1 style="margin:0 0 8px; font-size:20px; font-weight:700; color:#09090b; letter-spacing:-0.01em; line-height:1.3; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${escapeHtml(params.title)}
+              </h1>
+              <p style="margin:0 0 20px; font-size:14px; color:#52525b; line-height:1.6; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${escapeHtml(params.description)}
+              </p>
+
+              ${params.bodyContent}
+
+              ${
+                params.ctaText && params.ctaUrl
+                  ? `
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:28px 0 10px;">
+                <tr>
+                  <td align="center">
+                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#09090b; color:#ffffff !important; text-decoration:none !important; padding:13px 32px; border-radius:9999px; font-size:13.5px; font-weight:600; letter-spacing:0.02em; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align:center;">
+                      ${escapeHtml(params.ctaText)}
+                    </a>
+                  </td>
+                </tr>
+              </table>`
+                  : ""
+              }
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 28px; background-color:#fafafa; border-top:1px solid #e4e4e7; font-size:12px; color:#71717a; line-height:1.6; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <p style="margin:0;">Recipient Account: <strong>${escapeHtml(params.footerAccount)}</strong> &nbsp;&middot;&nbsp; Recorded: <strong>${escapeHtml(params.timestamp)}</strong></p>
+              <p style="margin:4px 0 0; font-size:11.5px; color:#a1a1aa;">This is an automated security and account notification from your Krix instance.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 }
 
+/**
+ * Renders an evenly aligned, pixel-perfect 3-column info table using fixed table layout.
+ * Columns:
+ * - Col 1 (42px): Centered icon chip
+ * - Col 2 (145px): Fixed-width uppercase label
+ * - Col 3 (fluid): Value (with optional monospace pill)
+ */
 function renderInfoTable(
   rows: Array<{
     icon: keyof typeof ICONS;
@@ -598,20 +474,31 @@ function renderInfoTable(
 ): string {
   const renderedRows = rows
     .map(
-      (r) => `
-    <tr class="info-row">
-      <td class="info-icon-cell"><div class="info-icon-box">${ICONS[r.icon] || ICONS.profile}</div></td>
-      <td class="info-label">${escapeHtml(r.label)}</td>
-      <td class="info-value">${
-        r.isPill
-          ? `<span class="pill-val">${escapeHtml(r.value)}</span>`
-          : escapeHtml(r.value)
-      }</td>
+      (r, idx) => `
+    <tr style="border-bottom:${idx === rows.length - 1 ? "none" : "1px solid #f0f0f2"};">
+      <td width="42" align="center" style="width:42px; min-width:42px; max-width:42px; padding:11px 0 11px 14px; vertical-align:middle; text-align:center;">
+        <span style="display:inline-block; width:26px; height:26px; border-radius:6px; background-color:#ffffff; border:1px solid #e4e4e7; text-align:center; line-height:24px; vertical-align:middle;">
+          ${ICONS[r.icon] || ICONS.profile}
+        </span>
+      </td>
+      <td width="145" align="left" style="width:145px; min-width:145px; max-width:145px; padding:11px 10px 11px 8px; vertical-align:middle; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; font-weight:600; color:#71717a; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap;">
+        ${escapeHtml(r.label)}
+      </td>
+      <td align="left" style="padding:11px 16px 11px 4px; vertical-align:middle; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13.5px; color:#09090b; word-break:break-word; line-height:1.4;">
+        ${
+          r.isPill
+            ? `<span style="display:inline-block; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background-color:#f4f4f5; color:#09090b; border:1px solid #e4e4e7; padding:2px 8px; border-radius:9999px; line-height:1.4;">${escapeHtml(r.value)}</span>`
+            : escapeHtml(r.value)
+        }
+      </td>
     </tr>`,
     )
     .join("");
 
-  return `<table class="info-table" role="presentation">${renderedRows}</table>`;
+  return `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; table-layout:fixed; background-color:#fafafa; border:1px solid #e4e4e7; border-radius:12px; margin:20px 0; overflow:hidden;">
+    ${renderedRows}
+  </table>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -780,8 +667,8 @@ export async function sendAccountCreatedEmail(params: {
   const userRole = (params.role || "user").toUpperCase();
 
   const bodyContent = `
-    <div class="alert-banner alert-emerald">
-      <strong>Your Krix account is active.</strong> Your isolated sandbox environment has been provisioned and is ready for model tool execution.
+    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <strong>Account Active:</strong> Your isolated sandbox environment has been provisioned and is ready for MCP tool execution.
     </div>
     ${renderInfoTable([
       { icon: "profile", label: "Account Email", value: params.email },
@@ -802,8 +689,8 @@ export async function sendAccountCreatedEmail(params: {
       { icon: "pin", label: "Sign-In Location", value: geo.location },
       { icon: "clock", label: "Registered At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin-top:16px;">
-      You can now create dynamic MCP API keys, connect clients (Gemini, Claude, Cursor), and execute tools within your isolated workspace.
+    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      You can now create dynamic MCP API keys, connect assistants (Gemini, Claude, Cursor), and execute tools within your isolated workspace.
     </p>`;
 
   const html = renderEmailShell({
@@ -827,54 +714,62 @@ export async function sendAccountCreatedEmail(params: {
 }
 
 /**
- * 2. Account Deleted Notification
+ * 2. Account Scheduled Deletion Notification (30-Day Asynchronous Grace Period)
  * Sent when a user initiates account deletion from the Danger Zone.
  */
-export async function sendAccountDeletedEmail(params: {
-  email: string;
-  name?: string;
-  ip?: string;
-  userAgent?: string;
-}): Promise<SendResult> {
+export async function sendAccountDeletedEmail(
+  params: SendAccountDeletedParams,
+): Promise<SendResult> {
   const device = parseDeviceInfo(params.userAgent);
   const geo = await getIpGeoLocation(params.ip);
   const timeStr = formatTimestamp();
   const userName = params.name || params.email.split("@")[0] || "User";
+  const graceDays = params.gracePeriodDays || 30;
+  const deadlineMs =
+    params.deletionDeadline || Date.now() + graceDays * 24 * 60 * 60 * 1000;
+  const deadlineStr = formatTimestamp(deadlineMs);
 
   const bodyContent = `
-    <div class="alert-banner alert-red">
-      <strong>Account and Credentials Purged.</strong> All dynamic API keys, active MCP sessions, and associated telemetry have been permanently deleted.
+    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <strong>${graceDays}-Day Deletion Grace Period Active:</strong> We received a request to delete your Krix account. Your account and all associated tokens will be permanently deleted on <strong>${deadlineStr}</strong>.
     </div>
     ${renderInfoTable([
-      { icon: "profile", label: "Deleted Account", value: params.email },
+      { icon: "profile", label: "Account Email", value: params.email },
       {
         icon: "trash",
         label: "Deletion Status",
-        value: "Permanently Purged",
+        value: `Scheduled (${graceDays} Days)`,
         isPill: true,
+      },
+      {
+        icon: "clock",
+        label: "Permanent Deletion",
+        value: deadlineStr,
       },
       { icon: device.icon, label: "Action Device", value: device.deviceName },
       { icon: "globe", label: "Origin IP", value: geo.ip, isPill: true },
       { icon: "pin", label: "Origin Location", value: geo.location },
-      { icon: "clock", label: "Executed At", value: timeStr },
+      { icon: "clock", label: "Scheduled At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#71717a; line-height:1.6; margin-top:16px;">
-      If you did not authorize this deletion, please check your primary identity provider immediately and verify your Google account security.
+    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <strong>Changed your mind?</strong> You have ${graceDays} days to restore your account. Simply sign back in to the Krix dashboard before <strong>${deadlineStr}</strong> and your account will be immediately restored.
     </p>`;
 
   const html = renderEmailShell({
-    badge: "Account Deleted",
-    badgeTone: "red",
-    title: "Krix Account Deletion Notice",
-    description: `The Krix account for ${userName} (${params.email}) has been permanently deleted.`,
+    badge: "Scheduled Deletion",
+    badgeTone: "amber",
+    title: "Krix Account Scheduled for Deletion",
+    description: `A deletion request was recorded for ${userName} (${params.email}) with an asynchronous ${graceDays}-day recovery window.`,
     bodyContent,
     footerAccount: params.email,
     timestamp: timeStr,
+    ctaText: "Sign In to Cancel Deletion & Restore Account",
+    ctaUrl: process.env.PUBLIC_BASE_URL || "https://krix.onrender.com",
   });
 
   return sendEmail({
     to: params.email,
-    subject: "Krix Security Notice: Account Permanently Deleted",
+    subject: `Krix Security Notice: Account Scheduled for Deletion (${graceDays}-Day Grace Period)`,
     html,
   });
 }
@@ -895,7 +790,7 @@ export async function sendNewLoginIpEmail(params: {
   const timeStr = formatTimestamp();
 
   const bodyContent = `
-    <div class="alert-banner alert-amber">
+    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>New sign-in detected.</strong> Your account was just accessed from an IP address that has not been seen on your account previously.
     </div>
     ${renderInfoTable([
@@ -916,7 +811,7 @@ export async function sendNewLoginIpEmail(params: {
         : []),
       { icon: "clock", label: "Login Timestamp", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin-top:16px;">
+    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       If this was you logging in from a new network or VPN, no action is needed. If you did not recognize this login, sign in to revoke your API keys and secure your Google account.
     </p>`;
 
@@ -961,8 +856,8 @@ export async function sendOAuthClientSetupEmail(params: {
     params.clientName || params.clientId || "External Application";
 
   const bodyContent = `
-    <div class="alert-banner alert-emerald">
-      <strong>OAuth Client Authorized.</strong> An external tool or assistant has been granted access to your Krix MCP endpoint.
+    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <strong>OAuth Client Authorized:</strong> An external tool or assistant has been granted access to your Krix MCP endpoint.
     </div>
     ${renderInfoTable([
       { icon: "profile", label: "Authorized By", value: params.email },
@@ -987,7 +882,7 @@ export async function sendOAuthClientSetupEmail(params: {
       { icon: "globe", label: "Authorize IP", value: geo.ip, isPill: true },
       { icon: "clock", label: "Authorized At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin-top:16px;">
+    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       You can manage, rename, or revoke this authorization at any time in the <strong>API Keys &amp; OAuth</strong> settings page.
     </p>`;
 

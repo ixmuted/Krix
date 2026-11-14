@@ -15,10 +15,15 @@ import {
   sendAccountDeletedEmail,
   sendNewLoginIpEmail,
   sendOAuthClientSetupEmail,
+  KRIX_LOGO_URL,
 } from "../src/emailService.js";
 import {
   getOrCreateUser,
   deleteUserAccount,
+  scheduleAccountDeletion,
+  cancelAccountDeletion,
+  isAccountScheduledForDeletion,
+  purgeExpiredAccounts,
   type UserAccount,
 } from "../src/userSettings.js";
 
@@ -39,6 +44,16 @@ describe("Email Service & User Security Tracking", () => {
 
   afterEach(() => {
     process.env = { ...originalEnv };
+  });
+
+  describe("Brand Assets & Logo", () => {
+    it("provides the official Krix logo URL", () => {
+      assert.ok(typeof KRIX_LOGO_URL === "string");
+      assert.ok(
+        KRIX_LOGO_URL.includes("icon-48.png") ||
+          KRIX_LOGO_URL.includes("assets"),
+      );
+    });
   });
 
   describe("Device Parsing", () => {
@@ -188,12 +203,15 @@ describe("Email Service & User Security Tracking", () => {
       assert.equal(result.skipped, true);
     });
 
-    it("sends account deleted email safely", async () => {
+    it("sends scheduled deletion email with 30-day grace period parameters", async () => {
+      const deadline = Date.now() + 30 * 24 * 60 * 60 * 1000;
       const result = await sendAccountDeletedEmail({
         email: "alice@example.com",
         name: "Alice",
         ip: "127.0.0.1",
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        deletionDeadline: deadline,
+        gracePeriodDays: 30,
       });
       assert.equal(result.skipped, true);
     });
@@ -223,7 +241,7 @@ describe("Email Service & User Security Tracking", () => {
     });
   });
 
-  describe("User IP Tracking & Account Deletion", () => {
+  describe("User IP Tracking & 30-Day Asynchronous Deletion", () => {
     const testEmail = "test_ip_track@example.com";
 
     afterEach(() => {
@@ -257,7 +275,56 @@ describe("Email Service & User Security Tracking", () => {
       assert.equal(fourthLogin.isNewIp, false); // already in knownIps
     });
 
-    it("deletes user account cleanly", () => {
+    it("schedules account deletion with 30-day grace period and cancels it on sign-in", () => {
+      getOrCreateUser(testEmail, "127.0.0.1");
+
+      // 1. Schedule deletion
+      const schedule = scheduleAccountDeletion(testEmail, 30);
+      assert.equal(schedule.success, true);
+      assert.ok(schedule.deletionDeadline > Date.now());
+      assert.equal(isAccountScheduledForDeletion(testEmail), true);
+
+      // 2. User signs back in during grace period -> auto-restores!
+      const restoredLogin = getOrCreateUser(testEmail, "127.0.0.1");
+      assert.equal(restoredLogin.isNewUser, false);
+      assert.equal(restoredLogin.deletionDeadline, undefined);
+      assert.equal(isAccountScheduledForDeletion(testEmail), false);
+    });
+
+    it("manually cancels scheduled deletion via cancelAccountDeletion", () => {
+      getOrCreateUser(testEmail, "127.0.0.1");
+      scheduleAccountDeletion(testEmail, 30);
+      assert.equal(isAccountScheduledForDeletion(testEmail), true);
+
+      const cancelled = cancelAccountDeletion(testEmail);
+      assert.equal(cancelled, true);
+      assert.equal(isAccountScheduledForDeletion(testEmail), false);
+    });
+
+    it("purges expired accounts asynchronously while preserving unexpired accounts", async () => {
+      const expiredEmail = "expired_user@example.com";
+      const activeEmail = "active_user@example.com";
+
+      try {
+        const expiredUser = getOrCreateUser(expiredEmail, "127.0.0.1");
+        // Manually set deadline in the past
+        expiredUser.deletionDeadline = Date.now() - 1000;
+
+        // Schedule active user for future (30 days from now)
+        getOrCreateUser(activeEmail, "127.0.0.1");
+        scheduleAccountDeletion(activeEmail, 30);
+
+        const purged = await purgeExpiredAccounts();
+        assert.ok(purged.includes(expiredEmail));
+        assert.ok(!purged.includes(activeEmail));
+        assert.equal(isAccountScheduledForDeletion(activeEmail), true);
+      } finally {
+        deleteUserAccount(expiredEmail);
+        deleteUserAccount(activeEmail);
+      }
+    });
+
+    it("deletes user account cleanly via immediate deleteUserAccount", () => {
       getOrCreateUser(testEmail, "127.0.0.1");
       const deleted = deleteUserAccount(testEmail);
       assert.equal(deleted, true);

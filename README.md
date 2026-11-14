@@ -162,8 +162,8 @@ Krix includes a built-in security and lifecycle email service engineered for hig
 
 1. **Account Creation**:
    Sent upon first sign-in via Google OAuth. Displays the assigned user role, isolated sandbox ID, client device, browser, IP address, and resolved location.
-2. **Account Deletion**:
-   Triggered when a user initiates deletion in the Settings Danger Zone. Confirms that all dynamic API keys, sessions, and sandbox state have been permanently purged.
+2. **Account Deletion (30-Day Asynchronous Grace Period)**:
+   Triggered when a user initiates deletion in the Settings Danger Zone. Rather than deleting immediately, the account enters an asynchronous **30-day grace period**. An email notification is sent with the exact deletion deadline timestamp; signing back in before the deadline automatically cancels deletion and restores the account. Once the deadline passes, background schedulers permanently purge the account, API keys, and workspace storage.
 3. **New Logged-In IP Detection**:
    Tracks every known IP per user account. When an existing account signs in from an unrecognized network address, a security alert is dispatched with IP, device, and approximate location.
 4. **OAuth Client Setup & Authorization**:
@@ -172,9 +172,9 @@ Krix includes a built-in security and lifecycle email service engineered for hig
 ### Design Standards
 
 - Single-column card layout (max-width: 580px) with responsive fluid typography.
-- Dark brand header (`#09090b`) featuring the geometric Krix vector mark and event badge pills.
+- Dark brand header (`#09090b`) featuring the official Krix logo and event badge pills.
 - Neutral Geist typography hierarchy with monospace pills for addresses, IDs, and tokens.
-- Strict equal padding (12px table row gutters, 24px/32px section spacing) and no cheesy or clunky styling.
+- Strict equal padding (11px table row gutters, fixed 42px icon / 145px label columns) with full inline CSS for rock-solid cross-client email alignment.
 
 ---
 

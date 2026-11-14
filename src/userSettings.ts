@@ -15,6 +15,8 @@ export interface UserAccount {
   lastLoginAt?: number;
   lastLoginIp?: string;
   knownIps?: string[];
+  scheduledDeletionAt?: number;
+  deletionDeadline?: number;
 }
 
 export interface UserQuotaConfig {
@@ -206,6 +208,23 @@ export function getOrCreateUser(
     saveSettingsToDisk();
     syncUserToMongo(user).catch(() => {});
   } else {
+    // If account was scheduled for deletion and user signs back in before deadline, restore it
+    if (user.deletionDeadline) {
+      if (now < user.deletionDeadline) {
+        delete user.scheduledDeletionAt;
+        delete user.deletionDeadline;
+        console.log(
+          `[settings] Account ${normEmail} signed in during grace period — deletion cancelled and account restored.`,
+        );
+      } else {
+        // Expired past deadline: reinitialize fresh account
+        isNewUser = true;
+        delete user.scheduledDeletionAt;
+        delete user.deletionDeadline;
+        user.createdAt = now;
+      }
+    }
+
     user.role = role;
     user.lastLoginAt = now;
     user.updatedAt = now;
@@ -579,6 +598,119 @@ export async function deleteUserFromMongo(email: string): Promise<void> {
   }
 }
 
+/**
+ * Schedules an account for asynchronous deletion with a 30-day grace period.
+ * Does not delete immediately, allowing the user to sign back in and restore their account.
+ */
+export function scheduleAccountDeletion(
+  email: string,
+  graceDays = 30,
+): { success: boolean; scheduledDeletionAt: number; deletionDeadline: number } {
+  const normEmail = email.trim().toLowerCase();
+  const user = userAccountsMap.get(normEmail);
+  const now = Date.now();
+  const deletionDeadline = now + graceDays * 24 * 60 * 60 * 1000;
+
+  if (user) {
+    user.scheduledDeletionAt = now;
+    user.deletionDeadline = deletionDeadline;
+    user.updatedAt = now;
+    saveSettingsToDisk();
+    syncUserToMongo(user).catch(() => {});
+  }
+
+  return { success: true, scheduledDeletionAt: now, deletionDeadline };
+}
+
+/**
+ * Cancels a scheduled account deletion if within the 30-day grace period.
+ */
+export function cancelAccountDeletion(email: string): boolean {
+  const normEmail = email.trim().toLowerCase();
+  const user = userAccountsMap.get(normEmail);
+  if (user && user.deletionDeadline) {
+    delete user.scheduledDeletionAt;
+    delete user.deletionDeadline;
+    user.updatedAt = Date.now();
+    saveSettingsToDisk();
+    syncUserToMongo(user).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether an account is currently in a scheduled deletion state.
+ */
+export function isAccountScheduledForDeletion(email: string): boolean {
+  const normEmail = email.trim().toLowerCase();
+  const user = userAccountsMap.get(normEmail);
+  return Boolean(user?.deletionDeadline && user.deletionDeadline > Date.now());
+}
+
+/**
+ * Asynchronously purges accounts whose 30-day deletion deadline has passed.
+ */
+export async function purgeExpiredAccounts(): Promise<string[]> {
+  const now = Date.now();
+  const expiredEmails: string[] = [];
+
+  for (const [email, user] of userAccountsMap.entries()) {
+    if (user.deletionDeadline && user.deletionDeadline <= now) {
+      expiredEmails.push(email);
+    }
+  }
+
+  for (const email of expiredEmails) {
+    try {
+      console.log(
+        `[settings] Asynchronously purging expired account past 30-day grace period: ${email}`,
+      );
+      deleteUserAccount(email);
+    } catch (err: any) {
+      console.error(
+        `[settings] Failed to purge expired account ${email}:`,
+        err?.message,
+      );
+    }
+  }
+
+  return expiredEmails;
+}
+
+let accountPurgeSchedulerTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Starts the asynchronous background scheduler to check for and purge expired accounts.
+ */
+export function startAccountPurgeScheduler(
+  intervalMs = 60 * 60 * 1000,
+): NodeJS.Timeout {
+  if (accountPurgeSchedulerTimer) return accountPurgeSchedulerTimer;
+  // Run once asynchronously, then periodically
+  purgeExpiredAccounts().catch(() => {});
+  accountPurgeSchedulerTimer = setInterval(() => {
+    purgeExpiredAccounts().catch((err) => {
+      console.error(
+        "[settings] purgeExpiredAccounts background error:",
+        err?.message,
+      );
+    });
+  }, intervalMs);
+  if (accountPurgeSchedulerTimer.unref) accountPurgeSchedulerTimer.unref();
+  return accountPurgeSchedulerTimer;
+}
+
+export function stopAccountPurgeScheduler(): void {
+  if (accountPurgeSchedulerTimer) {
+    clearInterval(accountPurgeSchedulerTimer);
+    accountPurgeSchedulerTimer = null;
+  }
+}
+
+// Start background purge scheduler
+startAccountPurgeScheduler();
+
 export async function syncKeySettingsToMongo(
   settings: KeySettings,
 ): Promise<void> {
@@ -639,6 +771,8 @@ export async function loadSettingsFromMongo(): Promise<void> {
             : d.lastLoginIp
               ? [d.lastLoginIp]
               : [],
+          scheduledDeletionAt: d.scheduledDeletionAt,
+          deletionDeadline: d.deletionDeadline,
         });
       }
     }

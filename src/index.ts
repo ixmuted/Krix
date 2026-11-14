@@ -135,6 +135,9 @@ import {
   maskSecret,
   generateSandboxId,
   deleteUserAccount,
+  scheduleAccountDeletion,
+  cancelAccountDeletion,
+  isAccountScheduledForDeletion,
   type KeySettings,
 } from "./userSettings.js";
 import {
@@ -1770,34 +1773,47 @@ app.post("/api/account/delete", async (req, res) => {
   const clientIp = getClientIp(req);
   const userAgent = getUserAgent(req);
 
-  // Send security email notifying of account deletion
+  // Schedule account deletion with an asynchronous 30-day grace period
+  const gracePeriodDays = 30;
+  const schedule = scheduleAccountDeletion(email, gracePeriodDays);
+
+  // Send security email notifying of scheduled deletion with 30-day countdown
   sendAccountDeletedEmail({
     email,
     name: owner.name,
     ip: clientIp,
     userAgent,
+    deletionDeadline: schedule.deletionDeadline,
+    gracePeriodDays,
   }).catch((err) =>
     console.error("[email] sendAccountDeletedEmail error:", err?.message),
   );
-
-  const userKeys = listDynamicKeys(email);
-  for (const k of userKeys) {
-    closeSessionsForKey(k.id);
-    revokeDynamicKey(k.id);
-    statsTracker.removeKey(k.id);
-  }
-  statsTracker.syncKnownKeys(
-    listDynamicKeys(),
-    listActiveOAuthAuthorizations(),
-  );
-
-  deleteUserAccount(email);
 
   res.clearCookie("krix_owner");
   res.clearCookie("krix_session", { path: "/" });
   res.json({
     success: true,
-    message: "Account and associated tokens deleted.",
+    scheduled: true,
+    gracePeriodDays,
+    deletionDeadline: schedule.deletionDeadline,
+    message: `Account scheduled for permanent deletion in ${gracePeriodDays} days. Sign back in before then to restore your account.`,
+  });
+});
+
+app.post("/api/account/cancel-deletion", async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ error: "Unauthorized." });
+    return;
+  }
+  const email = owner.email.toLowerCase();
+  const cancelled = cancelAccountDeletion(email);
+  res.json({
+    success: true,
+    cancelled,
+    message: cancelled
+      ? "Scheduled account deletion was cancelled. Your account remains active."
+      : "No scheduled account deletion found.",
   });
 });
 
