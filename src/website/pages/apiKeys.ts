@@ -178,7 +178,7 @@ export function renderApiKeysPage(params: {
                       const menuId = `keyMenu_${idx}`;
 
                       return `
-                  <tr class="api-key-row" id="row-${keyId}" data-label="${keyLabel.toLowerCase()}" data-client-id="${clientId.toLowerCase()}" style="border-bottom:1px solid var(--border-subtle);">
+                  <tr class="api-key-row" id="row-${keyId}" data-label="${keyLabel.toLowerCase()}" data-client-id="${clientId.toLowerCase()}" data-href="/api/settings?key=${encodeURIComponent(rawKeyId)}" tabindex="0" style="border-bottom:1px solid var(--border-subtle);cursor:pointer;">
                     <td style="padding:12px;">
                       <span id="key-name-text-${keyId}" class="key-label-text-${keyId}" style="font-weight:600; color:var(--fg);">${keyLabel}</span>
                       <div style="font-family:var(--font-mono); font-size:11px; color:var(--geist-gray-50);">${keyId}</div>
@@ -327,7 +327,7 @@ export function renderApiKeysPage(params: {
                     const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
                     return `
-              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" data-client-id="${cId}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; box-sizing:border-box; width:100%; min-height:68px; height:auto; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible; flex:0 0 auto;">
+              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" data-client-id="${cId}" data-href="/api/settings?key=${encodeURIComponent(rawClientId)}" tabindex="0" style="cursor:pointer;display:flex; justify-content:space-between; align-items:center; gap:8px; box-sizing:border-box; width:100%; min-height:68px; height:auto; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible; flex:0 0 auto;">
                 <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                   <div style="width:36px; height:36px; flex:0 0 36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
                     ${appLogo}
@@ -541,6 +541,21 @@ export function renderApiKeysPage(params: {
           setTimeout(() => toast.remove(), 250);
         }, 3000);
       }
+
+      // Clicking a key or OAuth row opens its settings page (ignores clicks on buttons, links and menus).
+      function openRowTarget(e) {
+        const row = e.target.closest && e.target.closest('.api-key-row, .oauth-client-row');
+        if (!row || !row.dataset.href) return;
+        if (e.target.closest('button, a, input, select, textarea, label, .kebab-trigger, [role="menu"], .krix-dropdown-menu, [id^="keyMenu_"], [id^="oauth_menu_"]')) return;
+        window.location.href = row.dataset.href;
+      }
+      document.addEventListener('click', openRowTarget);
+      document.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.api-key-row, .oauth-client-row')) {
+          e.preventDefault();
+          window.location.href = e.target.dataset.href;
+        }
+      });
 
       function filterApiKeys(query) {
         const q = (query || '').toLowerCase().trim();
