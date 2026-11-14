@@ -90,9 +90,13 @@ export function renderApiKeySettingsPage(params: {
   const maskedApiToken = rawApiToken
     ? `${rawApiToken.slice(0, 4)}••••••••${rawApiToken.slice(-4)}`
     : "Not available for this key";
-  const maskedClientId = clientId
-    ? `${clientId.length > 14 ? `${clientId.slice(0, 7)}…${clientId.slice(-5)}` : clientId}`
-    : rawKeyId;
+  const maskIdentity = (value: string) =>
+    value.length > 8
+      ? `${value.slice(0, 3)}••••••••${value.slice(-3)}`
+      : "••••••••";
+  const maskedClientId = maskIdentity(clientId || rawKeyId);
+  const showTokenField =
+    Boolean(rawApiToken) || (key.type !== "oauth" && key.type !== "master");
   const githubSecret = String(settings.customGitHubToken || "");
   const renderSecret = String(settings.customRenderToken || "");
   const maskSecret = (value: string) =>
@@ -146,14 +150,14 @@ export function renderApiKeySettingsPage(params: {
       <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:14px;">View this key's token and OAuth client identifier.</p>
       <div class="key-identity-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
         ${
-          rawApiToken
+          showTokenField
             ? `<div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
-          <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(maskedApiToken)}" data-is-visible="false">${escapeHtml(maskedApiToken)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('apiKeyTokenValue').dataset.raw,this)" title="Copy token" aria-label="Copy token">${renderSvg("copy", 14)}</button></div></div>
+          <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(rawApiToken ? maskedApiToken : "••••••••••••")}" data-is-visible="false" data-fetch-url="/api/keys/${encodeURIComponent(rawKeyId)}/secret">${escapeHtml(rawApiToken ? maskedApiToken : "••••••••••••")}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button><button type="button" onclick="copyKeyIdentity('apiKeyTokenValue',this)" title="Copy token" aria-label="Copy token">${renderSvg("copy", 14)}</button></div></div>
         </div>`
             : ""
         }
         <div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">Client ID</label>
-          <div class="key-secret-row"><code id="oauthClientIdValue" class="key-secret-value" data-raw="${escapeHtml(clientId || rawKeyId)}" data-masked="${escapeHtml(maskedClientId)}" data-is-visible="false">${escapeHtml(maskedClientId)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('oauthClientIdValue',this)" title="Reveal client ID" aria-label="Reveal client ID">${renderSvg("eye", 14)}</button><button type="button" onclick="window.copyToClipboard(document.getElementById('oauthClientIdValue').dataset.raw,this)" title="Copy client ID" aria-label="Copy client ID">${renderSvg("copy", 14)}</button></div></div>
+          <div class="key-secret-row"><code id="oauthClientIdValue" class="key-secret-value" data-raw="${escapeHtml(clientId || rawKeyId)}" data-masked="${escapeHtml(maskedClientId)}" data-is-visible="false">${escapeHtml(maskedClientId)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('oauthClientIdValue',this)" title="Reveal client ID" aria-label="Reveal client ID">${renderSvg("eye", 14)}</button><button type="button" onclick="copyKeyIdentity('oauthClientIdValue',this)" title="Copy client ID" aria-label="Copy client ID">${renderSvg("copy", 14)}</button></div></div>
         </div>
       </div>
     </section>
@@ -365,13 +369,41 @@ export function renderApiKeySettingsPage(params: {
         }
         hideKeySettingsSave();
       }
-      function toggleKeyIdentityReveal(id, button) {
+      async function ensureIdentityRaw(el) {
+        if (el.dataset.raw) return el.dataset.raw;
+        const url = el.dataset.fetchUrl;
+        if (!url) return '';
+        try {
+          const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.key) throw new Error(data.error || 'Could not load this key.');
+          el.dataset.raw = data.key;
+          el.dataset.masked = data.key.slice(0, 4) + '••••••••' + data.key.slice(-4);
+          return data.key;
+        } catch (err) {
+          showToast(err.message || 'Could not load this key.', 'error');
+          return '';
+        }
+      }
+      async function toggleKeyIdentityReveal(id, button) {
         const el = document.getElementById(id);
         if (!el) return;
         const visible = el.dataset.isVisible === 'true';
+        if (!visible) {
+          const raw = await ensureIdentityRaw(el);
+          if (!raw) return;
+        }
         el.textContent = visible ? el.dataset.masked : el.dataset.raw;
         el.dataset.isVisible = visible ? 'false' : 'true';
         if (button) button.innerHTML = visible ? '${renderSvg("eye", 14)}' : '${renderSvg("eye-off", 14)}';
+      }
+      async function copyKeyIdentity(id, button) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const raw = await ensureIdentityRaw(el);
+        if (!raw) return;
+        if (window.copyToClipboard) window.copyToClipboard(raw, button);
+        else { try { await navigator.clipboard.writeText(raw); showToast('Copied to clipboard', 'success'); } catch (e) { showToast('Copy failed', 'error'); } }
       }
       function editOverride(provider) {
         overrideEditing[provider] = true;
