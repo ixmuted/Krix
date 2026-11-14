@@ -3332,7 +3332,9 @@ const cleanupTimer = setInterval(
   },
   3 * 60 * 1000,
 );
-cleanupTimer.unref();
+if (process.env.NODE_ENV === "test") {
+  cleanupTimer.unref();
+}
 
 // 404 Catch-All Handler: returns modern branded 404 page for browsers, JSON for APIs
 app.use((req: Request, res: Response): void => {
@@ -3405,13 +3407,15 @@ async function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 if (process.env.NODE_ENV !== "test") {
-  startServer().catch((err) => {
+  try {
+    await startServer();
+  } catch (err: any) {
     console.error(
       "[startup] refusing to serve with unsafe or unavailable production dependencies:",
       sanitizeOutput(String(err?.message || err)).slice(0, 500),
     );
     process.exit(1);
-  });
+  }
 }
 
 export { startServer, shutdown };
