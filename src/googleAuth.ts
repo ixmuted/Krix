@@ -512,7 +512,7 @@ export function getDynamicKeySecret(id: string, email: string): string | null {
     entry.email.toLowerCase() !== email.trim().toLowerCase()
   )
     return null;
-  return decryptApiKey(entry.keyEncrypted);
+  return decryptApiKey(entry.keyEncrypted) || entry.key || null;
 }
 export function createDynamicKey(
   label: string = "Personal Key",
