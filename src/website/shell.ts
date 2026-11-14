@@ -171,7 +171,7 @@ export function renderFooter(): string {
         <!-- Connect & Security -->
         <div class="krix-footer-col" style="display:flex; flex-direction:column; gap:10px;">
           <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg);">Connect &amp; Legal</div>
-          <a href="https://github.com/imunmuted/Krix" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:6px;">
+          <a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--geist-gray-50); display:flex; align-items:center; gap:6px;">
             ${renderSvg("github", 14)}
             <span>GitHub</span>
           </a>
