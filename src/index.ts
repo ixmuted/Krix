@@ -1670,6 +1670,7 @@ app.get("/api/settings", async (req, res) => {
     ensureMongoAuth().catch(() => {}),
     loadOAuthFromMongo().catch(() => {}),
     statsTracker.ensureMongo().catch(() => {}),
+    ensureSettingsFromMongo().catch(() => {}),
   ]);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
