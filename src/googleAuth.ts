@@ -523,7 +523,12 @@ export function createDynamicKey(
     throw new Error("Key name must be at least 4 characters long.");
   }
 
+  const labelOwner = (email || getOwnerEmail() || "owner@localhost")
+    .trim()
+    .toLowerCase();
   for (const existing of dynamicApiKeys.values()) {
+    if (revokedKeyIds.has(existing.id)) continue;
+    if ((existing.email || "").trim().toLowerCase() !== labelOwner) continue;
     if (existing.label.toLowerCase() === cleanLabel.toLowerCase()) {
       throw new Error(
         `An API key named "${cleanLabel}" already exists. Please choose a unique name.`,

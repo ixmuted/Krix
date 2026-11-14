@@ -1395,11 +1395,18 @@ app.post("/api/keys", express.json(), async (req, res) => {
     return;
   }
   let createdKeyId = "";
+  let entry: ReturnType<typeof createDynamicKey>;
   try {
     // Bind every newly created key to the authenticated Google account.
     // Omitting this email previously caused multi-user accounts to inherit
     // the configured owner identity.
-    const entry = createDynamicKey(label, owner.email);
+    entry = createDynamicKey(label, owner.email);
+  } catch (err: any) {
+    // Validation problems (duplicate name, limits) are the user's to fix, not a storage failure.
+    res.status(400).json({ error: err?.message || "Invalid key request." });
+    return;
+  }
+  try {
     createdKeyId = entry.id;
     await syncKeyToMongo(entry);
     statsTracker.syncKnownKeys(
