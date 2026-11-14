@@ -16,6 +16,7 @@ export function renderApiKeySettingsPage(params: {
   key: any;
   toolsCatalog: any[];
   keySettings: any;
+  globalKeySettings?: any;
   apiKeyToken?: string;
   credentialAvailability?: {
     github?: boolean;
@@ -35,11 +36,23 @@ export function renderApiKeySettingsPage(params: {
   );
   const tools = Array.isArray(params.toolsCatalog) ? params.toolsCatalog : [];
   const settings = params.keySettings || {};
+  const globalSettings =
+    rawKeyId !== "primary-key" ? params.globalKeySettings || {} : {};
   const enabledTools = new Set<string>(
     Array.isArray(settings.enabledTools) ? settings.enabledTools : [],
   );
   const disabledTools = new Set<string>(
     Array.isArray(settings.disabledTools) ? settings.disabledTools : [],
+  );
+  const globalEnabledTools = new Set<string>(
+    Array.isArray(globalSettings.enabledTools)
+      ? globalSettings.enabledTools
+      : [],
+  );
+  const globalDisabledTools = new Set<string>(
+    Array.isArray(globalSettings.disabledTools)
+      ? globalSettings.disabledTools
+      : [],
   );
   const enabledCategories = new Set<string>(
     Array.isArray(settings.enabledCategories) ? settings.enabledCategories : [],
@@ -56,6 +69,8 @@ export function renderApiKeySettingsPage(params: {
     }
     if (disabledTools.has(name)) return false;
     if (enabledTools.has(name)) return true;
+    if (globalDisabledTools.has(name)) return false;
+    if (globalEnabledTools.has(name)) return true;
     if (name === "web_search") return false;
     const categoryKeys: Record<string, string[]> = {
       GitHub: [],
