@@ -17,8 +17,10 @@ export function renderSettingsPage(params: {
   toolsCatalog: any[];
   credentialAvailability: any;
   codeGraphCount?: number;
+  sandboxAllowed?: boolean;
 }): string {
   const isOwner = !!(params.isOwner || params.isServerOwner);
+  const sandboxAllowed = params.sandboxAllowed !== false;
   const quotaLimitDisplay = isOwner ? "300 MB" : "50 MB";
   const roleBadge = isOwner
     ? "Server Owner"
