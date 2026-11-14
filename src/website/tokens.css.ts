@@ -611,6 +611,192 @@ th:has(.krix-dropdown),
   padding: 6px 10px;
 }
 
+/* Custom Dropdown Trigger, Popover, and Options */
+.krix-custom-dropdown {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.krix-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 16px;
+  background-color: var(--bg-surface-1);
+  color: var(--fg);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  box-sizing: border-box;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.krix-dropdown-trigger:hover {
+  background-color: var(--bg-surface-2);
+  border-color: var(--border-strong);
+}
+
+.krix-dropdown-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.krix-dropdown-label {
+  display: inline-block;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.krix-dropdown-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--geist-gray-50);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.krix-custom-dropdown.open .krix-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.krix-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 100%;
+  max-width: min(340px, 94vw);
+  max-height: 280px;
+  overflow-y: auto;
+  background-color: var(--bg-surface-1);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: var(--z-dropdown, 800);
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.krix-dropdown-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--fg);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease;
+  white-space: nowrap;
+}
+
+.krix-dropdown-option:hover {
+  background-color: var(--bg-surface-2);
+}
+
+.krix-dropdown-option.selected {
+  background-color: var(--bg-surface-2);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Category Filter Equal-Sized Grid (Mobile and Desktop) */
+.category-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.category-filter-pill {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-1);
+  color: var(--geist-gray-50);
+  cursor: pointer;
+  user-select: none;
+  box-sizing: border-box;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-filter-pill:hover {
+  background: var(--bg-surface-2);
+  color: var(--fg);
+  border-color: var(--border-medium);
+}
+
+.category-filter-pill.active {
+  background: var(--bg-surface-2);
+  color: var(--fg);
+  border-color: var(--border-medium);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .category-filter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .category-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+
+/* Concise vs Verbose Tools Mode */
+.tools-grid.concise .tool-desc {
+  display: none !important;
+}
+
+.tools-grid.verbose .tool-desc {
+  display: block !important;
+  white-space: normal !important;
+}
+
+/* Responsive Search Bar */
+.search-bar-responsive {
+  transition: width 0.2s ease, border-color 0.15s ease;
+}
+
+@media (max-width: 640px) {
+  .search-bar-responsive {
+    width: 100% !important;
+  }
+}
+
 /* =====================================================
    7. REDESIGNED CUSTOM TOAST NOTIFICATIONS
    ===================================================== */

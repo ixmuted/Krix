@@ -4,6 +4,8 @@
 import {
   renderPageShell,
   renderAuthRequiredCard,
+  renderCustomDropdown,
+  CustomDropdownOption,
   escapeHtml,
   formatBytes,
 } from "../components.js";
@@ -80,41 +82,34 @@ export function renderStatsPage(params: {
   );
   const oauthKeys = keys.filter((k: any) => k.type === "oauth");
 
+  const keyOptions: CustomDropdownOption[] = [
+    { value: "", label: "All Keys & OAuth" },
+    ...apiKeys.map((k: any) => {
+      const label =
+        k.label === "Master Key" || k.keyId === "master-env-key"
+          ? "Primary Key"
+          : k.label || k.keyId;
+      const val =
+        k.keyId === "master-env-key" ? "primary-key" : k.keyId || k.id;
+      return { value: val, label: String(label) };
+    }),
+    ...oauthKeys.map((k: any) => ({
+      value: k.keyId || k.id,
+      label: String(k.label || k.keyId || k.id),
+    })),
+  ];
+
   const keySelectorHtml = `
     <div style="display:flex; align-items:center; gap:8px;">
       <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
-      <select id="keySelector" onchange="window.location.search = this.value ? '?key=' + encodeURIComponent(this.value) : ''" class="krix-select">
-        <option value="" ${!summary.selectedKeyId ? "selected" : ""}>All Keys &amp; OAuth</option>
-        ${
-          keys.length > 0
-            ? `
-          <optgroup label="API Keys">
-            ${apiKeys
-              .map((k: any) => {
-                const label =
-                  k.label === "Master Key" || k.keyId === "master-env-key"
-                    ? "Primary Key"
-                    : k.label || k.keyId;
-                const val =
-                  k.keyId === "master-env-key"
-                    ? "primary-key"
-                    : k.keyId || k.id;
-                return `<option value="${escapeHtml(val)}" ${summary.selectedKeyId === val ? "selected" : ""}>${escapeHtml(label)}</option>`;
-              })
-              .join("")}
-          </optgroup>
-          <optgroup label="OAuth Authorizations">
-            ${oauthKeys
-              .map(
-                (k: any) =>
-                  `<option value="${escapeHtml(k.keyId || k.id)}" ${summary.selectedKeyId === (k.keyId || k.id) ? "selected" : ""}>${escapeHtml(k.label || k.keyId || k.id)}</option>`,
-              )
-              .join("")}
-          </optgroup>
-        `
-            : ""
-        }
-      </select>
+      ${renderCustomDropdown({
+        id: "keySelector",
+        options: keyOptions,
+        selectedValue: summary.selectedKeyId || "",
+        onchange:
+          "window.location.search = this.value ? '?key=' + encodeURIComponent(this.value) : ''",
+        ariaLabel: "Filter by API key or OAuth authorization",
+      })}
     </div>
   `;
 
@@ -197,21 +192,30 @@ export function renderStatsPage(params: {
 
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <!-- 10-Day Desktop Chunk Slider (Contract Invariants: dailyChunkNav, btnPrevDailyChunk, btnNextDailyChunk) -->
-          <div id="dailyChunkNav" class="dailyChunkNav" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:2px 8px; gap:4px;">
-            <button type="button" class="pager-btn pager-icon btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)">
+          <div id="dailyChunkNav" class="dailyChunkNav" style="display:inline-flex; align-items:center; justify-content:center; height:34px; min-height:34px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 10px; gap:6px; box-sizing:border-box;">
+            <button type="button" class="pager-btn pager-icon btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--fg); cursor:pointer; padding:0;">
               ${renderSvg("chevron-left", 14)}
             </button>
-            <span id="lblDailyChunkRange" style="font-size:11px; font-family:var(--font-mono); color:var(--fg); padding:0 4px;">Days 21–30</span>
-            <button type="button" class="pager-btn pager-icon btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)">
+            <span id="lblDailyChunkRange" style="font-size:11px; font-family:var(--font-mono); color:var(--fg); padding:0 4px; text-align:center;">Days 21–30</span>
+            <button type="button" class="pager-btn pager-icon btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--fg); cursor:pointer; padding:0;">
               ${renderSvg("chevron-right", 14)}
             </button>
           </div>
 
           <!-- Smart Year Filter -->
-          <select id="yearFilter" onchange="renderTimelineChart()" class="krix-select">
-            <option value="all">All Years</option>
-            ${availableYears.map((y: any) => `<option value="${escapeHtml(String(y))}">${escapeHtml(String(y))}</option>`).join("")}
-          </select>
+          ${renderCustomDropdown({
+            id: "yearFilter",
+            options: [
+              { value: "all", label: "All Years" },
+              ...availableYears.map((y: any) => ({
+                value: String(y),
+                label: String(y),
+              })),
+            ],
+            selectedValue: "all",
+            onchange: "renderTimelineChart()",
+            ariaLabel: "Filter timeline by year",
+          })}
         </div>
       </div>
 

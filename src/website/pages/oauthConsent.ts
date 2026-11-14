@@ -87,11 +87,19 @@ export function renderOAuthConsentPage(params: {
   let primarySrc = "";
   let fallbackSrc = "";
 
-  if (q.includes("gemini")) {
+  if (q.includes("gemini") || (origin && origin.includes("gemini"))) {
     primarySrc =
       "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png";
     fallbackSrc =
       "https://www.google.com/s2/favicons?domain_url=https://gemini.google.com&sz=64";
+  } else if (
+    q.includes("claude") ||
+    q.includes("anthropic") ||
+    (origin && (origin.includes("claude") || origin.includes("anthropic")))
+  ) {
+    primarySrc = "https://claude.ai/favicon.ico";
+    fallbackSrc =
+      "https://www.google.com/s2/favicons?domain_url=https://claude.ai&sz=64";
   } else if (params.logoUri) {
     primarySrc = params.logoUri;
     fallbackSrc = origin

@@ -92,6 +92,72 @@ export function renderKebabMenu(items: KebabItem[], menuId: string): string {
   `;
 }
 
+export interface CustomDropdownOption {
+  value: string;
+  label: string;
+  secondary?: string;
+  selected?: boolean;
+}
+
+export function renderCustomDropdown(params: {
+  id: string;
+  options: CustomDropdownOption[];
+  selectedValue?: string;
+  onchange?: string;
+  ariaLabel?: string;
+  className?: string;
+  style?: string;
+}): string {
+  const {
+    id,
+    options,
+    selectedValue,
+    onchange,
+    ariaLabel,
+    className = "",
+    style = "",
+  } = params;
+  let activeOpt = options.find((o) =>
+    selectedValue !== undefined ? o.value === selectedValue : o.selected,
+  );
+  if (!activeOpt && options.length > 0) activeOpt = options[0];
+  const activeLabel = activeOpt ? activeOpt.label : "Select...";
+  const safeId = escapeHtml(id);
+
+  return `
+    <div class="krix-custom-dropdown ${escapeHtml(className)}" id="${safeId}_wrapper" style="${escapeHtml(style)}">
+      <button type="button" class="krix-dropdown-trigger" id="${safeId}_trigger" onclick="window.toggleCustomDropdown('${safeId}')" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHtml(ariaLabel || activeLabel)}">
+        <span class="krix-dropdown-label" id="${safeId}_label">${escapeHtml(activeLabel)}</span>
+        <span class="krix-dropdown-chevron">${renderSvg("chevron-down", 14)}</span>
+      </button>
+      <div class="krix-dropdown-popover" id="${safeId}_popover" role="listbox" hidden>
+        ${options
+          .map((opt) => {
+            const isSelected = activeOpt
+              ? opt.value === activeOpt.value
+              : false;
+            return `
+          <div class="krix-dropdown-option ${isSelected ? "selected" : ""}" role="option" aria-selected="${isSelected ? "true" : "false"}" data-value="${escapeHtml(opt.value)}" onclick="window.selectCustomDropdownOption('${safeId}', '${escapeHtml(opt.value).replace(/'/g, "\\'")}', '${escapeHtml(opt.label).replace(/'/g, "\\'")}')">
+            ${escapeHtml(opt.label)}
+          </div>
+        `;
+          })
+          .join("")}
+      </div>
+      <select id="${safeId}" class="krix-dropdown-native" onchange="${escapeHtml(onchange || "")}" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; margin:-1px; clip:rect(0,0,0,0); overflow:hidden;">
+        ${options
+          .map((opt) => {
+            const isSelected = activeOpt
+              ? opt.value === activeOpt.value
+              : false;
+            return `<option value="${escapeHtml(opt.value)}" ${isSelected ? "selected" : ""}>${escapeHtml(opt.label)}</option>`;
+          })
+          .join("")}
+      </select>
+    </div>
+  `;
+}
+
 export function renderCommandPaletteModal(): string {
   const views = [
     { name: "Home Overview", path: "/home", icon: "terminal", cat: "Views" },

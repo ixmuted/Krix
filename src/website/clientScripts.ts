@@ -228,6 +228,70 @@ export function getClientScripts(): string {
     });
   }
 
+  // 8. Custom Dropdown Trigger & Selection Engine
+  window.toggleCustomDropdown = function(id) {
+    const wrapper = document.getElementById(id + '_wrapper');
+    const popover = document.getElementById(id + '_popover');
+    const trigger = document.getElementById(id + '_trigger');
+    if (!wrapper || !popover) return;
+    const isOpen = wrapper.classList.contains('open');
+    // Close any other open dropdowns first
+    document.querySelectorAll('.krix-custom-dropdown.open').forEach(function(d) {
+      if (d !== wrapper) {
+        d.classList.remove('open');
+        const p = d.querySelector('.krix-dropdown-popover');
+        if (p) p.hidden = true;
+        const t = d.querySelector('.krix-dropdown-trigger');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      }
+    });
+    if (isOpen) {
+      wrapper.classList.remove('open');
+      popover.hidden = true;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    } else {
+      wrapper.classList.add('open');
+      popover.hidden = false;
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    }
+  };
+
+  window.selectCustomDropdownOption = function(id, value, label) {
+    const wrapper = document.getElementById(id + '_wrapper');
+    const popover = document.getElementById(id + '_popover');
+    const labelEl = document.getElementById(id + '_label');
+    const nativeSelect = document.getElementById(id);
+    const trigger = document.getElementById(id + '_trigger');
+    if (labelEl) labelEl.textContent = label;
+    if (wrapper) wrapper.classList.remove('open');
+    if (popover) {
+      popover.hidden = true;
+      popover.querySelectorAll('.krix-dropdown-option').forEach(function(opt) {
+        const isMatch = opt.getAttribute('data-value') === value;
+        opt.classList.toggle('selected', isMatch);
+        opt.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+      });
+    }
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    if (nativeSelect) {
+      nativeSelect.value = value;
+      const event = new Event('change', { bubbles: true });
+      nativeSelect.dispatchEvent(event);
+    }
+  };
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.krix-custom-dropdown')) {
+      document.querySelectorAll('.krix-custom-dropdown.open').forEach(function(d) {
+        d.classList.remove('open');
+        const p = d.querySelector('.krix-dropdown-popover');
+        if (p) p.hidden = true;
+        const t = d.querySelector('.krix-dropdown-trigger');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      });
+    }
+  });
+
   // DOM Ready Initializer
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {

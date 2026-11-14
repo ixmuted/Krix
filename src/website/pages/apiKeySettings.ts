@@ -99,15 +99,11 @@ export function renderApiKeySettingsPage(params: {
     value
       ? `${value.slice(0, 4)}••••••••${value.slice(-4)}`
       : "Not configured · inherits workspace credential";
-  const categories = [
-    "All",
-    ...Array.from(
-      new Set(tools.map((tool) => String(tool.category || "General"))),
-    ),
-  ];
+  const categories = ["All", "Sandbox", "Render", "GitHub", "Code Graph"];
   const categoryCounts = new Map<string, number>();
   for (const tool of tools) {
-    const category = String(tool.category || "General");
+    let category = String(tool.category || "General");
+    if (category === "Files" || category === "Search") category = "Sandbox";
     categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
   }
 
@@ -187,8 +183,8 @@ export function renderApiKeySettingsPage(params: {
         <div><h2 style="font-size:16px;font-weight:650;color:var(--fg);">Tool Permissions</h2><p style="font-size:12px;color:var(--geist-gray-50);margin-top:3px;">Choose the exact tools this key is allowed to use.</p></div>
         <input type="search" id="keyToolSearch" placeholder="Search tools" oninput="filterKeyTools()" style="width:min(260px,100%);padding:8px 11px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-1);color:var(--fg);font-size:12px;">
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-        ${categories.map((category) => `<button type="button" class="settings-cat-pill${category === "All" ? " active" : ""}" data-cat="${escapeHtml(category)}" onclick="selectKeyToolCategory('${escapeHtml(category).replace(/'/g, "\\'")}',this)" style="padding:5px 10px;font-size:11px;border:1px solid var(--border-subtle);border-radius:6px;background:${category === "All" ? "var(--bg-surface-2)" : "var(--bg-surface-1)"};color:${category === "All" ? "var(--fg)" : "var(--geist-gray-50)"};">${escapeHtml(category)} (${category === "All" ? tools.length : categoryCounts.get(category) || 0})</button>`).join("")}
+      <div class="category-filter-grid" style="margin-bottom:14px;">
+        ${categories.map((category) => `<button type="button" class="category-filter-pill${category === "All" ? " active" : ""}" data-cat="${escapeHtml(category)}" onclick="selectKeyToolCategory('${escapeHtml(category).replace(/'/g, "\\'")}',this)">${escapeHtml(category)} (${category === "All" ? tools.length : categoryCounts.get(category) || 0})</button>`).join("")}
       </div>
       <div id="keyToolGrid" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto;padding:2px;">
         ${
@@ -196,7 +192,11 @@ export function renderApiKeySettingsPage(params: {
             ? tools
                 .map((tool) => {
                   const toolName = String(tool.name || "");
-                  const category = String(tool.category || "General");
+                  const rawCategory = String(tool.category || "General");
+                  const category =
+                    rawCategory === "Files" || rawCategory === "Search"
+                      ? "Sandbox"
+                      : rawCategory;
                   const checked = isToolEnabled(tool);
                   const requires = getToolCredentialRequirement(toolName) || "";
                   return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
@@ -235,7 +235,10 @@ export function renderApiKeySettingsPage(params: {
       function visibleKeyToolRows() {
         const query = (document.getElementById('keyToolSearch')?.value || '').toLowerCase().trim();
         return Array.from(document.querySelectorAll('.key-tool-row')).filter(row => {
-          const categoryMatch = keyToolCategory === 'All' || row.dataset.cat === keyToolCategory;
+          const rowCat = row.dataset.cat || '';
+          const categoryMatch = keyToolCategory === 'All'
+            || rowCat === keyToolCategory
+            || (keyToolCategory === 'Sandbox' && (rowCat === 'Sandbox' || rowCat === 'Files' || rowCat === 'Search'));
           return categoryMatch && (!query || (row.dataset.search || '').includes(query));
         });
       }
@@ -263,24 +266,42 @@ export function renderApiKeySettingsPage(params: {
         }
         return Boolean(keyOverrideConfigured[provider] || workspaceCredentialReady[provider] || credentialReady[provider]);
       }
-      function onKeyToolToggle(input) {
+      async function onKeyToolToggle(input) {
         const requires = input.closest('.key-tool-row')?.dataset.requires || '';
-        if (input.checked && requires && !providerReady(requires)) {
+        const toolName = input.value;
+        const enabled = input.checked;
+        if (enabled && requires && !providerReady(requires)) {
           input.checked = false;
-          showToast('"' + input.value + '" ' + credentialMessages[requires].replace(/^This tool /, ''), 'error');
+          showToast('"' + toolName + '" ' + credentialMessages[requires].replace(/^This tool /, ''), 'error');
           return;
         }
-        showKeySettingsSave();
+        input.disabled = true;
+        try {
+          const res = await fetch('/settings/api/tool-toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyId: ${JSON.stringify(keyId)}, toolName: toolName, enabled: enabled })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error || 'Failed to toggle tool.');
+          }
+          initialToolCheckStates.set(toolName, enabled);
+          showToast('"' + toolName + '" ' + (enabled ? 'enabled' : 'disabled') + ' successfully', 'success');
+        } catch (err) {
+          input.checked = !enabled;
+          showToast(err.message || 'Failed to toggle tool', 'error');
+        } finally {
+          input.disabled = false;
+        }
       }
       function changeKeyToolsPage(delta) { keyToolPage += delta; renderKeyToolsPage(); }
       function filterKeyTools() { keyToolPage = 1; renderKeyToolsPage(); }
       function selectKeyToolCategory(category, button) {
         keyToolCategory = category;
         keyToolPage = 1;
-        document.querySelectorAll('.settings-cat-pill').forEach(item => {
+        document.querySelectorAll('.category-filter-pill, .settings-cat-pill').forEach(item => {
           item.classList.toggle('active', item === button);
-          item.style.background = item === button ? 'var(--bg-surface-2)' : 'var(--bg-surface-1)';
-          item.style.color = item === button ? 'var(--fg)' : 'var(--geist-gray-50)';
         });
         renderKeyToolsPage();
       }

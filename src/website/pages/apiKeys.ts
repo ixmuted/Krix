@@ -146,7 +146,7 @@ export function renderApiKeysPage(params: {
           <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Active API Keys</h2>
           <span class="badge ${keys.length > 0 ? "success" : ""}" id="keysCountBadge" style="font-family:var(--font-mono);">${keys.length} active</span>
         </div>
-        <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%;">
+        <div class="search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%; box-sizing:border-box;">
           ${renderSvg("search", 14, "text-muted")}
           <input type="text" id="keySearchInput" placeholder="Search API keys" oninput="filterApiKeys(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
         </div>
@@ -226,7 +226,7 @@ export function renderApiKeysPage(params: {
           <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Applications granted access to your MCP instance</p>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%;">
+        <div class="search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-full); padding:6px 14px; width:260px; max-width:100%; box-sizing:border-box;">
           ${renderSvg("search", 14, "text-muted")}
           <input type="text" id="oauthSearchInput" class="filterOAuth" placeholder="Filter applications" oninput="filterOAuthClients(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
         </div>
@@ -281,6 +281,14 @@ export function renderApiKeysPage(params: {
                           )
                           .join("")
                       : `<span class="oauth-scope-chip" style="opacity:.7;">none</span>`;
+                    const isGemini =
+                      rawClientId.toLowerCase().includes("gemini") ||
+                      rawName.toLowerCase().includes("gemini") ||
+                      JSON.stringify(client).toLowerCase().includes("gemini");
+                    const isClaude =
+                      rawClientId.toLowerCase().includes("claude") ||
+                      rawName.toLowerCase().includes("claude") ||
+                      JSON.stringify(client).toLowerCase().includes("claude");
                     const clientWebsite =
                       client.logoUri ||
                       client.clientUri ||
@@ -293,9 +301,26 @@ export function renderApiKeysPage(params: {
                               !u.includes("localhost") &&
                               !u.includes("127.0.0.1"),
                           )
-                        : undefined);
+                        : Array.isArray(client.redirect_uris)
+                          ? client.redirect_uris.find(
+                              (u: string) =>
+                                !u.includes("localhost") &&
+                                !u.includes("127.0.0.1"),
+                            )
+                          : undefined) ||
+                      (isGemini
+                        ? "https://gemini.google.com"
+                        : isClaude
+                          ? "https://claude.ai"
+                          : undefined);
+                    const resolvedName =
+                      isGemini && !rawName.toLowerCase().includes("gemini")
+                        ? "Google Gemini"
+                        : isClaude && !rawName.toLowerCase().includes("claude")
+                          ? "Claude"
+                          : displayName;
                     const appLogo = getAppLogoSvg(
-                      displayName,
+                      resolvedName,
                       18,
                       clientWebsite,
                     );

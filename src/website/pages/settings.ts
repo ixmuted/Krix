@@ -204,20 +204,20 @@ export function renderSettingsPage(params: {
         </div>
       </div>
 
-      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
-        <button type="button" class="settings-cat-pill active" data-cat="All" onclick="filterSettingsCat('All', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-2); color:var(--fg); cursor:pointer;">
+      <div class="category-filter-grid" style="margin-bottom:14px;">
+        <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterSettingsCat('All', this)">
           All (${(params.toolsCatalog || []).length})
         </button>
-        <button type="button" class="settings-cat-pill" data-cat="GitHub" onclick="filterSettingsCat('GitHub', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
-          GitHub (${(params.toolsCatalog || []).filter((t: any) => t.category === "GitHub").length})
-        </button>
-        <button type="button" class="settings-cat-pill" data-cat="Sandbox" onclick="filterSettingsCat('Sandbox', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+        <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterSettingsCat('Sandbox', this)">
           Sandbox (${(params.toolsCatalog || []).filter((t: any) => t.category === "Sandbox" || t.category === "Files" || t.category === "Search").length})
         </button>
-        <button type="button" class="settings-cat-pill" data-cat="Render" onclick="filterSettingsCat('Render', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+        <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterSettingsCat('Render', this)">
           Render (${(params.toolsCatalog || []).filter((t: any) => t.category === "Render").length})
         </button>
-        <button type="button" class="settings-cat-pill" data-cat="Code Graph" onclick="filterSettingsCat('Code Graph', this)" style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+        <button type="button" class="category-filter-pill" data-cat="GitHub" onclick="filterSettingsCat('GitHub', this)">
+          GitHub (${(params.toolsCatalog || []).filter((t: any) => t.category === "GitHub").length})
+        </button>
+        <button type="button" class="category-filter-pill" data-cat="Code Graph" onclick="filterSettingsCat('Code Graph', this)">
           Code Graph (${(params.toolsCatalog || []).filter((t: any) => t.category === "Code Graph").length})
         </button>
       </div>
@@ -436,12 +436,10 @@ export function renderSettingsPage(params: {
 
       function filterSettingsCat(cat, btn) {
         currentSettingsCategory = cat;
-        document.querySelectorAll('.settings-cat-pill').forEach(b => {
-          b.style.background = 'var(--bg-surface-1)';
-          b.style.color = 'var(--geist-gray-50)';
+        document.querySelectorAll('.category-filter-pill, .settings-cat-pill').forEach(b => {
+          b.classList.remove('active');
         });
-        btn.style.background = 'var(--bg-surface-2)';
-        btn.style.color = 'var(--fg)';
+        if (btn) btn.classList.add('active');
         currentSettingsToolsPage = 1;
         renderSettingsTools();
       }

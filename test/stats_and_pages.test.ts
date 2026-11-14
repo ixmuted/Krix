@@ -436,8 +436,8 @@ test("Tools page renders modular compact boxes, search bar, category pills, and 
     "Must include GitHub category pill",
   );
   assert.ok(
-    toolsHtml.includes('data-cat="Files"'),
-    "Must include Files category pill",
+    toolsHtml.includes('data-cat="Code Graph"'),
+    "Must include Code Graph category pill",
   );
 
   // Compact grid structure

@@ -4,6 +4,7 @@
 import {
   renderPageShell,
   renderAuthRequiredCard,
+  renderCustomDropdown,
   escapeHtml,
 } from "../components.js";
 import { renderSvg } from "../icons.js";
@@ -36,11 +37,12 @@ export function renderToolsPage(params: {
   // Build category count
   const categories: Record<string, number> = {};
   tools.forEach((t) => {
-    const cat = t.category || "General";
+    let cat = t.category || "General";
+    if (cat === "Files" || cat === "Search") cat = "Sandbox";
     categories[cat] = (categories[cat] || 0) + 1;
   });
 
-  const standardCats = ["Sandbox", "Render", "GitHub", "Files"];
+  const standardCats = ["Sandbox", "Render", "GitHub", "Code Graph"];
   standardCats.forEach((c) => {
     if (!categories[c]) categories[c] = 0;
   });
@@ -60,22 +62,24 @@ export function renderToolsPage(params: {
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
-          <select id="keySelector" onchange="onKeyFilterChange(this)" class="krix-select">
-            <option value="">All Keys</option>
-            ${(params.summary?.keys || [])
-              .map((k: any) => {
+          ${renderCustomDropdown({
+            id: "keySelector",
+            options: [
+              { value: "", label: "All Keys" },
+              ...(params.summary?.keys || []).map((k: any) => {
                 const val = k.keyId || k.id;
                 const lbl = k.label || val;
-                const sel =
-                  params.summary?.selectedKeyId === val ? "selected" : "";
-                return `<option value="${escapeHtml(val)}" ${sel}>${escapeHtml(lbl)}</option>`;
-              })
-              .join("")}
-          </select>
+                return { value: val, label: lbl };
+              }),
+            ],
+            selectedValue: params.summary?.selectedKeyId || "",
+            onchange: "onKeyFilterChange(this)",
+            ariaLabel: "Filter by API or OAuth key",
+          })}
         </div>
-        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:6px; padding:3px; gap:2px;">
-          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:4px;">Concise</button>
-          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:4px;">Verbose</button>
+        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:3px; gap:2px; height:34px; box-sizing:border-box;">
+          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full); height:26px; display:inline-flex; align-items:center; justify-content:center;">Concise</button>
+          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full); height:26px; display:inline-flex; align-items:center; justify-content:center;">Verbose</button>
         </div>
       </div>
     </div>
@@ -90,10 +94,20 @@ export function renderToolsPage(params: {
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <label for="toolBreakdownSelect" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Select Tool:</label>
-          <select id="toolBreakdownSelect" onchange="selectToolBreakdown(this.value)" class="krix-select" style="max-width:260px;">
-            <option value="">All Tools (Global)</option>
-            ${tools.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${escapeHtml(t.category || "General")})</option>`).join("")}
-          </select>
+          ${renderCustomDropdown({
+            id: "toolBreakdownSelect",
+            options: [
+              { value: "", label: "All Tools (Global)" },
+              ...tools.map((t) => ({
+                value: t.name,
+                label: `${t.name} (${t.category === "Files" || t.category === "Search" ? "Sandbox" : t.category || "General"})`,
+              })),
+            ],
+            selectedValue: "",
+            onchange: "selectToolBreakdown(this.value)",
+            ariaLabel: "Select Tool for Telemetry Breakdown",
+            style: "max-width:280px;",
+          })}
         </div>
       </div>
 
@@ -136,32 +150,22 @@ export function renderToolsPage(params: {
         <input type="text" id="toolSearchInput" placeholder="" oninput="filterTools(this.value)" style="flex:1; font-size:13px; color:var(--fg);">
       </div>
 
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button type="button" class="tool-cat-pill active" data-cat="All" onclick="filterCategory('All', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-2); color:var(--fg); cursor:pointer;">
+      <div class="category-filter-grid">
+        <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterCategory('All', this)">
           All (${totalCount})
         </button>
-        <button type="button" class="tool-cat-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+        <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)">
           Sandbox (${categories["Sandbox"] || 0})
         </button>
-        <button type="button" class="tool-cat-pill" data-cat="Render" onclick="filterCategory('Render', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+        <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterCategory('Render', this)">
           Render (${categories["Render"] || 0})
         </button>
-        <button type="button" class="tool-cat-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
+        <button type="button" class="category-filter-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)">
           GitHub (${categories["GitHub"] || 0})
         </button>
-        <button type="button" class="tool-cat-pill" data-cat="Files" onclick="filterCategory('Files', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
-          Files (${categories["Files"] || 0})
+        <button type="button" class="category-filter-pill" data-cat="Code Graph" onclick="filterCategory('Code Graph', this)">
+          Code Graph (${categories["Code Graph"] || 0})
         </button>
-        ${Object.keys(categories)
-          .filter((cat) => !standardCats.includes(cat) && cat !== "All")
-          .map(
-            (cat) => `
-          <button type="button" class="tool-cat-pill" data-cat="${escapeHtml(cat)}" onclick="filterCategory('${escapeHtml(cat)}', this)" style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:var(--radius-full); border:1px solid var(--border-subtle); background:var(--bg-surface-1); color:var(--geist-gray-50); cursor:pointer;">
-            ${escapeHtml(cat)} (${categories[cat]})
-          </button>
-        `,
-          )
-          .join("")}
       </div>
     </div>
 
@@ -176,7 +180,12 @@ export function renderToolsPage(params: {
                 const tDesc = escapeHtml(
                   tool.description || "No description provided",
                 );
-                const tCat = escapeHtml(tool.category || "General");
+                const rawCat = tool.category || "General";
+                const cleanCat =
+                  rawCat === "Files" || rawCat === "Search"
+                    ? "Sandbox"
+                    : rawCat;
+                const tCat = escapeHtml(cleanCat);
                 const schemaJson = escapeHtml(
                   JSON.stringify(
                     tool.inputSchema || {
@@ -195,7 +204,7 @@ export function renderToolsPage(params: {
                 </div>
                 <div style="min-width:0; flex:1;">
                   <div style="font-weight:600; font-family:var(--font-mono); font-size:13px; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${tName}</div>
-                  <div class="tool-desc" style="font-size:12px; color:var(--geist-gray-50); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">${tDesc}</div>
+                  <div class="tool-desc" style="display:none; font-size:12px; color:var(--geist-gray-50); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">${tDesc}</div>
                 </div>
               </div>
 
@@ -429,31 +438,49 @@ export function renderToolsPage(params: {
 
         const select = document.getElementById('toolBreakdownSelect');
         if (select && select.value !== name) select.value = name;
+        const triggerLabel = document.getElementById('toolBreakdownSelect_label');
+        if (triggerLabel) {
+          triggerLabel.textContent = name
+            ? (name + ' (' + ((toolsMetricsMap[name] && toolsMetricsMap[name].category) || 'General') + ')')
+            : 'All Tools (Global)';
+        }
+        const popover = document.getElementById('toolBreakdownSelect_popover');
+        if (popover) {
+          popover.querySelectorAll('.krix-dropdown-option').forEach(function(opt) {
+            const isMatch = opt.getAttribute('data-value') === (name || '');
+            opt.classList.toggle('selected', isMatch);
+            opt.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+          });
+        }
       }
 
       function setToolDensity(mode) {
         const grid = document.getElementById('toolsGrid');
-        document.getElementById('densityConciseBtn').classList.toggle('active', mode === 'concise');
-        document.getElementById('densityVerboseBtn').classList.toggle('active', mode === 'verbose');
+        document.getElementById('densityConciseBtn')?.classList.toggle('active', mode === 'concise');
+        document.getElementById('densityVerboseBtn')?.classList.toggle('active', mode === 'verbose');
         if (mode === 'verbose') {
           grid.classList.remove('concise');
           grid.classList.add('verbose');
-          document.querySelectorAll('.tool-desc').forEach(d => d.style.whiteSpace = 'normal');
+          document.querySelectorAll('.tool-desc').forEach(d => {
+            d.style.display = 'block';
+            d.style.whiteSpace = 'normal';
+          });
         } else {
           grid.classList.remove('verbose');
           grid.classList.add('concise');
-          document.querySelectorAll('.tool-desc').forEach(d => d.style.whiteSpace = 'nowrap');
+          document.querySelectorAll('.tool-desc').forEach(d => {
+            d.style.display = 'none';
+            d.style.whiteSpace = 'nowrap';
+          });
         }
       }
 
       function filterCategory(cat, btn) {
         currentCategory = cat;
-        document.querySelectorAll('.tool-cat-pill').forEach(b => {
-          b.style.background = 'var(--bg-surface-1)';
-          b.style.color = 'var(--geist-gray-50)';
+        document.querySelectorAll('.category-filter-pill').forEach(b => {
+          b.classList.remove('active');
         });
-        btn.style.background = 'var(--bg-surface-2)';
-        btn.style.color = 'var(--fg)';
+        if (btn) btn.classList.add('active');
         applyFilter();
       }
 
@@ -465,8 +492,11 @@ export function renderToolsPage(params: {
         const q = (document.getElementById('toolSearchInput').value || '').toLowerCase();
         const rows = Array.from(document.querySelectorAll('.tool-row'));
         const filtered = rows.filter(row => {
-          const matchCat = (currentCategory === 'All') || (row.getAttribute('data-cat') === currentCategory);
-          const matchText = row.getAttribute('data-name').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
+          const rowCat = row.getAttribute('data-cat') || '';
+          const matchCat = (currentCategory === 'All')
+            || (rowCat === currentCategory)
+            || (currentCategory === 'Sandbox' && (rowCat === 'Sandbox' || rowCat === 'Files' || rowCat === 'Search'));
+          const matchText = (row.getAttribute('data-name') || '').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
           return matchCat && matchText;
         });
         currentToolsPage = 1;
@@ -497,8 +527,11 @@ export function renderToolsPage(params: {
         const rows = Array.from(document.querySelectorAll('.tool-row'));
         const q = (document.getElementById('toolSearchInput').value || '').toLowerCase();
         const filtered = rows.filter(row => {
-          const matchCat = currentCategory === 'All' || row.getAttribute('data-cat') === currentCategory;
-          const matchText = row.getAttribute('data-name').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
+          const rowCat = row.getAttribute('data-cat') || '';
+          const matchCat = (currentCategory === 'All')
+            || (rowCat === currentCategory)
+            || (currentCategory === 'Sandbox' && (rowCat === 'Sandbox' || rowCat === 'Files' || rowCat === 'Search'));
+          const matchText = (row.getAttribute('data-name') || '').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
           return matchCat && matchText;
         });
         currentToolsPage += delta;

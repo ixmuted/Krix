@@ -205,7 +205,7 @@ export function getAppLogoSvg(
   const fallbackSvg = renderSvg(fallbackIconName, size);
   const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
 
-  if (q.includes("gemini")) {
+  if (q.includes("gemini") || (origin && origin.includes("gemini"))) {
     const primarySrc =
       "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png";
     const fallbackSrc =
@@ -218,6 +218,20 @@ export function getAppLogoSvg(
       .replace(/"/g, "&quot;");
     const onerrorAttr = `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`;
     return `<img class="oauth-app-favicon" src="${safePrimary}" data-fallback-src="${safeFallback}" width="${size}" height="${size}" alt="Gemini" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+  }
+
+  if (q.includes("claude") || q.includes("anthropic") || (origin && (origin.includes("claude") || origin.includes("anthropic")))) {
+    const primarySrc = "https://claude.ai/favicon.ico";
+    const fallbackSrc =
+      "https://www.google.com/s2/favicons?domain_url=https://claude.ai&sz=64";
+    const safePrimary = primarySrc
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
+    const safeFallback = fallbackSrc
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
+    const onerrorAttr = `onerror="if(this.dataset.fallbackSrc &amp;&amp; this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc='';}else{this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}}"`;
+    return `<img class="oauth-app-favicon" src="${safePrimary}" data-fallback-src="${safeFallback}" width="${size}" height="${size}" alt="Claude" loading="lazy" referrerpolicy="no-referrer" ${onerrorAttr}><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
   }
 
   const isDirectImage = Boolean(
