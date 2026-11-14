@@ -385,9 +385,9 @@ export function renderApiKeysPage(params: {
     <div id="createKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
       <div class="modal-card card spotlight-card" style="max-width:420px; width:100%; padding:24px; box-shadow:var(--shadow-popover);">
         <h3 style="font-size:16px; font-weight:700; color:var(--fg); margin-bottom:6px;">Create API Key</h3>
-        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Provide a descriptive label for your new key (minimum 4 characters).</p>
+        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Provide a descriptive label for your new key (4–16 characters).</p>
         <form id="createKeyForm" onsubmit="event.preventDefault(); handleCreateKey(event); return false;" action="javascript:void(0);" method="post" style="display:flex; flex-direction:column; gap:12px;">
-          <input type="text" id="createKeyInput" placeholder="e.g. Gemini-CLI or Cursor-Prod" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-size:13px; color:var(--fg); outline:none;">
+          <input type="text" id="createKeyInput" minlength="4" maxlength="16" placeholder="e.g. Gemini-CLI or Cursor-Prod" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-size:13px; color:var(--fg); outline:none;">
           <div style="display:flex; justify-content:flex-end; gap:8px;">
             <button type="button" class="btn ghost" onclick="closeCreateKeyModal()">Cancel</button>
             <button type="button" id="createKeyBtn" class="btn primary" onclick="handleCreateKey(event)">Generate Key</button>
@@ -400,8 +400,8 @@ export function renderApiKeysPage(params: {
     <div id="renameKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
       <div class="modal-card card spotlight-card" style="max-width:420px; width:100%; padding:24px; box-shadow:var(--shadow-popover);">
         <h3 style="font-size:16px; font-weight:700; color:var(--fg); margin-bottom:6px;">Rename API Key</h3>
-        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Enter a new label for this key (minimum 4 characters).</p>
-        <input type="text" id="renameKeyInput" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-size:13px; color:var(--fg); margin-bottom:20px; outline:none;">
+        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Enter a new label for this key (4–16 characters).</p>
+        <input type="text" id="renameKeyInput" minlength="4" maxlength="16" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-size:13px; color:var(--fg); margin-bottom:20px; outline:none;">
         <div style="display:flex; justify-content:flex-end; gap:8px;">
           <button type="button" class="btn ghost" onclick="closeRenameKeyModal()">Cancel</button>
           <button type="button" id="renameKeySubmitBtn" class="btn primary" onclick="submitRenameKey()">Save Changes</button>
@@ -414,7 +414,7 @@ export function renderApiKeysPage(params: {
       <div class="modal-card card spotlight-card" style="max-width:420px;width:100%;padding:24px;box-shadow:var(--shadow-popover);">
         <h3 style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:6px;">Rename OAuth Client</h3>
         <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:16px;">Choose a new display name for this authorized application.</p>
-        <input type="text" id="renameOAuthInput" maxlength="100" style="width:100%;padding:8px 12px;background:var(--bg-surface-1);border:1px solid var(--border-medium);border-radius:6px;font-size:13px;color:var(--fg);margin-bottom:20px;outline:none;">
+        <input type="text" id="renameOAuthInput" minlength="4" maxlength="16" style="width:100%;padding:8px 12px;background:var(--bg-surface-1);border:1px solid var(--border-medium);border-radius:6px;font-size:13px;color:var(--fg);margin-bottom:20px;outline:none;">
         <div style="display:flex;justify-content:flex-end;gap:8px;">
           <button type="button" class="btn ghost" onclick="closeRenameOAuthModal()">Cancel</button>
           <button type="button" class="btn primary" id="renameOAuthSubmitBtn" onclick="submitRenameOAuth()">Save Changes</button>
@@ -629,8 +629,8 @@ export function renderApiKeysPage(params: {
       function submitCreateKey() {
         const input = document.getElementById('createKeyInput');
         const name = (input?.value || '').trim();
-        if (!name || name.length < 4) {
-          showToast('Key label must be at least 4 characters long', 'error');
+        if (!name || name.length < 4 || name.length > 16) {
+          showToast('Key name must be 4–16 characters long', 'error');
           return;
         }
 
@@ -682,8 +682,8 @@ export function renderApiKeysPage(params: {
         if (!pendingActionKeyId) return;
         const input = document.getElementById('renameKeyInput');
         const newName = (input?.value || '').trim();
-        if (!newName || newName.length < 4) {
-          showToast('Key label must be at least 4 characters long', 'error');
+        if (!newName || newName.length < 4 || newName.length > 16) {
+          showToast('Key name must be 4–16 characters long', 'error');
           return;
         }
 
@@ -789,7 +789,7 @@ export function renderApiKeysPage(params: {
         if (!pendingOAuthClientId) return;
         const input = document.getElementById('renameOAuthInput');
         const name = (input?.value || '').trim();
-        if (name.length < 2) { showToast('Client name must be at least 2 characters long', 'error'); return; }
+        if (name.length < 4 || name.length > 16) { showToast('Client name must be 4–16 characters long', 'error'); return; }
         const button = document.getElementById('renameOAuthSubmitBtn');
         if (button) button.disabled = true;
         try {
