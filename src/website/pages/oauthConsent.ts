@@ -38,18 +38,6 @@ function safeWebsiteOrigin(value?: string): string | undefined {
 }
 
 
-function svgDataUri(svg: string): string {
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-}
-
-const GEMINI_LOGO_DATA_URI = svgDataUri(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="3" y1="21" x2="21" y2="3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4285F4"/><stop offset="0.55" stop-color="#9B72CB"/><stop offset="1" stop-color="#D96570"/></linearGradient></defs><path fill="url(#g)" d="M12 0C12 6.63 17.37 12 24 12C17.37 12 12 17.37 12 24C12 17.37 6.63 12 0 12C6.63 12 12 6.63 12 0Z"/></svg>`,
-);
-
-const CLAUDE_LOGO_DATA_URI = svgDataUri(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g stroke="#D97757" stroke-width="2.4" stroke-linecap="round"><path d="M12 2.5v19"/><path d="M2.5 12h19"/><path d="M5.3 5.3l13.4 13.4"/><path d="M18.7 5.3L5.3 18.7"/></g></svg>`,
-);
-
 export function renderOAuthConsentPage(params: {
   clientId: string;
   clientName: string;
@@ -115,10 +103,14 @@ export function renderOAuthConsentPage(params: {
   let fallbackSrc = "";
 
   if (isGemini) {
-    // Embedded: no network fetch, immune to CSP / broken remote URLs.
-    primarySrc = GEMINI_LOGO_DATA_URI;
+    primarySrc =
+      "https://www.google.com/s2/favicons?domain=gemini.google.com&sz=128";
+    fallbackSrc =
+      "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png";
   } else if (isClaude) {
-    primarySrc = CLAUDE_LOGO_DATA_URI;
+    primarySrc =
+      "https://www.google.com/s2/favicons?domain=claude.ai&sz=128";
+    fallbackSrc = "https://claude.ai/favicon.ico";
   } else if (params.logoUri && safeWebsiteOrigin(params.logoUri)) {
     primarySrc = params.logoUri;
     fallbackSrc = origin
