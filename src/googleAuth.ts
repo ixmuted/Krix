@@ -1,3 +1,4 @@
+import { validateDisplayName } from "./nameRules.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -560,10 +561,7 @@ export function createDynamicKey(
   label: string = "Personal Key",
   email?: string,
 ): GeneratedKeyEntry {
-  const cleanLabel = (label || "").trim();
-  if (cleanLabel.length < 4) {
-    throw new Error("Key name must be at least 4 characters long.");
-  }
+  const cleanLabel = validateDisplayName(label, "Key name");
 
   const labelOwner = (email || getOwnerEmail() || "owner@localhost")
     .trim()
@@ -690,10 +688,7 @@ export function renameDynamicKey(
   id: string,
   newLabel: string,
 ): GeneratedKeyEntry {
-  const cleanLabel = (newLabel || "").trim();
-  if (cleanLabel.length < 4) {
-    throw new Error("Key name must be at least 4 characters long.");
-  }
+  const cleanLabel = validateDisplayName(newLabel, "Key name");
 
   const entry = dynamicApiKeys.get(id);
   if (!entry) {
@@ -1037,15 +1032,7 @@ export function createGoogleAuthRouter(): Router {
     (req: Request, res: Response): void => {
       const currentUser = (req as any).owner as OwnerProfile | undefined;
       const rawLabel =
-        typeof req.body?.label === "string"
-          ? req.body.label.trim().slice(0, 50)
-          : "";
-      if (!rawLabel || rawLabel.length < 4) {
-        res
-          .status(400)
-          .json({ error: "Key name must be at least 4 characters long." });
-        return;
-      }
+        typeof req.body?.label === "string" ? req.body.label.trim() : "";
       try {
         const entry = createDynamicKey(rawLabel, currentUser?.email);
         res.status(201).json({

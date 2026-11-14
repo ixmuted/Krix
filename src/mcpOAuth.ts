@@ -4,6 +4,11 @@ import path from "node:path";
 import express, { Router, type Request, type Response } from "express";
 import { statsTracker } from "./stats.js";
 import {
+  NAME_MIN_LENGTH,
+  validateDisplayName,
+  withCounter,
+} from "./nameRules.js";
+import {
   parseOwnerCookie,
   getPublicBaseUrl,
   isAuthorizedApiKey,
@@ -764,6 +769,7 @@ export function createMcpOAuthRouter(): Router {
     express.json({ limit: "32kb" }),
     (req: Request, res: Response): void => {
       const body = req.body && typeof req.body === "object" ? req.body : {};
+      pruneUnusedClients();
       if (registeredClients.size >= 20) {
         res.status(400).json({
           error: "invalid_request",
@@ -774,7 +780,7 @@ export function createMcpOAuthRouter(): Router {
       }
       let clientName =
         typeof body.client_name === "string" && body.client_name.trim()
-          ? body.client_name.trim().slice(0, 100)
+          ? body.client_name.trim()
           : "";
       const rawUris = Array.isArray(body.redirect_uris)
         ? body.redirect_uris
@@ -785,7 +791,7 @@ export function createMcpOAuthRouter(): Router {
 
       // Auto-detect human-friendly provider name if generic or missing
       if (
-        !clientName ||
+        clientName.length < NAME_MIN_LENGTH ||
         clientName === "MCP Client" ||
         clientName.startsWith("Client (")
       ) {
@@ -806,45 +812,12 @@ export function createMcpOAuthRouter(): Router {
         }
       }
 
-      // Check if this client is already registered (re-registration / reconnect)
-      // Matching by non-empty redirect_uris or existing client with matching name
-      for (const existing of registeredClients.values()) {
-        const hasMatchingUri =
-          redirectUris.length > 0 &&
-          existing.redirectUris.some((u) => redirectUris.includes(u));
-        const hasMatchingName =
-          clientName &&
-          clientName !== "OAuth Client" &&
-          existing.clientName.toLowerCase() === clientName.toLowerCase();
-
-        if (hasMatchingUri || (hasMatchingName && redirectUris.length === 0)) {
-          // Re-use existing client registration to prevent duplicate client rows
-          if (clientName && clientName !== "OAuth Client") {
-            existing.clientName = clientName;
-          }
-          if (redirectUris.length > 0) {
-            existing.redirectUris = Array.from(
-              new Set([...existing.redirectUris, ...redirectUris]),
-            );
-          }
-          saveOAuthToDisk();
-          syncOAuthClientToMongo(existing).catch(() => {});
-          res.status(200).json({
-            client_id: existing.clientId,
-            client_secret: existing.clientSecret,
-            client_name: existing.clientName,
-            redirect_uris: existing.redirectUris,
-            grant_types: [
-              "authorization_code",
-              "refresh_token",
-              "client_credentials",
-            ],
-            response_types: ["code"],
-            token_endpoint_auth_method: "client_secret_post",
-          });
-          return;
-        }
-      }
+      // Every registration is its own authorization. Re-using a client by redirect URI
+      // merged different accounts (e.g. Gemini account A and B share one redirect URI)
+      // into a single row. Names are kept unique with a counter instead ("Google Gemini 2").
+      clientName = withCounter(clientName, (candidate) =>
+        isClientNameTaken(candidate),
+      );
 
       const clientId = "krix_client_" + crypto.randomBytes(16).toString("hex");
       const clientSecret = "krix_sec_" + crypto.randomBytes(32).toString("hex");
@@ -1643,12 +1616,7 @@ export function createMcpOAuthRouter(): Router {
         }
       }
       try {
-        // The list view merges clients that share a display name, so revoke the whole
-        // group; otherwise a duplicate would reappear right after deleting.
-        let success = false;
-        for (const id of findClientIdsSharingName(clientId)) {
-          if (await revokeOAuthAuthorization(id)) success = true;
-        }
+        const success = await revokeOAuthAuthorization(clientId);
         if (!success) {
           res.status(404).json({
             success: false,
@@ -1681,16 +1649,8 @@ export function createMcpOAuthRouter(): Router {
         return;
       }
       const clientId = String(req.params.clientId || "");
-      const newName =
-        typeof req.body?.name === "string" ? req.body.name.trim() : "";
-      if (!newName || newName.length < 2) {
-        res.status(400).json({
-          error: "Client name must be at least 2 characters long.",
-        });
-        return;
-      }
       try {
-        const client = renameOAuthClient(clientId, newName);
+        const client = renameOAuthClient(clientId, req.body?.name);
         res.json({ success: true, clientId, clientName: client.clientName });
       } catch (err: any) {
         res.status(400).json({
@@ -1752,38 +1712,32 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
     }
   }
 
-  const deduplicated = new Map<string, ActiveOAuthInfo>();
-  for (const item of result.values()) {
-    const normKey = (item.clientName || item.clientId).trim().toLowerCase();
-    const existing = deduplicated.get(normKey);
-    if (!existing || (item.lastUsedAt || 0) > (existing.lastUsedAt || 0)) {
-      deduplicated.set(normKey, item);
-    }
-  }
-  return Array.from(deduplicated.values());
+  // One row per client id. Rows are never merged by display name: distinct accounts
+  // that happen to share a provider name must stay separate authorizations.
+  return Array.from(result.values());
 }
 
-function displayNameForClient(clientId: string): string {
-  const client = registeredClients.get(clientId);
-  return (
-    client?.clientName ||
-    (clientId.toLowerCase().includes("gemini")
-      ? "Google Gemini"
-      : `Client (${clientId.slice(0, 16)})`)
-  )
-    .trim()
-    .toLowerCase();
+function isClientNameTaken(name: string, exceptClientId?: string): boolean {
+  const target = name.trim().toLowerCase();
+  for (const c of registeredClients.values()) {
+    if (c.clientId === exceptClientId) continue;
+    if ((c.clientName || "").trim().toLowerCase() === target) return true;
+  }
+  return false;
 }
 
-/** Every client id with live tokens that the authorizations list shows under the same name. */
-export function findClientIdsSharingName(clientId: string): string[] {
-  const target = displayNameForClient(clientId);
-  const ids = new Set<string>([clientId]);
-  for (const entry of issuedTokens.values()) {
-    if (displayNameForClient(entry.clientId) === target)
-      ids.add(entry.clientId);
+/** Drops registrations that never completed authorization so they don't hold names or slots. */
+function pruneUnusedClients(maxAgeMs: number = 10 * 60 * 1000): void {
+  const now = Date.now();
+  const used = new Set<string>();
+  for (const t of issuedTokens.values()) used.add(t.clientId);
+  for (const [id, c] of Array.from(registeredClients.entries())) {
+    if (used.has(id) || now - (c.createdAt || 0) < maxAgeMs) continue;
+    registeredClients.delete(id);
+    revokedClientIds.add(id);
+    revokeOAuthClientInMongo(id).catch(() => {});
   }
-  return Array.from(ids);
+  saveOAuthToDisk();
 }
 
 export async function revokeOAuthAuthorization(
@@ -1818,9 +1772,11 @@ export function renameOAuthClient(
   clientId: string,
   newName: string,
 ): OAuthClient {
-  const cleanName = (newName || "").trim();
-  if (cleanName.length < 2) {
-    throw new Error("Client name must be at least 2 characters long.");
+  const cleanName = validateDisplayName(newName, "Client name");
+  if (isClientNameTaken(cleanName, clientId)) {
+    throw new Error(
+      `An authorization named "${cleanName}" already exists. Please choose a unique name.`,
+    );
   }
   let client = registeredClients.get(clientId);
   if (!client) {

@@ -1,3 +1,4 @@
+import { validateDisplayName } from "./nameRules.js";
 import express, { NextFunction, Request, Response } from "express";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -1460,12 +1461,11 @@ app.post("/api/keys", express.json(), async (req, res) => {
     });
     return;
   }
-  const label =
-    typeof req.body?.label === "string" ? req.body.label.trim() : "";
-  if (!label || label.length < 4) {
-    res
-      .status(400)
-      .json({ error: "Key name must be at least 4 characters long." });
+  let label: string;
+  try {
+    label = validateDisplayName(req.body?.label, "Key name");
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
     return;
   }
   let createdKeyId = "";
@@ -1641,12 +1641,11 @@ app.patch("/api/keys/:id", express.json(), async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
-  const label =
-    typeof req.body?.label === "string" ? req.body.label.trim() : "";
-  if (!label || label.length < 4) {
-    res
-      .status(400)
-      .json({ error: "Key name must be at least 4 characters long." });
+  let label: string;
+  try {
+    label = validateDisplayName(req.body?.label, "Key name");
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
     return;
   }
   try {
