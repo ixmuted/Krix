@@ -779,11 +779,10 @@ export function renderApiKeysPage(params: {
         const modal = document.getElementById('renameOAuthModal');
         const input = document.getElementById('renameOAuthInput');
         if (input) input.value = currentName || '';
-        if (modal) { modal.hidden = false; modal.style.display = 'flex'; input?.focus(); }
+        if (modal) { showPageModal(modal); input?.focus(); }
       }
       function closeRenameOAuthModal() {
-        const modal = document.getElementById('renameOAuthModal');
-        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+        hidePageModal(document.getElementById('renameOAuthModal'));
         pendingOAuthClientId = null;
       }
       async function submitRenameOAuth() {
@@ -816,7 +815,7 @@ export function renderApiKeysPage(params: {
         if (title) title.textContent = 'Revoke OAuth Access';
         if (desc) desc.textContent = 'Revoke access for "' + clientName + '"? The application will be disconnected and must be re-authorized to use Krix again.';
         if (btn) btn.textContent = 'Revoke Access';
-        if (modal) { modal.hidden = false; modal.style.display = 'flex'; }
+        showPageModal(modal);
       }
 
       async function revokeOAuthAuthorization(clientId) {
@@ -829,20 +828,32 @@ export function renderApiKeysPage(params: {
       }
 
       function openEditCredsModal() {
-        const modal = document.getElementById('editCredsModal');
-        if (modal) {
-          modal.hidden = false;
-          modal.style.display = 'flex';
-        }
+        showPageModal(document.getElementById('editCredsModal'));
       }
 
       function closeEditCredsModal() {
-        const modal = document.getElementById('editCredsModal');
-        if (modal) {
-          modal.hidden = true;
-          modal.style.display = 'none';
-        }
+        hidePageModal(document.getElementById('editCredsModal'));
       }
+
+      document.addEventListener('click', function(e) {
+        if (!e.target || !e.target.classList || !e.target.classList.contains('modal-backdrop')) return;
+        if (e.target.id === 'confirmModal') closeConfirmModal();
+        else if (e.target.id === 'renameKeyModal') closeRenameKeyModal();
+        else if (e.target.id === 'renameOAuthModal') closeRenameOAuthModal();
+        else if (e.target.id === 'createKeyModal') closeCreateKeyModal();
+        else if (e.target.id === 'editCredsModal') closeEditCredsModal();
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const openModal = document.querySelector('.modal-backdrop:not([hidden])');
+        if (!openModal) return;
+        if (openModal.id === 'confirmModal') closeConfirmModal();
+        else if (openModal.id === 'renameKeyModal') closeRenameKeyModal();
+        else if (openModal.id === 'renameOAuthModal') closeRenameOAuthModal();
+        else if (openModal.id === 'createKeyModal') closeCreateKeyModal();
+        else if (openModal.id === 'editCredsModal') closeEditCredsModal();
+      });
 
       function submitEditCreds() {
         const gh = document.getElementById('inputGithubToken')?.value || '';
