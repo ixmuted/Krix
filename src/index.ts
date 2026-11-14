@@ -1098,7 +1098,7 @@ app.get("/gemini-extension.json", (req, res) => {
     iconUrl: ICON_48_DATA_URI,
     logo: ICON_48_DATA_URI,
     logoUrl: ICON_48_DATA_URI,
-    icons: getServerIcons(base),
+    icons: getServerInfoIcons(base),
     mcpServers: {
       krix: {
         description:
