@@ -485,21 +485,25 @@ export function renderApiKeysPage(params: {
         menu.style.left = '0px';
         menu.style.top = '0px';
         menu.style.maxWidth = 'calc(100vw - 24px)';
-        menu.style.maxHeight = 'min(70vh, 420px)';
+        menu.style.maxHeight = Math.min(420, window.innerHeight - 24) + 'px';
         menu.style.overflowY = 'auto';
         const triggerRect = trigger.getBoundingClientRect();
         const menuRect = menu.getBoundingClientRect();
         const width = Math.min(menuRect.width || 184, window.innerWidth - 24);
         const left = Math.max(12, Math.min(triggerRect.right - width, window.innerWidth - width - 12));
         const fitsBelow = triggerRect.bottom + 6 + menuRect.height <= window.innerHeight - 12;
-        const top = fitsBelow
+        const desiredTop = fitsBelow
           ? triggerRect.bottom + 5
-          : Math.max(12, triggerRect.top - menuRect.height - 5);
+          : triggerRect.top - menuRect.height - 5;
+        // Clamp so the whole menu always stays inside the viewport, on short or landscape screens too.
+        const top = Math.max(12, Math.min(desiredTop, window.innerHeight - menuRect.height - 12));
         menu.style.width = Math.min(window.innerWidth - 24, Math.max(width, 160)) + 'px';
         menu.style.left = left + 'px';
         menu.style.top = top + 'px';
         activeKeyMenuId = id;
       }
+
+      window.addEventListener('resize', function () { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); });
 
       function closeKeyDropdown(id) {
         const menu = document.getElementById(id);
