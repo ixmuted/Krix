@@ -1199,6 +1199,16 @@ th:has(.krix-dropdown),
   flex: 1;
 }
 
+/* Saved/empty credential fields are display-only until Edit is pressed: no tap target, no caret. */
+.settings-secret-control input[readonly] {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  caret-color: transparent;
+  cursor: default;
+  text-overflow: ellipsis;
+}
+
 .settings-action-row .btn {
   min-width: 180px;
   min-height: 38px;
