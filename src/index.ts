@@ -3787,6 +3787,16 @@ app.delete("/store/files/:id", async (req, res) => {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
+  let targetName: string | undefined = share?.name;
+  if (!targetName) {
+    for (const k of ownerKeys) {
+      const f = await getFileStore().openById(k, id);
+      if (f) {
+        targetName = f.name;
+        break;
+      }
+    }
+  }
   let ok = false;
   for (const k of ownerKeys) {
     if (await getFileStore().deleteOwned(k, id)) {
@@ -3796,6 +3806,19 @@ app.delete("/store/files/:id", async (req, res) => {
   }
   if (ok) {
     fileShareRegistry.removeFile(id);
+    if (targetName) {
+      for (const k of ownerKeys) {
+        const diskPath = path.join(sandboxRootForAuthKey(k), UPLOAD_DIR, targetName);
+        if (fs.existsSync(diskPath)) {
+          try {
+            fs.unlinkSync(diskPath);
+          } catch {}
+        }
+      }
+      fileShareRegistry.removeFile(
+        `sbx_${Buffer.from(targetName).toString("hex").slice(0, 16)}`,
+      );
+    }
     await fileShareRegistry.flushToMongo();
     res.json({ success: true, deleted: id });
   } else {
@@ -3822,6 +3845,16 @@ app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
+  let prevName: string | undefined = share?.name;
+  if (!prevName) {
+    for (const k of ownerKeys) {
+      const f = await getFileStore().openById(k, id);
+      if (f) {
+        prevName = f.name;
+        break;
+      }
+    }
+  }
   let ok = false;
   for (const k of ownerKeys) {
     if (await getFileStore().rename(k, id, name)) {
@@ -3831,6 +3864,22 @@ app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
   }
   if (ok) {
     fileShareRegistry.renameFile(id, name);
+    if (prevName && prevName !== name) {
+      for (const k of ownerKeys) {
+        const root = sandboxRootForAuthKey(k);
+        const oldDisk = path.join(root, UPLOAD_DIR, prevName);
+        const newDisk = path.join(root, UPLOAD_DIR, name);
+        if (fs.existsSync(oldDisk)) {
+          try {
+            fs.renameSync(oldDisk, newDisk);
+          } catch {}
+        }
+      }
+      fileShareRegistry.renameFile(
+        `sbx_${Buffer.from(prevName).toString("hex").slice(0, 16)}`,
+        name,
+      );
+    }
     await fileShareRegistry.flushToMongo();
     res.json({ success: true, id, name });
   } else {
