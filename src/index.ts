@@ -800,6 +800,7 @@ async function authenticate(
       (req as any).clientAuth = {
         keyId,
         label,
+        email: payload.email || registeredClient?.ownerEmail,
         type: "oauth",
       };
       next();
