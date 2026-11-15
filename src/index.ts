@@ -3223,29 +3223,176 @@ app.get("/settings/api/data", async (req, res) => {
 });
 
 // Dedicated Store Page & Download Endpoints
-function extractCallerAuthKey(req: Request): string | null {
+function resolveUserOwnerKeys(email: string): string[] {
+  const normEmail = email.trim().toLowerCase();
+  const keys = new Set<string>();
+  keys.add(computeUserAuthKey({ email: normEmail }));
+  keys.add(computeAuthKey(canonicalUserIdentity({ email: normEmail })));
+  for (const k of listDynamicKeys(normEmail)) {
+    keys.add(computeUserAuthKey({ keyId: k.id }));
+    keys.add(computeAuthKey(canonicalUserIdentity({ keyId: k.id })));
+  }
+  for (const oa of listActiveOAuthAuthorizations()) {
+    if (oa.ownerEmail?.toLowerCase() === normEmail) {
+      keys.add(computeUserAuthKey({ keyId: oa.clientId }));
+      keys.add(computeAuthKey(canonicalUserIdentity({ keyId: oa.clientId })));
+    }
+  }
+  return Array.from(keys);
+}
+
+function extractCallerAuthKeys(req: Request): Set<string> {
+  const keys = new Set<string>();
   const owner = parseOwnerCookie(req);
   if (owner && owner.email) {
-    return computeUserAuthKey({ email: owner.email });
+    for (const k of resolveUserOwnerKeys(owner.email)) keys.add(k);
+    return keys;
   }
   const clientKey = extractClientKey(req);
   if (clientKey) {
     const dyn = findAuthorizedApiKey(clientKey);
-    if (dyn?.email) return computeUserAuthKey({ email: dyn.email });
-    if (dyn?.id) return computeUserAuthKey({ keyId: dyn.id });
+    if (dyn?.email) {
+      for (const k of resolveUserOwnerKeys(dyn.email)) keys.add(k);
+      return keys;
+    }
+    if (dyn?.id) {
+      keys.add(computeUserAuthKey({ keyId: dyn.id }));
+      keys.add(computeAuthKey(canonicalUserIdentity({ keyId: dyn.id })));
+      return keys;
+    }
     if (MCP_API_KEY && safeEqual(clientKey, MCP_API_KEY)) {
-      return computeUserAuthKey({
-        email: getOwnerEmail() || "owner@localhost",
+      const ownerEmail = getOwnerEmail() || "owner@localhost";
+      for (const k of resolveUserOwnerKeys(ownerEmail)) keys.add(k);
+      return keys;
+    }
+  }
+  return keys;
+}
+
+async function collectUserStoreFiles(
+  email: string,
+  base: string,
+): Promise<StoredFileInfo[]> {
+  const ownerKeys = resolveUserOwnerKeys(email);
+  const ownerKeySet = new Set(ownerKeys);
+  const primaryAuthKey = computeUserAuthKey({ email });
+  const fileStore = getFileStore();
+
+  const storeLists = await Promise.all(
+    ownerKeys.map((k) =>
+      fileStore
+        .listByOwner(k, { limit: 100, status: "all" })
+        .catch(() => ({ files: [], totalCount: 0 })),
+    ),
+  );
+
+  const files: StoredFileInfo[] = [];
+  const seenStoreIds = new Set<string>();
+  for (const resItem of storeLists) {
+    for (const f of resItem.files) {
+      if (seenStoreIds.has(f.id)) continue;
+      seenStoreIds.add(f.id);
+      const effectiveOwnerKey = f.ownerKey || primaryAuthKey;
+      const share = fileShareRegistry.ensureFileShare({
+        fileId: f.id,
+        name: f.name,
+        source: "store",
+        contentType: f.contentType,
+        ownerKey: effectiveOwnerKey,
+        isPublic: f.isPublic,
+      });
+      files.push({
+        id: f.id,
+        name: f.name,
+        size: f.size,
+        contentType: f.contentType,
+        createdAt: f.createdAt,
+        expiresAt: f.expiresAt,
+        source: "store" as const,
+        downloadUrl: `${base}/store/share/${share.shareToken}`,
+        shareUrl: `${base}/store/share/${share.shareToken}`,
+        isPublic: share.isPublic,
+        permanent: !f.expiresAt,
+        isOwned: true,
       });
     }
   }
-  return null;
+
+  const seenSbxPaths = new Set<string>();
+  for (const k of ownerKeys) {
+    const root = sandboxRootForAuthKey(k);
+    const uploadDir = path.join(root, UPLOAD_DIR);
+    if (!fs.existsSync(uploadDir)) continue;
+    try {
+      const entries = fs.readdirSync(uploadDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        const filePath = path.join(uploadDir, entry.name);
+        if (seenSbxPaths.has(filePath)) continue;
+        seenSbxPaths.add(filePath);
+        const stat = fs.statSync(filePath);
+        const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
+        if (seenStoreIds.has(sbxId)) continue;
+        seenStoreIds.add(sbxId);
+        const share = fileShareRegistry.ensureFileShare({
+          fileId: sbxId,
+          name: entry.name,
+          source: "sandbox",
+          sandboxPath: filePath,
+          ownerKey: k,
+        });
+        files.push({
+          id: sbxId,
+          name: entry.name,
+          size: stat.size,
+          contentType: "application/octet-stream",
+          createdAt: stat.birthtime || stat.mtime,
+          expiresAt: null,
+          source: "sandbox" as const,
+          downloadUrl: `${base}/store/share/${share.shareToken}`,
+          shareUrl: `${base}/store/share/${share.shareToken}`,
+          isPublic: share.isPublic,
+          permanent: false,
+          isOwned: true,
+        });
+      }
+    } catch {}
+  }
+
+  // Include public files from other users so they can be viewed and downloaded by anyone
+  const knownIds = new Set(files.map((f) => f.id));
+  const publicShares = fileShareRegistry.listPublicShares();
+  for (const p of publicShares) {
+    if (knownIds.has(p.fileId)) continue;
+    if (p.ownerKey && !ownerKeySet.has(p.ownerKey)) {
+      files.push({
+        id: p.fileId,
+        name: p.name,
+        size: 0,
+        contentType: p.contentType || "application/octet-stream",
+        createdAt: p.updatedAt,
+        expiresAt: null,
+        source: p.source,
+        downloadUrl: `${base}/store/share/${p.shareToken}`,
+        shareUrl: `${base}/store/share/${p.shareToken}`,
+        isPublic: true,
+        permanent: false,
+        isOwned: false,
+      });
+      knownIds.add(p.fileId);
+    }
+  }
+
+  files.sort(
+    (a, b) =>
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+  );
+  return files;
 }
 
 app.get("/store", async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
-  const isOwner = Boolean(owner);
 
   if (!owner) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -3261,106 +3408,22 @@ app.get("/store", async (req, res) => {
   }
 
   await ensureMongoAuth().catch(() => {});
+  await loadOAuthFromMongo().catch(() => {});
   const dbStore = getMongoDb();
-  if (dbStore) fileShareRegistry.setMongoDb(dbStore);
+  if (dbStore) await fileShareRegistry.setMongoDb(dbStore);
 
   try {
-    const authKey = computeUserAuthKey({ email: owner.email });
-    const root = sandboxRootForAuthKey(authKey);
-    const fileStore = getFileStore();
-
-    const [storeResult, usage] = await Promise.all([
-      fileStore
-        .listByOwner(authKey, { limit: 100, status: "all" })
-        .catch(() => ({ files: [], totalCount: 0 })),
-      fileStore.usage(authKey).catch(() => undefined),
-    ]);
-
-    const files: StoredFileInfo[] = storeResult.files.map((f) => {
-      const share = fileShareRegistry.ensureFileShare({
-        fileId: f.id,
-        name: f.name,
-        source: "store",
-        contentType: f.contentType,
-        ownerKey: authKey,
-        isPublic: f.isPublic,
-      });
-      return {
-        id: f.id,
-        name: f.name,
-        size: f.size,
-        contentType: f.contentType,
-        createdAt: f.createdAt,
-        expiresAt: f.expiresAt,
-        source: "store" as const,
-        downloadUrl: `${base}/store/share/${share.shareToken}`,
-        shareUrl: `${base}/store/share/${share.shareToken}`,
-        isPublic: share.isPublic,
-        permanent: !f.expiresAt,
-        isOwned: true,
-      };
-    });
-
-    const uploadDir = path.join(root, UPLOAD_DIR);
-    if (fs.existsSync(uploadDir)) {
-      try {
-        const entries = fs.readdirSync(uploadDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isFile()) {
-            const filePath = path.join(uploadDir, entry.name);
-            const stat = fs.statSync(filePath);
-            const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
-            const share = fileShareRegistry.ensureFileShare({
-              fileId: sbxId,
-              name: entry.name,
-              source: "sandbox",
-              sandboxPath: filePath,
-              ownerKey: authKey,
-            });
-            files.push({
-              id: sbxId,
-              name: entry.name,
-              size: stat.size,
-              contentType: "application/octet-stream",
-              createdAt: stat.birthtime || stat.mtime,
-              expiresAt: null,
-              source: "sandbox" as const,
-              downloadUrl: `${base}/store/share/${share.shareToken}`,
-              shareUrl: `${base}/store/share/${share.shareToken}`,
-              isPublic: share.isPublic,
-              permanent: false,
-              isOwned: true,
-            });
-          }
-        }
-      } catch {}
-    }
-
-    // Include public files from other users so they can be viewed and downloaded by anyone
-    const knownIds = new Set(files.map((f) => f.id));
-    const publicShares = fileShareRegistry.listPublicShares();
-    for (const p of publicShares) {
-      if (knownIds.has(p.fileId)) continue;
-      if (p.ownerKey && p.ownerKey !== authKey) {
-        files.push({
-          id: p.fileId,
-          name: p.name,
-          size: 0,
-          contentType: p.contentType || "application/octet-stream",
-          createdAt: p.updatedAt,
-          expiresAt: null,
-          source: p.source,
-          downloadUrl: `${base}/store/share/${p.shareToken}`,
-          shareUrl: `${base}/store/share/${p.shareToken}`,
-          isPublic: true,
-          permanent: false,
-          isOwned: false,
-        });
-        knownIds.add(p.fileId);
-      }
-    }
+    const files = await collectUserStoreFiles(owner.email, base);
+    const ownedFiles = files.filter((f) => f.isOwned !== false);
+    const usage = {
+      count: ownedFiles.length,
+      bytes: ownedFiles.reduce((acc, f) => acc + (Number(f.size) || 0), 0),
+      permanentCount: ownedFiles.filter((f) => !!f.permanent).length,
+      expiredCount: ownedFiles.filter((f) => !f.permanent).length,
+    };
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
     res.send(
       renderStorePage({
         base,
@@ -3382,104 +3445,21 @@ app.get("/store/api/files", async (req, res) => {
     return;
   }
   await ensureMongoAuth().catch(() => {});
+  await loadOAuthFromMongo().catch(() => {});
   const dbFiles = getMongoDb();
-  if (dbFiles) fileShareRegistry.setMongoDb(dbFiles);
+  if (dbFiles) await fileShareRegistry.setMongoDb(dbFiles);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
-  const authKey = computeUserAuthKey({ email: owner.email });
-  const root = sandboxRootForAuthKey(authKey);
-  const fileStore = getFileStore();
 
-  const [storeResult, usage] = await Promise.all([
-    fileStore
-      .listByOwner(authKey, { limit: 100, status: "all" })
-      .catch(() => ({ files: [], totalCount: 0 })),
-    fileStore.usage(authKey).catch(() => undefined),
-  ]);
+  const files = await collectUserStoreFiles(owner.email, base);
+  const ownedFiles = files.filter((f) => f.isOwned !== false);
+  const usage = {
+    count: ownedFiles.length,
+    bytes: ownedFiles.reduce((acc, f) => acc + (Number(f.size) || 0), 0),
+    permanentCount: ownedFiles.filter((f) => !!f.permanent).length,
+    expiredCount: ownedFiles.filter((f) => !f.permanent).length,
+  };
 
-  const files: StoredFileInfo[] = storeResult.files.map((f) => {
-    const share = fileShareRegistry.ensureFileShare({
-      fileId: f.id,
-      name: f.name,
-      source: "store",
-      contentType: f.contentType,
-      ownerKey: authKey,
-      isPublic: f.isPublic,
-    });
-    return {
-      id: f.id,
-      name: f.name,
-      size: f.size,
-      contentType: f.contentType,
-      createdAt: f.createdAt,
-      expiresAt: f.expiresAt,
-      source: "store" as const,
-      downloadUrl: `${base}/store/share/${share.shareToken}`,
-      shareUrl: `${base}/store/share/${share.shareToken}`,
-      isPublic: share.isPublic,
-      permanent: !f.expiresAt,
-      isOwned: true,
-    };
-  });
-
-  const uploadDir = path.join(root, UPLOAD_DIR);
-  if (fs.existsSync(uploadDir)) {
-    try {
-      const entries = fs.readdirSync(uploadDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isFile()) {
-          const filePath = path.join(uploadDir, entry.name);
-          const stat = fs.statSync(filePath);
-          const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
-          const share = fileShareRegistry.ensureFileShare({
-            fileId: sbxId,
-            name: entry.name,
-            source: "sandbox",
-            sandboxPath: filePath,
-            ownerKey: authKey,
-          });
-          files.push({
-            id: sbxId,
-            name: entry.name,
-            size: stat.size,
-            contentType: "application/octet-stream",
-            createdAt: stat.birthtime || stat.mtime,
-            expiresAt: null,
-            source: "sandbox" as const,
-            downloadUrl: `${base}/store/share/${share.shareToken}`,
-            shareUrl: `${base}/store/share/${share.shareToken}`,
-            isPublic: share.isPublic,
-            permanent: false,
-            isOwned: true,
-          });
-        }
-      }
-    } catch {}
-  }
-
-  // Include public files from other users
-  const knownIds = new Set(files.map((f) => f.id));
-  const publicShares = fileShareRegistry.listPublicShares();
-  for (const p of publicShares) {
-    if (knownIds.has(p.fileId)) continue;
-    if (p.ownerKey && p.ownerKey !== authKey) {
-      files.push({
-        id: p.fileId,
-        name: p.name,
-        size: 0,
-        contentType: p.contentType || "application/octet-stream",
-        createdAt: p.updatedAt,
-        expiresAt: null,
-        source: p.source,
-        downloadUrl: `${base}/store/share/${p.shareToken}`,
-        shareUrl: `${base}/store/share/${p.shareToken}`,
-        isPublic: true,
-        permanent: false,
-        isOwned: false,
-      });
-      knownIds.add(p.fileId);
-    }
-  }
-
+  res.setHeader("Cache-Control", "no-store");
   res.json({ files, usage });
 });
 
@@ -3489,28 +3469,43 @@ app.post("/store/files/:id/privacy", express.json(), async (req, res) => {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }
+  await ensureMongoAuth().catch(() => {});
+  const dbPrivacy = getMongoDb();
+  if (dbPrivacy) await fileShareRegistry.setMongoDb(dbPrivacy);
+
   const id = req.params.id;
-  const authKey = computeUserAuthKey({ email: owner.email });
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  const ownerKeySet = new Set(ownerKeys);
+  const primaryAuthKey = computeUserAuthKey({ email: owner.email });
   const share = fileShareRegistry.getById(id);
 
-  if (share && share.ownerKey && share.ownerKey !== authKey) {
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
 
+  let matchedOwnerKey = share?.ownerKey || primaryAuthKey;
   if (id.startsWith("sbx_")) {
-    const root = sandboxRootForAuthKey(authKey);
     const fileName = share
       ? share.name
       : Buffer.from(id.slice(4), "hex").toString("utf-8");
-    const filePath = path.join(root, UPLOAD_DIR, fileName);
-    if (!share && !fs.existsSync(filePath)) {
+    const existsInUserSandbox = ownerKeys.some((k) =>
+      fs.existsSync(path.join(sandboxRootForAuthKey(k), UPLOAD_DIR, fileName)),
+    );
+    if (!share && !existsInUserSandbox) {
       res.status(404).json({ error: "File not found." });
       return;
     }
   } else {
-    const file = await getFileStore().openById(authKey, id);
-    if (!file) {
+    let foundFile = null;
+    for (const k of ownerKeys) {
+      foundFile = await getFileStore().openById(k, id);
+      if (foundFile) {
+        matchedOwnerKey = k;
+        break;
+      }
+    }
+    if (!foundFile) {
       res.status(403).json({
         error: "Forbidden: You do not own this file or it does not exist.",
       });
@@ -3523,8 +3518,9 @@ app.post("/store/files/:id/privacy", express.json(), async (req, res) => {
   const isPublic = fileShareRegistry.togglePrivacy(
     id,
     explicitIsPublic,
-    authKey,
+    matchedOwnerKey,
   );
+  await fileShareRegistry.flushToMongo();
   res.json({ success: true, id, isPublic });
 });
 
@@ -3536,11 +3532,11 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
   const share =
     fileShareRegistry.getByToken(token) || fileShareRegistry.getById(token);
 
-  const callerAuthKey = extractCallerAuthKey(req);
+  const callerAuthKeys = extractCallerAuthKeys(req);
 
   if (share) {
     if (!share.isPublic) {
-      if (!callerAuthKey) {
+      if (callerAuthKeys.size === 0) {
         res
           .status(401)
           .type("text/plain")
@@ -3549,7 +3545,7 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
           );
         return;
       }
-      if (share.ownerKey && callerAuthKey !== share.ownerKey) {
+      if (share.ownerKey && !callerAuthKeys.has(share.ownerKey)) {
         res
           .status(403)
           .type("text/plain")
@@ -3562,10 +3558,18 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
 
     try {
       if (share.source === "store") {
-        const file = await getFileStore().openById(
-          share.isPublic ? "*" : callerAuthKey || "*",
-          share.fileId,
-        );
+        let file = null;
+        if (share.isPublic) {
+          file = await getFileStore().openById("*", share.fileId);
+        } else {
+          for (const k of callerAuthKeys) {
+            file = await getFileStore().openById(k, share.fileId);
+            if (file) break;
+          }
+          if (!file && !share.ownerKey) {
+            file = await getFileStore().openById("*", share.fileId);
+          }
+        }
         if (!file) {
           res.status(404).type("text/plain").send("File not found or expired.");
           return;
@@ -3638,7 +3642,7 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
       return;
     }
     if (file.isPublic === false) {
-      if (!callerAuthKey) {
+      if (callerAuthKeys.size === 0) {
         res
           .status(401)
           .type("text/plain")
@@ -3647,7 +3651,7 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
           );
         return;
       }
-      if (file.ownerKey && callerAuthKey !== file.ownerKey) {
+      if (file.ownerKey && !callerAuthKeys.has(file.ownerKey)) {
         res
           .status(403)
           .type("text/plain")
@@ -3678,8 +3682,8 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
 });
 
 app.get("/store/download", async (req, res) => {
-  const callerAuthKey = extractCallerAuthKey(req);
-  if (!callerAuthKey) {
+  const callerAuthKeys = extractCallerAuthKeys(req);
+  if (callerAuthKeys.size === 0) {
     res.status(401).type("text/plain").send("Unauthorized.");
     return;
   }
@@ -3695,19 +3699,28 @@ app.get("/store/download", async (req, res) => {
     return;
   }
 
-  const root = sandboxRootForAuthKey(callerAuthKey);
-  const filePath = path.join(root, UPLOAD_DIR, filename);
-  if (!fs.existsSync(filePath)) {
+  let matchedRoot: string | null = null;
+  let matchedPath: string | null = null;
+  for (const k of callerAuthKeys) {
+    const root = sandboxRootForAuthKey(k);
+    const candidate = path.join(root, UPLOAD_DIR, filename);
+    if (fs.existsSync(candidate)) {
+      matchedRoot = root;
+      matchedPath = candidate;
+      break;
+    }
+  }
+  if (!matchedRoot || !matchedPath) {
     res.status(404).type("text/plain").send("File not found.");
     return;
   }
   try {
-    await assertInsideRealRoot(root, filePath);
+    await assertInsideRealRoot(matchedRoot, matchedPath);
   } catch {
     res.status(400).type("text/plain").send("Invalid path.");
     return;
   }
-  res.download(filePath, filename);
+  res.download(matchedPath, filename);
 });
 
 app.post("/store/permanent/:id", async (req, res) => {
@@ -3717,8 +3730,14 @@ app.post("/store/permanent/:id", async (req, res) => {
     return;
   }
   const id = req.params.id;
-  const authKey = computeUserAuthKey({ email: owner.email });
-  const ok = await getFileStore().makePermanent(authKey, id);
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  let ok = false;
+  for (const k of ownerKeys) {
+    if (await getFileStore().makePermanent(k, id)) {
+      ok = true;
+      break;
+    }
+  }
   if (ok) res.json({ success: true, permanent: true });
   else
     res.status(404).json({ error: "File not found or not owned by caller." });
@@ -3731,8 +3750,14 @@ app.post("/store/revert-permanent/:id", async (req, res) => {
     return;
   }
   const id = req.params.id;
-  const authKey = computeUserAuthKey({ email: owner.email });
-  const ok = await getFileStore().revertPermanent(authKey, id);
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  let ok = false;
+  for (const k of ownerKeys) {
+    if (await getFileStore().revertPermanent(k, id)) {
+      ok = true;
+      break;
+    }
+  }
   if (ok) res.json({ success: true, permanent: false });
   else
     res.status(404).json({ error: "File not found or not owned by caller." });
@@ -3745,15 +3770,23 @@ app.delete("/store/files/:id", async (req, res) => {
     return;
   }
   const id = req.params.id;
-  const authKey = computeUserAuthKey({ email: owner.email });
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  const ownerKeySet = new Set(ownerKeys);
   const share = fileShareRegistry.getById(id);
-  if (share && share.ownerKey && share.ownerKey !== authKey) {
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
-  const ok = await getFileStore().deleteOwned(authKey, id);
+  let ok = false;
+  for (const k of ownerKeys) {
+    if (await getFileStore().deleteOwned(k, id)) {
+      ok = true;
+      break;
+    }
+  }
   if (ok) {
     fileShareRegistry.removeFile(id);
+    await fileShareRegistry.flushToMongo();
     res.json({ success: true, deleted: id });
   } else {
     res.status(404).json({ error: "File not found or not owned by caller." });
@@ -3772,15 +3805,23 @@ app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
     res.status(400).json({ error: "File name is required." });
     return;
   }
-  const authKey = computeUserAuthKey({ email: owner.email });
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  const ownerKeySet = new Set(ownerKeys);
   const share = fileShareRegistry.getById(id);
-  if (share && share.ownerKey && share.ownerKey !== authKey) {
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
-  const ok = await getFileStore().rename(authKey, id, name);
+  let ok = false;
+  for (const k of ownerKeys) {
+    if (await getFileStore().rename(k, id, name)) {
+      ok = true;
+      break;
+    }
+  }
   if (ok) {
     fileShareRegistry.renameFile(id, name);
+    await fileShareRegistry.flushToMongo();
     res.json({ success: true, id, name });
   } else {
     res.status(404).json({ error: "File not found or failed to rename." });
@@ -3809,27 +3850,38 @@ app.delete("/store/sandbox-file", async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeUserAuthKey({ email: owner.email });
-  const root = sandboxRootForAuthKey(authKey);
-  const filePath = path.join(root, UPLOAD_DIR, name);
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  const ownerKeySet = new Set(ownerKeys);
   const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
   const share = fileShareRegistry.getById(sbxId);
-  if (share && share.ownerKey && share.ownerKey !== authKey) {
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
-  if (!fs.existsSync(filePath)) {
+  let matchedRoot: string | null = null;
+  let matchedPath: string | null = null;
+  for (const k of ownerKeys) {
+    const root = sandboxRootForAuthKey(k);
+    const candidate = path.join(root, UPLOAD_DIR, name);
+    if (fs.existsSync(candidate)) {
+      matchedRoot = root;
+      matchedPath = candidate;
+      break;
+    }
+  }
+  if (!matchedRoot || !matchedPath) {
     res.status(404).json({ error: "File not found." });
     return;
   }
   try {
-    await assertInsideRealRoot(root, filePath);
+    await assertInsideRealRoot(matchedRoot, matchedPath);
   } catch {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  fs.unlinkSync(filePath);
+  fs.unlinkSync(matchedPath);
   fileShareRegistry.removeFile(sbxId);
+  await fileShareRegistry.flushToMongo();
   res.json({ success: true, deleted: name });
 });
 
@@ -3839,10 +3891,14 @@ app.post("/upload/rename", express.json(), async (req, res) => {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }
-  const oldName =
+  const rawOldName =
     typeof req.body?.oldName === "string" ? req.body.oldName.trim() : "";
   const newName =
     typeof req.body?.newName === "string" ? req.body.newName.trim() : "";
+  const shareById = rawOldName.startsWith("sbx_")
+    ? fileShareRegistry.getById(rawOldName)
+    : undefined;
+  const oldName = shareById ? shareById.name : rawOldName;
   if (
     !oldName ||
     !newName ||
@@ -3856,31 +3912,42 @@ app.post("/upload/rename", express.json(), async (req, res) => {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
-  const authKey = computeUserAuthKey({ email: owner.email });
-  const root = sandboxRootForAuthKey(authKey);
-  const oldPath = path.join(root, UPLOAD_DIR, oldName);
-  const newPath = path.join(root, UPLOAD_DIR, newName);
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  const ownerKeySet = new Set(ownerKeys);
   const oldSbxId = `sbx_${Buffer.from(oldName).toString("hex").slice(0, 16)}`;
-  const share = fileShareRegistry.getById(oldSbxId);
-  if (share && share.ownerKey && share.ownerKey !== authKey) {
+  const share = shareById || fileShareRegistry.getById(oldSbxId);
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
     res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
-  if (!fs.existsSync(oldPath)) {
+  let matchedRoot: string | null = null;
+  let matchedOldPath: string | null = null;
+  for (const k of ownerKeys) {
+    const root = sandboxRootForAuthKey(k);
+    const candidate = path.join(root, UPLOAD_DIR, oldName);
+    if (fs.existsSync(candidate)) {
+      matchedRoot = root;
+      matchedOldPath = candidate;
+      break;
+    }
+  }
+  if (!matchedRoot || !matchedOldPath) {
     res.status(404).json({ error: "File not found." });
     return;
   }
+  const newPath = path.join(matchedRoot, UPLOAD_DIR, newName);
   try {
-    await assertInsideRealRoot(root, oldPath);
-    await assertInsideRealRoot(root, newPath);
+    await assertInsideRealRoot(matchedRoot, matchedOldPath);
+    await assertInsideRealRoot(matchedRoot, newPath);
   } catch {
     res.status(400).json({ error: "Invalid filename." });
     return;
   }
   try {
-    fs.renameSync(oldPath, newPath);
+    fs.renameSync(matchedOldPath, newPath);
     if (share) {
-      fileShareRegistry.renameFile(oldSbxId, newName);
+      fileShareRegistry.renameFile(share.fileId, newName);
+      await fileShareRegistry.flushToMongo();
     }
     res.json({ success: true, oldName, newName });
   } catch (err: any) {
