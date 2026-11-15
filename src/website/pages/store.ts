@@ -132,7 +132,7 @@ export function renderStorePage(params: {
     </div>
 
     <!-- Files Table Card -->
-    <div class="card spotlight-card" style="padding:24px;">
+    <div class="card spotlight-card" style="padding:24px; overflow:visible;">
       <div class="store-table-toolbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Repository Objects</h2>
