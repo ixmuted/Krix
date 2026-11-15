@@ -2048,6 +2048,21 @@ app.get("/api/settings", async (req, res) => {
     effectiveKeyId,
     isOwnerEmail(owner.email),
   );
+  // The key record only holds identity (label, createdAt). Usage lives in the stats tracker,
+  // keyed by the same id the auth middleware records (dynamic key id, OAuth client id or
+  // "primary-key"), so merge it in or the page shows 0 calls / "No recent activity".
+  const keyUsage = summary.keys.find(
+    (k) => k.keyId.toLowerCase() === String(effectiveKeyId).toLowerCase(),
+  );
+  const keyForPage = keyUsage
+    ? {
+        ...targetKey,
+        totalRequests: keyUsage.totalRequests,
+        lastActiveAt: keyUsage.lastActiveAt,
+        successCount: keyUsage.successCount,
+        errorCount: keyUsage.errorCount,
+      }
+    : targetKey;
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -2057,7 +2072,7 @@ app.get("/api/settings", async (req, res) => {
       base,
       isOwner: isOwnerEmail(owner.email),
       owner,
-      key: targetKey,
+      key: keyForPage,
       toolsCatalog: summary.toolsCatalog,
       keySettings,
       globalKeySettings: getKeySettings("primary-key"),

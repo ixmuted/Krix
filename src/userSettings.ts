@@ -278,7 +278,10 @@ export function getKeySettings(keyId: string): KeySettings {
         ? [...(primary.enabledCategories || ["core", "sandbox", "files"])]
         : ["core", "sandbox", "files"],
       createdAt: Date.now(),
-      updatedAt: Date.now(),
+      // 0 = never modified. loadSettingsFromMongo() keeps whichever copy is newer, so a default
+      // created at boot (before Mongo finished loading) must not outrank the stored settings,
+      // otherwise saved credentials vanish from the UI after every restart.
+      updatedAt: 0,
     };
     keySettingsMap.set(keyId, settings);
   }
