@@ -26,6 +26,8 @@ export function renderApiKeySettingsPage(params: {
     sandboxEnabled?: boolean;
   };
   sandboxAllowed?: boolean;
+  /** Per-tool on/off decided by the server (same rules as tools/list). */
+  toolStates?: Record<string, { enabled: boolean; reason?: string }>;
 }): string {
   const key = params.key || {};
   const sandboxAllowed = params.sandboxAllowed !== false;
@@ -58,8 +60,16 @@ export function renderApiKeySettingsPage(params: {
     Array.isArray(settings.enabledCategories) ? settings.enabledCategories : [],
   );
   const isKeyDisabled = !!settings.disabled;
+  const serverToolStates: Record<string, { enabled: boolean }> | undefined =
+    params.toolStates && typeof params.toolStates === "object"
+      ? params.toolStates
+      : undefined;
   const isToolEnabled = (tool: any): boolean => {
     const name = String(tool.name || "");
+    // The server already applied defaults, workspace + key overrides and credentials with the
+    // exact rules tools/list uses; trust it. The code below is only a fallback.
+    if (serverToolStates && serverToolStates[name])
+      return Boolean(serverToolStates[name].enabled);
     const category = String(tool.category || "");
     if (
       ["Sandbox", "Files", "Execution", "Filesystem"].includes(category) &&
@@ -146,7 +156,7 @@ export function renderApiKeySettingsPage(params: {
     <div class="key-metadata-grid" style="display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:10px; margin-bottom:22px;">
       <div class="card spotlight-card card-top-border" style="padding:14px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <div><div class="key-meta-label">Key Status</div><div id="keyStatusText" class="key-meta-value" style="color:${isKeyDisabled ? "var(--error)" : "var(--success)"};">${isKeyDisabled ? "Disabled" : "Active"}</div></div>
-        <label class="switch krix-switch" title="Enable or disable this key"><input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} onchange="updateKeyStatusLabel(this.checked)"><span class="krix-slider"></span></label>
+        <label class="switch krix-switch" title="${rawKeyId === "primary-key" ? "The primary key cannot be disabled" : "Enable or disable this key"}"><input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} ${rawKeyId === "primary-key" ? "disabled" : ""} onchange="updateKeyStatusLabel(this.checked)"><span class="krix-slider"></span></label>
       </div>
       <div class="card spotlight-card card-top-border" style="padding:14px;"><div class="key-meta-label">Created Date</div><div class="key-meta-value">${escapeHtml(createdDate)}</div></div>
       <div class="card spotlight-card card-top-border" style="padding:14px;"><div class="key-meta-label">Connected App</div><div class="key-meta-value">${appName}</div></div>
@@ -209,6 +219,7 @@ export function renderApiKeySettingsPage(params: {
     <section class="card spotlight-card key-settings-card" style="padding:22px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
         <div><h2 style="font-size:16px;font-weight:650;color:var(--fg);">Tool Permissions</h2><p style="font-size:12px;color:var(--geist-gray-50);margin-top:3px;">Choose the exact tools this key is allowed to use.</p></div>
+        <button type="button" class="btn secondary" onclick="resetKeyToolOverrides()" title="Remove this key's own on/off choices so it follows the workspace settings again" style="border-radius:6px;padding:7px 12px;font-size:12px;">Reset to workspace defaults</button>
         <input type="search" id="keyToolSearch" placeholder="Search tools" oninput="filterKeyTools()" style="width:min(260px,100%);padding:8px 11px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-1);color:var(--fg);font-size:12px;">
       </div>
       <div class="category-filter-grid" style="margin-bottom:14px;">
@@ -323,6 +334,22 @@ export function renderApiKeySettingsPage(params: {
           input.disabled = false;
         }
       }
+      async function resetKeyToolOverrides() {
+        if (!confirm('Remove all of this key\\'s own tool choices? It will follow the workspace settings again.')) return;
+        try {
+          const res = await fetch('/settings/api/tools/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyId: ${JSON.stringify(keyId)} })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Could not reset tool permissions.');
+          showToast('Tool permissions reset to workspace defaults', 'success');
+          setTimeout(() => location.reload(), 500);
+        } catch (err) {
+          showToast(err.message || 'Could not reset tool permissions.', 'error');
+        }
+      }
       function changeKeyToolsPage(delta) { keyToolPage += delta; renderKeyToolsPage(); }
       function filterKeyTools() { keyToolPage = 1; renderKeyToolsPage(); }
       function selectKeyToolCategory(category, button) {
@@ -344,7 +371,15 @@ export function renderApiKeySettingsPage(params: {
       function updateKeyStatusLabel(active) {
         const label = document.getElementById('keyStatusText');
         if (label) { label.textContent = active ? 'Active' : 'Disabled'; label.style.color = active ? 'var(--success)' : 'var(--error)'; }
-        showKeySettingsSave();
+        refreshKeySettingsBar();
+      }
+      // Show Save/Cancel only while something is really being edited: the Active switch differs
+      // from what is saved, or a credential box is open. Flipping the switch back hides it again.
+      function refreshKeySettingsBar() {
+        const toggle = document.getElementById('keyActiveToggle');
+        const activeChanged = Boolean(toggle) && toggle.checked !== initialActiveState;
+        if (activeChanged || overrideEditing.github || overrideEditing.render) showKeySettingsSave();
+        else hideKeySettingsSave();
       }
       function showKeySettingsSave() {
         const saveBtn = document.getElementById('saveKeySettingsButton');
@@ -459,11 +494,10 @@ export function renderApiKeySettingsPage(params: {
       async function saveKeySettings() {
         const button = document.getElementById('saveKeySettingsButton');
         if (button) button.disabled = true;
-        const enabled = Array.from(document.querySelectorAll('.key-tool-check:checked')).map(input => input.value);
-        const disabledTools = Array.from(document.querySelectorAll('.key-tool-check:not(:checked)')).map(input => input.value);
+        // Tools are saved instantly one by one, so only the Active switch and credentials go here.
+        // Sending every tool would turn each one into a per-key override and break inheritance
+        // from the workspace settings.
         const body = {
-          enabledTools: enabled,
-          disabledTools,
           disabled: !document.getElementById('keyActiveToggle')?.checked
         };
         if (overrideEditing.github) body.githubToken = document.getElementById('customGithubToken')?.value || '';

@@ -18,6 +18,8 @@ export function renderSettingsPage(params: {
   credentialAvailability: any;
   codeGraphCount?: number;
   sandboxAllowed?: boolean;
+  /** Per-tool on/off decided by the server (same rules as tools/list). */
+  toolStates?: Record<string, { enabled: boolean; reason?: string }>;
 }): string {
   const isOwner = !!(params.isOwner || params.isServerOwner);
   const sandboxAllowed = params.sandboxAllowed !== false;
@@ -53,8 +55,16 @@ export function renderSettingsPage(params: {
       ? keySettings.enabledCategories
       : [],
   );
+  const serverToolStates: Record<string, { enabled: boolean }> | undefined =
+    params.toolStates && typeof params.toolStates === "object"
+      ? params.toolStates
+      : undefined;
   const isToolEnabled = (tool: any): boolean => {
     const name = String(tool.name || "");
+    // The server already applied defaults, workspace + key overrides and credentials with the
+    // exact rules tools/list uses; trust it. The code below is only a fallback.
+    if (serverToolStates && serverToolStates[name])
+      return Boolean(serverToolStates[name].enabled);
     const category = String(tool.category || "");
     if (
       ["Sandbox", "Execution"].includes(category) &&
