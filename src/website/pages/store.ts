@@ -529,8 +529,8 @@ export function renderStorePage(params: {
           .then(res => res.json())
           .then(data => {
             if (data && data.success) {
-              if (window.showToast) window.showToast(makePermanent ? 'File marked as permanent' : 'Retention reverted to 24h', 'success');
-              setTimeout(() => window.location.reload(), 500);
+              if (window.showToast) window.showToast(makePermanent ? 'File marked as permanent' : 'Retention set to temporary', 'success');
+              setTimeout(() => window.location.reload(), 300);
             } else {
               if (window.showToast) window.showToast(data.error || 'Failed to update retention', 'error');
             }
@@ -538,6 +538,27 @@ export function renderStorePage(params: {
           .catch(err => {
             if (window.showToast) window.showToast('Network error: ' + err.message, 'error');
           });
+      }
+
+      const LOCK_ICON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      const UNLOCK_ICON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
+
+      function syncFileVisibilityUi(fileId, isPublic) {
+        document.querySelectorAll('[data-file-id]').forEach(container => {
+          if (container.getAttribute('data-file-id') !== fileId) return;
+          const badge = container.querySelector('.store-visibility-badge');
+          if (badge) {
+            badge.textContent = isPublic ? 'Public' : 'Private';
+            badge.style.background = isPublic ? 'var(--success-subtle)' : 'var(--bg-surface-2)';
+            badge.style.color = isPublic ? 'var(--success)' : 'var(--geist-gray-50)';
+          }
+          container.querySelectorAll('.krix-dropdown-item').forEach(btn => {
+            const onclickAttr = btn.getAttribute('onclick') || '';
+            if (onclickAttr.includes('toggleFilePrivacy(')) {
+              btn.innerHTML = (isPublic ? LOCK_ICON_SVG : UNLOCK_ICON_SVG) + '<span>' + (isPublic ? 'Private' : 'Public') + '</span>';
+            }
+          });
+        });
       }
 
       function toggleFilePrivacy(fileId) {
@@ -549,11 +570,12 @@ export function renderStorePage(params: {
           .then(res => res.json())
           .then(data => {
             if (data && data.success) {
-              const status = data.isPublic ? 'public' : 'private';
-              if (window.showToast) window.showToast('File is now ' + status, 'success');
-              setTimeout(() => window.location.reload(), 500);
+              const isPublic = Boolean(data.isPublic);
+              syncFileVisibilityUi(fileId, isPublic);
+              document.querySelectorAll('.krix-dropdown-menu.active').forEach(m => m.classList.remove('active'));
+              if (window.showToast) window.showToast('File is now ' + (isPublic ? 'public' : 'private'), 'success');
             } else {
-              if (window.showToast) window.showToast('Failed to update privacy', 'error');
+              if (window.showToast) window.showToast(data?.error || 'Failed to update privacy', 'error');
             }
           })
           .catch(err => {
