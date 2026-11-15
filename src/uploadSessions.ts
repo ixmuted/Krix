@@ -24,8 +24,9 @@ import {
   sbxWriteText,
   assertInsideRealRoot,
 } from "./sandboxProc.js";
-import { safeFileName } from "./fileShare.js";
+import { safeFileName, getFileStore, contentTypeFor } from "./fileShare.js";
 import { fileShareRegistry } from "./fileShareRegistry.js";
+import { getMongoDb, ensureMongoAuth } from "./googleAuth.js";
 import {
   parseOwnerCookie,
   isAuthorizedApiKey,
