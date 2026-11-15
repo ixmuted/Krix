@@ -164,7 +164,7 @@ export function renderSettingsPage(params: {
           </div>
           <div class="settings-secret-control">
             <input type="text" id="settingsGithubInput" value="${escapeHtml(maskedGitHub)}" data-secret="${escapeHtml(githubSecret)}" data-masked="${escapeHtml(maskedGitHub)}" data-editing="false" data-revealed="false" readonly placeholder="Not configured — select Edit to add a token" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
-            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','reveal')" title="Show or hide GitHub token" aria-label="Show or hide GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
+            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','reveal',this)" title="Show or hide GitHub token" aria-label="Show or hide GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
             <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','edit')" title="Edit GitHub token" aria-label="Edit GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("edit", 14)}</button>
           </div>
         </div>
@@ -176,7 +176,7 @@ export function renderSettingsPage(params: {
           </div>
           <div class="settings-secret-control">
             <input type="text" id="settingsRenderInput" value="${escapeHtml(maskedRender)}" data-secret="${escapeHtml(renderSecret)}" data-masked="${escapeHtml(maskedRender)}" data-editing="false" data-revealed="false" readonly placeholder="Not configured — select Edit to add a token" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
-            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','reveal')" title="Show or hide Render token" aria-label="Show or hide Render token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
+            <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','reveal',this)" title="Show or hide Render token" aria-label="Show or hide Render token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
             <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','edit')" title="Edit Render token" aria-label="Edit Render token" style="padding:7px; border-radius:6px;">${renderSvg("edit", 14)}</button>
           </div>
         </div>
@@ -383,7 +383,16 @@ export function renderSettingsPage(params: {
         });
       }
 
-      function toggleSettingsSecret(id, mode) {
+      function setSecretEyeIcon(btn, visible) {
+        if (btn) btn.innerHTML = visible ? '${renderSvg("eye-off", 14)}' : '${renderSvg("eye", 14)}';
+      }
+
+      function resetSecretEyeIcon(id) {
+        const btn = document.querySelector('button[onclick*="' + id + '"][onclick*="reveal"]');
+        setSecretEyeIcon(btn, false);
+      }
+
+      function toggleSettingsSecret(id, mode, btn) {
         const input = document.getElementById(id);
         if (!input) return;
         if (mode === 'edit') {
@@ -393,6 +402,7 @@ export function renderSettingsPage(params: {
             input.type = 'password';
             input.dataset.editing = 'true';
             input.dataset.revealed = 'false';
+            resetSecretEyeIcon(id);
             document.getElementById('settingsSaveCredentialsBtn').style.display = 'inline-flex';
             const cancelBtn = document.getElementById('settingsCancelCredentialsBtn');
             if (cancelBtn) cancelBtn.style.display = 'inline-flex';
@@ -402,11 +412,13 @@ export function renderSettingsPage(params: {
         }
         if (input.dataset.editing === 'true') {
           input.type = input.type === 'password' ? 'text' : 'password';
+          setSecretEyeIcon(btn, input.type === 'text');
           return;
         }
         const reveal = input.dataset.revealed !== 'true';
         input.dataset.revealed = reveal ? 'true' : 'false';
         input.value = reveal ? (input.dataset.secret || '') : (input.dataset.masked || '');
+        setSecretEyeIcon(btn, reveal);
       }
 
       function cancelSettingsCredentials() {
@@ -418,6 +430,7 @@ export function renderSettingsPage(params: {
             input.type = 'text';
             input.dataset.editing = 'false';
             input.dataset.revealed = 'false';
+            resetSecretEyeIcon(id);
           }
         });
         const saveBtn = document.getElementById('settingsSaveCredentialsBtn');
