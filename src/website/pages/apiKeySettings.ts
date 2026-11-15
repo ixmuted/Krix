@@ -368,17 +368,37 @@ export function renderApiKeySettingsPage(params: {
       let initialGithubSecret = ${JSON.stringify(githubSecret || "")};
       let initialRenderSecret = ${JSON.stringify(renderSecret || "")};
 
-      function updateKeyStatusLabel(active) {
+      function setKeyStatusLabel(active) {
         const label = document.getElementById('keyStatusText');
         if (label) { label.textContent = active ? 'Active' : 'Disabled'; label.style.color = active ? 'var(--success)' : 'var(--error)'; }
-        refreshKeySettingsBar();
       }
-      // Show Save/Cancel only while something is really being edited: the Active switch differs
-      // from what is saved, or a credential box is open. Flipping the switch back hides it again.
-      function refreshKeySettingsBar() {
+      // The Active switch applies the moment it is flipped: no Save / Cancel needed. If the
+      // server refuses, the switch snaps back so the page never shows a state that is not saved.
+      async function updateKeyStatusLabel(active) {
         const toggle = document.getElementById('keyActiveToggle');
-        const activeChanged = Boolean(toggle) && toggle.checked !== initialActiveState;
-        if (activeChanged || overrideEditing.github || overrideEditing.render) showKeySettingsSave();
+        setKeyStatusLabel(active);
+        if (toggle) toggle.disabled = true;
+        try {
+          const response = await fetch('/api/keys/${keyId}/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ disabled: !active })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || data.success === false) throw new Error(data.error || 'Could not update this key.');
+          initialActiveState = active;
+          showToast(active ? 'Key enabled' : 'Key disabled', 'success');
+        } catch (error) {
+          if (toggle) toggle.checked = !active;
+          setKeyStatusLabel(!active);
+          showToast(error.message || 'Could not update this key.', 'error');
+        } finally {
+          if (toggle) toggle.disabled = false;
+        }
+      }
+      // Save / Cancel belong to the credential boxes only: shown while one is open for editing.
+      function refreshKeySettingsBar() {
+        if (overrideEditing.github || overrideEditing.render) showKeySettingsSave();
         else hideKeySettingsSave();
       }
       function showKeySettingsSave() {
@@ -394,20 +414,6 @@ export function renderApiKeySettingsPage(params: {
         if (cancelBtn) cancelBtn.style.display = 'none';
       }
       function cancelKeySettings() {
-        const toggle = document.getElementById('keyActiveToggle');
-        if (toggle) {
-          toggle.checked = initialActiveState;
-          const label = document.getElementById('keyStatusText');
-          if (label) {
-            label.textContent = initialActiveState ? 'Active' : 'Disabled';
-            label.style.color = initialActiveState ? 'var(--success)' : 'var(--error)';
-          }
-        }
-        document.querySelectorAll('.key-tool-check').forEach(chk => {
-          if (initialToolCheckStates.has(chk.value)) {
-            chk.checked = initialToolCheckStates.get(chk.value);
-          }
-        });
         if (overrideEditing.github) {
           const input = document.getElementById('customGithubToken');
           if (input) input.value = initialGithubSecret;
@@ -494,12 +500,10 @@ export function renderApiKeySettingsPage(params: {
       async function saveKeySettings() {
         const button = document.getElementById('saveKeySettingsButton');
         if (button) button.disabled = true;
-        // Tools are saved instantly one by one, so only the Active switch and credentials go here.
-        // Sending every tool would turn each one into a per-key override and break inheritance
-        // from the workspace settings.
-        const body = {
-          disabled: !document.getElementById('keyActiveToggle')?.checked
-        };
+        // The Active switch and every tool toggle save instantly on their own; this button only
+        // saves the credential boxes. (Sending every tool would turn each one into a per-key
+        // override and break inheritance from the workspace settings.)
+        const body = {};
         if (overrideEditing.github) body.githubToken = document.getElementById('customGithubToken')?.value || '';
         if (overrideEditing.render) body.renderApiKey = document.getElementById('customRenderKey')?.value || '';
         try {
@@ -543,11 +547,6 @@ export function renderApiKeySettingsPage(params: {
             document.getElementById('renderCredentialEdit').style.display = 'none';
             overrideEditing.render = false;
           }
-          initialActiveState = Boolean(document.getElementById('keyActiveToggle')?.checked);
-          initialToolCheckStates.clear();
-          document.querySelectorAll('.key-tool-check').forEach(chk => {
-            initialToolCheckStates.set(chk.value, chk.checked);
-          });
           initialGithubSecret = (document.getElementById('customGithubToken')?.value || '').trim();
           initialRenderSecret = (document.getElementById('customRenderKey')?.value || '').trim();
           hideKeySettingsSave();
