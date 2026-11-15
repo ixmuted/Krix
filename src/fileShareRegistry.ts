@@ -30,9 +30,18 @@ class FileShareRegistry {
     this.loadFromDisk();
   }
 
-  public setMongoDb(db: Db): void {
+  public async setMongoDb(db: Db): Promise<void> {
     this.mongoDb = db;
-    this.loadFromMongo().catch(() => {});
+    await this.loadFromMongo().catch(() => {});
+  }
+
+  public async flushToMongo(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    this.saveToDisk();
+    await this.saveToMongo().catch(() => {});
   }
 
   public ensureFileShare(params: {
