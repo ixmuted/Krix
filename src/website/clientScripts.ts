@@ -125,20 +125,62 @@ export function getClientScripts(): string {
   };
 
   // 5. Redesigned Custom Dropdowns & Kebab Menus with Viewport Boundary Flipping
+  function resetKebabMenuPosition(menu) {
+    menu.classList.remove('active', 'drop-up');
+    menu.style.position = '';
+    menu.style.top = '';
+    menu.style.bottom = '';
+    menu.style.left = '';
+    menu.style.right = '';
+    menu.style.margin = '';
+  }
+
+  function closeAllKebabMenus(exceptMenu) {
+    const openMenus = document.querySelectorAll('.krix-dropdown-menu.active');
+    for (let i = 0; i < openMenus.length; i++) {
+      if (openMenus[i] !== exceptMenu) resetKebabMenuPosition(openMenus[i]);
+    }
+  }
+
   window.toggleKebabMenu = function(e, menuId) {
     e.stopPropagation();
     const menu = document.getElementById(menuId);
     if (!menu) return;
 
-    // Close all other open menus
-    const openMenus = document.querySelectorAll('.krix-dropdown-menu.active');
-    for (let i = 0; i < openMenus.length; i++) {
-      if (openMenus[i] !== menu) openMenus[i].classList.remove('active');
-    }
+    const trigger = (e && e.currentTarget) || menu.parentElement?.querySelector('.krix-kebab-trigger') || menu.parentElement;
+    const isAlreadyOpen = menu.classList.contains('active');
 
-    menu.classList.toggle('active');
+    closeAllKebabMenus(null);
+    if (isAlreadyOpen) return;
 
-    if (menu.classList.contains('active')) {
+    menu.classList.add('active');
+
+    if (trigger && trigger.getBoundingClientRect) {
+      menu.style.position = 'fixed';
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+      menu.style.margin = '0';
+
+      const tRect = trigger.getBoundingClientRect();
+      const mRect = menu.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - tRect.bottom - 12;
+      const spaceAbove = tRect.top - 12;
+
+      let top;
+      if (mRect.height > spaceBelow && spaceAbove > mRect.height) {
+        menu.classList.add('drop-up');
+        top = Math.max(8, tRect.top - mRect.height - 6);
+      } else {
+        menu.classList.remove('drop-up');
+        top = Math.max(8, Math.min(window.innerHeight - mRect.height - 8, tRect.bottom + 6));
+      }
+
+      let left = tRect.right - mRect.width;
+      left = Math.max(8, Math.min(left, window.innerWidth - mRect.width - 8));
+
+      menu.style.top = Math.round(top) + 'px';
+      menu.style.left = Math.round(left) + 'px';
+    } else {
       const rect = menu.getBoundingClientRect();
       if (rect.bottom > window.innerHeight - 20) {
         menu.classList.add('drop-up');
@@ -150,12 +192,17 @@ export function getClientScripts(): string {
 
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.krix-dropdown')) {
-      const openMenus = document.querySelectorAll('.krix-dropdown-menu.active');
-      for (let i = 0; i < openMenus.length; i++) {
-        openMenus[i].classList.remove('active');
-      }
+      closeAllKebabMenus(null);
     }
   });
+
+  window.addEventListener('resize', function() {
+    closeAllKebabMenus(null);
+  }, { passive: true });
+
+  window.addEventListener('scroll', function() {
+    closeAllKebabMenus(null);
+  }, true);
 
   // 6. Command Palette (⌘K) Keyboard Engine
   window.toggleCommandPalette = function(show) {
