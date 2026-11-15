@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { TOOL_CATEGORY } from "../src/security.js";
+import { isDefaultOnTool } from "../src/toolDefaults.js";
 import {
   getKeySettings,
   isToolEnabledForKey,
@@ -51,12 +52,24 @@ describe("every tool respects the enable/disable toggle", () => {
     for (const [name, cat] of ALL) assert.equal(isToolEnabledForKey(key, name, cat, ALL_CATS), false, name);
   });
 
-  test("category-enabled tools with risky-sounding names are NOT hidden", () => {
-    const key = "toggle-all-category";
+  test("default-on tools with risky-sounding names are NOT hidden; everything else is opt-in", () => {
+    const key = "toggle-all-defaults";
     getKeySettings(key);
     for (const [name, cat] of ALL) {
-      if (["codegraph", "search", "render"].includes(cat) || name === "web_search") continue;
-      assert.equal(isToolEnabledForKey(key, name, cat, ALL_CATS), true, `${name} (${cat}) on by category`);
+      const expected = isDefaultOnTool(name, cat);
+      assert.equal(
+        isToolEnabledForKey(key, name, cat),
+        expected,
+        `${name} (${cat}) default should be ${expected ? "on" : "off"}`,
+      );
+    }
+    // Every sandbox / file tool is on by default, including risky-sounding ones.
+    for (const name of ["sandbox_exec", "sandbox_run", "sandbox_install", "delete_file"]) {
+      assert.equal(isToolEnabledForKey(key, name, TOOL_CATEGORY[name]), true, name);
+    }
+    // Issues/PRs, admin, Render, code graph and web search are opt-in.
+    for (const name of ["list_issues", "find_code", "web_search"]) {
+      assert.equal(isToolEnabledForKey(key, name, TOOL_CATEGORY[name]), false, name);
     }
   });
 
