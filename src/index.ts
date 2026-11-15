@@ -2641,14 +2641,7 @@ app.get("/stats", async (req, res) => {
     res.status(403).send("Forbidden");
     return;
   }
-  const scopedKeyId =
-    selectedKeyId ||
-    listDynamicKeys(owner.email)[0]?.id ||
-    listActiveOAuthAuthorizations().find(
-      (authorization) =>
-        authorization.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
-    )?.clientId ||
-    (isOwner ? "primary-key" : "no-keys");
+  const scopedKeyId = selectedKeyId !== undefined ? selectedKeyId : "";
 
   const authKey = computeAuthKey(
     owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
