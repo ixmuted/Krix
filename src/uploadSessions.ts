@@ -585,6 +585,50 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
           isPublic: false,
         });
 
+        // Also persist to MongoDB GridFS (when configured) so uploaded files survive Render container restarts
+        if (
+          process.env.MONGODB_URI ||
+          process.env.MONGO_URL ||
+          process.env.DATABASE_URL
+        ) {
+          try {
+            await ensureMongoAuth().catch(() => {});
+            const db = getMongoDb();
+            if (db) await fileShareRegistry.setMongoDb(db);
+            const expiresAt = isPerm
+              ? null
+              : new Date(Date.now() + uploadConfig.retentionMs);
+            const token = crypto.randomBytes(32).toString("base64url");
+            const tokenHash = sha256Hex(token);
+            const cType = contentTypeFor(name);
+            const meta = await getFileStore().put(
+              {
+                name,
+                contentType: cType,
+                ownerKey: s.authKey,
+                tokenHash,
+                expiresAt,
+                isPublic: false,
+              },
+              data,
+            );
+            fileShareRegistry.ensureFileShare({
+              fileId: meta.id,
+              name,
+              source: "store",
+              contentType: cType,
+              ownerKey: s.authKey,
+              isPublic: false,
+            });
+            await fileShareRegistry.flushToMongo();
+          } catch (err: any) {
+            console.warn(
+              "[upload] MongoDB persistence skipped:",
+              String(err?.message || err).slice(0, 200),
+            );
+          }
+        }
+
         // Schedule for automatic retention cleanup only if not permanent
         if (!isPerm) {
           retentionTracker.push({
