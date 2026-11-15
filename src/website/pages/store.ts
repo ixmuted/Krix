@@ -39,6 +39,12 @@ function statIconTile(iconName: string): string {
   return `<span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:9px; color:var(--fg); background:var(--bg-surface-2); border:1px solid var(--border-subtle);">${renderSvg(iconName, 16)}</span>`;
 }
 
+function truncateStoreFilename(name: string, maxChars: number): string {
+  const raw = String(name || "");
+  if (raw.length <= maxChars) return raw;
+  return `${raw.slice(0, maxChars)}...`;
+}
+
 export function renderStorePage(params: {
   base: string;
   isOwner?: boolean;
