@@ -183,8 +183,12 @@ export function renderStorePage(params: {
                 : files
                     .map((file, idx) => {
                       const fId = escapeHtml(file.id || `file_${idx}`);
-                      const fName = escapeHtml(
+                      const rawFileName = String(
                         file.name || file.filename || `file_${idx}`,
+                      );
+                      const fName = escapeHtml(rawFileName);
+                      const displayFileName = escapeHtml(
+                        truncateStoreFilename(rawFileName, 24),
                       );
                       const fSize = formatBytes(file.size || 0);
                       const isPermanent = !!file.permanent;
@@ -195,7 +199,7 @@ export function renderStorePage(params: {
                       const downloadUrl = file.downloadUrl
                         ? file.downloadUrl
                         : source === "sandbox"
-                          ? `/store/download?file=${encodeURIComponent(fName)}`
+                          ? `/store/download?file=${encodeURIComponent(rawFileName)}`
                           : `/store/download/${encodeURIComponent(fId)}`;
                       const menuId = `menu_${fId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
@@ -254,8 +258,8 @@ export function renderStorePage(params: {
                   <tr class="store-row" data-name="${fName.toLowerCase()}" style="border-bottom:1px solid var(--border-subtle);">
                     <td style="padding:12px;">
                       <div style="display:flex; align-items:center; gap:8px;">
-                        ${fileTile(fName, 30, 16)}
-                        <span style="font-weight:600; font-family:var(--font-mono); color:var(--fg);">${fName}</span>
+                        ${fileTile(rawFileName, 30, 16)}
+                        <span class="store-file-name" data-full-name="${fName}" title="${fName}" style="font-weight:600; font-family:var(--font-mono); color:var(--fg);">${displayFileName}</span>
                       </div>
                     </td>
                     <td style="padding:12px;">
@@ -281,18 +285,8 @@ export function renderStorePage(params: {
                       }
                     </td>
                     <td style="padding:12px; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${escapeHtml(String(file.createdAt || "Recent").slice(0, 16))}</td>
-                    <td style="padding:12px; text-align:right;">
-                      <div style="display:inline-flex; align-items:center; gap:6px;">
-                        <button type="button" class="btn ghost" onclick="copyStoreUrl('${escapeHtml(downloadUrl)}')" style="padding:4px 8px; font-size:12px;" title="Copy URL">
-                          ${renderSvg("copy", 14)}
-                          <span>Copy URL</span>
-                        </button>
-                        <a href="${downloadUrl}" class="btn ghost" style="padding:4px 8px; font-size:12px;" download title="Download File">
-                          ${renderSvg("download", 14)}
-                          <span>Download</span>
-                        </a>
-                        ${renderKebabMenu(kebabItems, menuId)}
-                      </div>
+                    <td style="padding:12px; text-align:right; position:relative; overflow:visible;">
+                      ${renderKebabMenu(kebabItems, menuId)}
                     </td>
                   </tr>
                 `;
@@ -308,8 +302,12 @@ export function renderStorePage(params: {
         ${files
           .map((file, idx) => {
             const fId = escapeHtml(file.id || `file_${idx}`);
-            const fName = escapeHtml(
+            const rawFileName = String(
               file.name || file.filename || `file_${idx}`,
+            );
+            const fName = escapeHtml(rawFileName);
+            const displayFileName = escapeHtml(
+              truncateStoreFilename(rawFileName, 24),
             );
             const fSize = formatBytes(file.size || 0);
             const isPermanent = !!file.permanent;
@@ -319,7 +317,7 @@ export function renderStorePage(params: {
             const downloadUrl = file.downloadUrl
               ? file.downloadUrl
               : source === "sandbox"
-                ? `/store/download?file=${encodeURIComponent(fName)}`
+                ? `/store/download?file=${encodeURIComponent(rawFileName)}`
                 : `/store/download/${encodeURIComponent(fId)}`;
             const gridMenuId = `grid_menu_${fId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
             const kebabItems: Array<{
@@ -372,8 +370,8 @@ export function renderStorePage(params: {
               <div class="store-grid-card card spotlight-card" data-name="${fName.toLowerCase()}" style="padding:16px; display:flex; flex-direction:column; gap:10px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
-                    ${fileTile(fName, 34, 17)}
-                    <div style="font-weight:600; font-family:var(--font-mono); font-size:13px; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${fName}">${fName}</div>
+                    ${fileTile(rawFileName, 34, 17)}
+                    <div class="store-file-name" data-full-name="${fName}" title="${fName}" style="font-weight:600; font-family:var(--font-mono); font-size:13px; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${displayFileName}</div>
                   </div>
                   ${renderKebabMenu(kebabItems, gridMenuId)}
                 </div>
@@ -515,9 +513,22 @@ export function renderStorePage(params: {
         });
       }
 
+      function applyStoreFilenameLimits() {
+        const maxChars = window.innerWidth <= 768 ? 10 : 24;
+        document.querySelectorAll('.store-file-name').forEach(el => {
+          const fullName = el.getAttribute('data-full-name') || '';
+          el.textContent = fullName.length > maxChars
+            ? fullName.slice(0, maxChars) + '...'
+            : fullName;
+        });
+      }
+
       document.addEventListener('DOMContentLoaded', () => {
         applyStorePagination();
+        applyStoreFilenameLimits();
       });
+
+      window.addEventListener('resize', applyStoreFilenameLimits, { passive: true });
 
       function copyStoreUrl(url) {
         const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
