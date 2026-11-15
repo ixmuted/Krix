@@ -133,6 +133,8 @@ export function getClientScripts(): string {
     menu.style.left = '';
     menu.style.right = '';
     menu.style.margin = '';
+    menu.style.maxHeight = '';
+    menu.style.overflowY = '';
   }
 
   function closeAllKebabMenus(exceptMenu) {
@@ -160,6 +162,8 @@ export function getClientScripts(): string {
       menu.style.right = 'auto';
       menu.style.bottom = 'auto';
       menu.style.margin = '0';
+      menu.style.maxHeight = Math.max(140, window.innerHeight - 16) + 'px';
+      menu.style.overflowY = 'auto';
 
       const tRect = trigger.getBoundingClientRect();
       const mRect = menu.getBoundingClientRect();
@@ -200,7 +204,8 @@ export function getClientScripts(): string {
     closeAllKebabMenus(null);
   }, { passive: true });
 
-  window.addEventListener('scroll', function() {
+  window.addEventListener('scroll', function(e) {
+    if (e.target && e.target.closest && e.target.closest('.krix-dropdown-menu')) return;
     closeAllKebabMenus(null);
   }, true);
 
