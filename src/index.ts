@@ -92,7 +92,11 @@ import {
   renderHelpPage,
   type StoredFileInfo,
 } from "./views.js";
-import { logIsolationStatus, assertInsideRealRoot } from "./sandboxProc.js";
+import {
+  logIsolationStatus,
+  assertInsideRealRoot,
+  sandboxPolicy,
+} from "./sandboxProc.js";
 import {
   browserOriginGuard,
   createSecurityAuditMiddleware,
@@ -153,6 +157,7 @@ import {
 import {
   credentialRequiredMessage,
   resolveToolState,
+  categoryUnavailableMessage,
   type CredentialProvider,
 } from "./toolDefaults.js";
 
@@ -332,25 +337,12 @@ function closeSessionsForKey(keyId: string): number {
 
 
 /**
- * Deployment-level limit for sandbox (code execution) tools. Everything is allowed by default;
- * it is only refused when the operator switched it off or the host is a shared Render service
- * that has not been explicitly acknowledged as owner-only.
+ * Deployment-level limit for sandbox (code execution) tools. This is the same decision the
+ * sandbox runtime enforces (sandboxPolicy), so the Settings pages never offer a switch that the
+ * runtime would refuse.
  */
 function isSandboxAllowedOnServer(): boolean {
-  const env = process.env;
-  if (
-    env.DISABLE_SANDBOX === "true" ||
-    env.DISABLE_SANDBOX_TOOLS === "true" ||
-    env.ENABLE_SANDBOX_TOOLS === "false"
-  )
-    return false;
-  const onRenderService = env.RENDER === "true" || Boolean(env.RENDER_SERVICE_ID);
-  if (!onRenderService) return true;
-  return (
-    env.ENABLE_SANDBOX === "true" &&
-    env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-    env.SANDBOX_REQUIRE_ISOLATION === "false"
-  );
+  return sandboxPolicy().allowed;
 }
 
 /** Whether the deployment permits a whole tool category at all. */
@@ -358,6 +350,32 @@ function isCategoryAllowedOnServer(category: string): boolean {
   if (category === "sandbox") return isSandboxAllowedOnServer();
   if (category === "files") return process.env.ENABLE_FILE_SHARING !== "false";
   return true;
+}
+
+/**
+ * The first tool in `names` whose whole category this deployment forbids, or null. Saving such a
+ * tool as "on" used to succeed and then show as off after a refresh, so every endpoint that turns
+ * tools on refuses it up front instead.
+ */
+function findToolBlockedByServer(
+  names: unknown,
+): { toolName: string; message: string } | null {
+  if (!Array.isArray(names)) return null;
+  for (const raw of names) {
+    const toolName = String(raw);
+    const category = TOOL_CATEGORY[toolName];
+    if (category && !isCategoryAllowedOnServer(category)) {
+      return {
+        toolName,
+        message: categoryUnavailableMessage(
+          toolName,
+          category,
+          category === "sandbox" ? sandboxPolicy().reason : undefined,
+        ),
+      };
+    }
+  }
+  return null;
 }
 
 /**
@@ -2117,6 +2135,19 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     }
   }
 
+  if (Array.isArray(enabledTools)) {
+    const serverBlocked = findToolBlockedByServer(enabledTools);
+    if (serverBlocked) {
+      res.status(409).json({
+        success: false,
+        code: "TOOL_UNAVAILABLE_ON_SERVER",
+        tool: serverBlocked.toolName,
+        error: serverBlocked.message,
+      });
+      return;
+    }
+  }
+
   if (githubToken !== undefined) {
     settings.customGitHubToken = githubToken
       ? String(githubToken).trim()
@@ -2957,6 +2988,18 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
       });
       return;
     }
+    // Refuse tools the deployment forbids (e.g. sandbox on a Render host): saving them as "on"
+    // used to report success and then show as off after a refresh.
+    const serverBlocked = enabled ? findToolBlockedByServer([toolName]) : null;
+    if (serverBlocked) {
+      res.status(409).json({
+        ok: false,
+        code: "TOOL_UNAVAILABLE_ON_SERVER",
+        tool: serverBlocked.toolName,
+        error: serverBlocked.message,
+      });
+      return;
+    }
     const updated = toggleKeyTool(keyId, toolName, Boolean(enabled));
     await syncKeySettingsToMongo(updated);
     const refreshedSessions = refreshSessionsForKey(keyId);
@@ -3091,6 +3134,16 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
           blocked.toolName,
           "global",
         ),
+      });
+      return;
+    }
+    const serverBlocked = findToolBlockedByServer(enabledTools);
+    if (serverBlocked) {
+      res.status(409).json({
+        ok: false,
+        code: "TOOL_UNAVAILABLE_ON_SERVER",
+        tool: serverBlocked.toolName,
+        error: serverBlocked.message,
       });
       return;
     }

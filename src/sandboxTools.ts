@@ -34,6 +34,7 @@ import {
   killTree,
   buildSandboxEnv,
   ensureSandboxRoot,
+  releaseSandboxIdentity,
   sandboxHome,
   sandboxTmp,
   scrubbedEnvForGit,
@@ -426,6 +427,8 @@ export async function destroySandbox(
   try {
     await sbxRemoveTree(dirToRemove, dirToRemove);
     await fsp.rm(dirToRemove, { recursive: true, force: true });
+    // Free this sandbox's unix user so the number can be reused (after purging its leftovers).
+    await releaseSandboxIdentity(dirToRemove);
   } catch {}
 }
 

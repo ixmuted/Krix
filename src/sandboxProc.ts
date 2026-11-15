@@ -1,16 +1,24 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { scrubbedBaseEnv } from "./security.js";
+import {
+  allocateSandboxUid,
+  ensureSandboxIdentitiesLoaded,
+  perUserUidEnabled,
+  releaseSandboxUid,
+  sandboxFromPath,
+} from "./sandboxIdentity.js";
 
 /**
  * Process runner for the sandbox. Design rules:
  *  1. Never build shell strings from untrusted values — callers pass argv arrays.
  *  2. Children get a scrubbed environment (no server secrets).
  *  3. When SANDBOX_UID/SANDBOX_GID are set and the server runs as root, every child (and every file
- *     operation, which is done by a child too) runs as that unprivileged user, so sandboxed code can
+ *     operation, which is done by a child too) runs as an unprivileged user, so sandboxed code can
  *     neither read the server's memory/environment (/proc/<pid>/environ) nor plant symlinks that a
- *     privileged server process would follow.
+ *     privileged server process would follow. Each sandbox gets its OWN uid/gid (see
+ *     sandboxIdentity.ts), so one user's code also cannot touch another user's sandbox.
  *  4. Timeouts kill the whole process group, not just the direct child.
  */
 
@@ -60,45 +68,193 @@ function isolationRequired(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
-/** Throws unless the sandbox may run in the current deployment (fail closed in production). */
-export function assertSandboxAllowed(): void {
-  // Render does not provide a per-request VM boundary. Permit only an explicitly
-  // acknowledged owner-only mode; MCP registration separately blocks non-owner keys.
-  if (process.env.RENDER === "true" || process.env.RENDER_SERVICE_ID) {
-    const renderOwnerOnlyOptIn =
-      process.env.ENABLE_SANDBOX === "true" &&
-      process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-      process.env.SANDBOX_REQUIRE_ISOLATION === "false";
-    if (!renderOwnerOnlyOptIn) {
-      throw new Error("Sandbox execution on Render is disabled by default. For trusted owner-only use, explicitly set ENABLE_SANDBOX=true, SANDBOX_RENDER_OWNER_ONLY_ACK=true and SANDBOX_REQUIRE_ISOLATION=false. This is not a per-user container boundary.");
-    }
-    return;
+export interface SandboxPolicy {
+  allowed: boolean;
+  /** Why it is not allowed (shown to the operator / in tool errors). */
+  reason?: string;
+  /**
+   * "isolated": code runs as unprivileged per-sandbox users, safe for many users.
+   * "owner-only": the legacy Render opt-in with NO isolation; code can read server secrets.
+   */
+  mode?: "isolated" | "owner-only" | "unisolated-dev";
+}
+
+function onRender(): boolean {
+  return process.env.RENDER === "true" || !!process.env.RENDER_SERVICE_ID;
+}
+
+/**
+ * The single decision about whether sandbox tools may run in this deployment. The server's
+ * Settings pages and every sandbox tool use it, so the UI can never offer a switch the runtime
+ * would refuse (that used to look like "toggle succeeds, then turns off after a refresh").
+ */
+export function sandboxPolicy(): SandboxPolicy {
+  const env = process.env;
+  if (
+    env.DISABLE_SANDBOX === "true" ||
+    env.DISABLE_SANDBOX === "1" ||
+    env.DISABLE_SANDBOX_TOOLS === "true" ||
+    env.ENABLE_SANDBOX_TOOLS === "false"
+  ) {
+    return {
+      allowed: false,
+      reason:
+        "Sandbox tools are switched off by the operator (DISABLE_SANDBOX / DISABLE_SANDBOX_TOOLS / ENABLE_SANDBOX_TOOLS=false).",
+    };
   }
   const iso = getIsolation();
-  if (iso.enforced || !isolationRequired()) return;
-  throw new Error(
-    `Sandbox disabled: OS-level isolation is not active (${iso.reason}). ` +
+
+  if (onRender()) {
+    // Preferred: the Docker image runs as root with SANDBOX_UID/GID set, so every sandbox runs as
+    // its own unprivileged user. Still needs an explicit ENABLE_SANDBOX=true from the operator.
+    if (
+      env.ENABLE_SANDBOX === "true" &&
+      iso.enforced &&
+      env.SANDBOX_REQUIRE_ISOLATION !== "false"
+    ) {
+      return { allowed: true, mode: "isolated" };
+    }
+    // Legacy: explicitly acknowledged, owner-only, NO isolation.
+    if (
+      env.ENABLE_SANDBOX === "true" &&
+      env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
+      env.SANDBOX_REQUIRE_ISOLATION === "false"
+    ) {
+      return { allowed: true, mode: "owner-only" };
+    }
+    return {
+      allowed: false,
+      reason:
+        "Sandbox execution on Render is off. To allow it for all users with per-user isolation, deploy the Docker image (it runs as root and sets SANDBOX_UID/SANDBOX_GID) and set ENABLE_SANDBOX=true. For unisolated owner-only use you must set ENABLE_SANDBOX=true, SANDBOX_RENDER_OWNER_ONLY_ACK=true and SANDBOX_REQUIRE_ISOLATION=false.",
+    };
+  }
+
+  if (iso.enforced) return { allowed: true, mode: "isolated" };
+  if (!isolationRequired()) return { allowed: true, mode: "unisolated-dev" };
+  return {
+    allowed: false,
+    reason:
+      `Sandbox disabled: OS-level isolation is not active (${iso.reason}). ` +
       "Run the server as root with SANDBOX_UID/SANDBOX_GID set to an unprivileged user (the provided Dockerfile does this), " +
       "or explicitly accept the risk with SANDBOX_REQUIRE_ISOLATION=false.",
-  );
+  };
+}
+
+/** Throws unless the sandbox may run in the current deployment (fail closed in production). */
+export function assertSandboxAllowed(): void {
+  const policy = sandboxPolicy();
+  if (!policy.allowed) throw new Error(policy.reason);
 }
 
 export function logIsolationStatus(): void {
   const iso = getIsolation();
+  const policy = sandboxPolicy();
   if (iso.enforced) {
     console.log(
-      `🔒 Sandbox isolation active (uid=${iso.uid}, gid=${iso.gid}).`,
+      perUserUidEnabled()
+        ? `🔒 Sandbox isolation active: every sandbox runs as its own user (uid pool from SANDBOX_UID_BASE; ${iso.uid} is the unscoped fallback).`
+        : `🔒 Sandbox isolation active (shared uid=${iso.uid}, gid=${iso.gid}; SANDBOX_PER_USER_UID=false so users are NOT separated from each other).`,
     );
   } else {
     console.warn(
       `⚠️  Sandbox isolation NOT active: ${iso.reason} ${isolationRequired() ? "Sandbox tools are disabled (fail-closed)." : "Sandboxed code can read this server's secrets via /proc. Set SANDBOX_UID/SANDBOX_GID and run as root in a container."}`,
     );
   }
+  if (policy.allowed && policy.mode === "owner-only") {
+    console.warn(
+      "⚠️  Sandbox is in the legacy Render owner-only mode: NO isolation, and nothing stops other key holders from running code. Use the isolated mode (root + SANDBOX_UID/GID + ENABLE_SANDBOX=true) instead.",
+    );
+  }
 }
 
-function identityOpts(): { uid?: number; gid?: number } {
+/** Test helper: forget the cached isolation decision after changing process.env. */
+export function _resetIsolationForTests(): void {
+  cachedIsolation = undefined;
+  verifiedOwner.clear();
+}
+
+type Ident = { uid?: number; gid?: number };
+
+/**
+ * The unix identity a child should run as. With per-user ids this is derived from the sandbox
+ * the child works in (its cwd / HOME / TMPDIR sit inside `<tmp>/krix_sbx_<id>`); anything that is
+ * not inside a sandbox runs as the shared fallback uid, which owns no sandbox directory.
+ */
+function identityOpts(...paths: Array<string | undefined>): Ident {
   const iso = getIsolation();
-  return iso.enforced ? { uid: iso.uid, gid: iso.gid } : {};
+  if (!iso.enforced) return {};
+  if (!perUserUidEnabled()) return { uid: iso.uid, gid: iso.gid };
+  const sbx = sandboxFromPath(...paths);
+  if (!sbx) return { uid: iso.uid, gid: iso.gid };
+  return allocateSandboxUid(sbx.id);
+}
+
+// Sandbox roots whose ownership was already verified for a given uid (cleared on destroy).
+const verifiedOwner = new Map<string, number>();
+
+function execAsServer(file: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { timeout: 120000 }, (err, _out, stderr) =>
+      err ? reject(new Error((stderr || err.message).trim().slice(0, 300))) : resolve(),
+    );
+  });
+}
+
+/**
+ * Hand a whole sandbox tree to its user. Used once when a sandbox that already exists (created
+ * before per-user ids, or under a different uid) is first used. `-h` changes symlinks themselves
+ * and `-R` does not follow them, so a symlink planted inside a sandbox cannot redirect it.
+ */
+async function chownTree(root: string, uid: number, gid: number): Promise<void> {
+  await execAsServer("chown", ["-R", "-h", "--", `${uid}:${gid}`, root]);
+  await fs.chmod(root, 0o700).catch(() => {});
+}
+
+/** Make sure an existing sandbox root belongs to its own user. No-op if it does not exist yet. */
+async function ensureOwnership(root: string, uid: number, gid: number): Promise<void> {
+  if (verifiedOwner.get(root) === uid) return;
+  let st;
+  try {
+    st = await fs.lstat(root);
+  } catch {
+    return; // ensureSandboxRoot creates it with the right owner
+  }
+  if (st.isSymbolicLink() || !st.isDirectory())
+    throw new Error("Security Violation: the sandbox root is not a real directory.");
+  if (st.uid !== uid || st.gid !== gid) await chownTree(root, uid, gid);
+  verifiedOwner.set(root, uid);
+}
+
+/** Resolve (and if needed migrate) the identity a sandbox must run as, before spawning in it. */
+async function prepareIdentity(...paths: Array<string | undefined>): Promise<void> {
+  const iso = getIsolation();
+  if (!iso.enforced || !perUserUidEnabled()) return;
+  const sbx = sandboxFromPath(...paths);
+  if (!sbx) return;
+  await ensureSandboxIdentitiesLoaded();
+  const { uid, gid } = allocateSandboxUid(sbx.id);
+  await ensureOwnership(sbx.root, uid, gid);
+}
+
+/**
+ * Called when a sandbox is destroyed: free its uid for reuse, after deleting anything that uid
+ * left behind in shared temp directories so the next sandbox to get the number inherits nothing.
+ */
+export async function releaseSandboxIdentity(root: string): Promise<void> {
+  verifiedOwner.delete(root);
+  const sbx = sandboxFromPath(root);
+  if (!sbx) return;
+  const uid = releaseSandboxUid(sbx.id);
+  if (uid === undefined || !getIsolation().enforced) return;
+  await execAsServer("find", [
+    "/tmp",
+    "/var/tmp",
+    "/dev/shm",
+    "-xdev",
+    "-uid",
+    String(uid),
+    "-delete",
+  ]).catch(() => {});
 }
 
 const DEFAULT_MAX_OUTPUT = 4 * 1024 * 1024;
@@ -147,7 +303,29 @@ export function killTree(child: ChildProcess | number | undefined): void {
   } catch {}
 }
 
-export function runProc(
+export async function runProc(
+  file: string,
+  args: string[],
+  opts: RunOptions,
+): Promise<RunResult> {
+  try {
+    await prepareIdentity(opts.cwd, opts.env?.HOME, opts.env?.TMPDIR);
+  } catch (e: any) {
+    return {
+      code: null,
+      signal: null,
+      stdoutBuffer: Buffer.alloc(0),
+      stdout: "",
+      stderr: "",
+      timedOut: false,
+      truncated: false,
+      spawnError: e?.message || String(e),
+    };
+  }
+  return runProcNow(file, args, opts);
+}
+
+function runProcNow(
   file: string,
   args: string[],
   opts: RunOptions,
@@ -161,7 +339,7 @@ export function runProc(
         env: opts.env,
         detached: true,
         stdio: [opts.input !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
-        ...identityOpts(),
+        ...identityOpts(opts.cwd, opts.env?.HOME, opts.env?.TMPDIR),
       });
     } catch (e: any) {
       resolve({
@@ -273,7 +451,7 @@ export function spawnShell(
       env: opts.env,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      ...identityOpts(),
+      ...identityOpts(opts.cwd, opts.env?.HOME, opts.env?.TMPDIR),
     },
   );
 }
@@ -288,7 +466,7 @@ export function spawnPersistentShell(opts: {
     env: opts.env,
     detached: true,
     stdio: ["pipe", "pipe", "pipe"],
-    ...identityOpts(),
+    ...identityOpts(opts.cwd, opts.env?.HOME, opts.env?.TMPDIR),
   });
   proc.stdin?.on("error", () => {});
   proc.stderr?.resume();
@@ -351,18 +529,37 @@ export function scrubbedEnvForGit(
   return env;
 }
 
-/** Create (once) a sandbox root owned by the sandbox user, with private home and tmp dirs. */
+/** Create (once) a sandbox root owned by its own sandbox user, with private home and tmp dirs. */
 export async function ensureSandboxRoot(root: string): Promise<void> {
   const iso = getIsolation();
+  let ident: { uid: number; gid: number } | undefined;
+  if (iso.enforced) {
+    const sbx = perUserUidEnabled() ? sandboxFromPath(root) : undefined;
+    if (sbx) {
+      await ensureSandboxIdentitiesLoaded();
+      ident = allocateSandboxUid(sbx.id);
+    } else {
+      ident = { uid: iso.uid!, gid: iso.gid! };
+    }
+  }
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
   for (const sub of [sandboxHome(root), sandboxTmp(root)]) {
     await fs.mkdir(sub, { recursive: true, mode: 0o700 });
   }
-  if (iso.enforced) {
-    for (const p of [root, sandboxHome(root), sandboxTmp(root)]) {
-      await fs.chown(p, iso.uid!, iso.gid!).catch(() => {});
-      await fs.chmod(p, 0o700).catch(() => {});
+  if (ident) {
+    // lstat/lchown, never chown: a symlink swapped in for the root must not make the privileged
+    // server re-own whatever it points at.
+    const st = await fs.lstat(root);
+    if (st.isSymbolicLink() || !st.isDirectory())
+      throw new Error("Security Violation: the sandbox root is not a real directory.");
+    if (st.uid !== ident.uid || st.gid !== ident.gid) {
+      await chownTree(root, ident.uid, ident.gid); // existing sandbox from an older uid scheme
     }
+    for (const p of [root, sandboxHome(root), sandboxTmp(root)]) {
+      await fs.lchown(p, ident.uid, ident.gid);
+      await fs.chmod(p, 0o700);
+    }
+    verifiedOwner.set(root, ident.uid);
   }
 }
 

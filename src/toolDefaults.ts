@@ -124,3 +124,39 @@ export function credentialRequiredMessage(
   }
   return `${subject} needs a ${label}. Add one under Settings → Workspace Credentials or provide an override for this API key before enabling it.`;
 }
+
+/**
+ * Reasons that mean "this tool cannot be on right now whatever the user toggles". The Settings
+ * pages lock the switch and show the label instead of letting a click look like it worked.
+ * Returns "" for every reason where the user is free to choose.
+ */
+export function blockedToolReasonLabel(reason: string | undefined): string {
+  switch (reason) {
+    case "needs-github":
+      return "Needs a GitHub token";
+    case "needs-render":
+      return "Needs a Render API key";
+    case "sandbox-unavailable":
+      return "Disabled by the server";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Message returned when someone tries to switch on a tool whose whole category the server
+ * forbids. `reason` is the server's own explanation (for sandbox: sandboxPolicy().reason).
+ */
+export function categoryUnavailableMessage(
+  toolName: string,
+  category: string,
+  reason?: string,
+): string {
+  if (category === "sandbox") {
+    return `"${toolName}" cannot be enabled: ${reason || "sandbox tools are switched off on this server (set ENABLE_SANDBOX=true and run the isolated Docker image)."}`;
+  }
+  if (category === "files") {
+    return `"${toolName}" cannot be enabled: file sharing is switched off on this server (ENABLE_FILE_SHARING=false).`;
+  }
+  return `"${toolName}" cannot be enabled: this tool group is switched off on this server.`;
+}

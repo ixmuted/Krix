@@ -950,6 +950,9 @@ export async function loadSettingsFromMongo(): Promise<void> {
     }
   } catch (err: any) {
     console.error("[settings] loadSettingsFromMongo error:", err?.message);
+    // Rethrow so ensureSettingsFromMongo() forgets this attempt and retries on the next request.
+    // Swallowing it would remember "loaded" for the life of the process even though nothing was.
+    throw err;
   }
 }
 
