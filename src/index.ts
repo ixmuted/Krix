@@ -9,6 +9,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   isInitializeRequest,
+  LATEST_PROTOCOL_VERSION,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Octokit } from "@octokit/rest";
@@ -128,6 +129,8 @@ import {
   reconcileRiskAcknowledgements,
   updateKeyToolRiskLevel,
   isToolEnabledForKey,
+  isKeyDisabled,
+  resetKeyToolOverrides,
   syncKeySettingsToMongo,
   ensureSettingsFromMongo,
   saveSettingsToDisk,
@@ -149,6 +152,7 @@ import {
 } from "./emailService.js";
 import {
   credentialRequiredMessage,
+  resolveToolState,
   type CredentialProvider,
 } from "./toolDefaults.js";
 
@@ -243,13 +247,19 @@ function findToolMissingCredential(
  */
 function effectiveOAuthScopes(clientId: string): string[] {
   const ready = keyCredentialsReady(clientId);
-  const sessionCategories = new Set<string>(["core", "files"]);
-  if (process.env.ENABLE_SANDBOX === "true" || ready.github)
-    sessionCategories.add("sandbox");
   const scopes = new Set<string>();
   for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
     if (getMissingToolCredential(toolName, ready, category)) continue;
-    if (!isToolEnabledForKey(clientId, toolName, category, sessionCategories))
+    if (
+      !isToolEnabledForKey(
+        clientId,
+        toolName,
+        category,
+        undefined,
+        ready,
+        isCategoryAllowedOnServer(category),
+      )
+    )
       continue;
     if (category === "sandbox") scopes.add("mcp:sandbox");
     else if (category === "github_admin" || category === "render")
@@ -321,14 +331,73 @@ function closeSessionsForKey(keyId: string): number {
 }
 
 
+/**
+ * Deployment-level limit for sandbox (code execution) tools. Everything is allowed by default;
+ * it is only refused when the operator switched it off or the host is a shared Render service
+ * that has not been explicitly acknowledged as owner-only.
+ */
 function isSandboxAllowedOnServer(): boolean {
-  const onRenderService =
-    process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
-  const renderSandboxOwnerOptIn =
-    process.env.ENABLE_SANDBOX === "true" &&
-    process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-    process.env.SANDBOX_REQUIRE_ISOLATION === "false";
-  return !onRenderService || renderSandboxOwnerOptIn;
+  const env = process.env;
+  if (
+    env.DISABLE_SANDBOX === "true" ||
+    env.DISABLE_SANDBOX_TOOLS === "true" ||
+    env.ENABLE_SANDBOX_TOOLS === "false"
+  )
+    return false;
+  const onRenderService = env.RENDER === "true" || Boolean(env.RENDER_SERVICE_ID);
+  if (!onRenderService) return true;
+  return (
+    env.ENABLE_SANDBOX === "true" &&
+    env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
+    env.SANDBOX_REQUIRE_ISOLATION === "false"
+  );
+}
+
+/** Whether the deployment permits a whole tool category at all. */
+function isCategoryAllowedOnServer(category: string): boolean {
+  if (category === "sandbox") return isSandboxAllowedOnServer();
+  if (category === "files") return process.env.ENABLE_FILE_SHARING !== "false";
+  return true;
+}
+
+/**
+ * What the Settings pages show for every tool, computed with the same rules the MCP server
+ * uses on tools/list, so a switch on the page always matches what a client actually sees.
+ */
+function buildToolStates(
+  keyId: string,
+  credentials: { github: boolean; render: boolean },
+): Record<string, { enabled: boolean; reason: string }> {
+  const settings = getKeySettings(keyId);
+  const primary =
+    keyId !== "primary-key" ? getKeySettings("primary-key") : undefined;
+  const states: Record<string, { enabled: boolean; reason: string }> = {};
+  for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
+    const categoryAllowed = isCategoryAllowedOnServer(category);
+    const { reason } = resolveToolState({
+      toolName,
+      category,
+      requires: getToolCredentialRequirement(toolName, category),
+      credentials,
+      categoryAllowed,
+      keyEnabled: settings.enabledTools,
+      keyDisabled: settings.disabledTools,
+      globalEnabled: primary?.enabledTools,
+      globalDisabled: primary?.disabledTools,
+    });
+    states[toolName] = {
+      enabled: isToolEnabledForKey(
+        keyId,
+        toolName,
+        category,
+        undefined,
+        credentials,
+        categoryAllowed,
+      ),
+      reason,
+    };
+  }
+  return states;
 }
 
 /**
@@ -338,7 +407,7 @@ function isSandboxAllowedOnServer(): boolean {
  */
 function refreshSessionsForKey(keyId: string): number {
   let refreshed = 0;
-  for (const [sessionId, entry] of Array.from(transports.entries())) {
+  for (const entry of Array.from(transports.values())) {
     if (keyId !== "primary-key" && entry.keyId !== keyId) continue;
     if (!entry.server) continue;
     try {
@@ -352,11 +421,12 @@ function refreshSessionsForKey(keyId: string): number {
       const hasLiveSseStream = Boolean(
         standaloneId && t?._streamMapping?.get(standaloneId),
       );
+      // Never tear the session down here. tools/list re-evaluates the policy on every call and
+      // a disabled tool refuses to run, so a client without an open event stream simply sees
+      // the new list the next time it asks. Closing the session made clients such as Gemini
+      // show "session terminated" after every toggle.
       if (hasLiveSseStream) {
         Promise.resolve(entry.server.sendToolListChanged()).catch(() => {});
-      } else {
-        transports.delete(sessionId);
-        void Promise.resolve(entry.transport.close()).catch(() => {});
       }
       refreshed += 1;
     } catch (err) {
@@ -481,18 +551,11 @@ function createMasterServer(
     github: Boolean(githubToken?.trim()),
     render: Boolean(renderToken?.trim()),
   };
-  const sandboxAllowedHere = isSandboxAllowedOnServer();
 
   // Evaluated at session start, on tools/list, and whenever the user changes tool settings.
   const applyToolPolicy = () => {
-    const ctx = getSessionContext(sessionId);
-    // A GitHub PAT enables only the default GitHub tool set (the "core" group, see
-    // toolDefaults.ts). Issue/PR/admin tools stay opt-in per key, even with a PAT.
-    const activeCategories = new Set(ctx.enabledCategories);
-    if (githubToken?.trim()) {
-      // A valid GitHub PAT unlocks the complete sandbox tool group, including remote Git helpers.
-      activeCategories.add("sandbox");
-    }
+    // Decisions come from isToolEnabledForKey (defaults, workspace + per-key settings,
+    // credentials). Session categories and environment flags are no longer consulted.
     // Suppress per-tool notifications inside the loop; refreshSessionsForKey sends a single
     // batched notifications/tools/list_changed once the full policy pass finishes.
     const origSendToolListChanged = server.sendToolListChanged.bind(server);
@@ -500,7 +563,7 @@ function createMasterServer(
     try {
       for (const [name, handle] of Object.entries(registry)) {
         const cat = categoryOf[name];
-        const catSandboxAllowed = cat !== "sandbox" || sandboxAllowedHere;
+        const catAllowed = isCategoryAllowedOnServer(cat);
         const missingCredential = getMissingToolCredential(
           name,
           credentials,
@@ -510,10 +573,11 @@ function createMasterServer(
           policyKeyId,
           name,
           cat,
-          activeCategories,
+          undefined,
+          credentials,
+          catAllowed,
         );
-        const shouldEnable =
-          catSandboxAllowed && !missingCredential && policyEnabled;
+        const shouldEnable = catAllowed && !missingCredential && policyEnabled;
         if (shouldEnable) {
           if (!handle.enabled) handle.enable();
           setToolRegistrationEnabled(sessionId, name, true);
@@ -659,6 +723,19 @@ function extractClientKey(req: Request): string | undefined {
   return undefined;
 }
 
+/**
+ * 403 (not 401): a 401 would make OAuth clients like Gemini restart the whole sign-in flow
+ * instead of telling the person the connection was switched off.
+ */
+function rejectDisabledKey(res: Response): void {
+  jsonRpcError(
+    res,
+    403,
+    -32000,
+    "This key or connection has been disabled by its owner. Re-enable it in Krix → API Keys.",
+  );
+}
+
 async function authenticate(
   req: Request,
   res: Response,
@@ -698,6 +775,10 @@ async function authenticate(
           label = "OAuth Client";
         }
       }
+      if (isKeyDisabled(keyId)) {
+        rejectDisabledKey(res);
+        return;
+      }
       (req as any).clientAuth = {
         keyId,
         label,
@@ -711,6 +792,10 @@ async function authenticate(
     const dynEntry = findAuthorizedApiKey(clientKey);
     if (dynEntry) {
       failedAuthLimiter.reset(ip);
+      if (isKeyDisabled(dynEntry.id)) {
+        rejectDisabledKey(res);
+        return;
+      }
       (req as any).clientAuth = {
         keyId: dynEntry.id,
         label: dynEntry.label,
@@ -763,6 +848,159 @@ function checkOrigin(req: Request, res: Response, next: NextFunction): void {
     return;
   }
   next();
+}
+
+/**
+ * Rewrites (or removes, when `value` is null) the Mcp-Session-Id header of an incoming request.
+ * The SDK's Node adapter rebuilds the request from `rawHeaders`, so changing only
+ * `req.headers` has no effect.
+ */
+function setRequestSessionHeader(req: Request, value: string | null): void {
+  const name = "mcp-session-id";
+  if (value === null) delete req.headers[name];
+  else req.headers[name] = value;
+  const raw = req.rawHeaders;
+  if (!Array.isArray(raw)) return;
+  let found = false;
+  for (let i = 0; i < raw.length; i += 2) {
+    if (String(raw[i]).toLowerCase() !== name) continue;
+    if (value === null) {
+      raw.splice(i, 2);
+      i -= 2;
+    } else {
+      raw[i + 1] = value;
+      found = true;
+    }
+  }
+  if (value !== null && !found) raw.push("Mcp-Session-Id", value);
+}
+
+/** Old session ID a client still sends -> the fresh session that replaced it. */
+interface SessionAlias {
+  targetId: string;
+  keyId: string;
+  authKey: string;
+  createdAt: number;
+}
+const sessionAliases = new Map<string, SessionAlias>();
+const recoveriesInFlight = new Map<string, Promise<string | null>>();
+const MAX_SESSION_ALIASES = 1000;
+
+function rememberSessionAlias(oldId: string, alias: SessionAlias): void {
+  // Only short opaque IDs are remembered, so a caller cannot bloat memory with junk.
+  if (oldId.length > 128 || !/^[\x21-\x7e]+$/.test(oldId)) return;
+  if (sessionAliases.size >= MAX_SESSION_ALIASES) {
+    for (const [id, a] of sessionAliases) {
+      if (!transports.has(a.targetId)) sessionAliases.delete(id);
+    }
+    while (sessionAliases.size >= MAX_SESSION_ALIASES) {
+      const oldest = sessionAliases.keys().next().value;
+      if (oldest === undefined) break;
+      sessionAliases.delete(oldest);
+    }
+  }
+  sessionAliases.set(oldId, alias);
+}
+
+interface StartSessionOptions {
+  req: Request;
+  keyId: string;
+  keySettings: KeySettings;
+  githubToken: string;
+  renderToken: string | undefined;
+  identity: string;
+}
+
+/** Creates a session bound to `identity` (the authenticated caller). Does not handle a request. */
+async function startSession(opts: StartSessionOptions) {
+  const { req, keyId, keySettings, githubToken, renderToken, identity } = opts;
+  const newSessionId = crypto.randomUUID();
+  registerSessionAuth(newSessionId, identity);
+  registerSessionSandboxId(newSessionId, computeAuthKey(identity));
+
+  let masterServer: McpServer | undefined;
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => newSessionId,
+    onsessioninitialized: (id) => {
+      transports.set(id, {
+        transport,
+        lastActive: Date.now(),
+        keyId,
+        server: masterServer,
+      });
+    },
+  });
+
+  transport.onclose = () => {
+    if (transport.sessionId) {
+      destroySandbox(transport.sessionId).catch(() => {});
+      transports.delete(transport.sessionId);
+    }
+  };
+
+  masterServer = createMasterServer(
+    githubToken,
+    renderToken,
+    newSessionId,
+    req,
+    keySettings,
+  );
+  await masterServer.connect(transport);
+  return { newSessionId, transport, masterServer };
+}
+
+/**
+ * Starts a fresh session for an already-authenticated caller and runs the MCP handshake
+ * on their behalf, so a request that arrived with a dead session ID can still be served.
+ * Returns the new session ID, or null if the handshake could not be completed.
+ */
+async function recoverSession(
+  opts: StartSessionOptions,
+): Promise<string | null> {
+  const started = await startSession(opts);
+  try {
+    const inner = (started.transport as any)._webStandardTransport;
+    if (!inner || typeof inner.handleRequest !== "function") {
+      throw new Error("SDK transport internals not available");
+    }
+    const initMessage = {
+      jsonrpc: "2.0",
+      id: `krix-resume-${crypto.randomUUID()}`,
+      method: "initialize",
+      params: {
+        protocolVersion: LATEST_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: "krix-session-recovery", version: "1.0.0" },
+      },
+    };
+    const response: globalThis.Response = await inner.handleRequest(
+      new globalThis.Request("http://localhost/mcp", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify(initMessage),
+      }),
+      { parsedBody: initMessage },
+    );
+    if (!response.ok) throw new Error(`handshake status ${response.status}`);
+    // The reply is an SSE stream that closes once the initialize response is sent.
+    await Promise.race([
+      response.text(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("handshake timed out")), 5000),
+      ),
+    ]);
+    return started.newSessionId;
+  } catch (err: any) {
+    console.warn(
+      `[mcp] Session recovery failed: ${String(err?.message || err)}`,
+    );
+    transports.delete(started.newSessionId);
+    void Promise.resolve(started.transport.close()).catch(() => {});
+    return null;
+  }
 }
 
 app.all(
@@ -933,50 +1171,122 @@ app.all(
     };
 
     try {
-      if (sessionId) {
-        const entry = transports.get(sessionId);
-        if (!entry) {
-          jsonRpcError(
-            res,
-            404,
-            -32001,
-            "Session not found. Re-initialize.",
-            body?.id ?? null,
-          );
-          return;
-        }
-        // A session is bound to the identity that created it.
-        const sessionEmail =
-          keySettings.email ||
-          (keyId === "primary-key"
-            ? getOwnerEmail() || "owner@localhost"
-            : undefined);
-        const sessionIdentity = canonicalUserIdentity({
-          email: sessionEmail,
-          keyId,
-        });
-        const expectedAuthKey = computeAuthKey(sessionIdentity);
-        if (
-          entry.keyId !== keyId ||
-          getAuthKeyForSession(sessionId) !== expectedAuthKey
-        ) {
-          jsonRpcError(
-            res,
-            403,
-            -32000,
-            "Session identity mismatch.",
-            body?.id ?? null,
-          );
-          return;
-        }
-        entry.lastActive = Date.now();
-        await entry.transport.handleRequest(req, res, body);
-        return;
-      }
-
       const isInit = Array.isArray(body)
         ? body.some((m) => isInitializeRequest(m))
         : isInitializeRequest(body);
+
+      // A session is bound to the identity that created it.
+      const sessionEmail =
+        keySettings.email ||
+        (keyId === "primary-key"
+          ? getOwnerEmail() || "owner@localhost"
+          : undefined);
+      const sessionIdentity = canonicalUserIdentity({
+        email: sessionEmail,
+        keyId,
+      });
+      const expectedAuthKey = computeAuthKey(sessionIdentity);
+      const ownsSession = (id: string, e?: SessionEntry): e is SessionEntry =>
+        Boolean(e) &&
+        e!.keyId === keyId &&
+        getAuthKeyForSession(id) === expectedAuthKey;
+
+      // A client that re-initializes may still send its old session header; ignore it.
+      if (isInit && sessionId) setRequestSessionHeader(req, null);
+
+      if (sessionId && !isInit) {
+        // 1) The caller's own live session, directly or through a recovery alias.
+        let liveId: string | undefined;
+        let liveEntry: SessionEntry | undefined;
+        const direct = transports.get(sessionId);
+        if (ownsSession(sessionId, direct)) {
+          liveId = sessionId;
+          liveEntry = direct;
+        } else {
+          const alias = sessionAliases.get(sessionId);
+          if (alias) {
+            const target = transports.get(alias.targetId);
+            if (
+              alias.keyId === keyId &&
+              alias.authKey === expectedAuthKey &&
+              ownsSession(alias.targetId, target)
+            ) {
+              liveId = alias.targetId;
+              liveEntry = target;
+            } else {
+              sessionAliases.delete(sessionId);
+            }
+          }
+        }
+
+        // 2) Unknown, expired, or someone else's session ID: never touch it. A signed-in
+        //    caller gets a fresh session of their own, so a stale chat keeps working
+        //    after a server restart, a disconnect, or removing and re-adding the connector.
+        if (!liveId || !liveEntry) {
+          if (req.method === "DELETE") {
+            jsonRpcError(
+              res,
+              404,
+              -32001,
+              "Session not found. Re-initialize.",
+              body?.id ?? null,
+            );
+            return;
+          }
+          if (transports.size >= MAX_SESSIONS) {
+            res.setHeader("Retry-After", "30");
+            jsonRpcError(
+              res,
+              503,
+              -32000,
+              "Server is at capacity. Try again shortly.",
+              body?.id ?? null,
+            );
+            return;
+          }
+          const recoveryKey = `${keyId}|${expectedAuthKey}|${sessionId}`;
+          let pending = recoveriesInFlight.get(recoveryKey);
+          if (!pending) {
+            pending = recoverSession({
+              req,
+              keyId,
+              keySettings,
+              githubToken,
+              renderToken,
+              identity: sessionIdentity,
+            }).finally(() => recoveriesInFlight.delete(recoveryKey));
+            recoveriesInFlight.set(recoveryKey, pending);
+          }
+          const recoveredId = await pending;
+          const recoveredEntry = recoveredId
+            ? transports.get(recoveredId)
+            : undefined;
+          if (!recoveredId || !ownsSession(recoveredId, recoveredEntry)) {
+            jsonRpcError(
+              res,
+              404,
+              -32001,
+              "Session not found. Re-initialize.",
+              body?.id ?? null,
+            );
+            return;
+          }
+          rememberSessionAlias(sessionId, {
+            targetId: recoveredId,
+            keyId,
+            authKey: expectedAuthKey,
+            createdAt: Date.now(),
+          });
+          liveId = recoveredId;
+          liveEntry = recoveredEntry;
+        }
+
+        setRequestSessionHeader(req, liveId);
+        liveEntry.lastActive = Date.now();
+        await liveEntry.transport.handleRequest(req, res, body);
+        return;
+      }
+
       if (req.method !== "POST" || !isInit) {
         jsonRpcError(
           res,
@@ -999,50 +1309,15 @@ app.all(
         return;
       }
 
-      const newSessionId = crypto.randomUUID();
-      const sessionEmail =
-        keySettings.email ||
-        (keyId === "primary-key"
-          ? getOwnerEmail() || "owner@localhost"
-          : undefined);
-      const sessionIdentity = canonicalUserIdentity({
-        email: sessionEmail,
+      const started = await startSession({
+        req,
         keyId,
-      });
-      registerSessionAuth(newSessionId, sessionIdentity);
-
-      const authKey = computeAuthKey(sessionIdentity);
-      registerSessionSandboxId(newSessionId, authKey);
-
-      let masterServer: McpServer | undefined;
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => newSessionId,
-        onsessioninitialized: (id) => {
-          transports.set(id, {
-            transport,
-            lastActive: Date.now(),
-            keyId,
-            server: masterServer,
-          });
-        },
-      });
-
-      transport.onclose = () => {
-        if (transport.sessionId) {
-          destroySandbox(transport.sessionId).catch(() => {});
-          transports.delete(transport.sessionId);
-        }
-      };
-
-      masterServer = createMasterServer(
+        keySettings,
         githubToken,
         renderToken,
-        newSessionId,
-        req,
-        keySettings,
-      );
-      await masterServer.connect(transport);
-      await transport.handleRequest(req, res, body);
+        identity: sessionIdentity,
+      });
+      await started.transport.handleRequest(req, res, body);
     } catch (error: any) {
       console.error(
         "[mcp] request failed:",
@@ -1781,6 +2056,10 @@ app.get("/api/settings", async (req, res) => {
         workspaceRender: Boolean(getWorkspaceCredential("render")),
         sandboxEnabled: sandboxAllowed,
       },
+      toolStates: buildToolStates(
+        effectiveKeyId,
+        keyCredentialsReady(effectiveKeyId, keySettings),
+      ),
     }),
   );
 });
@@ -1798,6 +2077,13 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   }
   const { githubToken, renderApiKey, enabledTools, disabledTools, disabled } =
     req.body || {};
+  if (id === "primary-key" && disabled === true) {
+    res.status(400).json({
+      success: false,
+      error: "The primary key cannot be disabled.",
+    });
+    return;
+  }
   const settings = getKeySettings(id);
 
   const effectiveGitHubToken =
@@ -1857,9 +2143,11 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
       settings.disabledTools || [],
     );
   }
+  const wasDisabled = settings.disabled === true;
   if (typeof disabled === "boolean") {
     settings.disabled = disabled;
   }
+  const justDisabled = settings.disabled === true && !wasDisabled;
   // If a credential was just cleared, drop any explicitly-enabled tool that now lacks it.
   {
     const ready = keyCredentialsReady(id, settings);
@@ -1873,8 +2161,10 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   // Credential changes need a fresh session; tool-only changes apply live.
   const credentialsChanged =
     githubToken !== undefined || renderApiKey !== undefined;
-  const closedSessions = credentialsChanged ? closeSessionsForKey(id) : 0;
-  const refreshedSessions = credentialsChanged ? 0 : refreshSessionsForKey(id);
+  // Credential changes and switching a key off both end its live sessions.
+  const mustClose = credentialsChanged || justDisabled;
+  const closedSessions = mustClose ? closeSessionsForKey(id) : 0;
+  const refreshedSessions = mustClose ? 0 : refreshSessionsForKey(id);
 
   res.setHeader("Cache-Control", "no-store");
   res.json({ success: true, settings, closedSessions, refreshedSessions });
@@ -2126,7 +2416,6 @@ app.post("/tools/execute", express.json({ limit: "1mb" }), async (req, res) => {
   );
   try {
     const ctx = getSessionContext(sessionId);
-    ctx.enabledCategories.add("sandbox");
     createMasterServer(githubToken, renderToken, sessionId, req, settings);
     const result = await executeRegisteredTool(sessionId, toolName, args);
     const serialized = JSON.stringify(result ?? null);
@@ -2482,6 +2771,10 @@ app.get("/settings", async (req, res) => {
         sandboxEnabled: sandboxAllowed,
       },
       toolsCatalog: summary.toolsCatalog,
+      toolStates: buildToolStates(
+        selectedKeyId,
+        keyCredentialsReady(selectedKeyId, keySettings),
+      ),
       userQuota,
     }),
   );
@@ -2678,6 +2971,38 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
     res
       .status(500)
       .json({ ok: false, error: err?.message || "Failed to toggle tool." });
+  }
+});
+
+app.post("/settings/api/tools/reset", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId } = req.body || {};
+  if (!keyId || typeof keyId !== "string") {
+    res.status(400).json({ ok: false, error: "Invalid keyId." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, keyId)) {
+    res.status(403).json({
+      ok: false,
+      error: "Forbidden: You do not have permission to manage this key.",
+    });
+    return;
+  }
+  try {
+    const updated = resetKeyToolOverrides(keyId);
+    await syncKeySettingsToMongo(updated);
+    const refreshedSessions = refreshSessionsForKey(keyId);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, refreshedSessions });
+  } catch (err: any) {
+    res.status(500).json({
+      ok: false,
+      error: err?.message || "Failed to reset tool permissions.",
+    });
   }
 });
 

@@ -27,6 +27,74 @@ export function isDefaultGithubTool(toolName: string): boolean {
   return DEFAULT_GITHUB_TOOLS.has(toolName);
 }
 
+/**
+ * Tools that are ON out of the box (before anyone toggles anything):
+ *   - every sandbox / file tool,
+ *   - `sandbox_status` and the default GitHub set (see DEFAULT_GITHUB_TOOLS).
+ * Everything else (issues/PRs, GitHub admin, Render, code graph, web search) is opt-in.
+ *
+ * "Default on" is only the starting point. A tool whose provider credential (GitHub token /
+ * Render key) is missing stays OFF and cannot be switched on, whatever this says; the
+ * credential check is applied separately by the caller.
+ */
+export function isDefaultOnTool(toolName: string, category: string): boolean {
+  if (category === "sandbox" || category === "files") return true;
+  if (toolName === "sandbox_status") return true;
+  return DEFAULT_GITHUB_TOOLS.has(toolName);
+}
+
+export type ToolStateReason =
+  | "key-on" // switched on for this key
+  | "key-off" // switched off for this key
+  | "global-on" // switched on in workspace settings
+  | "global-off" // switched off in workspace settings
+  | "default-on"
+  | "default-off"
+  | "needs-github" // no GitHub token for this key or workspace
+  | "needs-render" // no Render key for this key or workspace
+  | "sandbox-unavailable"; // the server does not allow sandbox / file tools
+
+export interface ToolStateInput {
+  toolName: string;
+  /** Internal category: core, sandbox, files, codegraph, render, github_issues_prs, github_admin. */
+  category: string;
+  /** Provider this tool cannot work without, or null. */
+  requires: CredentialProvider | null;
+  credentials: { github?: boolean; render?: boolean };
+  /** False when the deployment forbids this tool's category (e.g. sandbox on a shared host). */
+  categoryAllowed: boolean;
+  keyEnabled?: readonly string[];
+  keyDisabled?: readonly string[];
+  /** Workspace (global) overrides, inherited by every key that has no override of its own. */
+  globalEnabled?: readonly string[];
+  globalDisabled?: readonly string[];
+}
+
+/**
+ * The one place that decides whether a tool is on. The server (tools/list, tools/call, OAuth
+ * scopes) and the Settings pages both use it so they can never disagree.
+ * Order: hard blocks -> this key's own override -> workspace override -> default.
+ */
+export function resolveToolState(i: ToolStateInput): {
+  enabled: boolean;
+  reason: ToolStateReason;
+} {
+  if (!i.categoryAllowed) return { enabled: false, reason: "sandbox-unavailable" };
+  if (i.requires === "github" && !i.credentials.github)
+    return { enabled: false, reason: "needs-github" };
+  if (i.requires === "render" && !i.credentials.render)
+    return { enabled: false, reason: "needs-render" };
+  if (i.keyDisabled?.includes(i.toolName)) return { enabled: false, reason: "key-off" };
+  if (i.keyEnabled?.includes(i.toolName)) return { enabled: true, reason: "key-on" };
+  if (i.globalDisabled?.includes(i.toolName))
+    return { enabled: false, reason: "global-off" };
+  if (i.globalEnabled?.includes(i.toolName))
+    return { enabled: true, reason: "global-on" };
+  return isDefaultOnTool(i.toolName, i.category)
+    ? { enabled: true, reason: "default-on" }
+    : { enabled: false, reason: "default-off" };
+}
+
 export type CredentialProvider = "github" | "render";
 export type CredentialScope = "key" | "global" | "runtime";
 

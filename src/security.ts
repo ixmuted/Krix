@@ -140,45 +140,19 @@ function authBucket(sessionId: string) {
 export function getSessionContext(sessionId: string): SessionContext {
   expireIdleRepoContext(sessionId);
   if (!sessionContexts.has(sessionId)) {
-    const enableAll = process.env.ENABLE_ALL_TOOLS === "true";
-
-    const enableIssuesPrs =
-      enableAll ||
-      process.env.ENABLE_GITHUB_ISSUES_PRS === "true" ||
-      process.env.ENABLE_GITHUB_ISSUES_PRS_TOOLS === "true";
-
-    const enableAdmin =
-      enableAll ||
-      process.env.ENABLE_GITHUB_ADMIN === "true" ||
-      process.env.ENABLE_GITHUB_ADMIN_TOOLS === "true";
-
-    const enableRender =
-      enableAll ||
-      process.env.ENABLE_RENDER === "true" ||
-      process.env.ENABLE_RENDER_TOOLS === "true";
-
-    // Arbitrary code execution is opt-in. Disable it on Render's shared web-service
-    // runtime; use a separate disposable container/VM service for untrusted tenants.
-    const onRender =
-      process.env.RENDER === "true" || Boolean(process.env.RENDER_SERVICE_ID);
-    const enableSandbox =
-      process.env.ENABLE_SANDBOX === "true" &&
-      (!onRender ||
-        (process.env.SANDBOX_RENDER_OWNER_ONLY_ACK === "true" &&
-          process.env.SANDBOX_REQUIRE_ISOLATION === "false")) &&
-      process.env.ENABLE_SANDBOX_TOOLS !== "false" &&
-      process.env.DISABLE_SANDBOX !== "true" &&
-      process.env.DISABLE_SANDBOX_TOOLS !== "true";
-
-    const enableFiles =
-      enableAll || process.env.ENABLE_FILE_SHARING !== "false";
-
-    const initial: ToolCategory[] = ["core"];
-    if (enableIssuesPrs) initial.push("github_issues_prs");
-    if (enableAdmin) initial.push("github_admin");
-    if (enableRender) initial.push("render");
-    if (enableSandbox) initial.push("sandbox");
-    if (enableFiles) initial.push("files");
+    // Which tools are on is decided per key by resolveToolState (defaults, workspace and
+    // per-key settings, credentials). Environment flags no longer switch categories on, so a
+    // stray ENABLE_* variable cannot disagree with what the Settings pages show. The only
+    // deployment-level limits left are the sandbox / file kill switches in index.ts.
+    const initial: ToolCategory[] = [
+      "core",
+      "github_issues_prs",
+      "github_admin",
+      "render",
+      "sandbox",
+      "files",
+      "codegraph",
+    ];
 
     const key = sessionAuthKey.get(sessionId) || "anonymous";
     const priorRaw = lastKnownContextByAuth.get(key);

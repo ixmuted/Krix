@@ -1,10 +1,14 @@
 import crypto from "node:crypto";
-import { isDefaultGithubTool } from "./toolDefaults.js";
+import { isDefaultGithubTool, isDefaultOnTool, resolveToolState } from "./toolDefaults.js";
 import fs from "node:fs";
 import path from "node:path";
 import { type Db } from "mongodb";
 import { getMongoDb, ensureMongoAuth } from "./googleAuth.js";
-import { registerSecret } from "./security.js";
+import {
+  registerSecret,
+  TOOL_CATEGORY,
+  getToolCredentialRequirement,
+} from "./security.js";
 import { sendAccountFinallyDeletedEmail } from "./emailService.js";
 
 export type UserRole = "owner" | "user";
@@ -281,6 +285,16 @@ export function getKeySettings(keyId: string): KeySettings {
   return settings;
 }
 
+/**
+ * True when the owner switched this API key / OAuth connection off.
+ * Read-only lookup: unlike getKeySettings it never creates an entry for an unknown key.
+ * The primary (master) key can never be disabled, so an owner cannot lock themselves out.
+ */
+export function isKeyDisabled(keyId: string): boolean {
+  if (keyId === "primary-key") return false;
+  return keySettingsMap.get(keyId)?.disabled === true;
+}
+
 export function updateKeyCredentials(
   keyId: string,
   email: string,
@@ -488,33 +502,39 @@ export function updateKeyToolRiskLevel(
   return settings;
 }
 
+/**
+ * Policy for one tool on one key: hard blocks, then the key's own override, then the
+ * workspace (primary-key) override, then the default (see resolveToolState).
+ *
+ * `credentials` / `categoryAllowed` let callers that know the key's real situation get the
+ * final answer; when omitted, credentials are assumed present and the category allowed, so the
+ * caller is expected to apply those two checks itself. `_sessionEnabledCategories` is kept
+ * only for older callers: environment flags no longer decide what is on.
+ */
 export function isToolEnabledForKey(
   keyId: string,
   toolName: string,
   category: string,
-  sessionEnabledCategories: Set<string>,
+  _sessionEnabledCategories?: Set<string>,
+  credentials?: { github?: boolean; render?: boolean },
+  categoryAllowed = true,
 ): boolean {
   const settings = getKeySettings(keyId);
   const primary =
     keyId !== "primary-key" ? keySettingsMap.get("primary-key") : undefined;
 
-  // 1. Per-key explicit overrides always win over global defaults.
-  if (settings.disabledTools?.includes(toolName)) return false;
-  if (settings.enabledTools?.includes(toolName)) return true;
-
-  // 2. Otherwise inherit global tool overrides from primary-key when set.
-  if (primary?.disabledTools?.includes(toolName)) return false;
-  const globallyEnabled = Boolean(primary?.enabledTools?.includes(toolName));
-
-  // Search is grouped under Sandbox in the catalog, but is deliberately opt-in.
-  if (toolName === "web_search") return globallyEnabled;
-  const categoryEnabled =
-    category !== "codegraph" &&
-    category !== "search" &&
-    category !== "render" &&
-    sessionEnabledCategories.has(category);
-  const enabled = globallyEnabled || categoryEnabled;
-  if (!enabled) return false;
+  const state = resolveToolState({
+    toolName,
+    category,
+    requires: getToolCredentialRequirement(toolName, category),
+    credentials: credentials ?? { github: true, render: true },
+    categoryAllowed,
+    keyEnabled: settings.enabledTools,
+    keyDisabled: settings.disabledTools,
+    globalEnabled: primary?.enabledTools,
+    globalDisabled: primary?.disabledTools,
+  });
+  if (!state.enabled) return false;
 
   // The risk gate only applies when the user has explicitly marked this tool high/critical
   // (via the tool-risk endpoint) without acknowledging it. Name-based default risk labels
@@ -536,6 +556,49 @@ export function isToolEnabledForKey(
 // ---------------------------------------------------------------------------------------------
 // Persistence: Disk & MongoDB
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * Older versions of the key page saved EVERY tool as an explicit on/off override (and new keys
+ * copied the workspace lists). Overrides always beat workspace settings, so such a key could
+ * never follow a workspace change again. A list that covers nearly the whole catalog is that
+ * kind of snapshot, not a deliberate choice: keep only the entries that differ from the default,
+ * which leaves the key's current behaviour identical but lets it inherit from now on.
+ */
+function normalizeLegacyToolOverrides(settings: KeySettings): boolean {
+  const universe = Object.keys(TOOL_CATEGORY);
+  const enabled = settings.enabledTools || [];
+  const disabled = settings.disabledTools || [];
+  if (universe.length === 0) return false;
+  if (enabled.length + disabled.length < Math.floor(universe.length * 0.9))
+    return false;
+  const keepEnabled: string[] = [];
+  const keepDisabled: string[] = [];
+  for (const name of enabled) {
+    const category = TOOL_CATEGORY[name];
+    if (!category || !isDefaultOnTool(name, category)) keepEnabled.push(name);
+  }
+  for (const name of disabled) {
+    const category = TOOL_CATEGORY[name];
+    if (!category || isDefaultOnTool(name, category)) keepDisabled.push(name);
+  }
+  settings.enabledTools = keepEnabled;
+  settings.disabledTools = keepDisabled;
+  settings.updatedAt = Date.now();
+  return true;
+}
+
+/** Clears every tool override on a key so it follows the workspace settings again. */
+export function resetKeyToolOverrides(keyId: string): KeySettings {
+  const settings = getKeySettings(keyId);
+  settings.enabledTools = [];
+  settings.disabledTools = [];
+  settings.riskAcknowledgedTools = [];
+  settings.toolRiskLevels = {};
+  settings.updatedAt = Date.now();
+  saveSettingsToDisk();
+  syncKeySettingsToMongo(settings).catch(() => {});
+  return settings;
+}
 
 export function saveSettingsToDisk(): void {
   try {
@@ -589,6 +652,7 @@ function loadSettingsFromDisk(): void {
             decryptStoredSecret(settings.customRenderTokenEncrypted);
           delete settings.customGitHubTokenEncrypted;
           delete settings.customRenderTokenEncrypted;
+          normalizeLegacyToolOverrides(settings);
           keySettingsMap.set(keyId, settings);
           if (settings.customGitHubToken)
             registerSecret(settings.customGitHubToken);
@@ -865,12 +929,18 @@ export async function loadSettingsFromMongo(): Promise<void> {
           enabledCategories: Array.isArray(d.enabledCategories)
             ? d.enabledCategories
             : ["core", "sandbox", "files"],
+          // Without this the Active switch was forgotten whenever settings reloaded from Mongo.
+          disabled: d.disabled === true,
           createdAt: d.createdAt || Date.now(),
           updatedAt: d.updatedAt || Date.now(),
         };
         const existing = keySettingsMap.get(d.keyId);
         if (!existing || (d.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          // Mongo is where older snapshot-style override lists live in production, so they
+          // must be cleaned on this path too, then written back once.
+          const cleaned = normalizeLegacyToolOverrides(s);
           keySettingsMap.set(d.keyId, s);
+          if (cleaned) syncKeySettingsToMongo(s).catch(() => {});
         }
         if (s.customGitHubToken) registerSecret(s.customGitHubToken);
         if (s.customRenderToken) registerSecret(s.customRenderToken);
