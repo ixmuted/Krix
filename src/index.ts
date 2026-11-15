@@ -3327,6 +3327,7 @@ async function collectUserStoreFiles(
   }
 
   const seenSbxPaths = new Set<string>();
+  const seenStoreNames = new Set(files.map((f) => f.name));
   for (const k of ownerKeys) {
     const root = sandboxRootForAuthKey(k);
     const uploadDir = path.join(root, UPLOAD_DIR);
@@ -3338,6 +3339,7 @@ async function collectUserStoreFiles(
         const filePath = path.join(uploadDir, entry.name);
         if (seenSbxPaths.has(filePath)) continue;
         seenSbxPaths.add(filePath);
+        if (seenStoreNames.has(entry.name)) continue;
         const stat = fs.statSync(filePath);
         const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
         if (seenStoreIds.has(sbxId)) continue;
