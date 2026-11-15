@@ -1195,8 +1195,13 @@ app.all(
         : isInitializeRequest(body);
 
       // A session is bound to the identity that created it.
+      const storedEmail =
+        keySettings.email && keySettings.email !== "anonymous"
+          ? keySettings.email
+          : undefined;
       const sessionEmail =
-        keySettings.email ||
+        clientEmail ||
+        storedEmail ||
         (keyId === "primary-key"
           ? getOwnerEmail() || "owner@localhost"
           : undefined);
