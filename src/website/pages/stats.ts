@@ -107,7 +107,7 @@ export function renderStatsPage(params: {
         options: keyOptions,
         selectedValue: summary.selectedKeyId || "",
         onchange:
-          "window.location.search = this.value ? '?key=' + encodeURIComponent(this.value) : ''",
+          "window.location.search = this.value && this.value !== '' ? '?key=' + encodeURIComponent(this.value) : window.location.pathname",
         ariaLabel: "Filter by API key or OAuth authorization",
       })}
     </div>
