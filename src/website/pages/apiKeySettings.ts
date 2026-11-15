@@ -248,7 +248,7 @@ export function renderApiKeySettingsPage(params: {
                   );
                   return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
             <div style="min-width:0;flex:1;"><div style="font:600 12px var(--font-mono);color:var(--fg);overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:2px;">${escapeHtml(category)}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
-            <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""}${blockedLabel ? " disabled" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
+            <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
                 })
                 .join("")
