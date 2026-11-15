@@ -163,7 +163,7 @@ export function renderSettingsPage(params: {
             <span style="font-size:13px; font-weight:600; color:var(--fg);">GitHub Personal Access Token</span>
           </div>
           <div class="settings-secret-control">
-            <input type="text" id="settingsGithubInput" value="${escapeHtml(maskedGitHub)}" data-secret="${escapeHtml(githubSecret)}" data-masked="${escapeHtml(maskedGitHub)}" data-editing="false" data-revealed="false" readonly placeholder="Not configured — select Edit to add a token" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
+            <input type="text" id="settingsGithubInput" value="${escapeHtml(maskedGitHub)}" data-secret="${escapeHtml(githubSecret)}" data-masked="${escapeHtml(maskedGitHub)}" data-editing="false" data-revealed="false" readonly tabindex="-1" placeholder="Not configured" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
             <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','reveal',this)" title="Show or hide GitHub token" aria-label="Show or hide GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
             <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsGithubInput','edit')" title="Edit GitHub token" aria-label="Edit GitHub token" style="padding:7px; border-radius:6px;">${renderSvg("edit", 14)}</button>
           </div>
@@ -175,7 +175,7 @@ export function renderSettingsPage(params: {
             <span style="font-size:13px; font-weight:600; color:var(--fg);">Render API Key</span>
           </div>
           <div class="settings-secret-control">
-            <input type="text" id="settingsRenderInput" value="${escapeHtml(maskedRender)}" data-secret="${escapeHtml(renderSecret)}" data-masked="${escapeHtml(maskedRender)}" data-editing="false" data-revealed="false" readonly placeholder="Not configured — select Edit to add a token" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
+            <input type="text" id="settingsRenderInput" value="${escapeHtml(maskedRender)}" data-secret="${escapeHtml(renderSecret)}" data-masked="${escapeHtml(maskedRender)}" data-editing="false" data-revealed="false" readonly tabindex="-1" placeholder="Not configured" style="width:100%; padding:9px 10px; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
             <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','reveal',this)" title="Show or hide Render token" aria-label="Show or hide Render token" style="padding:7px; border-radius:6px;">${renderSvg("eye", 14)}</button>
             <button type="button" class="btn ghost" onclick="toggleSettingsSecret('settingsRenderInput','edit')" title="Edit Render token" aria-label="Edit Render token" style="padding:7px; border-radius:6px;">${renderSvg("edit", 14)}</button>
           </div>
@@ -399,6 +399,8 @@ export function renderSettingsPage(params: {
           if (input.dataset.editing !== 'true') {
             input.value = input.dataset.secret || '';
             input.readOnly = false;
+            input.tabIndex = 0;
+            input.placeholder = 'Paste token';
             input.type = 'password';
             input.dataset.editing = 'true';
             input.dataset.revealed = 'false';
@@ -427,6 +429,8 @@ export function renderSettingsPage(params: {
           if (input && input.dataset.editing === 'true') {
             input.value = input.dataset.masked || '';
             input.readOnly = true;
+            input.tabIndex = -1;
+            input.placeholder = 'Not configured';
             input.type = 'text';
             input.dataset.editing = 'false';
             input.dataset.revealed = 'false';
