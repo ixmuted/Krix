@@ -62,28 +62,17 @@ export function renderStorePage(params: {
       owner: null,
       content: renderAuthRequiredCard(
         "Store",
-        "You must sign in as the verified service owner or authenticate with your MCP API key to access the FileStore repository.",
+        "You must sign in with Google or authenticate with your MCP API key to access the FileStore repository.",
         "/store",
       ),
     });
   }
 
   const files = Array.isArray(params.files) ? params.files : [];
-  const usage = params.usage || {};
-  const totalFiles =
-    typeof usage.count === "number" ? usage.count : files.length;
-  const totalBytes =
-    typeof usage.bytes === "number"
-      ? usage.bytes
-      : files.reduce((acc, f) => acc + (f.size || 0), 0);
-  const permanentCount =
-    typeof usage.permanentCount === "number"
-      ? usage.permanentCount
-      : files.filter((f) => !!f.permanent).length;
-  const expiringCount =
-    typeof usage.expiredCount === "number"
-      ? usage.expiredCount
-      : files.filter((f) => !f.permanent).length;
+  const totalFiles = files.length;
+  const totalBytes = files.reduce((acc, f) => acc + (Number(f.size) || 0), 0);
+  const permanentCount = files.filter((f) => !!f.permanent).length;
+  const expiringCount = files.filter((f) => !f.permanent).length;
 
   const content = `
     <!-- Top Header Deck -->
@@ -127,7 +116,7 @@ export function renderStorePage(params: {
       <div class="card spotlight-card card-top-border" style="padding:18px 20px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Expiring Files</div>${statIconTile("clock")}</div>
         <div id="valExpiringFiles" style="font-size:22px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${expiringCount}</div>
-        <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">24h ephemeral lifecycle</div>
+        <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">Temporary lifecycle</div>
       </div>
     </div>
 
@@ -168,7 +157,6 @@ export function renderStorePage(params: {
           <thead>
             <tr style="border-bottom:1px solid var(--border-subtle); color:var(--geist-gray-50); font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">
               <th style="padding:10px 12px; font-weight:600;">Filename</th>
-              <th style="padding:10px 12px; font-weight:600;">Source</th>
               <th style="padding:10px 12px; font-weight:600;">Size</th>
               <th style="padding:10px 12px; font-weight:600;">Retention</th>
               <th style="padding:10px 12px; font-weight:600;">Visibility</th>
@@ -179,7 +167,7 @@ export function renderStorePage(params: {
           <tbody>
             ${
               files.length === 0
-                ? `<tr><td colspan="7" style="text-align:center; padding:44px 20px; color:var(--geist-gray-50);">FileStore repository is empty. Use the Ingestion Workbench to upload datasets.</td></tr>`
+                ? `<tr><td colspan="6" style="text-align:center; padding:44px 20px; color:var(--geist-gray-50);">FileStore repository is empty. Use the Ingestion Workbench to upload datasets.</td></tr>`
                 : files
                     .map((file, idx) => {
                       const fId = escapeHtml(file.id || `file_${idx}`);
@@ -236,8 +224,8 @@ export function renderStorePage(params: {
                                 onclick: `togglePermanent('${fId}', true)`,
                               },
                           {
-                            label: "Toggle Privacy",
-                            icon: "lock",
+                            label: isPublic ? "Private" : "Public",
+                            icon: isPublic ? "lock" : "unlock",
                             onclick: `toggleFilePrivacy('${fId}')`,
                           },
                           {
@@ -255,33 +243,26 @@ export function renderStorePage(params: {
                       }
 
                       return `
-                  <tr class="store-row" data-name="${fName.toLowerCase()}" style="border-bottom:1px solid var(--border-subtle);">
+                  <tr class="store-row" data-file-id="${fId}" data-name="${fName.toLowerCase()}" style="border-bottom:1px solid var(--border-subtle);">
                     <td style="padding:12px;">
                       <div style="display:flex; align-items:center; gap:8px;">
                         ${fileTile(rawFileName, 30, 16)}
                         <span class="store-file-name" data-full-name="${fName}" title="${fName}" style="font-weight:600; font-family:var(--font-mono); color:var(--fg);">${displayFileName}</span>
                       </div>
                     </td>
-                    <td style="padding:12px;">
-                      ${
-                        source === "sandbox"
-                          ? `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--bg-surface-2); color:var(--geist-gray-50); font-weight:500;">Sandbox</span>`
-                          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--accent-subtle); color:var(--accent); font-weight:500;">Cloud Store</span>`
-                      }
-                    </td>
                     <td style="padding:12px; font-family:var(--font-mono); color:var(--geist-gray-50); font-size:12px;">${fSize}</td>
                     <td style="padding:12px;">
                       ${
                         isPermanent
                           ? `<span class="badge permanent-badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--success-subtle); color:var(--success); font-weight:500;">Permanent</span>`
-                          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--bg-surface-2); color:var(--geist-gray-50); font-weight:500;">24h Ephemeral</span>`
+                          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--bg-surface-2); color:var(--geist-gray-50); font-weight:500;">Temporary</span>`
                       }
                     </td>
                     <td style="padding:12px;">
                       ${
                         isPublic
-                          ? `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--success-subtle); color:var(--success); font-weight:500;">Public</span>`
-                          : `<span class="badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--bg-surface-2); color:var(--geist-gray-50); font-weight:500;">Private</span>`
+                          ? `<span class="badge store-visibility-badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--success-subtle); color:var(--success); font-weight:500;">Public</span>`
+                          : `<span class="badge store-visibility-badge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; background:var(--bg-surface-2); color:var(--geist-gray-50); font-weight:500;">Private</span>`
                       }
                     </td>
                     <td style="padding:12px; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${escapeHtml(String(file.createdAt || "Recent").slice(0, 16))}</td>
@@ -349,8 +330,8 @@ export function renderStorePage(params: {
                       onclick: `togglePermanent('${fId}', true)`,
                     },
                 {
-                  label: "Toggle Privacy",
-                  icon: "lock",
+                  label: isPublic ? "Private" : "Public",
+                  icon: isPublic ? "lock" : "unlock",
                   onclick: `toggleFilePrivacy('${fId}')`,
                 },
                 {
@@ -367,7 +348,7 @@ export function renderStorePage(params: {
               );
             }
             return `
-              <div class="store-grid-card card spotlight-card" data-name="${fName.toLowerCase()}" style="padding:16px; display:flex; flex-direction:column; gap:10px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
+              <div class="store-grid-card card spotlight-card" data-file-id="${fId}" data-name="${fName.toLowerCase()}" style="padding:16px; display:flex; flex-direction:column; gap:10px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
                     ${fileTile(rawFileName, 34, 17)}
@@ -378,8 +359,8 @@ export function renderStorePage(params: {
                 <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-top:auto; padding-top:6px; border-top:1px solid var(--border-subtle); gap:6px;">
                   <span>${fSize}</span>
                   <div style="display:inline-flex; align-items:center; gap:6px;">
-                    <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPublic ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPublic ? "Public" : "Private"}</span>
-                    <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPermanent ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPermanent ? "Permanent" : "24h Ephemeral"}</span>
+                    <span class="badge store-visibility-badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPublic ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPublic ? "Public" : "Private"}</span>
+                    <span class="badge" style="padding:1px 6px; font-size:10px; border-radius:var(--radius-full); ${isPermanent ? "background:var(--success-subtle); color:var(--success);" : "background:var(--bg-surface-2); color:var(--geist-gray-50);"}">${isPermanent ? "Permanent" : "Temporary"}</span>
                   </div>
                 </div>
               </div>
