@@ -797,10 +797,18 @@ async function authenticate(
         rejectDisabledKey(res);
         return;
       }
+      const oauthAuth = clientId
+        ? listActiveOAuthAuthorizations().find((oa) => oa.clientId === clientId)
+        : undefined;
       (req as any).clientAuth = {
         keyId,
         label,
-        email: payload.email || registeredClient?.ownerEmail,
+        email:
+          payload.email ||
+          oauthAuth?.ownerEmail ||
+          (typeof payload.sub === "string" && payload.sub.includes("@")
+            ? payload.sub
+            : undefined),
         type: "oauth",
       };
       next();
