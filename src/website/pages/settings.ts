@@ -3,7 +3,7 @@
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
-import { isDefaultGithubTool } from "../../toolDefaults.js";
+import { blockedToolReasonLabel, isDefaultGithubTool } from "../../toolDefaults.js";
 
 export function renderSettingsPage(params: {
   base: string;
@@ -55,7 +55,7 @@ export function renderSettingsPage(params: {
       ? keySettings.enabledCategories
       : [],
   );
-  const serverToolStates: Record<string, { enabled: boolean }> | undefined =
+  const serverToolStates: Record<string, { enabled: boolean; reason?: string }> | undefined =
     params.toolStates && typeof params.toolStates === "object"
       ? params.toolStates
       : undefined;
@@ -248,14 +248,17 @@ export function renderSettingsPage(params: {
           .map((t: any) => {
             const cat = t.category || "General";
             const isEnabled = isToolEnabled(t);
+            const blockedLabel = blockedToolReasonLabel(
+              serverToolStates?.[String(t.name || "")]?.reason,
+            );
             return `
               <div class="settings-tool-row tool-toggle-row" data-cat="${escapeHtml(cat)}" data-tool-name="${escapeHtml(t.name).toLowerCase()}" data-name="${escapeHtml(t.name)}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); font-size:12px;">
                 <div style="min-width:0; flex:1; padding-right:10px;">
                   <div style="font-family:var(--font-mono); font-weight:600; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(t.name)}</div>
-                  <div style="font-size:11px; color:var(--geist-gray-50);">${escapeHtml(cat)}</div>
+                  <div style="font-size:11px; color:var(--geist-gray-50);">${escapeHtml(cat)}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div>
                 </div>
-                <label class="switch krix-switch" title="Toggle Tool Permission">
-                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}>
+                <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : "Toggle Tool Permission"}">
+                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}${blockedLabel ? " disabled" : ""}>
                   <span class="krix-slider"></span>
                 </label>
               </div>

@@ -5,6 +5,7 @@ import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
 import { getToolCredentialRequirement } from "../../security.js";
 import {
+  blockedToolReasonLabel,
   credentialRequiredMessage,
   isDefaultGithubTool,
 } from "../../toolDefaults.js";
@@ -33,6 +34,10 @@ export function renderApiKeySettingsPage(params: {
   const sandboxAllowed = params.sandboxAllowed !== false;
   const rawKeyId = String(key.id || key.clientId || "");
   const keyId = escapeHtml(rawKeyId);
+  // For use inside the page's <script>: the HTML-escaped form above would corrupt ids that contain
+  // & < > " ' (and "</script>" must never appear), so scripts get these instead.
+  const jsKeyId = JSON.stringify(rawKeyId).replace(/</g, "\\u003c");
+  const urlKeyId = encodeURIComponent(rawKeyId).replace(/'/g, "%27");
   const keyName = escapeHtml(
     key.label || key.clientName || key.name || `Key ${rawKeyId.slice(0, 4)}`,
   );
@@ -60,7 +65,7 @@ export function renderApiKeySettingsPage(params: {
     Array.isArray(settings.enabledCategories) ? settings.enabledCategories : [],
   );
   const isKeyDisabled = !!settings.disabled;
-  const serverToolStates: Record<string, { enabled: boolean }> | undefined =
+  const serverToolStates: Record<string, { enabled: boolean; reason?: string }> | undefined =
     params.toolStates && typeof params.toolStates === "object"
       ? params.toolStates
       : undefined;
@@ -238,9 +243,12 @@ export function renderApiKeySettingsPage(params: {
                       : rawCategory;
                   const checked = isToolEnabled(tool);
                   const requires = getToolCredentialRequirement(toolName) || "";
+                  const blockedLabel = blockedToolReasonLabel(
+                    serverToolStates?.[toolName]?.reason,
+                  );
                   return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
-            <div style="min-width:0;flex:1;"><div style="font:600 12px var(--font-mono);color:var(--fg);overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:2px;">${escapeHtml(category)}</div></div>
-            <label class="switch krix-switch" title="Toggle permission for ${escapeHtml(toolName)}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
+            <div style="min-width:0;flex:1;"><div style="font:600 12px var(--font-mono);color:var(--fg);overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:2px;">${escapeHtml(category)}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
+            <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""}${blockedLabel ? " disabled" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
                 })
                 .join("")
@@ -319,7 +327,7 @@ export function renderApiKeySettingsPage(params: {
           const res = await fetch('/settings/api/tool-toggle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keyId: ${JSON.stringify(keyId)}, toolName: toolName, enabled: enabled })
+            body: JSON.stringify({ keyId: ${jsKeyId}, toolName: toolName, enabled: enabled })
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) {
@@ -340,7 +348,7 @@ export function renderApiKeySettingsPage(params: {
           const res = await fetch('/settings/api/tools/reset', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keyId: ${JSON.stringify(keyId)} })
+            body: JSON.stringify({ keyId: ${jsKeyId} })
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) throw new Error(data.error || 'Could not reset tool permissions.');
@@ -379,7 +387,7 @@ export function renderApiKeySettingsPage(params: {
         setKeyStatusLabel(active);
         if (toggle) toggle.disabled = true;
         try {
-          const response = await fetch('/api/keys/${keyId}/settings', {
+          const response = await fetch('/api/keys/${urlKeyId}/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ disabled: !active })
@@ -507,10 +515,13 @@ export function renderApiKeySettingsPage(params: {
         if (overrideEditing.github) body.githubToken = document.getElementById('customGithubToken')?.value || '';
         if (overrideEditing.render) body.renderApiKey = document.getElementById('customRenderKey')?.value || '';
         try {
-          const response = await fetch('/api/keys/${keyId}/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          const response = await fetch('/api/keys/${urlKeyId}/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           const data = await response.json().catch(() => ({}));
           if (!response.ok || data.success === false) throw new Error(data.error || 'Could not save key settings.');
           showToast('Key settings saved successfully', 'success');
+          // Adding or removing a credential changes which tools are available, so the tool
+          // switches (and their locks) must be redrawn from the server's view of the key.
+          const credentialsChanged = overrideEditing.github || overrideEditing.render;
           if (overrideEditing.github) {
             const value = (document.getElementById('customGithubToken')?.value || '').trim();
             keyOverrideConfigured.github = Boolean(value);
@@ -550,6 +561,7 @@ export function renderApiKeySettingsPage(params: {
           initialGithubSecret = (document.getElementById('customGithubToken')?.value || '').trim();
           initialRenderSecret = (document.getElementById('customRenderKey')?.value || '').trim();
           hideKeySettingsSave();
+          if (credentialsChanged) setTimeout(() => window.location.reload(), 600);
         } catch (error) { showToast(error.message || 'Failed to save key settings', 'error'); }
         finally { if (button) button.disabled = false; }
       }
