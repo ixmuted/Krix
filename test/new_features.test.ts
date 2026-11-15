@@ -434,12 +434,10 @@ test("Dedicated Store page renders files table, download links, and permanent st
     "Must display results_dataset.csv",
   );
   assert.ok(storeHtml.includes("script.py"), "Must display script.py");
-  assert.ok(
-    storeHtml.includes("Cloud Store"),
-    "Must display Cloud Store badge",
-  );
-  assert.ok(storeHtml.includes("Sandbox"), "Must display Sandbox badge");
+  assert.ok(storeHtml.includes("Temporary"), "Must display Temporary badge");
   assert.ok(storeHtml.includes("Permanent"), "Must display Permanent badge");
+  assert.ok(storeHtml.includes("Public"), "Must display Public action/badge");
+  assert.ok(storeHtml.includes("Private"), "Must display Private badge");
 
   // Check download links & actions
   assert.ok(
