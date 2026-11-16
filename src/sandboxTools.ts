@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { execFile as execFileCb, type ChildProcess } from "node:child_process";
 import crypto from "node:crypto";
 import path from "node:path";

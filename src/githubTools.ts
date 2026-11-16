@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/server';
 import { Octokit } from '@octokit/rest';
 import { z } from 'zod';
 import {

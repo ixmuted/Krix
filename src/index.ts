@@ -5,13 +5,21 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { pipeline } from "node:stream/promises";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
+  createMcpHandler,
   isInitializeRequest,
   LATEST_PROTOCOL_VERSION,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+  McpServer,
+} from "@modelcontextprotocol/server";
+import {
+  SkillsExtension,
+  type SkillCatalog,
+  type SkillFiles,
+} from "@modelcontextprotocol/server/ext/skills";
+import {
+  NodeStreamableHTTPServerTransport,
+  toNodeHandler,
+} from "@modelcontextprotocol/node";
 import { Octokit } from "@octokit/rest";
 import dotenv from "dotenv";
 
@@ -304,7 +312,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .filter(Boolean);
 
 interface SessionEntry {
-  transport: StreamableHTTPServerTransport;
+  transport: NodeStreamableHTTPServerTransport;
   lastActive: number;
   keyId: string;
   /** Live MCP server so tool policy changes can be applied without dropping the session. */
@@ -507,6 +515,70 @@ function loadAsset(fileName: string): Buffer | null {
   return null;
 }
 
+let krixSkillsCatalog: SkillCatalog | null = null;
+const krixSkillsReady: Promise<void> = (async () => {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const candidateA = path.resolve(here, "..", "skills");
+    const candidateB = path.resolve(process.cwd(), "skills");
+    const skillsRoot = fs.existsSync(path.join(candidateA, "SKILL.md"))
+      ? candidateA
+      : candidateB;
+    if (!fs.existsSync(path.join(skillsRoot, "SKILL.md"))) return;
+
+    const krixSkillFiles: SkillFiles = {
+      async list(dir: string) {
+        const clean = dir.replace(/^\/+|\/+$/g, "");
+        if (clean === "") return [{ name: "krix", kind: "directory" }];
+        if (clean !== "krix" && !clean.startsWith("krix/")) return [];
+        const rel = clean === "krix" ? "" : clean.slice("krix/".length);
+        const target = path.resolve(skillsRoot, rel);
+        if (target !== skillsRoot && !target.startsWith(skillsRoot + path.sep)) {
+          return [];
+        }
+        const entries = await fs.promises.readdir(target, { withFileTypes: true });
+        return entries
+          .filter((e) => !e.name.startsWith(".") && (e.isDirectory() || e.isFile()))
+          .map((e) => ({
+            name: e.name,
+            kind: e.isDirectory() ? ("directory" as const) : ("file" as const),
+          }));
+      },
+      async read(filePath: string) {
+        const clean = filePath.replace(/^\/+/, "");
+        if (!clean.startsWith("krix/")) {
+          throw new Error(`Unknown skill path: ${filePath}`);
+        }
+        const rel = clean.slice("krix/".length);
+        const target = path.resolve(skillsRoot, rel);
+        if (target !== skillsRoot && !target.startsWith(skillsRoot + path.sep)) {
+          throw new Error(`Invalid skill path: ${filePath}`);
+        }
+        return new Uint8Array(await fs.promises.readFile(target));
+      },
+    };
+    krixSkillsCatalog = await SkillsExtension.load(krixSkillFiles, {
+      onWarning: ({ path: warnPath, message }) => {
+        console.warn(`[skills] ${warnPath}: ${message}`);
+      },
+    });
+  } catch (err: any) {
+    console.warn(`[skills] Failed to load Krix MCP skills: ${err?.message || err}`);
+  }
+})();
+
+function isModernStatelessRequest(body: unknown): boolean {
+  const check = (msg: any): boolean =>
+    Boolean(
+      msg &&
+        typeof msg === "object" &&
+        (msg.method === "server/discover" ||
+          typeof msg?.params?._meta?.["io.modelcontextprotocol/protocolVersion"] ===
+            "string"),
+    );
+  return Array.isArray(body) ? body.some(check) : check(body);
+}
+
 function createMasterServer(
   githubToken: string,
   renderToken: string | undefined,
@@ -530,6 +602,9 @@ function createMasterServer(
     {
       capabilities: {
         tools: {
+          listChanged: true,
+        },
+        resources: {
           listChanged: true,
         },
       },
@@ -619,24 +694,25 @@ function createMasterServer(
   applyToolPolicy();
   (server as any).applyToolPolicy = applyToolPolicy;
 
+  if (krixSkillsCatalog) {
+    krixSkillsCatalog.attach(server);
+  }
+
   // Ensure every tool returned to MCP clients (like Gemini) includes icons metadata (matching GitHub MCP Server)
   const rawServer = server.server as any;
   const originalListTools = rawServer._requestHandlers?.get("tools/list");
   if (originalListTools) {
-    server.server.setRequestHandler(
-      ListToolsRequestSchema,
-      async (request, extra) => {
-        applyToolPolicy();
-        const result = await originalListTools(request, extra);
-        return {
-          ...result,
-          tools: (result.tools || []).map((t: any) => ({
-            ...t,
-            icons: toolIcons,
-          })),
-        };
-      },
-    );
+    server.server.setRequestHandler("tools/list", async (request, ctx) => {
+      applyToolPolicy();
+      const result = await originalListTools(request, ctx);
+      return {
+        ...result,
+        tools: (result.tools || []).map((t: any) => ({
+          ...t,
+          icons: toolIcons,
+        })),
+      };
+    });
   }
 
   return server;
@@ -951,7 +1027,7 @@ async function startSession(opts: StartSessionOptions) {
   );
 
   let masterServer: McpServer | undefined;
-  const transport = new StreamableHTTPServerTransport({
+  const transport = new NodeStreamableHTTPServerTransport({
     sessionIdGenerator: () => newSessionId,
     onsessioninitialized: (id) => {
       transports.set(id, {
@@ -1046,6 +1122,7 @@ app.all(
   express.json({ limit: `${MAX_BODY_MB}mb` }),
   async (req: Request, res: Response): Promise<void> => {
     await Promise.all([
+      krixSkillsReady,
       statsTracker.ensureMongo().catch((error) => {
         console.error(
           "[stats] startup restore before MCP request failed:",
@@ -1321,6 +1398,32 @@ app.all(
         setRequestSessionHeader(req, liveId);
         liveEntry.lastActive = Date.now();
         await liveEntry.transport.handleRequest(req, res, body);
+        return;
+      }
+
+      if (req.method === "POST" && !isInit && isModernStatelessRequest(body)) {
+        const statelessSessionId = `stateless-${crypto.randomUUID()}`;
+        registerSessionAuth(statelessSessionId, sessionIdentity);
+        registerSessionSandboxId(statelessSessionId, expectedAuthKey);
+        registerSessionRole(
+          statelessSessionId,
+          keyId === "primary-key" || isOwnerEmail(keySettings.email)
+            ? "owner"
+            : "user",
+        );
+        const statelessHandler = createMcpHandler(
+          () =>
+            createMasterServer(
+              githubToken,
+              renderToken,
+              statelessSessionId,
+              req,
+              keySettings,
+            ),
+          { legacy: "reject" },
+        );
+        const nodeHandler = toNodeHandler(statelessHandler);
+        await nodeHandler(req, res, body);
         return;
       }
 

@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/server';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { formatOptimizedResponse, formatError, getToolAnnotations, makeRegistrar } from './security.js';
