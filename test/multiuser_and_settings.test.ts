@@ -480,10 +480,10 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
         "User 1 must not see User 2's key",
       );
 
-      // Owner sees all keys
+      // Strict account separation: even the owner account only sees its own keys
       const ownerKeys = listDynamicKeys(OWNER_EMAIL);
-      assert.ok(ownerKeys.some((k) => k.id === key1.id));
-      assert.ok(ownerKeys.some((k) => k.id === key2.id));
+      assert.ok(!ownerKeys.some((k) => k.id === key1.id));
+      assert.ok(!ownerKeys.some((k) => k.id === key2.id));
     });
   });
 
