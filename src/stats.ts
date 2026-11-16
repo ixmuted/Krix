@@ -239,7 +239,16 @@ export class StatsTracker {
     if (customPath) {
       this.filePath = customPath;
     }
-    this.loadFromFile();
+    // MongoDB is the durable source of truth when configured. Loading the local file as well
+    // would add the same counters twice (both snapshots are merged additively), doubling every
+    // statistic after each restart, so the file is only the fallback for setups without MongoDB.
+    const mongoConfigured = Boolean(
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL ||
+      process.env.DATABASE_URL ||
+      getMongoDb(),
+    );
+    if (!mongoConfigured) this.loadFromFile();
     this.ensureMongo().catch(() => {});
   }
 
