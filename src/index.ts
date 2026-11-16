@@ -2539,28 +2539,29 @@ app.get("/stats/api", async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
-  const authKey = computeAuthKey(
-    owner
-      ? `user_${owner.email.toLowerCase()}`
-      : `key_${apiEntry?.id || "anonymous"}`,
+  const ownerKeys = owner
+    ? resolveUserOwnerKeys(owner.email)
+    : Array.from(extractCallerAuthKeys(req));
+  const effectiveIsOwner = owner
+    ? isOwnerEmail(owner.email)
+    : clientKey === MCP_API_KEY;
+  const sharedSandbox = await statsTracker.computeSharedSandboxStats(
+    ownerKeys,
+    effectiveIsOwner,
   );
+  const authKey = owner
+    ? computeUserAuthKey({ email: owner.email })
+    : ownerKeys[0] || computeAuthKey(`key_${apiEntry?.id || "anonymous"}`);
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const scopedKeyId =
-    selectedKeyId ||
-    apiEntry?.id ||
-    (owner
-      ? listDynamicKeys(owner.email)[0]?.id ||
-        listActiveOAuthAuthorizations().find(
-          (authorization) =>
-            authorization.ownerEmail?.toLowerCase() ===
-            owner.email.toLowerCase(),
-        )?.clientId ||
-        (isOwnerEmail(owner.email) ? "primary-key" : "no-keys")
-      : clientKey === MCP_API_KEY
-        ? "primary-key"
-        : undefined);
-  if (!scopedKeyId) {
+  const scopedKeyId = owner
+    ? selectedKeyId !== undefined
+      ? selectedKeyId
+      : ""
+    : selectedKeyId ||
+      apiEntry?.id ||
+      (clientKey === MCP_API_KEY ? "primary-key" : undefined);
+  if (scopedKeyId === undefined) {
     res
       .status(403)
       .json({ error: "Unable to resolve the API key's usage scope." });
@@ -2569,7 +2570,9 @@ app.get("/stats/api", async (req, res) => {
   const summary = statsTracker.getSummary(
     root,
     scopedKeyId,
-    owner ? isOwnerEmail(owner.email) : clientKey === MCP_API_KEY,
+    effectiveIsOwner,
+    sharedSandbox,
+    effectiveIsOwner ? undefined : ownedStatsKeyIds(owner?.email, apiEntry?.id),
   );
   res.setHeader("Cache-Control", "no-store");
   res.json(summary);
@@ -2643,12 +2646,21 @@ app.get("/stats", async (req, res) => {
   }
   const scopedKeyId = selectedKeyId !== undefined ? selectedKeyId : "";
 
-  const authKey = computeAuthKey(
-    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
+  const ownerKeys = resolveUserOwnerKeys(owner.email);
+  const sharedSandbox = await statsTracker.computeSharedSandboxStats(
+    ownerKeys,
+    isOwner,
   );
+  const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root, scopedKeyId, isOwner);
+  const summary = statsTracker.getSummary(
+    root,
+    scopedKeyId,
+    isOwner,
+    sharedSandbox,
+    isOwner ? undefined : ownedStatsKeyIds(owner.email),
+  );
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -2661,6 +2673,19 @@ app.get("/stats", async (req, res) => {
     }),
   );
 });
+
+/** Key ids a non-owner may see in stats: only their own present keys and OAuth clients. */
+function ownedStatsKeyIds(email?: string, singleKeyId?: string): Set<string> {
+  const ids = new Set<string>();
+  if (singleKeyId) ids.add(singleKeyId);
+  if (!email) return ids;
+  for (const k of listDynamicKeys(email)) ids.add(k.id);
+  for (const oa of listActiveOAuthAuthorizations()) {
+    if (oa.ownerEmail?.toLowerCase() === email.toLowerCase())
+      ids.add(oa.clientId);
+  }
+  return ids;
+}
 
 // Dedicated Settings Page & Management Endpoints
 function userOwnsKey(email: string, keyId: string): boolean {

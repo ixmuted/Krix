@@ -3,8 +3,37 @@ import path from "node:path";
 import { MongoClient, type Db } from "mongodb";
 import { fileShareRegistry } from "./fileShareRegistry.js";
 import { getMongoDb } from "./googleAuth.js";
+import { getFileStore } from "./fileShare.js";
+import { sandboxRootForAuthKey } from "./security.js";
 import { CODE_GRAPH_TOOLS_CATALOG } from "./codeGraphTools.js";
 import { getToolInputSchema } from "./toolSchemas.js";
+
+/** Real on-disk size of a directory (symlinks skipped; bounded so a huge tree cannot stall a request). */
+function dirSizeBytes(root: string, maxEntries = 20000, maxMs = 400): number {
+  let total = 0;
+  let seen = 0;
+  const deadline = Date.now() + maxMs;
+  const stack = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      if (++seen > maxEntries || Date.now() > deadline) return total;
+      const full = path.join(dir, e.name);
+      try {
+        if (e.isSymbolicLink()) continue;
+        if (e.isDirectory()) stack.push(full);
+        else if (e.isFile()) total += fs.statSync(full).size;
+      } catch {}
+    }
+  }
+  return total;
+}
 
 export interface KeyMetrics {
   keyId: string;
@@ -26,6 +55,8 @@ export interface KeyMetrics {
   dailyErrors?: Record<string, number>;
   weekly: Record<string, number>;
   monthly: Record<string, number>;
+  statusCodes?: Record<string, number>;
+  clientEcosystems?: Record<string, number>;
 }
 
 export interface SharedSandboxStats {
@@ -304,6 +335,82 @@ export class StatsTracker {
     };
   }
 
+  private defaultStatusCodes(): Record<string, number> {
+    return {
+      "200": 0,
+      "400": 0,
+      "401": 0,
+      "413": 0,
+      "500": 0,
+    };
+  }
+
+  private defaultClientEcosystems(): Record<string, number> {
+    return {
+      "Claude Desktop": 0,
+      Cursor: 0,
+      "Google Gemini": 0,
+      ChatGPT: 0,
+      Antigravity: 0,
+      "CLI / Script": 0,
+      Other: 0,
+    };
+  }
+
+  private ensureKeyBreakdowns(entry: KeyMetrics): boolean {
+    let changed = false;
+    if (!entry.statusCodes || Object.keys(entry.statusCodes).length === 0) {
+      entry.statusCodes = {};
+      if (entry.totalRequests > 0) {
+        const succ = Math.max(0, entry.successCount || 0);
+        const err = Math.max(0, entry.errorCount || 0);
+        const accounted = succ + err;
+        if (succ > 0) entry.statusCodes["200"] = succ;
+        if (err > 0) entry.statusCodes["400"] = err;
+        if (accounted < entry.totalRequests) {
+          entry.statusCodes["200"] =
+            (entry.statusCodes["200"] || 0) + (entry.totalRequests - accounted);
+        }
+        changed = true;
+      }
+    }
+    if (
+      !entry.clientEcosystems ||
+      Object.keys(entry.clientEcosystems).length === 0
+    ) {
+      entry.clientEcosystems = {};
+      if (entry.totalRequests > 0) {
+        const eco = this.detectEcosystem(
+          entry.lastUserAgent,
+          entry.label,
+          entry.keyId,
+        );
+        entry.clientEcosystems[eco] = entry.totalRequests;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  private rebuildGlobalBreakdownsFromActiveKeys(): void {
+    const statusCodes = this.defaultStatusCodes();
+    const clientEcosystems = this.defaultClientEcosystems();
+    for (const entry of this.keys.values()) {
+      this.ensureKeyBreakdowns(entry);
+      for (const [code, count] of Object.entries(entry.statusCodes || {})) {
+        statusCodes[code] = (statusCodes[code] || 0) + Number(count || 0);
+      }
+      for (const [eco, count] of Object.entries(
+        entry.clientEcosystems || {},
+      )) {
+        clientEcosystems[eco] =
+          (clientEcosystems[eco] || 0) + Number(count || 0);
+      }
+    }
+    this.statusCodes = statusCodes;
+    this.clientEcosystems = clientEcosystems;
+  }
+
   private detectEcosystem(ua?: string, label?: string, keyId?: string): string {
     const combined = `${ua || ""} ${label || ""} ${keyId || ""}`.toLowerCase();
     if (combined.includes("gemini") || combined.includes("google"))
@@ -451,9 +558,15 @@ export class StatsTracker {
         daily: {},
         weekly: {},
         monthly: {},
+        statusCodes: {},
+        clientEcosystems: {},
       };
       this.keys.set(keyId, entry);
     }
+
+    this.ensureKeyBreakdowns(entry);
+    entry.statusCodes![codeKey] = (entry.statusCodes![codeKey] || 0) + 1;
+    entry.clientEcosystems![eco] = (entry.clientEcosystems![eco] || 0) + 1;
 
     entry.totalRequests++;
     if (isError) {
@@ -613,7 +726,7 @@ export class StatsTracker {
             if (st.isDirectory()) {
               activeWorkDirs++;
               // approximate size of workspace
-              workspaceBytes += 1024 * 1024; // baseline per directory
+              workspaceBytes += dirSizeBytes(p);
             } else {
               tempBytes += st.size;
             }
@@ -623,6 +736,124 @@ export class StatsTracker {
     }
 
     totalDiskBytes = uploadBytes + workspaceBytes + tempBytes;
+    const quotaUsedPercent = Math.min(
+      100,
+      Math.round((totalDiskBytes / (quotaLimitMb * 1024 * 1024)) * 100 * 10) /
+        10,
+    );
+
+    return {
+      uploadFileCount,
+      uploadBytes,
+      uploadFiles: uploadFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 10),
+      activeWorkDirs,
+      totalDiskBytes,
+      quotaLimitMb,
+      quotaUsedPercent,
+      storageBreakdown: {
+        uploadMb: Math.round((uploadBytes / (1024 * 1024)) * 10) / 10,
+        workspaceMb: Math.round((workspaceBytes / (1024 * 1024)) * 10) / 10,
+        tempMb: Math.round((tempBytes / (1024 * 1024)) * 10) / 10,
+      },
+    };
+  }
+
+  public async computeSharedSandboxStats(
+    ownerKeys: string[],
+    isOwner: boolean = true,
+  ): Promise<SharedSandboxStats> {
+    let uploadFileCount = 0;
+    let uploadBytes = 0;
+    const uploadFiles: Array<{ name: string; size: number; mtime: number }> =
+      [];
+    let activeWorkDirs = 0;
+    let workspaceBytes = 0;
+    let tempBytes = 0;
+
+    const quotaLimitMb = isOwner
+      ? Number(process.env.SANDBOX_MAX_TOTAL_MB) || 300
+      : 50;
+
+    const uniqueKeys = Array.from(new Set(ownerKeys.filter(Boolean)));
+    const seenStoreIds = new Set<string>();
+    const seenNames = new Set<string>();
+
+    // 1. Include active files persisted in MongoDB GridFS across all owner auth keys
+    if (uniqueKeys.length > 0) {
+      try {
+        const fileStore = getFileStore();
+        const storeLists = await Promise.all(
+          uniqueKeys.map((k) =>
+            fileStore
+              .listByOwner(k, { limit: 100, status: "active" })
+              .catch(() => ({ files: [], totalCount: 0 })),
+          ),
+        );
+        for (const resItem of storeLists) {
+          for (const f of resItem.files) {
+            if (seenStoreIds.has(f.id)) continue;
+            seenStoreIds.add(f.id);
+            seenNames.add(f.name);
+            const sz = Number(f.size) || 0;
+            uploadFileCount++;
+            uploadBytes += sz;
+            uploadFiles.push({
+              name: f.name,
+              size: sz,
+              mtime: new Date(f.createdAt || 0).getTime(),
+            });
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Include non-duplicate local sandbox uploads and workspace directories
+    const seenRoots = new Set<string>();
+    for (const k of uniqueKeys) {
+      const root = sandboxRootForAuthKey(k);
+      if (seenRoots.has(root)) continue;
+      seenRoots.add(root);
+      if (!fs.existsSync(root)) continue;
+      try {
+        const uploadDir = path.join(root, "upload");
+        if (fs.existsSync(uploadDir)) {
+          const files = fs.readdirSync(uploadDir);
+          for (const f of files) {
+            if (seenNames.has(f)) continue;
+            try {
+              const st = fs.statSync(path.join(uploadDir, f));
+              if (st.isFile()) {
+                seenNames.add(f);
+                uploadFileCount++;
+                uploadBytes += st.size;
+                uploadFiles.push({
+                  name: f,
+                  size: st.size,
+                  mtime: st.mtimeMs,
+                });
+              }
+            } catch {}
+          }
+        }
+
+        const entries = fs.readdirSync(root);
+        for (const e of entries) {
+          if (e === "upload") continue;
+          try {
+            const p = path.join(root, e);
+            const st = fs.statSync(p);
+            if (st.isDirectory()) {
+              activeWorkDirs++;
+              workspaceBytes += dirSizeBytes(p);
+            } else {
+              tempBytes += st.size;
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    const totalDiskBytes = uploadBytes + workspaceBytes + tempBytes;
     const quotaUsedPercent = Math.min(
       100,
       Math.round((totalDiskBytes / (quotaLimitMb * 1024 * 1024)) * 100 * 10) /
@@ -730,6 +961,19 @@ export class StatsTracker {
               existingMetrics.monthly || {},
             )) {
               canonical.monthly[m] = (canonical.monthly[m] || 0) + c;
+            }
+            for (const [code, c] of Object.entries(
+              existingMetrics.statusCodes || {},
+            )) {
+              (canonical.statusCodes ||= {})[code] =
+                ((canonical.statusCodes ||= {})[code] || 0) + Number(c || 0);
+            }
+            for (const [eco, c] of Object.entries(
+              existingMetrics.clientEcosystems || {},
+            )) {
+              (canonical.clientEcosystems ||= {})[eco] =
+                ((canonical.clientEcosystems ||= {})[eco] || 0) +
+                Number(c || 0);
             }
             this.keys.delete(existingKeyId);
             changed = true;
@@ -873,6 +1117,19 @@ export class StatsTracker {
             )) {
               canonical.monthly[m] = (canonical.monthly[m] || 0) + cnt;
             }
+            for (const [code, cnt] of Object.entries(
+              existingMetrics.statusCodes || {},
+            )) {
+              (canonical.statusCodes ||= {})[code] =
+                ((canonical.statusCodes ||= {})[code] || 0) + Number(cnt || 0);
+            }
+            for (const [eco, cnt] of Object.entries(
+              existingMetrics.clientEcosystems || {},
+            )) {
+              (canonical.clientEcosystems ||= {})[eco] =
+                ((canonical.clientEcosystems ||= {})[eco] || 0) +
+                Number(cnt || 0);
+            }
             this.keys.delete(existingKeyId);
             changed = true;
           }
@@ -914,6 +1171,13 @@ export class StatsTracker {
       }
     }
 
+    for (const entry of this.keys.values()) {
+      if (this.ensureKeyBreakdowns(entry)) {
+        changed = true;
+      }
+    }
+    this.rebuildGlobalBreakdownsFromActiveKeys();
+
     if (changed) {
       this.scheduleSave();
     }
@@ -932,6 +1196,7 @@ export class StatsTracker {
       }
     }
     if (changed) {
+      this.rebuildGlobalBreakdownsFromActiveKeys();
       this.scheduleSave();
     }
   }
@@ -940,10 +1205,12 @@ export class StatsTracker {
     sandboxRoot?: string,
     targetKeyId?: string,
     isOwner: boolean = true,
+    sharedSandboxOverride?: SharedSandboxStats,
+    allowedKeyIds?: Set<string>,
   ): StatsSummary {
-    const keys = Array.from(this.keys.values()).sort(
-      (a, b) => b.totalRequests - a.totalRequests,
-    );
+    const keys = Array.from(this.keys.values())
+      .filter((k) => !allowedKeyIds || allowedKeyIds.has(k.keyId))
+      .sort((a, b) => b.totalRequests - a.totalRequests);
     const isFiltered = Boolean(targetKeyId && targetKeyId !== "all");
     const matchedKey = isFiltered
       ? keys.find(
@@ -1767,10 +2034,33 @@ export class StatsTracker {
       weeklyTimeline,
       monthlyTimeline,
       availableYears,
-      sharedSandbox: this.getSharedSandboxStats(sandboxRoot, isOwner),
+      sharedSandbox:
+        sharedSandboxOverride || this.getSharedSandboxStats(sandboxRoot, isOwner),
       systemHealth,
-      statusCodes: this.statusCodes,
-      clientEcosystems: this.clientEcosystems,
+      statusCodes: (() => {
+        const codes = this.defaultStatusCodes();
+        const activeSource = isFiltered ? (matchedKey ? [matchedKey] : []) : keys;
+        for (const k of activeSource) {
+          this.ensureKeyBreakdowns(k);
+          for (const [code, count] of Object.entries(k.statusCodes || {})) {
+            codes[code] = (codes[code] || 0) + Number(count || 0);
+          }
+        }
+        return codes;
+      })(),
+      clientEcosystems: (() => {
+        const ecosystems = this.defaultClientEcosystems();
+        const activeSource = isFiltered ? (matchedKey ? [matchedKey] : []) : keys;
+        for (const k of activeSource) {
+          this.ensureKeyBreakdowns(k);
+          for (const [eco, count] of Object.entries(
+            k.clientEcosystems || {},
+          )) {
+            ecosystems[eco] = (ecosystems[eco] || 0) + Number(count || 0);
+          }
+        }
+        return ecosystems;
+      })(),
       recentErrors: this.recentErrors,
       peakTraffic: {
         peakHourUtc,
@@ -2051,6 +2341,22 @@ export class StatsTracker {
           for (const [m, count] of Object.entries(loadedKey.monthly || {})) {
             curKey.monthly[m] = (curKey.monthly[m] || 0) + Number(count);
           }
+          if (loadedKey.statusCodes) {
+            if (!curKey.statusCodes) curKey.statusCodes = {};
+            for (const [code, count] of Object.entries(loadedKey.statusCodes)) {
+              curKey.statusCodes[code] =
+                (curKey.statusCodes[code] || 0) + Number(count);
+            }
+          }
+          if (loadedKey.clientEcosystems) {
+            if (!curKey.clientEcosystems) curKey.clientEcosystems = {};
+            for (const [eco, count] of Object.entries(
+              loadedKey.clientEcosystems,
+            )) {
+              curKey.clientEcosystems[eco] =
+                (curKey.clientEcosystems[eco] || 0) + Number(count);
+            }
+          }
           if (loadedKey.toolMetrics) {
             if (!curKey.toolMetrics) curKey.toolMetrics = {};
             for (const [t, tm] of Object.entries(
@@ -2251,6 +2557,7 @@ export class StatsTracker {
     }
 
     this.purgeProtocolAndLegacyKeys();
+    this.rebuildGlobalBreakdownsFromActiveKeys();
   }
 
   private loadFromFile(): void {

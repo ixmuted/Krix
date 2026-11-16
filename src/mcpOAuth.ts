@@ -1762,6 +1762,7 @@ export async function revokeOAuthAuthorization(
     }
   }
   saveOAuthToDisk();
+  statsTracker.removeKey(clientId);
   // Always write a tombstone, even if the in-memory cache was cold after a restart.
   const clientPersisted = await revokeOAuthClientInMongo(clientId);
   const tokensPersisted = await revokeOAuthTokenInMongo(clientId);

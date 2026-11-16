@@ -188,7 +188,7 @@ export function renderStatsPage(params: {
         <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50);">Sandbox Storage</div>
         <div class="metric-value" id="valQuotaUsed" style="font-size:28px; font-weight:800; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${sharedSandbox.quotaUsedPercent}%</div>
         <div class="progress-bar-bg" style="height:6px; background:var(--bg-surface-2); border-radius:var(--radius-full); overflow:hidden; margin-top:8px;">
-          <div class="progress-bar-fill" id="barQuotaFill" style="height:100%; background:var(--accent); width: ${Math.min(100, Math.max(2, sharedSandbox.quotaUsedPercent))}%;"></div>
+          <div class="progress-bar-fill" id="barQuotaFill" style="height:100%; background:var(--accent); width: ${sharedSandbox.totalDiskBytes > 0 ? Math.min(100, Math.max(2, sharedSandbox.quotaUsedPercent)) : 0}%;"></div>
         </div>
         <div style="font-size:11px; color:var(--geist-gray-50); margin-top:6px; display:flex; justify-content:space-between;">
           <span id="valDiskBytes">${formatBytes(sharedSandbox.totalDiskBytes)} used</span>
@@ -373,7 +373,7 @@ export function renderStatsPage(params: {
             <span style="font-family:var(--font-mono); color:var(--fg);">${formatBytes(summary.totalBytesIn || 0)} in / ${formatBytes(summary.totalBytesOut || 0)} out</span>
           </div>
           <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border-subtle);">
-            <span style="color:var(--geist-gray-50);">Uploads Directory:</span>
+            <span style="color:var(--geist-gray-50);">Stored Files (all keys combined):</span>
             <span style="font-family:var(--font-mono); color:var(--fg);">${sharedSandbox.uploadFileCount} files (${formatBytes(sharedSandbox.uploadBytes || 0)})</span>
           </div>
           <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border-subtle);">
@@ -382,7 +382,7 @@ export function renderStatsPage(params: {
           </div>
           <div style="display:flex; justify-content:space-between;">
             <span style="color:var(--geist-gray-50);">Quota Threshold:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">300 MB shared limit</span>
+            <span style="font-family:var(--font-mono); color:var(--fg);">${sharedSandbox.quotaLimitMb} MB shared by all your keys</span>
           </div>
         </div>
       </div>
