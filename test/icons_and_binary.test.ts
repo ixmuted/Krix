@@ -2,8 +2,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { IconSchema, ImplementationSchema } from '@modelcontextprotocol/sdk/types.js';
+import { McpServer } from '@modelcontextprotocol/server';
+import { IconSchema, ImplementationSchema } from '@modelcontextprotocol/core';
 import Ajv from 'ajv';
 import {
   ICON_48_DATA_URI, ICON_24_DATA_URI, ICON_48_BUFFER, ICON_24_BUFFER,
