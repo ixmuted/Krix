@@ -1244,45 +1244,52 @@ export function registerSandboxTools(
     },
     async () => {
       try {
-        const runtimes: Record<string, string> = {};
-        const probes: Array<[string, string, string[]]> = [
-          ["node", "node", ["-v"]],
-          ["python", "python3", ["--version"]],
-          ["git", "git", ["--version"]],
-          ["go", "go", ["version"]],
-          ["zip", "zip", ["-v"]],
-          ["unzip", "unzip", ["-v"]],
-          ["imagemagick", "convert", ["-version"]],
-          ["tsc", "tsc", ["--version"]],
-          ["tsx", "tsx", ["--version"]],
-          ["bun", "bun", ["--version"]],
-          ["esbuild", "esbuild", ["--version"]],
-          ["vitest", "vitest", ["--version"]],
-          ["prettier", "prettier", ["--version"]],
-          ["uv", "uv", ["--version"]],
-          ["ruff", "ruff", ["--version"]],
-          ["pytest", "pytest", ["--version"]],
-        ];
-        const results = await Promise.all(
-          probes.map(
-            ([, file, args]) =>
-              new Promise<string>((resolve) => {
-                execFileCb(
-                  file,
-                  args,
-                  { timeout: 3000 },
-                  (err, stdout, stderr) => {
-                    if (err) return resolve("N/A");
-                    const text = String(stdout || stderr || "").trim();
-                    resolve(text.split("\n")[0] || "N/A");
-                  },
-                );
-              }),
-          ),
-        );
-        probes.forEach(([name], i) => {
-          runtimes[name] = results[i];
-        });
+        if (!cachedRuntimes) {
+          const detected: Record<string, string> = {};
+          const probes: Array<[string, string, string[]]> = [
+            ["node", "node", ["-v"]],
+            ["python", "python3", ["--version"]],
+            ["git", "git", ["--version"]],
+            ["go", "go", ["version"]],
+            ["zip", "zip", ["-v"]],
+            ["unzip", "unzip", ["-v"]],
+            ["imagemagick", "convert", ["-version"]],
+            ["tsc", "tsc", ["--version"]],
+            ["tsx", "tsx", ["--version"]],
+            ["bun", "bun", ["--version"]],
+            ["esbuild", "esbuild", ["--version"]],
+            ["vitest", "vitest", ["--version"]],
+            ["prettier", "prettier", ["--version"]],
+            ["uv", "uv", ["--version"]],
+            ["ruff", "ruff", ["--version"]],
+            ["pytest", "pytest", ["--version"]],
+          ];
+          for (let i = 0; i < probes.length; i += 4) {
+            const batch = probes.slice(i, i + 4);
+            const batchResults = await Promise.all(
+              batch.map(
+                ([, file, args]) =>
+                  new Promise<string>((resolve) => {
+                    execFileCb(
+                      file,
+                      args,
+                      { timeout: 10000 },
+                      (err, stdout, stderr) => {
+                        if (err) return resolve("N/A");
+                        const text = String(stdout || stderr || "").trim();
+                        resolve(text.split("\n")[0] || "N/A");
+                      },
+                    );
+                  }),
+              ),
+            );
+            batch.forEach(([name], idx) => {
+              detected[name] = batchResults[idx];
+            });
+          }
+          cachedRuntimes = detected;
+        }
+        const runtimes = cachedRuntimes;
 
         const ctx = getSessionContext(sessionId);
         let cloned = false;
