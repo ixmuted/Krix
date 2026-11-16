@@ -531,7 +531,7 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
         });
         assert.equal(uploadRes.status, 201);
 
-        const sbxId = `sbx_${Buffer.from(fileName).toString("hex").slice(0, 16)}`;
+        const sbxId = `sbx_${crypto.createHash("sha256").update(`${authKeyA}:${fileName}`).digest("hex").slice(0, 16)}`;
         const regEntry = fileShareRegistry.getById(sbxId);
         assert.ok(regEntry, "File share registry must have an entry");
         assert.equal(
@@ -761,7 +761,7 @@ describe("Security, Isolation & Storage Hardening Verification", () => {
         path.join(sbxDir, targetSandboxFileName),
         "Alice Private Sandbox Bytes",
       );
-      targetSbxId = `sbx_${Buffer.from(targetSandboxFileName).toString("hex").slice(0, 16)}`;
+      targetSbxId = `sbx_${crypto.createHash("sha256").update(`${authKeyA}:${targetSandboxFileName}`).digest("hex").slice(0, 16)}`;
       fileShareRegistry.ensureFileShare({
         fileId: targetSbxId,
         name: targetSandboxFileName,
