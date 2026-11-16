@@ -9,6 +9,7 @@ import express, {
   type Response,
 } from "express";
 import {
+  canonicalUserIdentity,
   computeAuthKey,
   computeUserAuthKey,
   safeEqual,
@@ -28,6 +29,7 @@ import {
 import { safeFileName, getFileStore, contentTypeFor } from "./fileShare.js";
 import { fileShareRegistry } from "./fileShareRegistry.js";
 import { getMongoDb, ensureMongoAuth } from "./googleAuth.js";
+import { listActiveOAuthAuthorizations } from "./mcpOAuth.js";
 import {
   parseOwnerCookie,
   isAuthorizedApiKey,
@@ -441,30 +443,83 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       const hash = sha256Hex(token);
       const ttlMs = uploadConfig.ttlMs;
 
+      const ownerKeys = new Set<string>([authKey]);
+      if (userEmail) {
+        const normEmail = userEmail.trim().toLowerCase();
+        ownerKeys.add(computeUserAuthKey({ email: normEmail }));
+        ownerKeys.add(computeAuthKey(canonicalUserIdentity({ email: normEmail })));
+        for (const k of listDynamicKeys(normEmail)) {
+          ownerKeys.add(computeUserAuthKey({ keyId: k.id }));
+          ownerKeys.add(computeAuthKey(canonicalUserIdentity({ keyId: k.id })));
+        }
+        for (const oa of listActiveOAuthAuthorizations()) {
+          if (oa.ownerEmail?.toLowerCase() === normEmail) {
+            ownerKeys.add(computeUserAuthKey({ keyId: oa.clientId }));
+            ownerKeys.add(
+              computeAuthKey(canonicalUserIdentity({ keyId: oa.clientId })),
+            );
+          }
+        }
+      }
+
       const existingFiles: UploadedFile[] = [];
-      let totalBytes = 0;
-      try {
-        const uploadDirPath = path.join(root, UPLOAD_DIR);
-        if (fs.existsSync(uploadDirPath)) {
+      const seenNames = new Set<string>();
+      for (const k of ownerKeys) {
+        try {
+          const uploadDirPath = path.join(sandboxRootForAuthKey(k), UPLOAD_DIR);
+          if (!fs.existsSync(uploadDirPath)) continue;
           const entries = fs.readdirSync(uploadDirPath, {
             withFileTypes: true,
           });
           for (const entry of entries) {
-            if (entry.isFile()) {
-              const abs = path.join(uploadDirPath, entry.name);
-              const stat = fs.statSync(abs);
-              const isPerm = !retentionTracker.some((r) => r.abs === abs);
+            if (!entry.isFile() || seenNames.has(entry.name)) continue;
+            seenNames.add(entry.name);
+            const abs = path.join(uploadDirPath, entry.name);
+            const stat = fs.statSync(abs);
+            const isPerm = !retentionTracker.some((r) => r.abs === abs);
+            existingFiles.push({
+              name: entry.name,
+              size: stat.size,
+              abs,
+              permanent: isPerm,
+            });
+          }
+        } catch {}
+      }
+
+      // Also include files persisted in MongoDB GridFS (matching /store) so uploaded files
+      // remain visible on /upload after container restarts or when saved from MCP/Store.
+      if (
+        process.env.MONGODB_URI ||
+        process.env.MONGO_URL ||
+        process.env.DATABASE_URL
+      ) {
+        try {
+          await ensureMongoAuth().catch(() => {});
+          const db = getMongoDb();
+          if (db) await fileShareRegistry.setMongoDb(db);
+          const store = getFileStore();
+          const storeLists = await Promise.all(
+            Array.from(ownerKeys).map((k) =>
+              store
+                .listByOwner(k, { limit: 100, status: "all" })
+                .catch(() => ({ files: [], totalCount: 0 })),
+            ),
+          );
+          for (const resItem of storeLists) {
+            for (const f of resItem.files) {
+              if (seenNames.has(f.name)) continue;
+              seenNames.add(f.name);
               existingFiles.push({
-                name: entry.name,
-                size: stat.size,
-                abs,
-                permanent: isPerm,
+                name: f.name,
+                size: Number(f.size) || 0,
+                abs: path.join(root, UPLOAD_DIR, f.name),
+                permanent: !f.expiresAt,
               });
-              totalBytes += stat.size;
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       const session: UploadSession = {
         root,

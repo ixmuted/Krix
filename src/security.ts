@@ -115,6 +115,7 @@ export function registerSessionAuth(
 export function unregisterSessionAuth(sessionId: string): void {
   sessionAuthKey.delete(sessionId);
   sessionSandboxId.delete(sessionId);
+  sessionRoleMap.delete(sessionId);
   deleteSessionContext(sessionId);
 }
 
@@ -834,6 +835,7 @@ export function sanitizePath(
 }
 
 const sessionSandboxId = new Map<string, string>();
+const sessionRoleMap = new Map<string, "owner" | "user">();
 
 export function registerSessionSandboxId(
   sessionId: string,
@@ -844,6 +846,21 @@ export function registerSessionSandboxId(
 
 export function getSandboxIdForSession(sessionId: string): string {
   return sessionSandboxId.get(sessionId) || getAuthKeyForSession(sessionId);
+}
+
+export function registerSessionRole(
+  sessionId: string,
+  role: "owner" | "user",
+): void {
+  sessionRoleMap.set(sessionId, role);
+}
+
+export function getSessionRole(sessionId: string): "owner" | "user" {
+  const explicit = sessionRoleMap.get(sessionId);
+  if (explicit) return explicit;
+  const sbxId = getSandboxIdForSession(sessionId);
+  if (sbxId === "owner" || sbxId.startsWith("owner_")) return "owner";
+  return "user";
 }
 
 /** Root directory of the sandbox that belongs to a session's authenticated identity. */

@@ -17,6 +17,7 @@ import {
   makeRegistrar,
   getAuthKeyForSession,
   getSandboxIdForSession,
+  getSessionRole,
   sandboxRootPath,
   assertValidOwnerRepo,
   assertValidRef,
@@ -692,8 +693,7 @@ export function registerSandboxTools(
           );
         }
 
-        const sbxId = getSandboxIdForSession(sessionId);
-        const quota = getUserQuota(sbxId === "owner" ? "owner" : "user");
+        const quota = getUserQuota(getSessionRole(sessionId));
         const ulimitPrefix = buildLimitsPrefix(
           quota.ulimitFile,
           quota.ulimitProc,
@@ -777,8 +777,7 @@ export function registerSandboxTools(
           args.args || [],
           outputBinary,
         );
-        const sbxId = getSandboxIdForSession(sessionId);
-        const quota = getUserQuota(sbxId === "owner" ? "owner" : "user");
+        const quota = getUserQuota(getSessionRole(sessionId));
         let last: RunResult | null = null;
         for (const step of steps) {
           last = await runProc(step.file, step.args, {

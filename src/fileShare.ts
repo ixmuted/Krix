@@ -16,6 +16,7 @@ import {
   getToolAnnotations,
   makeRegistrar,
   getAuthKeyForSession,
+  getSessionRole,
   sanitizeOutput,
 } from "./security.js";
 import { createLimiter, rateLimitMiddleware } from "./rateLimit.js";
@@ -28,6 +29,7 @@ import {
   assertSandboxAllowed,
 } from "./sandboxProc.js";
 import { fileShareRegistry } from "./fileShareRegistry.js";
+import { getUserQuota } from "./userSettings.js";
 
 /**
  * Sandbox store tool (share / list / delete / download / view).
@@ -74,6 +76,14 @@ export const fileConfig = {
 };
 
 const BUCKET = "krix_files";
+
+function getStoreQuotaBytesForSession(sessionId: string): number {
+  const envOverride = process.env.FILE_MAX_TOTAL_MB_PER_OWNER;
+  if (envOverride !== undefined && envOverride.trim() !== "") {
+    return fileConfig.maxBytesPerOwner;
+  }
+  return getUserQuota(getSessionRole(sessionId)).storageMb * 1024 * 1024;
+}
 
 // ---------------------------------------------------------------------------------------------
 // Store abstraction (Mongo GridFS in production; swappable in tests)
@@ -1040,7 +1050,8 @@ export async function shareFile(
     );
 
   const usage = await store.usage(ownerKey);
-  const maxMb = (fileConfig.maxBytesPerOwner / 1024 / 1024).toFixed(0);
+  const quotaBytes = getStoreQuotaBytesForSession(sessionId);
+  const maxMb = (quotaBytes / 1024 / 1024).toFixed(0);
   const currentMb = (usage.bytes / 1024 / 1024).toFixed(1);
   const fileMb = (data.length / 1024 / 1024).toFixed(1);
 
@@ -1049,7 +1060,7 @@ export async function shareFile(
       `MongoDB storage is full (file count limit reached: ${usage.count}/${fileConfig.maxFilesPerOwner} files). Delete some files using sandbox_store action:delete (use action:list to inspect or pass ids: [...]).`,
     );
   }
-  if (usage.bytes + data.length > fileConfig.maxBytesPerOwner) {
+  if (usage.bytes + data.length > quotaBytes) {
     throw new Error(
       `MongoDB storage is full (byte quota reached: ${currentMb}MB / ${maxMb}MB used). Cannot add ${fileMb}MB file. Delete old/large files with sandbox_store action:delete (use action:list with sortBy: 'size' to find largest files).`,
     );
@@ -1156,7 +1167,7 @@ export async function getMongoStorageStatus(
     );
     const u = await Promise.race([usagePromise, timeoutPromise]);
 
-    const maxBytes = fileConfig.maxBytesPerOwner;
+    const maxBytes = getStoreQuotaBytesForSession(sessionId);
     const usedBytes = u.bytes;
     const availableBytes = Math.max(0, maxBytes - usedBytes);
 
@@ -1719,13 +1730,10 @@ export function registerFileTools(
               getFileStore().listByOwner(ownerKey, options),
               getFileStore().usage(ownerKey),
             ]);
-            const maxMb = (fileConfig.maxBytesPerOwner / 1024 / 1024).toFixed(
-              0,
-            );
+            const quotaBytes = getStoreQuotaBytesForSession(sessionId);
+            const maxMb = (quotaBytes / 1024 / 1024).toFixed(0);
             const usedMb = (usage.bytes / 1024 / 1024).toFixed(2);
-            const percentUsed = Math.round(
-              (usage.bytes / fileConfig.maxBytesPerOwner) * 100,
-            );
+            const percentUsed = Math.round((usage.bytes / quotaBytes) * 100);
             const quota = {
               usedFiles: usage.count,
               maxFiles: fileConfig.maxFilesPerOwner,

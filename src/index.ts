@@ -110,6 +110,7 @@ import {
   registerSessionAuth,
   unregisterSessionAuth,
   registerSessionSandboxId,
+  registerSessionRole,
   getSandboxIdForSession,
   getAuthKeyForSession,
   computeAuthKey,
@@ -944,6 +945,10 @@ async function startSession(opts: StartSessionOptions) {
   const newSessionId = crypto.randomUUID();
   registerSessionAuth(newSessionId, identity);
   registerSessionSandboxId(newSessionId, computeAuthKey(identity));
+  registerSessionRole(
+    newSessionId,
+    keyId === "primary-key" || isOwnerEmail(keySettings.email) ? "owner" : "user",
+  );
 
   let masterServer: McpServer | undefined;
   const transport = new StreamableHTTPServerTransport({
