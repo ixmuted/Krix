@@ -258,7 +258,7 @@ export function renderSettingsPage(params: {
                   <div style="font-size:11px; color:var(--geist-gray-50);">${escapeHtml(cat)}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div>
                 </div>
                 <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : "Toggle Tool Permission"}">
-                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}${blockedLabel ? " disabled" : ""}>
+                  <input type="checkbox" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}>
                   <span class="krix-slider"></span>
                 </label>
               </div>
