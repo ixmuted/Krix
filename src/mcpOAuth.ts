@@ -1651,7 +1651,7 @@ export function createMcpOAuthRouter(): Router {
       }
       const clientId = String(req.params.clientId || "");
       try {
-        const client = renameOAuthClient(clientId, req.body?.name);
+        const client = renameOAuthClient(clientId, req.body?.name, owner.email);
         res.json({ success: true, clientId, clientName: client.clientName });
       } catch (err: any) {
         res.status(400).json({
@@ -1718,8 +1718,34 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
   return Array.from(result.values());
 }
 
-function isClientNameTaken(name: string, exceptClientId?: string): boolean {
+function getClientOwnerEmail(clientId: string): string {
+  for (const entry of issuedTokens.values()) {
+    if (entry.clientId === clientId && entry.ownerEmail) {
+      return entry.ownerEmail.trim().toLowerCase();
+    }
+  }
+  return "";
+}
+
+function isClientNameTaken(
+  name: string,
+  exceptClientId?: string,
+  ownerEmail?: string,
+): boolean {
   const target = name.trim().toLowerCase();
+  const normalizedOwner = (ownerEmail || "").trim().toLowerCase();
+  if (normalizedOwner) {
+    for (const active of listActiveOAuthAuthorizations()) {
+      if (active.clientId === exceptClientId) continue;
+      if ((active.ownerEmail || "").trim().toLowerCase() !== normalizedOwner) {
+        continue;
+      }
+      if ((active.clientName || "").trim().toLowerCase() === target) {
+        return true;
+      }
+    }
+    return false;
+  }
   for (const c of registeredClients.values()) {
     if (c.clientId === exceptClientId) continue;
     if ((c.clientName || "").trim().toLowerCase() === target) return true;
@@ -1773,9 +1799,11 @@ export async function revokeOAuthAuthorization(
 export function renameOAuthClient(
   clientId: string,
   newName: string,
+  ownerEmail?: string,
 ): OAuthClient {
   const cleanName = validateDisplayName(newName, "Client name");
-  if (isClientNameTaken(cleanName, clientId)) {
+  const resolvedOwner = (ownerEmail || getClientOwnerEmail(clientId)).trim().toLowerCase();
+  if (isClientNameTaken(cleanName, clientId, resolvedOwner || undefined)) {
     throw new Error(
       `An authorization named "${cleanName}" already exists. Please choose a unique name.`,
     );
