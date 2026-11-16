@@ -29,6 +29,19 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
   const maxFileMb = info?.maxFileMb ?? 25;
   const maxTotalMb = info?.maxTotalMb ?? 100;
   const maxFiles = info?.maxFiles ?? 20;
+  const storageQuotaMb: number | undefined = info?.storageQuotaMb;
+  const storageUsedMb: number = info?.storageUsedMb ?? 0;
+  const storageFreeMb =
+    storageQuotaMb !== undefined
+      ? Math.max(0, Math.round((storageQuotaMb - storageUsedMb) * 10) / 10)
+      : undefined;
+  const storageRoleLabel =
+    info?.storageRole === "owner" ? "Owner tier" : "Standard tier";
+  const quotaValue = `${storageQuotaMb ?? maxTotalMb} MB`;
+  const quotaSub =
+    storageFreeMb !== undefined
+      ? `${storageFreeMb} MB free &middot; ${storageRoleLabel}`
+      : `Up to ${maxFiles} files`;
 
   const content = `
     <!-- Top Header Deck -->
@@ -74,8 +87,8 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
 
       <div class="card spotlight-card card-top-border" style="padding:18px;">
         <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50);">Storage Quota</div>
-        <div style="font-size:16px; font-weight:700; color:var(--fg); margin-top:6px;">${maxTotalMb} MB</div>
-        <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">Up to ${maxFiles} files</div>
+        <div style="font-size:16px; font-weight:700; color:var(--fg); margin-top:6px;">${quotaValue}</div>
+        <div style="font-size:11px; color:var(--geist-gray-50); margin-top:4px;">${quotaSub}</div>
       </div>
     </div>
 
@@ -114,7 +127,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
               Drag and drop files here, or click to browse
             </div>
             <div style="font-size:12px; color:var(--geist-gray-50);">
-              Up to ${maxFiles} files &middot; ${maxFileMb} MB each &middot; ${maxTotalMb} MB total
+              Up to ${maxFiles} files &middot; ${maxFileMb} MB each &middot; ${maxTotalMb} MB per session
             </div>
             <button type="button" id="browseBtn" class="btn" style="margin-top:16px; border-radius:var(--radius-full); gap:6px;">
               ${renderSvg("upload", 14)}

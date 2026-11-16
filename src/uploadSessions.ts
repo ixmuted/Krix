@@ -13,6 +13,7 @@ import {
   computeUserAuthKey,
   safeEqual,
   sandboxRootForAuthKey,
+  sandboxRootForUser,
 } from "./security.js";
 import { createLimiter, clientIp, rateLimitMiddleware } from "./rateLimit.js";
 import {
@@ -34,7 +35,13 @@ import {
   listDynamicKeys,
   type OwnerProfile,
 } from "./googleAuth.js";
-import { getKeySettings, isOwnerEmail, getOwnerEmail } from "./userSettings.js";
+import {
+  getKeySettings,
+  isOwnerEmail,
+  getOwnerEmail,
+  getUserQuota,
+} from "./userSettings.js";
+import { statsTracker } from "./stats.js";
 import { renderUploadPage, type PageInfo } from "./views.js";
 
 /**
@@ -296,8 +303,33 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
       "Content-Security-Policy",
       `default-src 'none'; script-src 'nonce-${nonce}' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; script-src-attr 'unsafe-inline'; style-src 'nonce-${nonce}' 'unsafe-inline'; style-src-attr 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' 'nonce-${nonce}'; font-src 'self' data: https:; frame-src https://www.google.com/recaptcha/; connect-src 'self' https://www.google.com/recaptcha/; img-src 'self' https: data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
     );
+    // Real storage quota for this account: owners get the full allowance, everyone else the
+    // standard-user tier (same source as the Settings page), minus what is already used.
+    let storage: Pick<
+      PageInfo,
+      "storageQuotaMb" | "storageUsedMb" | "storageRole"
+    > = {};
+    if (owner && owner.email) {
+      try {
+        const role = isOwnerEmail(owner.email) ? "owner" : "user";
+        const quotaMb = getUserQuota(role).storageMb;
+        const usage = statsTracker.getSharedSandboxStats(
+          sandboxRootForUser({ email: owner.email }),
+          role === "owner",
+        );
+        storage = {
+          storageQuotaMb: quotaMb,
+          storageUsedMb:
+            Math.round((usage.totalDiskBytes / (1024 * 1024)) * 10) / 10,
+          storageRole: role,
+        };
+      } catch {
+        // Fall back to the plain per-session numbers if usage cannot be read.
+      }
+    }
     res.send(
       renderUploadPage(nonce, {
+        ...storage,
         ttlMinutes: Math.round(uploadConfig.ttlMs / 60_000),
         retentionMinutes: Math.round(uploadConfig.retentionMs / 60_000),
         maxFileMb:

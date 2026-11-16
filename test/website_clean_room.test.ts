@@ -126,6 +126,31 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.doesNotMatch(html, /Files are saved in your sandbox at upload/);
   });
 
+  test("renderUploadPage Storage Quota card shows the real role-based quota and free space", () => {
+    const ownerHtml = renderUploadPage("n1", {
+      owner: { email: "owner@quickwitty.com" },
+      maxTotalMb: 100,
+      storageQuotaMb: 300,
+      storageUsedMb: 12.5,
+      storageRole: "owner",
+    });
+    assert.match(ownerHtml, />300 MB</);
+    assert.match(ownerHtml, /287\.5 MB free/);
+    assert.match(ownerHtml, /Owner tier/);
+    assert.match(ownerHtml, /100 MB per session/);
+
+    const userHtml = renderUploadPage("n2", {
+      owner: { email: "user@example.com" },
+      maxTotalMb: 100,
+      storageQuotaMb: 50,
+      storageUsedMb: 60,
+      storageRole: "user",
+    });
+    assert.match(userHtml, />50 MB</);
+    assert.match(userHtml, /0 MB free/);
+    assert.match(userHtml, /Standard tier/);
+  });
+
   test("renderStatsPage adheres to exact title, daily chunk nav, and N/A peak traffic fallback", () => {
     const html = renderStatsPage({
       base: "http://localhost:3000",

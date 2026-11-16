@@ -52,8 +52,13 @@ export interface PageInfo {
   ttlMinutes: number;
   retentionMinutes: number;
   maxFileMb: number;
+  /** Per-upload-session cap (UPLOAD_MAX_TOTAL_MB). Not the account's storage quota. */
   maxTotalMb: number;
   maxFiles: number;
+  /** Real storage quota for the signed-in account's role (owner > standard user). */
+  storageQuotaMb?: number;
+  storageUsedMb?: number;
+  storageRole?: "owner" | "user";
   owner?: any;
 }
 

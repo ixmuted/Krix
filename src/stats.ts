@@ -5,6 +5,7 @@ import { fileShareRegistry } from "./fileShareRegistry.js";
 import { getMongoDb } from "./googleAuth.js";
 import { getFileStore } from "./fileShare.js";
 import { sandboxRootForAuthKey } from "./security.js";
+import { getUserQuota } from "./userSettings.js";
 import { CODE_GRAPH_TOOLS_CATALOG } from "./codeGraphTools.js";
 import { getToolInputSchema } from "./toolSchemas.js";
 
@@ -701,9 +702,7 @@ export class StatsTracker {
 
     // Distribute quotas: Owner receives standard/full limits (300MB default),
     // regular users receive 50MB
-    const quotaLimitMb = isOwner
-      ? Number(process.env.SANDBOX_MAX_TOTAL_MB) || 300
-      : 50;
+    const quotaLimitMb = getUserQuota(isOwner ? "owner" : "user").storageMb;
 
     if (sandboxRoot && fs.existsSync(sandboxRoot)) {
       try {
@@ -779,9 +778,7 @@ export class StatsTracker {
     let workspaceBytes = 0;
     let tempBytes = 0;
 
-    const quotaLimitMb = isOwner
-      ? Number(process.env.SANDBOX_MAX_TOTAL_MB) || 300
-      : 50;
+    const quotaLimitMb = getUserQuota(isOwner ? "owner" : "user").storageMb;
 
     const uniqueKeys = Array.from(new Set(ownerKeys.filter(Boolean)));
     const seenStoreIds = new Set<string>();
