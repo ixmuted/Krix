@@ -518,10 +518,19 @@ export function isToolEnabledForKey(
   _sessionEnabledCategories?: Set<string>,
   credentials?: { github?: boolean; render?: boolean },
   categoryAllowed = true,
+  workspaceKeyId?: string,
 ): boolean {
   const settings = getKeySettings(keyId);
+  const effectiveEmail = String(settings.email || "").trim().toLowerCase();
+  const isNonOwnerAccount =
+    Boolean(effectiveEmail) &&
+    effectiveEmail !== "anonymous" &&
+    !isOwnerEmail(effectiveEmail);
+  const fallbackGlobalId = workspaceKeyId || (isNonOwnerAccount ? undefined : "primary-key");
   const primary =
-    keyId !== "primary-key" ? keySettingsMap.get("primary-key") : undefined;
+    fallbackGlobalId && keyId !== fallbackGlobalId
+      ? keySettingsMap.get(fallbackGlobalId)
+      : undefined;
 
   const state = resolveToolState({
     toolName,

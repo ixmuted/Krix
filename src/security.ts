@@ -542,7 +542,6 @@ export const TOOL_CATEGORY: Record<string, ToolCategory> = {
 // GitHub API operations are grouped under core / GitHub categories. The two core
 // exceptions below are local context/status helpers and remain usable without a PAT.
 const CORE_TOOLS_WITHOUT_GITHUB_CREDENTIAL = new Set([
-  "set_active_context",
   "sandbox_status",
 ]);
 const SANDBOX_TOOLS_WITH_GITHUB_REMOTE_ACCESS = new Set([

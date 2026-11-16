@@ -194,7 +194,29 @@ registerSecret(DEFAULT_RENDER_API_KEY);
  * Returns the workspace-level default credential for GitHub or Render.
  * Evaluates environment variables first, then primary key workspace settings.
  */
-export function getWorkspaceCredential(provider: "github" | "render"): string {
+export function getWorkspaceKeyIdForEmail(email?: string): string {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized || normalized === "anonymous" || isOwnerEmail(normalized)) {
+    return "primary-key";
+  }
+  return listDynamicKeys(normalized)[0]?.id || "";
+}
+
+export function getWorkspaceCredential(
+  provider: "github" | "render",
+  email?: string,
+): string {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (normalized && normalized !== "anonymous" && !isOwnerEmail(normalized)) {
+    const wsKeyId = getWorkspaceKeyIdForEmail(normalized);
+    if (!wsKeyId) return "";
+    const wsSettings = getKeySettings(wsKeyId);
+    const token =
+      provider === "github"
+        ? wsSettings?.customGitHubToken
+        : wsSettings?.customRenderToken;
+    return token ? token.trim() : "";
+  }
   if (provider === "github") {
     return (
       process.env.GITHUB_PERSONAL_ACCESS_TOKEN ||
@@ -213,7 +235,7 @@ export function getWorkspaceCredential(provider: "github" | "render"): string {
 
 /**
  * Returns the effective credential for a specific key (API key or OAuth client).
- * Checks key-level override first; if unset or empty, inherits workspace credential.
+ * Checks key-level override first; if unset or empty, inherits that account's workspace credential.
  */
 export function getEffectiveCredential(
   keyId: string,
@@ -228,7 +250,7 @@ export function getEffectiveCredential(
   if (override && override.trim()) {
     return override.trim();
   }
-  return getWorkspaceCredential(provider);
+  return getWorkspaceCredential(provider, settings.email);
 }
 
 /** Which provider credentials a key can actually use (own override, or workspace default). */
@@ -297,6 +319,24 @@ function pruneToolsMissingCredentials(keyId: string): string[] {
     );
   }
   return removed;
+}
+
+async function pruneAffectedKeysForCredentialRemoval(
+  email: string,
+  keyId: string,
+): Promise<number> {
+  const wsKeyId = getWorkspaceKeyIdForEmail(email);
+  const targets =
+    keyId === wsKeyId
+      ? Array.from(new Set([keyId, ...ownedStatsKeyIds(email)]))
+      : [keyId];
+  let closedSessions = 0;
+  for (const targetId of targets) {
+    pruneToolsMissingCredentials(targetId);
+    await syncKeySettingsToMongo(getKeySettings(targetId));
+    closedSessions += closeSessionsForKey(targetId);
+  }
+  return closedSessions;
 }
 
 const ALLOW_QUERY_API_KEY = process.env.ALLOW_QUERY_API_KEY === "true";
@@ -396,8 +436,9 @@ function buildToolStates(
   credentials: { github: boolean; render: boolean },
 ): Record<string, { enabled: boolean; reason: string }> {
   const settings = getKeySettings(keyId);
+  const wsKeyId = getWorkspaceKeyIdForEmail(settings.email);
   const primary =
-    keyId !== "primary-key" ? getKeySettings("primary-key") : undefined;
+    wsKeyId && keyId !== wsKeyId ? getKeySettings(wsKeyId) : undefined;
   const states: Record<string, { enabled: boolean; reason: string }> = {};
   for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
     const categoryAllowed = isCategoryAllowedOnServer(category);
@@ -420,6 +461,7 @@ function buildToolStates(
         undefined,
         credentials,
         categoryAllowed,
+        wsKeyId,
       ),
       reason,
     };
@@ -641,6 +683,7 @@ function createMasterServer(
   tagCategory(registry, categoryOf, "codegraph");
 
   const policyKeyId = keySettings?.keyId || "primary-key";
+  const policyWsKeyId = getWorkspaceKeyIdForEmail(keySettings?.email);
   const credentials = {
     github: Boolean(githubToken?.trim()),
     render: Boolean(renderToken?.trim()),
@@ -670,6 +713,7 @@ function createMasterServer(
           undefined,
           credentials,
           catAllowed,
+          policyWsKeyId,
         );
         const shouldEnable = catAllowed && !missingCredential && policyEnabled;
         if (shouldEnable) {
@@ -2209,9 +2253,10 @@ app.get("/api/settings", async (req, res) => {
       key: keyForPage,
       toolsCatalog: summary.toolsCatalog,
       keySettings,
-      globalKeySettings: isOwnerEmail(owner.email)
-        ? getKeySettings("primary-key")
-        : undefined,
+      globalKeySettings: (() => {
+        const wsId = getWorkspaceKeyIdForEmail(owner.email);
+        return wsId ? getKeySettings(wsId) : undefined;
+      })(),
       apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
       sandboxAllowed,
       credentialAvailability: {
@@ -2221,8 +2266,8 @@ app.get("/api/settings", async (req, res) => {
         render: Boolean(
           getEffectiveCredential(effectiveKeyId, "render", keySettings),
         ),
-        workspaceGithub: Boolean(getWorkspaceCredential("github")),
-        workspaceRender: Boolean(getWorkspaceCredential("render")),
+        workspaceGithub: Boolean(getWorkspaceCredential("github", owner.email)),
+        workspaceRender: Boolean(getWorkspaceCredential("render", owner.email)),
         sandboxEnabled: sandboxAllowed,
       },
       toolStates: buildToolStates(
@@ -2258,11 +2303,13 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   const effectiveGitHubToken =
     githubToken !== undefined && String(githubToken).trim() !== ""
       ? String(githubToken).trim()
-      : settings.customGitHubToken || getWorkspaceCredential("github");
+      : settings.customGitHubToken ||
+        getWorkspaceCredential("github", owner.email);
   const effectiveRenderToken =
     renderApiKey !== undefined && String(renderApiKey).trim() !== ""
       ? String(renderApiKey).trim()
-      : settings.customRenderToken || getWorkspaceCredential("render");
+      : settings.customRenderToken ||
+        getWorkspaceCredential("render", owner.email);
   if (Array.isArray(enabledTools)) {
     const blocked = findToolMissingCredential(enabledTools, {
       github: Boolean(effectiveGitHubToken),
@@ -2345,7 +2392,9 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     githubToken !== undefined || renderApiKey !== undefined;
   // Credential changes and switching a key off both end its live sessions.
   const mustClose = credentialsChanged || justDisabled;
-  const closedSessions = mustClose ? closeSessionsForKey(id) : 0;
+  const closedSessions = mustClose
+    ? await pruneAffectedKeysForCredentialRemoval(owner.email, id)
+    : 0;
   const refreshedSessions = mustClose ? 0 : refreshSessionsForKey(id);
 
   res.setHeader("Cache-Control", "no-store");
@@ -3039,8 +3088,8 @@ app.get("/settings", async (req, res) => {
         render: Boolean(
           getEffectiveCredential(selectedKeyId, "render", keySettings),
         ),
-        workspaceGithub: Boolean(getWorkspaceCredential("github")),
-        workspaceRender: Boolean(getWorkspaceCredential("render")),
+        workspaceGithub: Boolean(getWorkspaceCredential("github", owner.email)),
+        workspaceRender: Boolean(getWorkspaceCredential("render", owner.email)),
         sandboxEnabled: sandboxAllowed,
       },
       toolsCatalog: summary.toolsCatalog,
@@ -3171,10 +3220,10 @@ app.post(
     }
     try {
       removeKeyCredential(keyId, provider);
-      pruneToolsMissingCredentials(keyId);
-      const updated = getKeySettings(keyId);
-      await syncKeySettingsToMongo(updated);
-      const closedSessions = closeSessionsForKey(keyId);
+      const closedSessions = await pruneAffectedKeysForCredentialRemoval(
+        owner.email,
+        keyId,
+      );
       res.setHeader("Cache-Control", "no-store");
       res.json({ ok: true, provider, deleted: true, closedSessions });
     } catch {
@@ -3226,7 +3275,11 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
             ? "GITHUB_TOKEN_REQUIRED"
             : "RENDER_KEY_REQUIRED",
         tool: toolName,
-        error: credentialRequiredMessage(missingCredential, toolName, "global"),
+        error: credentialRequiredMessage(
+          missingCredential,
+          toolName,
+          keyId === getWorkspaceKeyIdForEmail(owner.email) ? "global" : "key",
+        ),
       });
       return;
     }
@@ -3374,7 +3427,7 @@ app.post("/settings/api/tools", express.json(), async (req, res) => {
         error: credentialRequiredMessage(
           blocked.provider,
           blocked.toolName,
-          "global",
+          keyId === getWorkspaceKeyIdForEmail(owner.email) ? "global" : "key",
         ),
       });
       return;
