@@ -18,6 +18,7 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), "krix-uidtest-"));
 // and the "permission denied" checks below would pass for the wrong reason.
 fs.chmodSync(work, 0o755);
 process.chdir(work);
+delete process.env.KRIX_DATA_DIR; // this file checks ./data under its own cwd
 const tmpRoot = path.join(work, "tmp");
 fs.mkdirSync(tmpRoot, { mode: 0o755 });
 fs.chmodSync(tmpRoot, 0o755);
