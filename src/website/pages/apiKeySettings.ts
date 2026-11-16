@@ -275,7 +275,9 @@ export function renderApiKeySettingsPage(params: {
         github: ${JSON.stringify(credentialRequiredMessage("github", undefined, "key")).replace(/</g, "\\u003c")},
         render: ${JSON.stringify(credentialRequiredMessage("render", undefined, "key")).replace(/</g, "\\u003c")}
       };
-      const keyToolPageSize = 12;
+      function getKeyToolPageSize() {
+        return window.innerWidth <= 768 ? 10 : 24;
+      }
       let keyToolPage = 1;
       let keyToolCategory = 'All';
       let overrideEditing = { github: false, render: false };
@@ -292,16 +294,20 @@ export function renderApiKeySettingsPage(params: {
       function renderKeyToolsPage() {
         const allRows = Array.from(document.querySelectorAll('.key-tool-row'));
         const matches = visibleKeyToolRows();
-        const pages = Math.max(1, Math.ceil(matches.length / keyToolPageSize));
+        const pageSize = getKeyToolPageSize();
+        const pages = Math.max(1, Math.ceil(matches.length / pageSize));
         keyToolPage = Math.min(Math.max(1, keyToolPage), pages);
+        const start = (keyToolPage - 1) * pageSize;
+        const pageItems = matches.slice(start, start + pageSize);
         allRows.forEach(row => row.hidden = true);
-        matches.slice((keyToolPage - 1) * keyToolPageSize, keyToolPage * keyToolPageSize).forEach(row => row.hidden = false);
+        pageItems.forEach(row => row.hidden = false);
         const info = document.getElementById('keyToolsPageInfo');
         const prev = document.getElementById('keyToolsPrev');
         const next = document.getElementById('keyToolsNext');
-        if (info) info.textContent = 'Page ' + keyToolPage + ' of ' + pages + ' · ' + matches.length + ' tools';
-        if (prev) prev.disabled = keyToolPage <= 1;
-        if (next) next.disabled = keyToolPage >= pages;
+        const end = start + pageItems.length;
+        if (info) info.textContent = matches.length ? 'Showing ' + (start + 1) + '-' + end + ' of ' + matches.length + ' tools · Page ' + keyToolPage + ' of ' + pages : 'No matching tools';
+        if (prev) prev.disabled = keyToolPage <= 1 || !matches.length;
+        if (next) next.disabled = keyToolPage >= pages || !matches.length;
       }
       function providerReady(provider) {
         // A credential typed into the override box counts. If left blank/empty, it inherits the workspace credential.
@@ -366,7 +372,8 @@ export function renderApiKeySettingsPage(params: {
         document.querySelectorAll('.category-filter-pill, .settings-cat-pill').forEach(item => {
           item.classList.toggle('active', item === button);
         });
-        renderKeyToolsPage();
+        window.addEventListener('resize', renderKeyToolsPage, { passive: true });
+      renderKeyToolsPage();
       }
       let initialActiveState = Boolean(document.getElementById('keyActiveToggle')?.checked);
       const initialToolCheckStates = new Map();

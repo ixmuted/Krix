@@ -379,7 +379,9 @@ export function renderToolsPage(params: {
     <script>
       let currentCategory = 'All';
       let currentToolsPage = 1;
-      const toolsPageSize = 10;
+      function getToolsPageSize() {
+        return window.innerWidth <= 768 ? 10 : 24;
+      }
       const activeToolsKeyId = ${JSON.stringify(params.selectedKeyId || params.summary?.selectedKeyId || "")};
 
       window.addEventListener('keydown', (e) => {
@@ -492,8 +494,8 @@ export function renderToolsPage(params: {
         applyFilter();
       }
 
-      function applyFilter() {
-        const q = (document.getElementById('toolSearchInput').value || '').toLowerCase();
+      function getFilteredToolRows() {
+        const q = (document.getElementById('toolSearchInput')?.value || '').toLowerCase();
         const rows = Array.from(document.querySelectorAll('.tool-row'));
         const filtered = rows.filter(row => {
           const rowCat = row.getAttribute('data-cat') || '';
@@ -503,24 +505,30 @@ export function renderToolsPage(params: {
           const matchText = (row.getAttribute('data-name') || '').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
           return matchCat && matchText;
         });
+        return { rows, filtered };
+      }
+
+      function applyFilter() {
+        const { rows, filtered } = getFilteredToolRows();
         currentToolsPage = 1;
         renderToolsPageRows(rows, filtered);
       }
 
       function renderToolsPageRows(rows, filtered) {
-        const totalPages = Math.max(1, Math.ceil(filtered.length / toolsPageSize));
-        currentToolsPage = Math.min(currentToolsPage, totalPages);
-        const start = (currentToolsPage - 1) * toolsPageSize;
+        const pageSize = getToolsPageSize();
+        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        currentToolsPage = Math.min(Math.max(1, currentToolsPage), totalPages);
+        const start = (currentToolsPage - 1) * pageSize;
+        const pageItems = filtered.slice(start, start + pageSize);
         rows.forEach(row => row.style.display = 'none');
-        filtered.forEach((row, index) => {
-          if (index >= start && index < start + toolsPageSize) row.style.display = 'flex';
-        });
+        pageItems.forEach(row => row.style.display = 'flex');
         const info = document.getElementById('toolsPageInfo');
         const prev = document.getElementById('toolsPrevPage');
         const next = document.getElementById('toolsNextPage');
         const indicator = document.getElementById('toolsPageIndicator');
+        const end = start + pageItems.length;
         if (info) info.textContent = filtered.length
-          ? 'Showing ' + (start + 1) + '-' + Math.min(start + toolsPageSize, filtered.length) + ' of ' + filtered.length + ' tools'
+          ? 'Showing ' + (start + 1) + '-' + end + ' of ' + filtered.length + ' tools'
           : 'No matching tools';
         if (indicator) indicator.textContent = currentToolsPage + ' / ' + totalPages;
         if (prev) prev.disabled = currentToolsPage <= 1 || filtered.length === 0;
@@ -528,19 +536,15 @@ export function renderToolsPage(params: {
       }
 
       function changeToolsPage(delta) {
-        const rows = Array.from(document.querySelectorAll('.tool-row'));
-        const q = (document.getElementById('toolSearchInput').value || '').toLowerCase();
-        const filtered = rows.filter(row => {
-          const rowCat = row.getAttribute('data-cat') || '';
-          const matchCat = (currentCategory === 'All')
-            || (rowCat === currentCategory)
-            || (currentCategory === 'Sandbox' && (rowCat === 'Sandbox' || rowCat === 'Files' || rowCat === 'Search'));
-          const matchText = (row.getAttribute('data-name') || '').toLowerCase().includes(q) || row.textContent.toLowerCase().includes(q);
-          return matchCat && matchText;
-        });
+        const { rows, filtered } = getFilteredToolRows();
         currentToolsPage += delta;
         renderToolsPageRows(rows, filtered);
       }
+
+      window.addEventListener('resize', () => {
+        const { rows, filtered } = getFilteredToolRows();
+        renderToolsPageRows(rows, filtered);
+      }, { passive: true });
 
       function openToolDrawerFromRow(row) {
         const name = row.dataset.name || '';

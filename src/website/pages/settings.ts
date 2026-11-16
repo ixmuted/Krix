@@ -353,7 +353,9 @@ export function renderSettingsPage(params: {
 
       let currentSettingsCategory = 'All';
       let currentSettingsToolsPage = 1;
-      const settingsToolsPageSize = 12;
+      function getSettingsToolsPageSize() {
+        return window.innerWidth <= 768 ? 10 : 24;
+      }
 
       function openDeleteAccountModal() {
         const m = document.getElementById('deleteAccountModal');
@@ -479,7 +481,8 @@ export function renderSettingsPage(params: {
         });
         if (btn) btn.classList.add('active');
         currentSettingsToolsPage = 1;
-        renderSettingsTools();
+        window.addEventListener('resize', renderSettingsTools, { passive: true });
+      renderSettingsTools();
       }
 
       function toggleToolPermission(toolName, enabled, input) {
@@ -518,15 +521,18 @@ export function renderSettingsPage(params: {
           const categoryMatch = currentSettingsCategory === 'All' || category === currentSettingsCategory || (currentSettingsCategory === 'Sandbox' && ['Files','Search','Filesystem','Execution'].includes(category));
           return categoryMatch && (!q || row.textContent.toLowerCase().includes(q));
         });
-        const totalPages = Math.max(1, Math.ceil(filtered.length / settingsToolsPageSize));
-        currentSettingsToolsPage = Math.min(currentSettingsToolsPage, totalPages);
-        const start = (currentSettingsToolsPage - 1) * settingsToolsPageSize;
+        const pageSize = getSettingsToolsPageSize();
+        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        currentSettingsToolsPage = Math.min(Math.max(1, currentSettingsToolsPage), totalPages);
+        const start = (currentSettingsToolsPage - 1) * pageSize;
+        const pageItems = filtered.slice(start, start + pageSize);
         rows.forEach(row => row.style.display = 'none');
-        filtered.forEach((row, index) => { if (index >= start && index < start + settingsToolsPageSize) row.style.display = 'flex'; });
+        pageItems.forEach(row => row.style.display = 'flex');
         const info = document.getElementById('settingsToolsPageInfo');
         const prev = document.getElementById('settingsToolsPrev');
         const next = document.getElementById('settingsToolsNext');
-        if (info) info.textContent = filtered.length ? 'Page ' + currentSettingsToolsPage + ' of ' + totalPages + ' · ' + filtered.length + ' tools' : 'No matching tools';
+        const end = start + pageItems.length;
+        if (info) info.textContent = filtered.length ? 'Showing ' + (start + 1) + '-' + end + ' of ' + filtered.length + ' tools · Page ' + currentSettingsToolsPage + ' of ' + totalPages : 'No matching tools';
         if (prev) prev.disabled = currentSettingsToolsPage <= 1 || !filtered.length;
         if (next) next.disabled = currentSettingsToolsPage >= totalPages || !filtered.length;
       }

@@ -419,7 +419,9 @@ export function renderStorePage(params: {
     <script>
       let currentStoreView = 'list';
       let currentStorePage = 1;
-      const storePageSize = 10;
+      function getStorePageSize() {
+        return window.innerWidth <= 768 ? 10 : 24;
+      }
 
       function setStoreView(mode) {
         currentStoreView = mode;
@@ -443,8 +445,10 @@ export function renderStorePage(params: {
       }
 
       function changeStorePage(delta) {
-        const totalItems = document.querySelectorAll('.store-row').length;
-        const maxPage = Math.max(1, Math.ceil(totalItems / storePageSize));
+        const query = (document.getElementById('storeSearchInput')?.value || '').toLowerCase().trim();
+        const rows = Array.from(document.querySelectorAll('.store-row'));
+        const totalItems = rows.filter(r => !query || (r.getAttribute('data-name') || '').includes(query)).length;
+        const maxPage = Math.max(1, Math.ceil(totalItems / getStorePageSize()));
         const newPage = currentStorePage + delta;
         if (newPage >= 1 && newPage <= maxPage) {
           currentStorePage = newPage;
@@ -453,45 +457,44 @@ export function renderStorePage(params: {
       }
 
       function applyStorePagination() {
+        const query = (document.getElementById('storeSearchInput')?.value || '').toLowerCase().trim();
         const rows = Array.from(document.querySelectorAll('.store-row'));
         const cards = Array.from(document.querySelectorAll('.store-grid-card'));
-        const total = rows.length;
-        const maxPage = Math.max(1, Math.ceil(total / storePageSize));
-        if (currentStorePage > maxPage) currentStorePage = maxPage;
+        const filteredRows = rows.filter(r => !query || (r.getAttribute('data-name') || '').includes(query));
+        const filteredCards = cards.filter(c => !query || (c.getAttribute('data-name') || '').includes(query));
+        const total = filteredRows.length;
+        const pageSize = getStorePageSize();
+        const maxPage = Math.max(1, Math.ceil(total / pageSize));
+        currentStorePage = Math.min(Math.max(1, currentStorePage), maxPage);
 
-        const start = (currentStorePage - 1) * storePageSize;
-        const end = start + storePageSize;
+        const start = (currentStorePage - 1) * pageSize;
+        const end = start + pageSize;
+        const pageRows = filteredRows.slice(start, end);
+        const pageCards = filteredCards.slice(start, end);
 
-        rows.forEach((r, idx) => {
-          r.style.display = (idx >= start && idx < end) ? '' : 'none';
-        });
-        cards.forEach((c, idx) => {
-          c.style.display = (idx >= start && idx < end) ? 'flex' : 'none';
-        });
+        rows.forEach(r => { r.style.display = 'none'; });
+        cards.forEach(c => { c.style.display = 'none'; });
+        pageRows.forEach(r => { r.style.display = ''; });
+        pageCards.forEach(c => { c.style.display = 'flex'; });
 
         const pageInfo = document.getElementById('pageInfo');
         if (pageInfo) {
-          pageInfo.textContent = 'Showing ' + (total === 0 ? 0 : start + 1) + '-' + Math.min(end, total) + ' of ' + total + ' items';
+          pageInfo.textContent = total === 0
+            ? (query ? 'No matching items' : 'Showing 0-0 of 0 items')
+            : 'Showing ' + (start + 1) + '-' + (start + pageRows.length) + ' of ' + total + ' items';
         }
         const indicator = document.getElementById('pageIndicator');
         if (indicator) indicator.textContent = currentStorePage + ' / ' + maxPage;
 
         const prevBtn = document.getElementById('prevPageBtn');
         const nextBtn = document.getElementById('nextPageBtn');
-        if (prevBtn) prevBtn.disabled = currentStorePage <= 1;
-        if (nextBtn) nextBtn.disabled = currentStorePage >= maxPage;
+        if (prevBtn) prevBtn.disabled = currentStorePage <= 1 || total === 0;
+        if (nextBtn) nextBtn.disabled = currentStorePage >= maxPage || total === 0;
       }
 
       function filterStoreFiles() {
-        const query = (document.getElementById('storeSearchInput')?.value || '').toLowerCase();
-        document.querySelectorAll('.store-row').forEach(row => {
-          const name = row.getAttribute('data-name') || '';
-          row.style.display = name.includes(query) ? '' : 'none';
-        });
-        document.querySelectorAll('.store-grid-card').forEach(card => {
-          const name = card.getAttribute('data-name') || '';
-          card.style.display = name.includes(query) ? 'flex' : 'none';
-        });
+        currentStorePage = 1;
+        applyStorePagination();
       }
 
       function applyStoreFilenameLimits() {
@@ -509,7 +512,10 @@ export function renderStorePage(params: {
         applyStoreFilenameLimits();
       });
 
-      window.addEventListener('resize', applyStoreFilenameLimits, { passive: true });
+      window.addEventListener('resize', () => {
+        applyStoreFilenameLimits();
+        applyStorePagination();
+      }, { passive: true });
 
       function copyStoreUrl(url) {
         const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
