@@ -4,6 +4,7 @@ import { TOOL_CATEGORY } from "../src/security.js";
 import { isDefaultOnTool } from "../src/toolDefaults.js";
 import {
   getKeySettings,
+  removeKeySettings,
   isToolEnabledForKey,
   toggleKeyTool,
   updateKeyTools,
@@ -157,6 +158,9 @@ describe("every tool respects the enable/disable toggle", () => {
       );
     } finally {
       updateKeyTools("primary-key", prevEnabled, prevDisabled);
+      // Per-key overrides are persisted to disk; drop them so reruns start clean.
+      removeKeySettings(oauthClientId);
+      removeKeySettings(apiKeyId);
     }
   });
 });

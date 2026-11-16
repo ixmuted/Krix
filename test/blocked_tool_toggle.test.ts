@@ -1,7 +1,7 @@
 // A tool the deployment forbids (e.g. sandbox on a Render host) used to be saved as "on" with a
 // success toast and then show as off after a refresh. These tests pin the fixed behaviour:
 //  - the API refuses to switch such a tool on (409) and says why,
-//  - the Settings pages show the switch locked with the reason,
+//  - the Settings pages keep the switch clickable (so the refusal toast shows) and label the reason,
 //  - nothing changes for tools that are allowed.
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -44,7 +44,7 @@ describe("blocked tool helpers and pages", () => {
     find_code: { enabled: true, reason: "global-on" },
   };
 
-  test("global settings page locks a server-blocked switch and leaves others alone", () => {
+  test("global settings page labels a server-blocked switch but keeps it clickable", () => {
     const html = renderSettingsPage({
       base: "http://localhost:3000",
       isOwner: true,
@@ -59,13 +59,13 @@ describe("blocked tool helpers and pages", () => {
     } as any);
     const row = (name: string) =>
       html.match(new RegExp(`toggleToolPermission\\('${name}'[^>]*>`))?.[0] || "";
-    assert.match(row("sandbox_exec"), /\sdisabled>/);
+    assert.ok(!/\sdisabled>/.test(row("sandbox_exec")));
     assert.ok(!/\sdisabled>/.test(row("find_code")));
     assert.match(row("find_code"), /checked>/);
     assert.match(html, /Disabled by the server/);
   });
 
-  test("per-key page locks a server-blocked switch and leaves others alone", () => {
+  test("per-key page labels a server-blocked switch but keeps it clickable", () => {
     const html = renderApiKeySettingsPage({
       base: "http://localhost:3000",
       isOwner: true,
@@ -80,7 +80,8 @@ describe("blocked tool helpers and pages", () => {
     } as any);
     const input = (name: string) =>
       html.match(new RegExp(`value="${name}"[^>]*>`))?.[0] || "";
-    assert.match(input("sandbox_exec"), /\sdisabled\s/);
+    assert.ok(!/\sdisabled\s/.test(input("sandbox_exec")));
+    assert.match(html, /Disabled by the server/);
     assert.ok(!/\sdisabled\s/.test(input("find_code")));
     assert.match(input("find_code"), /checked/);
   });
@@ -233,7 +234,7 @@ describe("real server on a Render-like host (sandbox not allowed)", () => {
     assert.match(data.error, /ENABLE_SANDBOX/);
     const after = await c.toggleRow("/settings?key=primary-key", "sandbox_exec");
     assert.equal(after.checked, false);
-    assert.equal(after.disabled, true, "the switch is locked, not just unchecked");
+    assert.equal(after.disabled, false, "the switch stays clickable so the refusal toast can show");
   });
 
   test("the bulk endpoint refuses it too", async () => {
