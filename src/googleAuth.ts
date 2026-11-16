@@ -577,7 +577,12 @@ export function createDynamicKey(
     }
   }
 
-  if (dynamicApiKeys.size >= 30) {
+  let userKeyCount = 0;
+  for (const existing of dynamicApiKeys.values()) {
+    if (revokedKeyIds.has(existing.id)) continue;
+    if ((existing.email || "").trim().toLowerCase() === labelOwner) userKeyCount++;
+  }
+  if (userKeyCount >= 30) {
     throw new Error(
       "Maximum limit of 30 API keys reached. Delete an unused key to create a new one.",
     );
@@ -642,7 +647,6 @@ export function createDynamicKey(
 }
 
 export function listDynamicKeys(userEmail?: string): GeneratedKeyEntry[] {
-  const isOwner = isOwnerEmail(userEmail);
   const seenKeys = new Set<string>();
   const seenIds = new Set<string>();
   const result: GeneratedKeyEntry[] = [];
@@ -651,7 +655,6 @@ export function listDynamicKeys(userEmail?: string): GeneratedKeyEntry[] {
     if (revokedKeyIds.has(entry.id)) continue;
     if (
       userEmail &&
-      !isOwner &&
       (!entry.email ||
         entry.email.trim().toLowerCase() !== userEmail.trim().toLowerCase())
     ) {
@@ -687,9 +690,11 @@ export function renameDynamicKey(
     throw new Error("API key not found.");
   }
 
+  const ownerNorm = (entry.email || "").trim().toLowerCase();
   for (const existing of dynamicApiKeys.values()) {
     if (
       existing.id !== id &&
+      (existing.email || "").trim().toLowerCase() === ownerNorm &&
       existing.label.toLowerCase() === cleanLabel.toLowerCase()
     ) {
       throw new Error(

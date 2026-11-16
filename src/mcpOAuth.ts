@@ -1575,7 +1575,12 @@ export function createMcpOAuthRouter(): Router {
       }
       try {
         await loadOAuthFromMongo();
-        res.json({ authorizations: listActiveOAuthAuthorizations() });
+        const mine = listActiveOAuthAuthorizations().filter(
+          (a) =>
+            String(a.ownerEmail || "").toLowerCase() ===
+            String(owner.email || "").toLowerCase(),
+        );
+        res.json({ authorizations: mine });
       } catch (error: any) {
         res
           .status(503)
@@ -1597,24 +1602,19 @@ export function createMcpOAuthRouter(): Router {
         res.status(400).json({ success: false, error: "Missing client id." });
         return;
       }
-      // Non-admin owners may only revoke authorizations that belong to them.
-      const adminEmail = String(process.env.OWNER_EMAIL || "")
-        .trim()
-        .toLowerCase();
-      if (String(owner.email || "").toLowerCase() !== adminEmail) {
-        const mine = Array.from(issuedTokens.values()).some(
-          (t) =>
-            t.clientId === clientId &&
-            String(t.ownerEmail || "").toLowerCase() ===
-              String(owner.email || "").toLowerCase(),
-        );
-        if (!mine) {
-          res.status(403).json({
-            success: false,
-            error: "You can only revoke your own OAuth authorizations.",
-          });
-          return;
-        }
+      // Every account may only revoke OAuth authorizations that belong to it.
+      const mine = Array.from(issuedTokens.values()).some(
+        (t) =>
+          t.clientId === clientId &&
+          String(t.ownerEmail || "").toLowerCase() ===
+            String(owner.email || "").toLowerCase(),
+      );
+      if (!mine) {
+        res.status(403).json({
+          success: false,
+          error: "You can only revoke your own OAuth authorizations.",
+        });
+        return;
       }
       try {
         const success = await revokeOAuthAuthorization(clientId);
