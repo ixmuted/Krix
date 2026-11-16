@@ -8,6 +8,7 @@ import { sandboxRootForAuthKey } from "./security.js";
 import { getUserQuota } from "./userSettings.js";
 import { CODE_GRAPH_TOOLS_CATALOG } from "./codeGraphTools.js";
 import { getToolInputSchema } from "./toolSchemas.js";
+import { dataPath } from "./dataDir.js";
 
 /** Real on-disk size of a directory (symlinks skipped; bounded so a huge tree cannot stall a request). */
 function dirSizeBytes(root: string, maxEntries = 20000, maxMs = 400): number {
@@ -225,7 +226,7 @@ export class StatsTracker {
   };
 
   private activeHttpSessions = 0;
-  private filePath = path.resolve(process.cwd(), "data", ".krix_stats.json");
+  private filePath = dataPath(".krix_stats.json");
   private saveTimeout: NodeJS.Timeout | null = null;
   private persistQueue: Promise<void> = Promise.resolve();
   private mongoClient: MongoClient | null = null;

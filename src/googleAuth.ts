@@ -25,6 +25,7 @@ import {
   sendAccountCreatedEmail,
   sendNewLoginIpEmail,
 } from "./emailService.js";
+import { dataPath } from "./dataDir.js";
 
 export interface OwnerProfile {
   email: string;
@@ -53,8 +54,8 @@ export interface GeneratedKeyEntry {
 const dynamicApiKeys = new Map<string, GeneratedKeyEntry>();
 const revokedKeyIds = new Set<string>();
 
-const KEYS_FILE = path.resolve(process.cwd(), "data", ".krix_keys.json");
-const SECRET_FILE = path.resolve(process.cwd(), "data", ".krix_session_secret");
+const KEYS_FILE = dataPath(".krix_keys.json");
+const SECRET_FILE = dataPath(".krix_session_secret");
 
 export function generateClientId(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";

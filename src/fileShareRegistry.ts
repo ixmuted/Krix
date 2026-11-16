@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Db } from "mongodb";
+import { dataPath } from "./dataDir.js";
 
 export interface FileShareMeta {
   fileId: string;
@@ -18,11 +19,7 @@ export interface FileShareMeta {
 class FileShareRegistry {
   private byToken = new Map<string, FileShareMeta>();
   private byId = new Map<string, FileShareMeta>();
-  private filePath = path.resolve(
-    process.cwd(),
-    "data",
-    ".krix_file_shares.json",
-  );
+  private filePath = dataPath(".krix_file_shares.json");
   private mongoDb: Db | null = null;
   private saveTimer: NodeJS.Timeout | null = null;
 

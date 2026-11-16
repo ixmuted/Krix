@@ -10,6 +10,7 @@ import {
   getToolCredentialRequirement,
 } from "./security.js";
 import { sendAccountFinallyDeletedEmail } from "./emailService.js";
+import { dataPath } from "./dataDir.js";
 
 export type UserRole = "owner" | "user";
 
@@ -60,11 +61,7 @@ export interface KeySettings {
 const keySettingsMap = new Map<string, KeySettings>();
 const userAccountsMap = new Map<string, UserAccount>();
 
-const SETTINGS_FILE = path.resolve(
-  process.cwd(),
-  "data",
-  ".krix_user_settings.json",
-);
+const SETTINGS_FILE = dataPath(".krix_user_settings.json");
 
 export const OWNER_STORAGE_MB = Number(process.env.SANDBOX_MAX_TOTAL_MB) || 300;
 export const USER_STORAGE_MB = 50; // 50MB distributed storage limit for non-owners

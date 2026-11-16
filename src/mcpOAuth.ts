@@ -24,6 +24,7 @@ import {
   getUserAgent,
   sendOAuthClientSetupEmail,
 } from "./emailService.js";
+import { dataPath } from "./dataDir.js";
 
 export interface OAuthClient {
   clientId: string;
@@ -72,7 +73,7 @@ const refreshTokens = new Map<string, IssuedTokenEntry>();
 const revokedClientIds = new Set<string>();
 const revokedTokenIds = new Set<string>();
 
-const OAUTH_FILE = path.resolve(process.cwd(), "data", ".krix_oauth.json");
+const OAUTH_FILE = dataPath(".krix_oauth.json");
 
 function saveOAuthToDisk(): void {
   try {
@@ -403,7 +404,7 @@ let cachedRsaKey: RsaKeyPair | null = null;
 export function getRsaKeyPair(): RsaKeyPair {
   if (cachedRsaKey) return cachedRsaKey;
 
-  const keyPath = path.resolve(process.cwd(), "data", ".krix_rsa_key.json");
+  const keyPath = dataPath(".krix_rsa_key.json");
 
   // 1. Try environment variables
   if (process.env.RSA_PRIVATE_KEY && process.env.RSA_PUBLIC_KEY) {

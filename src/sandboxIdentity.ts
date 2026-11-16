@@ -22,8 +22,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { dataPath } from "./dataDir.js";
 
-const MAP_FILE = path.resolve(process.cwd(), "data", ".krix_sandbox_uids.json");
+const MAP_FILE = dataPath(".krix_sandbox_uids.json");
 const COLLECTION = "sandbox_uids";
 
 const byId = new Map<string, number>();
