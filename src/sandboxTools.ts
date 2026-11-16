@@ -1244,26 +1244,44 @@ export function registerSandboxTools(
     async () => {
       try {
         const runtimes: Record<string, string> = {};
-        const check = (name: string, file: string, args: string[]) => {
-          try {
-            runtimes[name] = execFileSync(file, args, {
-              timeout: 2000,
-              stdio: ["ignore", "pipe", "ignore"],
-            })
-              .toString()
-              .trim()
-              .split("\n")[0];
-          } catch {
-            runtimes[name] = "N/A";
-          }
-        };
-        check("node", "node", ["-v"]);
-        check("python", "python3", ["--version"]);
-        check("git", "git", ["--version"]);
-        check("go", "go", ["version"]);
-        check("zip", "zip", ["-v"]);
-        check("unzip", "unzip", ["-v"]);
-        check("imagemagick", "convert", ["-version"]);
+        const probes: Array<[string, string, string[]]> = [
+          ["node", "node", ["-v"]],
+          ["python", "python3", ["--version"]],
+          ["git", "git", ["--version"]],
+          ["go", "go", ["version"]],
+          ["zip", "zip", ["-v"]],
+          ["unzip", "unzip", ["-v"]],
+          ["imagemagick", "convert", ["-version"]],
+          ["tsc", "tsc", ["--version"]],
+          ["tsx", "tsx", ["--version"]],
+          ["bun", "bun", ["--version"]],
+          ["esbuild", "esbuild", ["--version"]],
+          ["vitest", "vitest", ["--version"]],
+          ["prettier", "prettier", ["--version"]],
+          ["uv", "uv", ["--version"]],
+          ["ruff", "ruff", ["--version"]],
+          ["pytest", "pytest", ["--version"]],
+        ];
+        const results = await Promise.all(
+          probes.map(
+            ([, file, args]) =>
+              new Promise<string>((resolve) => {
+                execFileCb(
+                  file,
+                  args,
+                  { timeout: 3000 },
+                  (err, stdout, stderr) => {
+                    if (err) return resolve("N/A");
+                    const text = String(stdout || stderr || "").trim();
+                    resolve(text.split("\n")[0] || "N/A");
+                  },
+                );
+              }),
+          ),
+        );
+        probes.forEach(([name], i) => {
+          runtimes[name] = results[i];
+        });
 
         const ctx = getSessionContext(sessionId);
         let cloned = false;
