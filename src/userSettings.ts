@@ -259,13 +259,21 @@ export function getKeySettings(keyId: string): KeySettings {
   let settings = keySettingsMap.get(keyId);
   if (!settings) {
     const isOwnerKey = keyId === "primary-key";
+    const isUserWorkspace = keyId.startsWith("workspace:");
     const ownerEmail = getOwnerEmail() || "owner@localhost";
     const sandboxId = generateSandboxId(keyId, isOwnerKey);
-    const primary = !isOwnerKey ? keySettingsMap.get("primary-key") : undefined;
+    const primary =
+      !isOwnerKey && !isUserWorkspace
+        ? keySettingsMap.get("primary-key")
+        : undefined;
 
     settings = {
       keyId,
-      email: isOwnerKey ? ownerEmail : "anonymous",
+      email: isOwnerKey
+        ? ownerEmail
+        : isUserWorkspace
+          ? keyId.slice("workspace:".length)
+          : "anonymous",
       role: isOwnerKey ? "owner" : "user",
       sandboxId,
       enabledTools: [],

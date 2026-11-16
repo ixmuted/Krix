@@ -199,7 +199,7 @@ export function getWorkspaceKeyIdForEmail(email?: string): string {
   if (!normalized || normalized === "anonymous" || isOwnerEmail(normalized)) {
     return "primary-key";
   }
-  return listDynamicKeys(normalized)[0]?.id || "";
+  return `workspace:${normalized}`;
 }
 
 export function getWorkspaceCredential(
@@ -2048,27 +2048,6 @@ app.get("/api/keys/:id/credentials/secret", async (req, res) => {
     });
     return;
   }
-  try {
-    const invalidCred = await validateProviderCredentials(
-      typeof githubToken === "string" ? githubToken : undefined,
-      typeof renderApiKey === "string" ? renderApiKey : undefined,
-    );
-    if (invalidCred) {
-      res.status(invalidCred.status).json({
-        success: false,
-        code: invalidCred.code,
-        error: invalidCred.error,
-      });
-      return;
-    }
-  } catch (err: any) {
-    res.status(502).json({
-      success: false,
-      error: err?.message || "Failed to verify provider credential.",
-    });
-    return;
-  }
-
   const settings = getKeySettings(id);
   const token =
     provider === "github"
@@ -2365,6 +2344,26 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     res.status(400).json({
       success: false,
       error: "The primary key cannot be disabled.",
+    });
+    return;
+  }
+  try {
+    const invalidCred = await validateProviderCredentials(
+      typeof githubToken === "string" ? githubToken : undefined,
+      typeof renderApiKey === "string" ? renderApiKey : undefined,
+    );
+    if (invalidCred) {
+      res.status(invalidCred.status).json({
+        success: false,
+        code: invalidCred.code,
+        error: invalidCred.error,
+      });
+      return;
+    }
+  } catch (err: any) {
+    res.status(502).json({
+      success: false,
+      error: err?.message || "Failed to verify provider credential.",
     });
     return;
   }
@@ -2996,6 +2995,7 @@ function ownedStatsKeyIds(email?: string, singleKeyId?: string): Set<string> {
 // Dedicated Settings Page & Management Endpoints
 function userOwnsKey(email: string, keyId: string): boolean {
   if (keyId === "primary-key") return isOwnerEmail(email);
+  if (keyId === getWorkspaceKeyIdForEmail(email)) return true;
   const userKeys = listDynamicKeys(email);
   if (userKeys.some((k) => k.id === keyId)) return true;
   const activeOAuths = listActiveOAuthAuthorizations();
@@ -3084,11 +3084,15 @@ app.get("/settings", async (req, res) => {
       });
     }
   } else {
-    let userKeys = listDynamicKeys(owner.email);
-    if (userKeys.length === 0) {
-      const newKey = createDynamicKey("Personal Key", owner.email);
-      userKeys = [newKey];
-    }
+    const userWsKeyId = getWorkspaceKeyIdForEmail(owner.email);
+    keys.push({
+      id: userWsKeyId,
+      label: "Workspace Default (Global)",
+      prefix: "GLOBAL",
+      role: "user",
+      email: owner.email,
+    });
+    const userKeys = listDynamicKeys(owner.email);
     for (const k of userKeys) {
       keys.push({
         id: k.id,
