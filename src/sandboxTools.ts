@@ -4,6 +4,8 @@ import crypto from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import { z } from "zod";
+
+let cachedRuntimes: Record<string, string> | null = null;
 import {
   formatOptimizedResponse,
   formatImageResponse,
