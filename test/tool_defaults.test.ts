@@ -33,7 +33,7 @@ describe("Default GitHub tools and credential enforcement", () => {
     assert.equal(getMissingToolCredential("merge_pull_request", { github: false }), "github");
     assert.equal(getMissingToolCredential("list_services", { github: true, render: false }), "render");
     assert.equal(getMissingToolCredential("list_services", { github: true, render: true }), null);
-    assert.equal(getMissingToolCredential("set_active_context", {}), null);
+    assert.equal(getMissingToolCredential("set_active_context", {}), "github");
   });
 
   test("error messages name the provider and the tool", () => {

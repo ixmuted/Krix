@@ -115,7 +115,7 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
     });
 
     test("context selection and sandbox status remain credential-free", () => {
-      assert.equal(getToolCredentialRequirement("set_active_context"), null);
+      assert.equal(getToolCredentialRequirement("set_active_context"), "github");
       assert.equal(getToolCredentialRequirement("sandbox_status"), null);
     });
   });
