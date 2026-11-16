@@ -2048,6 +2048,27 @@ app.get("/api/keys/:id/credentials/secret", async (req, res) => {
     });
     return;
   }
+  try {
+    const invalidCred = await validateProviderCredentials(
+      typeof githubToken === "string" ? githubToken : undefined,
+      typeof renderApiKey === "string" ? renderApiKey : undefined,
+    );
+    if (invalidCred) {
+      res.status(invalidCred.status).json({
+        success: false,
+        code: invalidCred.code,
+        error: invalidCred.error,
+      });
+      return;
+    }
+  } catch (err: any) {
+    res.status(502).json({
+      success: false,
+      error: err?.message || "Failed to verify provider credential.",
+    });
+    return;
+  }
+
   const settings = getKeySettings(id);
   const token =
     provider === "github"
@@ -2277,6 +2298,55 @@ app.get("/api/settings", async (req, res) => {
     }),
   );
 });
+
+async function validateProviderCredentials(
+  githubToken?: string,
+  renderToken?: string,
+): Promise<{ status: number; code: string; error: string } | null> {
+  if (typeof githubToken === "string" && githubToken.trim()) {
+    const validation = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${githubToken.trim()}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!validation.ok) {
+      return {
+        status: 422,
+        code: "INVALID_GITHUB_TOKEN",
+        error:
+          validation.status === 401
+            ? "GitHub rejected this token. Check that it is valid and has not expired."
+            : `GitHub credential validation failed (${validation.status}).`,
+      };
+    }
+  }
+  if (typeof renderToken === "string" && renderToken.trim()) {
+    const validation = await fetch(
+      "https://api.render.com/v1/owners?limit=1",
+      {
+        headers: {
+          Authorization: `Bearer ${renderToken.trim()}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+    if (!validation.ok) {
+      return {
+        status: 422,
+        code: "INVALID_RENDER_TOKEN",
+        error:
+          validation.status === 401 || validation.status === 403
+            ? "Render rejected this API key. Check that it is valid and has not been revoked."
+            : `Render credential validation failed (${validation.status}).`,
+      };
+    }
+  }
+  return null;
+}
 
 app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
   const owner = parseOwnerCookie(req);
@@ -3125,49 +3195,17 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
 
   try {
     // Validate newly supplied provider credentials before persisting them.
-    if (typeof githubToken === "string" && githubToken.trim()) {
-      const validation = await fetch("https://api.github.com/user", {
-        headers: {
-          Authorization: `Bearer ${githubToken.trim()}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        signal: AbortSignal.timeout(10000),
+    const invalidCred = await validateProviderCredentials(
+      typeof githubToken === "string" ? githubToken : undefined,
+      typeof renderToken === "string" ? renderToken : undefined,
+    );
+    if (invalidCred) {
+      res.status(invalidCred.status).json({
+        ok: false,
+        code: invalidCred.code,
+        error: invalidCred.error,
       });
-      if (!validation.ok) {
-        res.status(422).json({
-          ok: false,
-          code: "INVALID_GITHUB_TOKEN",
-          error:
-            validation.status === 401
-              ? "GitHub rejected this token. Check that it is valid and has not expired."
-              : `GitHub credential validation failed (${validation.status}).`,
-        });
-        return;
-      }
-    }
-    if (typeof renderToken === "string" && renderToken.trim()) {
-      const validation = await fetch(
-        "https://api.render.com/v1/owners?limit=1",
-        {
-          headers: {
-            Authorization: `Bearer ${renderToken.trim()}`,
-            Accept: "application/json",
-          },
-          signal: AbortSignal.timeout(10000),
-        },
-      );
-      if (!validation.ok) {
-        res.status(422).json({
-          ok: false,
-          code: "INVALID_RENDER_TOKEN",
-          error:
-            validation.status === 401 || validation.status === 403
-              ? "Render rejected this API key. Check that it is valid and has not been revoked."
-              : `Render credential validation failed (${validation.status}).`,
-        });
-        return;
-      }
+      return;
     }
     const updated = updateKeyCredentials(
       keyId,
@@ -3175,8 +3213,19 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
       typeof githubToken === "string" ? githubToken : undefined,
       typeof renderToken === "string" ? renderToken : undefined,
     );
-    await syncKeySettingsToMongo(updated);
-    const closedSessions = closeSessionsForKey(keyId);
+    const clearedAny =
+      (typeof githubToken === "string" && !githubToken.trim()) ||
+      (typeof renderToken === "string" && !renderToken.trim());
+    let closedSessions = 0;
+    if (clearedAny) {
+      closedSessions = await pruneAffectedKeysForCredentialRemoval(
+        owner.email,
+        keyId,
+      );
+    } else {
+      await syncKeySettingsToMongo(updated);
+      closedSessions = closeSessionsForKey(keyId);
+    }
     res.setHeader("Cache-Control", "no-store");
 
     res.json({

@@ -320,6 +320,8 @@ export function updateKeyCredentials(
     if (token) {
       settings.customGitHubToken = token;
       registerSecret(token);
+    } else {
+      delete settings.customGitHubToken;
     }
   }
 
@@ -335,6 +337,8 @@ export function updateKeyCredentials(
     if (token) {
       settings.customRenderToken = token;
       registerSecret(token);
+    } else {
+      delete settings.customRenderToken;
     }
   }
 
