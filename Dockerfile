@@ -27,7 +27,22 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     numpy \
     sympy \
     matplotlib \
-    beautifulsoup4
+    beautifulsoup4 \
+    uv \
+    ruff \
+    pytest
+
+# Global JS/TS tooling available to sandboxed code (tsc for `tsc --noEmit` type-checking, tsx for running .ts,
+# bun/esbuild for fast runs and bundling, vitest for tests, prettier for formatting).
+RUN npm install -g --no-audit --no-fund \
+    typescript \
+    tsx \
+    @types/node \
+    bun \
+    esbuild \
+    vitest \
+    prettier \
+ && npm cache clean --force
 
 # Unprivileged user that ALL sandboxed code, git commands and sandbox file operations run as.
 # The server itself stays root only so it can switch to this user for each child process; the
