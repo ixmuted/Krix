@@ -2332,11 +2332,18 @@ app.get("/tools", async (req, res) => {
   const isOwner = isOwnerEmail(owner.email);
   let selectedKeyId =
     typeof req.query.key === "string" ? req.query.key.trim() : undefined;
-  if (selectedKeyId && (!owner || !userOwnsKey(owner.email, selectedKeyId))) {
+  // An explicitly empty `?key=` is the "All Keys" choice from the dropdown.
+  // A missing `key` param still falls back to the user's first key.
+  const allKeysRequested = req.query.key === "" || req.query.key === "all";
+  if (
+    selectedKeyId &&
+    !allKeysRequested &&
+    (!owner || !userOwnsKey(owner.email, selectedKeyId))
+  ) {
     res.status(403).send("Forbidden");
     return;
   }
-  if (!selectedKeyId) {
+  if (!selectedKeyId || allKeysRequested) {
     selectedKeyId =
       listDynamicKeys(owner.email)[0]?.id ||
       listActiveOAuthAuthorizations().find(
@@ -2383,7 +2390,11 @@ app.get("/tools", async (req, res) => {
   );
   const root = sandboxRootForAuthKey(authKey);
   statsTracker.setActiveSessions(transports.size);
-  const summary = statsTracker.getSummary(root, selectedKeyId, isOwner);
+  const summary = statsTracker.getSummary(
+    root,
+    allKeysRequested ? undefined : selectedKeyId,
+    isOwner,
+  );
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");

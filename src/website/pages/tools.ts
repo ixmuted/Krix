@@ -72,7 +72,11 @@ export function renderToolsPage(params: {
                 return { value: val, label: lbl };
               }),
             ],
-            selectedValue: params.summary?.selectedKeyId || "",
+            selectedValue:
+              params.summary?.selectedKeyId &&
+              params.summary.selectedKeyId !== "all"
+                ? params.summary.selectedKeyId
+                : "",
             onchange: "onKeyFilterChange(this)",
             ariaLabel: "Filter by API or OAuth key",
           })}
@@ -85,7 +89,7 @@ export function renderToolsPage(params: {
     </div>
 
     <!-- Telemetry Breakdown Dashboard Card -->
-    <div id="toolTelemetryCard" class="card spotlight-card card-top-border" style="padding:22px 24px; margin-bottom:24px;">
+    <div id="toolTelemetryCard" class="card spotlight-card card-top-border" style="padding:22px 24px; margin-bottom:24px; overflow:visible;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
         <div>
           <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">TELEMETRY BREAKDOWN</div>
@@ -611,8 +615,9 @@ export function renderToolsPage(params: {
       function onKeyFilterChange(selectEl) {
         const val = selectEl ? selectEl.value : '';
         const url = new URL(window.location.href);
-        if (val) url.searchParams.set('key', val);
-        else url.searchParams.delete('key');
+        // Empty value = "All Keys": keep an explicit empty ?key= so the server
+        // doesn't fall back to the first key when the param is missing.
+        url.searchParams.set('key', val || '');
         window.location.href = url.toString();
       }
 

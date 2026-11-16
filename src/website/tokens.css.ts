@@ -716,6 +716,26 @@ th:has(.krix-dropdown),
   color: var(--accent);
 }
 
+/* Telemetry card: card has overflow visible so the popover is not clipped.
+   Keep the spotlight glow inside the rounded corners and anchor the tool
+   list to the trigger's right edge so long tool names never run off-screen. */
+#toolTelemetryCard::before {
+  border-radius: inherit;
+}
+#toolBreakdownSelect_popover {
+  left: auto;
+  right: 0;
+  transform: none;
+  min-width: 100%;
+  max-width: min(340px, calc(100vw - 32px));
+}
+#toolBreakdownSelect_popover .krix-dropdown-option {
+  display: block;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Category Filter Equal-Sized Grid (Mobile and Desktop) */
 .category-filter-grid {
   display: grid;
