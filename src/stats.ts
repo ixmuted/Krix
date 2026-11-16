@@ -55,8 +55,18 @@ export interface KeyMetrics {
   toolMetrics?: Record<string, ToolUsageMetrics>;
   daily: Record<string, number>;
   dailyErrors?: Record<string, number>;
+  dailyTools?: Record<string, number>;
   weekly: Record<string, number>;
+  weeklyErrors?: Record<string, number>;
+  weeklyTools?: Record<string, number>;
   monthly: Record<string, number>;
+  monthlyErrors?: Record<string, number>;
+  monthlyTools?: Record<string, number>;
+  protocolCalls?: Record<string, number>;
+  recentTimestamps?: number[];
+  recentDurations?: number[];
+  hourlyCounts?: number[];
+  dayOfWeekCounts?: Record<string, number>;
   statusCodes?: Record<string, number>;
   clientEcosystems?: Record<string, number>;
 }
@@ -81,6 +91,7 @@ export interface RecentErrorEntry {
   toolName: string;
   errorMessage: string;
   keyId: string;
+  rawKeyId?: string;
   client: string;
   statusCode: number;
 }
@@ -579,11 +590,27 @@ export class StatsTracker {
     entry.statusCodes![codeKey] = (entry.statusCodes![codeKey] || 0) + 1;
     entry.clientEcosystems![eco] = (entry.clientEcosystems![eco] || 0) + 1;
 
+    // Per-key throughput, latency, and peak traffic windows
+    (entry.recentTimestamps ||= []).push(nowMs);
+    while (entry.recentTimestamps.length > 0 && entry.recentTimestamps[0] < cutoff5m) {
+      entry.recentTimestamps.shift();
+    }
+    (entry.recentDurations ||= []).push(durationMs);
+    if (entry.recentDurations.length > 200) {
+      entry.recentDurations.shift();
+    }
+    if (!Array.isArray(entry.hourlyCounts) || entry.hourlyCounts.length !== 24) {
+      entry.hourlyCounts = new Array(24).fill(0);
+    }
+    entry.hourlyCounts[hourUtc] = (entry.hourlyCounts[hourUtc] || 0) + 1;
+    (entry.dayOfWeekCounts ||= {})[dayName] = (entry.dayOfWeekCounts[dayName] || 0) + 1;
+
     entry.totalRequests++;
     if (isError) {
       entry.errorCount++;
-      if (!entry.dailyErrors) entry.dailyErrors = {};
-      entry.dailyErrors[date] = (entry.dailyErrors[date] || 0) + 1;
+      (entry.dailyErrors ||= {})[date] = (entry.dailyErrors[date] || 0) + 1;
+      (entry.weeklyErrors ||= {})[week] = (entry.weeklyErrors[week] || 0) + 1;
+      (entry.monthlyErrors ||= {})[month] = (entry.monthlyErrors[month] || 0) + 1;
     } else {
       entry.successCount++;
     }
@@ -629,6 +656,9 @@ export class StatsTracker {
     if (toolName) {
       if (isActualTool) {
         entry.toolCalls[toolName] = (entry.toolCalls[toolName] || 0) + 1;
+        (entry.dailyTools ||= {})[date] = (entry.dailyTools[date] || 0) + 1;
+        (entry.weeklyTools ||= {})[week] = (entry.weeklyTools[week] || 0) + 1;
+        (entry.monthlyTools ||= {})[month] = (entry.monthlyTools[month] || 0) + 1;
         this.globalTools[toolName] = (this.globalTools[toolName] || 0) + 1;
         this.globalDaily[date].tools++;
         this.globalWeekly[week].tools++;
@@ -665,6 +695,8 @@ export class StatsTracker {
           metric.monthly[month] = (metric.monthly[month] || 0) + 1;
         }
       } else {
+        (entry.protocolCalls ||= {})[toolName] =
+          (entry.protocolCalls[toolName] || 0) + 1;
         this.globalProtocol[toolName] =
           (this.globalProtocol[toolName] || 0) + 1;
       }
@@ -677,6 +709,7 @@ export class StatsTracker {
         toolName: toolName || "http_request",
         errorMessage: errorMessage || `HTTP ${statusCode} failure`,
         keyId: entry.label,
+        rawKeyId: keyId,
         client: eco,
         statusCode,
       });
@@ -1214,6 +1247,7 @@ export class StatsTracker {
     isOwner: boolean = true,
     sharedSandboxOverride?: SharedSandboxStats,
     allowedKeyIds?: Set<string>,
+    activeHttpSessionsOverride?: number,
   ): StatsSummary {
     const keys = Array.from(this.keys.values())
       .filter((k) => !allowedKeyIds || allowedKeyIds.has(k.keyId))
@@ -1229,6 +1263,8 @@ export class StatsTracker {
             targetKeyId!.startsWith(k.keyId),
         ) || null
       : null;
+    const isScoped = Boolean(isFiltered || allowedKeyIds !== undefined);
+    const activeKeys = isFiltered ? (matchedKey ? [matchedKey] : []) : keys;
 
     let totalRequests = 0;
     let totalSuccess = 0;
@@ -1264,10 +1300,13 @@ export class StatsTracker {
     const avgDurationMs =
       totalRequests > 0 ? Math.round(totalDuration / totalRequests) : 0;
 
-    // Calculate P95 latency
+    // Calculate P95 latency (scoped per-user/key when filtered or allowedKeyIds is set)
+    const scopedDurations = isScoped
+      ? activeKeys.flatMap((k) => k.recentDurations || [])
+      : this.recentDurations;
     let p95DurationMs = avgDurationMs;
-    if (this.recentDurations.length > 0) {
-      const sorted = [...this.recentDurations].sort((a, b) => a - b);
+    if (scopedDurations.length > 0) {
+      const sorted = [...scopedDurations].sort((a, b) => a - b);
       const idx = Math.floor(sorted.length * 0.95);
       p95DurationMs = sorted[Math.min(idx, sorted.length - 1)];
     }
@@ -1275,22 +1314,43 @@ export class StatsTracker {
     // Calculate rolling throughput RPM (requests per minute over 5 min)
     const nowMs = Date.now();
     const cutoff5m = nowMs - 5 * 60 * 1000;
-    const count5m = this.recentTimestamps.filter((t) => t >= cutoff5m).length;
+    const scopedTimestamps = isScoped
+      ? activeKeys.flatMap((k) => k.recentTimestamps || [])
+      : this.recentTimestamps;
+    const count5m = scopedTimestamps.filter((t) => t >= cutoff5m).length;
     const throughputRpm = Math.round((count5m / 5) * 10) / 10;
 
     // Calculate peak traffic (strictly real data, null if zero requests)
     let peakHourUtc: number | null = null;
     let maxHourly = 0;
+    const scopedHourly = new Array(24).fill(0);
+    if (isScoped) {
+      for (const k of activeKeys) {
+        if (Array.isArray(k.hourlyCounts)) {
+          for (let h = 0; h < 24; h++) scopedHourly[h] += k.hourlyCounts[h] || 0;
+        }
+      }
+    }
+    const hourlySource = isScoped ? scopedHourly : this.hourlyCounts;
     for (let h = 0; h < 24; h++) {
-      if (this.hourlyCounts[h] > maxHourly) {
-        maxHourly = this.hourlyCounts[h];
+      if (hourlySource[h] > maxHourly) {
+        maxHourly = hourlySource[h];
         peakHourUtc = h;
       }
     }
 
     let peakDay: string | null = null;
     let maxDayCount = 0;
-    for (const [day, count] of Object.entries(this.dayOfWeekCounts)) {
+    const scopedDayCounts: Record<string, number> = {};
+    if (isScoped) {
+      for (const k of activeKeys) {
+        for (const [day, cnt] of Object.entries(k.dayOfWeekCounts || {})) {
+          scopedDayCounts[day] = (scopedDayCounts[day] || 0) + Number(cnt || 0);
+        }
+      }
+    }
+    const daySource = isScoped ? scopedDayCounts : this.dayOfWeekCounts;
+    for (const [day, count] of Object.entries(daySource)) {
       if (count > maxDayCount) {
         maxDayCount = count;
         peakDay = day;
@@ -1301,13 +1361,35 @@ export class StatsTracker {
     const currentYear = new Date().getFullYear();
     const yearsSet = new Set<number>();
     yearsSet.add(currentYear);
-    for (const monthKey of Object.keys(this.globalMonthly)) {
+    const monthKeysForYears = isScoped
+      ? activeKeys.flatMap((k) => Object.keys(k.monthly || {}))
+      : Object.keys(this.globalMonthly);
+    for (const monthKey of monthKeysForYears) {
       const y = parseInt(monthKey.split("-")[0], 10);
       if (Number.isFinite(y) && y >= 2024 && y <= currentYear + 1) {
         yearsSet.add(y);
       }
     }
     const availableYears = Array.from(yearsSet).sort((a, b) => b - a);
+
+    const sumKeyToolCount = (
+      k: KeyMetrics,
+      bucket: "daily" | "weekly" | "monthly",
+      periodKey: string,
+    ): number => {
+      const explicit =
+        bucket === "daily"
+          ? k.dailyTools?.[periodKey]
+          : bucket === "weekly"
+            ? k.weeklyTools?.[periodKey]
+            : k.monthlyTools?.[periodKey];
+      if (explicit !== undefined) return explicit;
+      let total = 0;
+      for (const tm of Object.values(k.toolMetrics || {})) {
+        total += Number(tm?.[bucket]?.[periodKey] || 0);
+      }
+      return total;
+    };
 
     // Continuous rolling timelines (30 continuous days, 12 weeks, 12 months)
     const dailyTimeline: Array<{
@@ -1321,13 +1403,15 @@ export class StatsTracker {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(nowTime.getTime() - i * 24 * 60 * 60 * 1000);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const reqCount = isFiltered
-        ? matchedKey?.daily[key] || 0
+      const reqCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + (k.daily[key] || 0), 0)
         : this.globalDaily[key]?.requests || 0;
-      const errCount = isFiltered
-        ? matchedKey?.dailyErrors?.[key] || 0
+      const errCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + (k.dailyErrors?.[key] || 0), 0)
         : this.globalDaily[key]?.errors || 0;
-      const toolCount = isFiltered ? 0 : this.globalDaily[key]?.tools || 0;
+      const toolCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + sumKeyToolCount(k, "daily", key), 0)
+        : this.globalDaily[key]?.tools || 0;
       const succCount = Math.max(0, reqCount - errCount);
       dailyTimeline.push({
         date: key,
@@ -1348,11 +1432,15 @@ export class StatsTracker {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(nowTime.getTime() - i * 7 * 24 * 60 * 60 * 1000);
       const { week } = this.getDateKeys(d);
-      const reqCount = isFiltered
-        ? matchedKey?.weekly[week] || 0
+      const reqCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + (k.weekly[week] || 0), 0)
         : this.globalWeekly[week]?.requests || 0;
-      const errCount = this.globalWeekly[week]?.errors || 0;
-      const toolCount = isFiltered ? 0 : this.globalWeekly[week]?.tools || 0;
+      const errCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + (k.weeklyErrors?.[week] || 0), 0)
+        : this.globalWeekly[week]?.errors || 0;
+      const toolCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + sumKeyToolCount(k, "weekly", week), 0)
+        : this.globalWeekly[week]?.tools || 0;
       const succCount = Math.max(0, reqCount - errCount);
       if (!weeklyTimeline.some((w) => w.week === week)) {
         weeklyTimeline.push({
@@ -1384,11 +1472,15 @@ export class StatsTracker {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(nowTime.getFullYear(), nowTime.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const reqCount = isFiltered
-        ? matchedKey?.monthly[key] || 0
+      const reqCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + (k.monthly[key] || 0), 0)
         : this.globalMonthly[key]?.requests || 0;
-      const errCount = this.globalMonthly[key]?.errors || 0;
-      const toolCount = isFiltered ? 0 : this.globalMonthly[key]?.tools || 0;
+      const errCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + (k.monthlyErrors?.[key] || 0), 0)
+        : this.globalMonthly[key]?.errors || 0;
+      const toolCount = isScoped
+        ? activeKeys.reduce((acc, k) => acc + sumKeyToolCount(k, "monthly", key), 0)
+        : this.globalMonthly[key]?.tools || 0;
       const succCount = Math.max(0, reqCount - errCount);
       monthlyTimeline.push({
         month: key,
@@ -1954,10 +2046,16 @@ export class StatsTracker {
       })),
     ];
 
-    const activeToolsSource = isFiltered
-      ? matchedKey
-        ? matchedKey.toolCalls
-        : {}
+    const activeToolsSource: Record<string, number> = isScoped
+      ? (() => {
+          const merged: Record<string, number> = {};
+          for (const k of activeKeys) {
+            for (const [t, cnt] of Object.entries(k.toolCalls || {})) {
+              merged[t] = (merged[t] || 0) + Number(cnt || 0);
+            }
+          }
+          return merged;
+        })()
       : this.globalTools;
 
     const cleanToolDistribution: Record<string, number> = {};
@@ -1978,8 +2076,39 @@ export class StatsTracker {
       }
     }
 
-    const activeToolMetrics = isFiltered
-      ? matchedKey?.toolMetrics || {}
+    const activeToolMetrics: Record<string, ToolUsageMetrics> = isScoped
+      ? (() => {
+          const merged: Record<string, ToolUsageMetrics> = {};
+          for (const k of activeKeys) {
+            for (const [t, tm] of Object.entries(k.toolMetrics || {})) {
+              const target =
+                merged[t] ||
+                (merged[t] = {
+                  totalCalls: 0,
+                  successCount: 0,
+                  errorCount: 0,
+                  totalDurationMs: 0,
+                  daily: {},
+                  weekly: {},
+                  monthly: {},
+                });
+              target.totalCalls += tm.totalCalls || 0;
+              target.successCount += tm.successCount || 0;
+              target.errorCount += tm.errorCount || 0;
+              target.totalDurationMs += tm.totalDurationMs || 0;
+              for (const [d, c] of Object.entries(tm.daily || {})) {
+                target.daily[d] = (target.daily[d] || 0) + Number(c || 0);
+              }
+              for (const [w, c] of Object.entries(tm.weekly || {})) {
+                target.weekly[w] = (target.weekly[w] || 0) + Number(c || 0);
+              }
+              for (const [m, c] of Object.entries(tm.monthly || {})) {
+                target.monthly[m] = (target.monthly[m] || 0) + Number(c || 0);
+              }
+            }
+          }
+          return merged;
+        })()
       : this.toolMetrics;
     const toolsCatalog: ToolDetailMeta[] = knownTools.map((t) => {
       const calls = cleanToolDistribution[t.name] || 0;
@@ -2030,13 +2159,28 @@ export class StatsTracker {
       avgDurationMs,
       p95DurationMs,
       throughputRpm,
-      activeHttpSessions: this.activeHttpSessions,
+      activeHttpSessions:
+        activeHttpSessionsOverride !== undefined
+          ? activeHttpSessionsOverride
+          : isScoped
+            ? 0
+            : this.activeHttpSessions,
       totalBytesIn,
       totalBytesOut,
       uniqueKeysCount: keys.length,
       keys,
       toolDistribution: cleanToolDistribution,
-      protocolDistribution: this.globalProtocol,
+      protocolDistribution: isScoped
+        ? (() => {
+            const proto: Record<string, number> = {};
+            for (const k of activeKeys) {
+              for (const [p, cnt] of Object.entries(k.protocolCalls || {})) {
+                proto[p] = (proto[p] || 0) + Number(cnt || 0);
+              }
+            }
+            return proto;
+          })()
+        : this.globalProtocol,
       dailyTimeline,
       weeklyTimeline,
       monthlyTimeline,
@@ -2068,7 +2212,19 @@ export class StatsTracker {
         }
         return ecosystems;
       })(),
-      recentErrors: this.recentErrors,
+      recentErrors: isScoped
+        ? this.recentErrors.filter((e) => {
+            if (isFiltered) {
+              if (!matchedKey) return false;
+              return e.rawKeyId
+                ? e.rawKeyId === matchedKey.keyId
+                : e.keyId === matchedKey.label;
+            }
+            return e.rawKeyId
+              ? allowedKeyIds!.has(e.rawKeyId)
+              : keys.some((k) => k.label === e.keyId || k.keyId === e.keyId);
+          })
+        : this.recentErrors,
       peakTraffic: {
         peakHourUtc,
         peakDay,
@@ -2121,9 +2277,51 @@ export class StatsTracker {
 
   public async loadHistoricalChunk(
     monthKey: string,
+    allowedKeyIds?: Set<string>,
+    selectedKeyId?: string,
   ): Promise<
     Record<string, { requests: number; tools: number; errors?: number }>
   > {
+    if (allowedKeyIds !== undefined || (selectedKeyId && selectedKeyId !== "all")) {
+      const scopedChunk: Record<
+        string,
+        { requests: number; tools: number; errors?: number }
+      > = {};
+      const keys = Array.from(this.keys.values()).filter((k) => {
+        if (allowedKeyIds && !allowedKeyIds.has(k.keyId)) return false;
+        if (selectedKeyId && selectedKeyId !== "all") {
+          return (
+            k.keyId === selectedKeyId ||
+            k.keyId.toLowerCase() === selectedKeyId.toLowerCase()
+          );
+        }
+        return true;
+      });
+      for (const k of keys) {
+        for (const [day, reqs] of Object.entries(k.daily || {})) {
+          if (!day.startsWith(monthKey)) continue;
+          if (!scopedChunk[day]) {
+            scopedChunk[day] = { requests: 0, tools: 0, errors: 0 };
+          }
+          scopedChunk[day].requests += Number(reqs || 0);
+        }
+        for (const [day, errs] of Object.entries(k.dailyErrors || {})) {
+          if (!day.startsWith(monthKey)) continue;
+          if (!scopedChunk[day]) {
+            scopedChunk[day] = { requests: 0, tools: 0, errors: 0 };
+          }
+          scopedChunk[day].errors = (scopedChunk[day].errors || 0) + Number(errs || 0);
+        }
+        for (const [day, tools] of Object.entries(k.dailyTools || {})) {
+          if (!day.startsWith(monthKey)) continue;
+          if (!scopedChunk[day]) {
+            scopedChunk[day] = { requests: 0, tools: 0, errors: 0 };
+          }
+          scopedChunk[day].tools += Number(tools || 0);
+        }
+      }
+      return scopedChunk;
+    }
     const inMemory: Record<
       string,
       { requests: number; tools: number; errors?: number }

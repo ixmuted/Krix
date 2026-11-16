@@ -69,8 +69,11 @@ class FileShareRegistry {
       this.byToken.set(shareToken, existing);
       this.scheduleSave();
     } else {
+      if (params.ownerKey && existing.ownerKey && existing.ownerKey !== params.ownerKey) {
+        throw new Error("Forbidden: File ID is already owned by another account.");
+      }
       let changed = false;
-      if (params.ownerKey && existing.ownerKey !== params.ownerKey) {
+      if (params.ownerKey && !existing.ownerKey) {
         existing.ownerKey = params.ownerKey;
         changed = true;
       }
@@ -128,6 +131,9 @@ class FileShareRegistry {
       return isPublic;
     }
 
+    if (ownerKey && entry.ownerKey && entry.ownerKey !== ownerKey) {
+      throw new Error("Forbidden: You do not own this file.");
+    }
     if (ownerKey && !entry.ownerKey) {
       entry.ownerKey = ownerKey;
     }

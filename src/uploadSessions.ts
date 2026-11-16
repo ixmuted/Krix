@@ -155,6 +155,9 @@ retentionSweeper.unref();
 function sha256Hex(s: string): string {
   return crypto.createHash("sha256").update(s).digest("hex");
 }
+function sandboxFileId(ownerKey: string, name: string): string {
+  return `sbx_${crypto.createHash("sha256").update(`${ownerKey}:${name}`).digest("hex").slice(0, 16)}`;
+}
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
 /**
@@ -662,7 +665,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         s.bytes += data.length;
 
         // Register into fileShareRegistry as private by default with user's ownerKey
-        const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
+        const sbxId = sandboxFileId(s.authKey, name);
         fileShareRegistry.ensureFileShare({
           fileId: sbxId,
           name,
@@ -793,7 +796,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         s.files = s.files.filter((f) => f.name !== name);
         const idx = retentionTracker.findIndex((r) => r.abs === abs);
         if (idx !== -1) retentionTracker.splice(idx, 1);
-        const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
+        const sbxId = sandboxFileId(s.authKey, name);
         fileShareRegistry.removeFile(sbxId);
         json(res, 200, { success: true, removed: name });
         return;

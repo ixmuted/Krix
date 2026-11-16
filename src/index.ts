@@ -1660,18 +1660,12 @@ app.get(["/api", "/keys"], async (req, res) => {
   const owner = parseOwnerCookie(req);
   // A signed-in account is not automatically the instance owner. Keep the
   // administrative view strictly tied to the configured owner identity.
-  const isAdminOwner = Boolean(owner && isOwnerEmail(owner.email));
   const canManageKeys = Boolean(owner);
-  const dynamicKeys = owner
-    ? isAdminOwner
-      ? listDynamicKeys()
-      : listDynamicKeys(owner.email)
-    : [];
+  const dynamicKeys = owner ? listDynamicKeys(owner.email) : [];
   const oauthAuthorizations = owner
-    ? listActiveOAuthAuthorizations().filter((item: any) =>
-        isAdminOwner
-          ? true
-          : item.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+    ? listActiveOAuthAuthorizations().filter(
+        (item: any) =>
+          item.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
       )
     : [];
 
@@ -1987,7 +1981,7 @@ app.delete("/api/keys/:id", async (req, res) => {
     return;
   }
   const id = req.params.id as string;
-  if (!isOwnerEmail(owner.email) && !userOwnsKey(owner.email, id)) {
+  if (!userOwnsKey(owner.email, id)) {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
@@ -2020,9 +2014,7 @@ app.get("/api/settings", async (req, res) => {
   const keyId = typeof req.query.key === "string" ? req.query.key.trim() : "";
   const dynamicKeys = listDynamicKeys(owner.email);
   const activeOAuths = listActiveOAuthAuthorizations().filter(
-    (oa) =>
-      isOwnerEmail(owner.email) ||
-      oa.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
+    (oa) => oa.ownerEmail?.toLowerCase() === owner.email.toLowerCase(),
   );
 
   let targetKey: any = dynamicKeys.find((k) => k.id === keyId);
@@ -2053,19 +2045,39 @@ app.get("/api/settings", async (req, res) => {
     return;
   }
   if (!targetKey) {
-    targetKey = dynamicKeys[0] || {
-      id: "primary-key",
-      label: "API Key",
-      createdAt: Date.now(),
-    };
+    if (isOwnerEmail(owner.email)) {
+      targetKey = dynamicKeys[0] || {
+        id: "primary-key",
+        label: "Primary Key",
+        type: "master",
+        createdAt: Date.now(),
+      };
+    } else if (dynamicKeys[0]) {
+      targetKey = dynamicKeys[0];
+    } else if (activeOAuths[0]) {
+      targetKey = {
+        id: activeOAuths[0].clientId,
+        clientId: activeOAuths[0].clientId,
+        label: activeOAuths[0].clientName || "OAuth Client",
+        type: "oauth",
+        createdAt: activeOAuths[0].createdAt || Date.now(),
+      };
+    } else {
+      res.redirect(302, "/api");
+      return;
+    }
   }
 
   const effectiveKeyId = targetKey.id || targetKey.clientId || "primary-key";
   const keySettings = getKeySettings(effectiveKeyId);
+  const allowedSettingsKeys = ownedStatsKeyIds(owner.email);
   const summary = statsTracker.getSummary(
     process.cwd(),
     effectiveKeyId,
     isOwnerEmail(owner.email),
+    undefined,
+    allowedSettingsKeys,
+    countActiveSessionsForKeys(allowedSettingsKeys, effectiveKeyId),
   );
   // The key record only holds identity (label, createdAt). Usage lives in the stats tracker,
   // keyed by the same id the auth middleware records (dynamic key id, OAuth client id or
@@ -2094,7 +2106,9 @@ app.get("/api/settings", async (req, res) => {
       key: keyForPage,
       toolsCatalog: summary.toolsCatalog,
       keySettings,
-      globalKeySettings: getKeySettings("primary-key"),
+      globalKeySettings: isOwnerEmail(owner.email)
+        ? getKeySettings("primary-key")
+        : undefined,
       apiKeyToken: getDynamicKeySecret(effectiveKeyId, owner.email) || "",
       sandboxAllowed,
       credentialAvailability: {
@@ -2123,7 +2137,7 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     return;
   }
   const id = req.params.id as string;
-  if (!isOwnerEmail(owner.email) && !userOwnsKey(owner.email, id)) {
+  if (!userOwnsKey(owner.email, id)) {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
@@ -2394,11 +2408,15 @@ app.get("/tools", async (req, res) => {
     owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
   );
   const root = sandboxRootForAuthKey(authKey);
-  statsTracker.setActiveSessions(transports.size);
+  const allowedToolKeys = ownedStatsKeyIds(owner.email);
+  const targetToolKey = allKeysRequested ? undefined : selectedKeyId;
   const summary = statsTracker.getSummary(
     root,
-    allKeysRequested ? undefined : selectedKeyId,
+    targetToolKey,
     isOwner,
+    undefined,
+    allowedToolKeys,
+    countActiveSessionsForKeys(allowedToolKeys, targetToolKey),
   );
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -2569,7 +2587,6 @@ app.get("/stats/api", async (req, res) => {
     ? computeUserAuthKey({ email: owner.email })
     : ownerKeys[0] || computeAuthKey(`key_${apiEntry?.id || "anonymous"}`);
   const root = sandboxRootForAuthKey(authKey);
-  statsTracker.setActiveSessions(transports.size);
   const scopedKeyId = owner
     ? selectedKeyId !== undefined
       ? selectedKeyId
@@ -2583,12 +2600,17 @@ app.get("/stats/api", async (req, res) => {
       .json({ error: "Unable to resolve the API key's usage scope." });
     return;
   }
+  const allowedStatsKeys = ownedStatsKeyIds(
+    owner?.email,
+    apiEntry?.id || (clientKey === MCP_API_KEY ? "primary-key" : undefined),
+  );
   const summary = statsTracker.getSummary(
     root,
     scopedKeyId,
     effectiveIsOwner,
     sharedSandbox,
-    effectiveIsOwner ? undefined : ownedStatsKeyIds(owner?.email, apiEntry?.id),
+    allowedStatsKeys,
+    countActiveSessionsForKeys(allowedStatsKeys, scopedKeyId),
   );
   res.setHeader("Cache-Control", "no-store");
   res.json(summary);
@@ -2621,7 +2643,28 @@ app.get("/stats/api/timeline", async (req, res) => {
     return;
   }
 
-  const chunk = await statsTracker.loadHistoricalChunk(month);
+  const selectedKeyId =
+    typeof req.query.key === "string" ? req.query.key.trim() : undefined;
+  const apiEntry = clientKey ? findAuthorizedApiKey(clientKey) : null;
+  if (
+    selectedKeyId &&
+    selectedKeyId !== "all" &&
+    (owner
+      ? !userOwnsKey(owner.email, selectedKeyId)
+      : !apiEntry || apiEntry.id !== selectedKeyId)
+  ) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  const allowedTimelineKeys = ownedStatsKeyIds(
+    owner?.email,
+    apiEntry?.id || (clientKey === MCP_API_KEY ? "primary-key" : undefined),
+  );
+  const chunk = await statsTracker.loadHistoricalChunk(
+    month,
+    allowedTimelineKeys,
+    selectedKeyId,
+  );
   res.setHeader("Cache-Control", "no-store");
   res.json({ ok: true, month, chunk });
 });
@@ -2669,13 +2712,14 @@ app.get("/stats", async (req, res) => {
   );
   const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
-  statsTracker.setActiveSessions(transports.size);
+  const allowedStatsKeys = ownedStatsKeyIds(owner.email);
   const summary = statsTracker.getSummary(
     root,
     scopedKeyId,
     isOwner,
     sharedSandbox,
-    isOwner ? undefined : ownedStatsKeyIds(owner.email),
+    allowedStatsKeys,
+    countActiveSessionsForKeys(allowedStatsKeys, scopedKeyId),
   );
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -2690,11 +2734,35 @@ app.get("/stats", async (req, res) => {
   );
 });
 
-/** Key ids a non-owner may see in stats: only their own present keys and OAuth clients. */
+function sandboxFileId(ownerKey: string, name: string): string {
+  return `sbx_${crypto.createHash("sha256").update(`${ownerKey}:${name}`).digest("hex").slice(0, 16)}`;
+}
+
+function countActiveSessionsForKeys(
+  allowedKeyIds?: Set<string>,
+  selectedKeyId?: string,
+): number {
+  let count = 0;
+  for (const entry of transports.values()) {
+    if (allowedKeyIds && !allowedKeyIds.has(entry.keyId)) continue;
+    if (
+      selectedKeyId &&
+      selectedKeyId !== "all" &&
+      entry.keyId !== selectedKeyId
+    ) {
+      continue;
+    }
+    count++;
+  }
+  return count;
+}
+
+/** Key ids an account may see in stats: only their own present keys and OAuth clients. */
 function ownedStatsKeyIds(email?: string, singleKeyId?: string): Set<string> {
   const ids = new Set<string>();
   if (singleKeyId) ids.add(singleKeyId);
   if (!email) return ids;
+  if (isOwnerEmail(email)) ids.add("primary-key");
   for (const k of listDynamicKeys(email)) ids.add(k.id);
   for (const oa of listActiveOAuthAuthorizations()) {
     if (oa.ownerEmail?.toLowerCase() === email.toLowerCase())
@@ -2840,7 +2908,15 @@ app.get("/settings", async (req, res) => {
   const userQuota = getUserQuota(userRole);
   const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
   const root = sandboxRootForAuthKey(authKey);
-  const summary = statsTracker.getSummary(root, selectedKeyId, isOwner);
+  const allowedSettingsKeys = ownedStatsKeyIds(owner.email);
+  const summary = statsTracker.getSummary(
+    root,
+    selectedKeyId,
+    isOwner,
+    undefined,
+    allowedSettingsKeys,
+    countActiveSessionsForKeys(allowedSettingsKeys, selectedKeyId),
+  );
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -3375,7 +3451,7 @@ async function collectUserStoreFiles(
         seenSbxPaths.add(filePath);
         if (seenStoreNames.has(entry.name)) continue;
         const stat = fs.statSync(filePath);
-        const sbxId = `sbx_${Buffer.from(entry.name).toString("hex").slice(0, 16)}`;
+        const sbxId = sandboxFileId(k, entry.name);
         if (seenStoreIds.has(sbxId)) continue;
         seenStoreIds.add(sbxId);
         const share = fileShareRegistry.ensureFileShare({
@@ -3403,29 +3479,7 @@ async function collectUserStoreFiles(
     } catch {}
   }
 
-  // Include public files from other users so they can be viewed and downloaded by anyone
-  const knownIds = new Set(files.map((f) => f.id));
-  const publicShares = fileShareRegistry.listPublicShares();
-  for (const p of publicShares) {
-    if (knownIds.has(p.fileId)) continue;
-    if (p.ownerKey && !ownerKeySet.has(p.ownerKey)) {
-      files.push({
-        id: p.fileId,
-        name: p.name,
-        size: 0,
-        contentType: p.contentType || "application/octet-stream",
-        createdAt: p.updatedAt,
-        expiresAt: null,
-        source: p.source,
-        downloadUrl: `${base}/store/share/${p.shareToken}`,
-        shareUrl: `${base}/store/share/${p.shareToken}`,
-        isPublic: true,
-        permanent: false,
-        isOwned: false,
-      });
-      knownIds.add(p.fileId);
-    }
-  }
+  // Only files owned by the authenticated user are listed in their Stored Files.
 
   files.sort(
     (a, b) =>
@@ -3610,9 +3664,7 @@ app.get(["/store/share/:token", "/store/download/:token"], async (req, res) => {
             file = await getFileStore().openById(k, share.fileId);
             if (file) break;
           }
-          if (!file && !share.ownerKey) {
-            file = await getFileStore().openById("*", share.fileId);
-          }
+          // Private files without a matching ownerKey must not be served via wildcard lookup.
         }
         if (!file) {
           res.status(404).type("text/plain").send("File not found or expired.");
@@ -3848,10 +3900,8 @@ app.delete("/store/files/:id", async (req, res) => {
             fs.unlinkSync(diskPath);
           } catch {}
         }
+        fileShareRegistry.removeFile(sandboxFileId(k, targetName));
       }
-      fileShareRegistry.removeFile(
-        `sbx_${Buffer.from(targetName).toString("hex").slice(0, 16)}`,
-      );
     }
     await fileShareRegistry.flushToMongo();
     res.json({ success: true, deleted: id });
@@ -3908,11 +3958,8 @@ app.patch("/store/files/:id/rename", express.json(), async (req, res) => {
             fs.renameSync(oldDisk, newDisk);
           } catch {}
         }
+        fileShareRegistry.renameFile(sandboxFileId(k, prevName), name);
       }
-      fileShareRegistry.renameFile(
-        `sbx_${Buffer.from(prevName).toString("hex").slice(0, 16)}`,
-        name,
-      );
     }
     await fileShareRegistry.flushToMongo();
     res.json({ success: true, id, name });
@@ -3945,25 +3992,27 @@ app.delete("/store/sandbox-file", async (req, res) => {
   }
   const ownerKeys = resolveUserOwnerKeys(owner.email);
   const ownerKeySet = new Set(ownerKeys);
-  const sbxId = `sbx_${Buffer.from(name).toString("hex").slice(0, 16)}`;
-  const share = fileShareRegistry.getById(sbxId);
-  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
-    res.status(403).json({ error: "Forbidden: You do not own this file." });
-    return;
-  }
+  let matchedKey: string | null = null;
   let matchedRoot: string | null = null;
   let matchedPath: string | null = null;
   for (const k of ownerKeys) {
     const root = sandboxRootForAuthKey(k);
     const candidate = path.join(root, UPLOAD_DIR, name);
     if (fs.existsSync(candidate)) {
+      matchedKey = k;
       matchedRoot = root;
       matchedPath = candidate;
       break;
     }
   }
-  if (!matchedRoot || !matchedPath) {
+  if (!matchedKey || !matchedRoot || !matchedPath) {
     res.status(404).json({ error: "File not found." });
+    return;
+  }
+  const sbxId = sandboxFileId(matchedKey, name);
+  const share = fileShareRegistry.getById(sbxId);
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
     return;
   }
   try {
@@ -4007,22 +4056,24 @@ app.post("/upload/rename", express.json(), async (req, res) => {
   }
   const ownerKeys = resolveUserOwnerKeys(owner.email);
   const ownerKeySet = new Set(ownerKeys);
-  const oldSbxId = `sbx_${Buffer.from(oldName).toString("hex").slice(0, 16)}`;
-  const share = shareById || fileShareRegistry.getById(oldSbxId);
-  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
-    res.status(403).json({ error: "Forbidden: You do not own this file." });
-    return;
-  }
+  let matchedKey: string | null = null;
   let matchedRoot: string | null = null;
   let matchedOldPath: string | null = null;
   for (const k of ownerKeys) {
     const root = sandboxRootForAuthKey(k);
     const candidate = path.join(root, UPLOAD_DIR, oldName);
     if (fs.existsSync(candidate)) {
+      matchedKey = k;
       matchedRoot = root;
       matchedOldPath = candidate;
       break;
     }
+  }
+  const oldSbxId = matchedKey ? sandboxFileId(matchedKey, oldName) : "";
+  const share = shareById || (oldSbxId ? fileShareRegistry.getById(oldSbxId) : undefined);
+  if (share && share.ownerKey && !ownerKeySet.has(share.ownerKey)) {
+    res.status(403).json({ error: "Forbidden: You do not own this file." });
+    return;
   }
   if (!matchedRoot || !matchedOldPath) {
     res.status(404).json({ error: "File not found." });
