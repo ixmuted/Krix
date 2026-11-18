@@ -109,7 +109,7 @@ export function renderToolsPage(params: {
       <p id="breakdownToolVerbose" class="panel-sub" style="margin-top:14px;">Global execution summary across all tools recorded by the Krix MCP runtime.</p>
     </div>
 
-    <div class="panel tools-toolbar-box" style="padding:12px 16px; margin:20px 0 14px;">
+    <div class="panel tools-toolbar-box" style="padding:14px 16px; margin:20px 0 16px; display:flex; flex-direction:column; gap:12px;">
       <div class="cluster" style="justify-content:space-between; gap:12px;">
         <div class="search krix-pill-search search-bar-responsive">
           ${renderSvg("search", 16)}
@@ -120,14 +120,13 @@ export function renderToolsPage(params: {
           <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')">Detailed</button>
         </div>
       </div>
-    </div>
-
-    <div class="category-filter-grid" style="margin-bottom:16px;">
-      <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterCategory('All', this)">All (${totalCount})</button>
-      <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)">Sandbox (${categories["Sandbox"] || 0})</button>
-      <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterCategory('Render', this)">Render (${categories["Render"] || 0})</button>
-      <button type="button" class="category-filter-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)">GitHub (${categories["GitHub"] || 0})</button>
-      <button type="button" class="category-filter-pill" data-cat="Code Graph" onclick="filterCategory('Code Graph', this)">Code Graph (${categories["Code Graph"] || 0})</button>
+      <div class="category-filter-grid" style="margin:0;">
+        <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterCategory('All', this)">All (${totalCount})</button>
+        <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)">Sandbox (${categories["Sandbox"] || 0})</button>
+        <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterCategory('Render', this)">Render (${categories["Render"] || 0})</button>
+        <button type="button" class="category-filter-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)">GitHub (${categories["GitHub"] || 0})</button>
+        <button type="button" class="category-filter-pill" data-cat="Code Graph" onclick="filterCategory('Code Graph', this)">Code Graph (${categories["Code Graph"] || 0})</button>
+      </div>
     </div>
 
     <div id="toolsGrid" class="panel flush tools-grid tools-container concise">

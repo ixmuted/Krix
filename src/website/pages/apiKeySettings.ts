@@ -155,12 +155,16 @@ export function renderApiKeySettingsPage(params: {
       <div style="min-width:0;">
         <a href="/api" class="text-muted" style="font-size:13px; display:inline-flex; align-items:center; gap:4px; margin-bottom:8px;">${renderSvg("chevron-left", 14)}<span>API keys</span></a>
         <h1 class="page-title">${keyName}</h1>
-        <p class="page-sub mono" style="font-size:13px; overflow-wrap:anywhere;">${keyId}</p>
+        <div class="anthropic-id-pill">
+          <span class="anthropic-id-label">Client ID</span>
+          <code class="anthropic-id-val" title="${keyId}">${keyId}</code>
+          <button type="button" class="btn ghost sm" style="height:24px;padding:0 6px;" onclick="window.copyToClipboard(${jsKeyId}, this)" aria-label="Copy ID" title="Copy ID">${renderSvg("copy", 13)}</button>
+        </div>
       </div>
     </div>
 
     <div class="key-metadata-grid">
-      <div class="stat">
+      <div class="stat key-status-top-card">
         <div><div class="key-meta-label">Key Status</div><div id="keyStatusText" class="key-meta-value" style="color:${isKeyDisabled ? "var(--error)" : "var(--success)"};">${isKeyDisabled ? "Disabled" : "Active"}</div></div>
       </div>
       <div class="stat"><div class="key-meta-label">Created Date</div><div class="key-meta-value">${escapeHtml(createdDate)}</div></div>
@@ -272,11 +276,11 @@ export function renderApiKeySettingsPage(params: {
       <div class="rows">
         <div class="row">
           <div><div class="row-title">Key status</div><div class="row-desc">${rawKeyId === "primary-key" ? "The primary key is always active." : "Enable or disable this key without deleting it."}</div></div>
-          <label class="switch krix-switch" title="${rawKeyId === "primary-key" ? "The primary key cannot be disabled" : "Enable or disable this key"}"><input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} ${rawKeyId === "primary-key" ? "disabled" : ""} onchange="updateKeyStatusLabel(this.checked)"><span class="krix-slider"></span></label>
+          <button type="button" id="keyActiveToggleBtn" class="btn friendly-zone-btn" data-active="${!isKeyDisabled ? "true" : "false"}" onclick="toggleKeyActiveStatus()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg(isKeyDisabled ? "unlock" : "lock", 15)}<span>${isKeyDisabled ? "Enable Key" : "Disable Key"}</span></button>
         </div>
         <div class="row">
           <div><div class="row-title">Rename ${key.type === "oauth" ? "app" : "API key"}</div><div class="row-desc">Update the display name for this ${key.type === "oauth" ? "authorized app" : "key"} (4–16 characters).</div></div>
-          <button type="button" class="btn danger-zone-btn" onclick="openRenameKeySettingsModal()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg("edit", 15)}<span>Rename</span></button>
+          <button type="button" class="btn friendly-zone-btn" onclick="openRenameKeySettingsModal()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg("edit", 15)}<span>Rename</span></button>
         </div>
       </div>
     </section>
@@ -439,13 +443,20 @@ export function renderApiKeySettingsPage(params: {
       function openRenameKeySettingsModal() {
         const modal = document.getElementById('renameKeySettingsModal');
         const input = document.getElementById('renameKeySettingsInput');
+        if (input) input.value = ${JSON.stringify(key.label || key.clientName || key.name || "")};
         if (modal) {
           if (modal.parentNode !== document.body) document.body.appendChild(modal);
           modal.hidden = false;
           modal.style.display = 'flex';
-          setTimeout(() => input?.focus(), 50);
+          setTimeout(() => { input?.focus(); input?.select(); }, 50);
         }
       }
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeRenameKeySettingsModal();
+          closeDeleteKeySettingsModal();
+        }
+      });
       function closeRenameKeySettingsModal() {
         const modal = document.getElementById('renameKeySettingsModal');
         if (modal) { modal.hidden = true; modal.style.display = 'none'; }
@@ -511,7 +522,7 @@ export function renderApiKeySettingsPage(params: {
       }
       renderKeyToolsPage();
       }
-      let initialActiveState = Boolean(document.getElementById('keyActiveToggle')?.checked);
+      let initialActiveState = document.getElementById('keyActiveToggleBtn')?.dataset.active !== 'false';
       const initialToolCheckStates = new Map();
       document.querySelectorAll('.key-tool-check').forEach(chk => {
         initialToolCheckStates.set(chk.value, chk.checked);
@@ -525,26 +536,37 @@ export function renderApiKeySettingsPage(params: {
       }
       // The Active switch applies the moment it is flipped: no Save / Cancel needed. If the
       // server refuses, the switch snaps back so the page never shows a state that is not saved.
-      async function updateKeyStatusLabel(active) {
-        const toggle = document.getElementById('keyActiveToggle');
-        setKeyStatusLabel(active);
-        if (toggle) toggle.disabled = true;
+      const LOCK_SVG = '${renderSvg("lock", 15)}';
+      const UNLOCK_SVG = '${renderSvg("unlock", 15)}';
+      function syncKeyActiveButton(active) {
+        const btn = document.getElementById('keyActiveToggleBtn');
+        if (!btn) return;
+        btn.dataset.active = active ? 'true' : 'false';
+        btn.innerHTML = (active ? LOCK_SVG : UNLOCK_SVG) + '<span>' + (active ? 'Disable Key' : 'Enable Key') + '</span>';
+      }
+      async function toggleKeyActiveStatus() {
+        const btn = document.getElementById('keyActiveToggleBtn');
+        const currentlyActive = btn?.dataset.active !== 'false';
+        const nextActive = !currentlyActive;
+        setKeyStatusLabel(nextActive);
+        syncKeyActiveButton(nextActive);
+        if (btn) btn.disabled = true;
         try {
           const response = await fetch('/api/keys/${urlKeyId}/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ disabled: !active })
+            body: JSON.stringify({ disabled: !nextActive })
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok || data.success === false) throw new Error(data.error || 'Could not update this key.');
-          initialActiveState = active;
-          showToast(active ? 'Key enabled' : 'Key disabled', 'success');
+          initialActiveState = nextActive;
+          showToast(nextActive ? 'Key enabled' : 'Key disabled', 'success');
         } catch (error) {
-          if (toggle) toggle.checked = !active;
-          setKeyStatusLabel(!active);
+          setKeyStatusLabel(currentlyActive);
+          syncKeyActiveButton(currentlyActive);
           showToast(error.message || 'Could not update this key.', 'error');
         } finally {
-          if (toggle) toggle.disabled = false;
+          if (btn) btn.disabled = false;
         }
       }
       // Save / Cancel belong to the credential boxes only: shown while one is open for editing.
