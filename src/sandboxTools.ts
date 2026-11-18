@@ -206,7 +206,10 @@ async function workDir(sessionId: string): Promise<string> {
     if (!candidate) continue;
     try {
       const abs = sanitizePath(candidate, root);
-      if ((await sbxStat(root, abs)).kind === "directory") return abs;
+      if ((await sbxStat(root, abs)).kind === "directory") {
+        fsp.utimes(abs, new Date(), new Date()).catch(() => {});
+        return abs;
+      }
     } catch {}
   }
   return root;
@@ -408,6 +411,51 @@ async function runInShell(
       `eval "$(printf '%s' '${b64}' | base64 -d)" </dev/null 2>&1\nprintf '\\n%s:%s\\n' '${marker}' "$?"\n`,
     );
   });
+}
+
+
+/**
+ * Remove inactive repository/work subdirectories inside <tmp>/krix_sbx_* after maxIdleMs
+ * of inactivity while preserving upload/ and active directories.
+ */
+export async function cleanupStaleWorkDirs(
+  maxIdleMs: number = 30 * 60 * 1000,
+): Promise<number> {
+  const tmpRoot = os.tmpdir();
+  let removed = 0;
+  let entries: string[] = [];
+  try {
+    entries = await fsp.readdir(tmpRoot);
+  } catch {
+    return 0;
+  }
+  const now = Date.now();
+  for (const entry of entries) {
+    if (!entry.startsWith("krix_sbx_")) continue;
+    const sbxRoot = path.join(tmpRoot, entry);
+    let children: string[] = [];
+    try {
+      const rootStat = await fsp.stat(sbxRoot);
+      if (!rootStat.isDirectory()) continue;
+      children = await fsp.readdir(sbxRoot);
+    } catch {
+      continue;
+    }
+    for (const child of children) {
+      if (child === UPLOAD_DIR || child === ".home") continue;
+      const childPath = path.join(sbxRoot, child);
+      try {
+        const st = await fsp.stat(childPath);
+        if (!st.isDirectory()) continue;
+        if (now - st.mtimeMs > maxIdleMs) {
+          await sbxRemoveTree(sbxRoot, childPath).catch(() => {});
+          await fsp.rm(childPath, { recursive: true, force: true }).catch(() => {});
+          removed++;
+        }
+      } catch {}
+    }
+  }
+  return removed;
 }
 
 export async function destroySandbox(

@@ -117,12 +117,12 @@ export function credentialRequiredMessage(
   const label = PROVIDER_LABEL[provider];
   const subject = toolName ? `"${toolName}"` : "This tool";
   if (scope === "runtime") {
-    return `${subject} is unavailable: no ${label} is configured for this key. Add one in API Keys → Info, or in Settings, then reconnect.`;
+    return `${subject} is unavailable: no ${label} is configured for this key. Add one in API Keys (Info), or in Settings, then reconnect.`;
   }
   if (scope === "global") {
-    return `${subject} needs a ${label}. Add one under Settings → Provider Credentials before enabling it.`;
+    return `${subject} needs a ${label}. Add one under Settings (Provider Credentials) before enabling it.`;
   }
-  return `${subject} needs a ${label}. Add one under Settings → Workspace Credentials or provide an override for this API key before enabling it.`;
+  return `${subject} needs a ${label}. Add one under Settings (Workspace Credentials) or provide an override for this API key before enabling it.`;
 }
 
 /**

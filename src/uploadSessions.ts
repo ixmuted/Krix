@@ -386,7 +386,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
         failedKeyLimiter.hit(ip);
         json(res, 401, {
           error:
-            "Authentication required. Sign in with Google or provide a valid MCP API key.",
+            "Authentication required. Sign in with your Google Account.",
         });
         return;
       }

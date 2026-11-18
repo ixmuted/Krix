@@ -42,7 +42,7 @@ import {
 } from "./icons.js";
 import { registerGitHubTools } from "./githubTools.js";
 import { registerRenderTools } from "./renderTools.js";
-import { registerSandboxTools, destroySandbox } from "./sandboxTools.js";
+import { registerSandboxTools, destroySandbox, cleanupStaleWorkDirs } from "./sandboxTools.js";
 import {
   registerFileTools,
   registerFileRoutes,
@@ -871,7 +871,7 @@ function rejectDisabledKey(res: Response): void {
     res,
     403,
     -32000,
-    "This key or connection has been disabled by its owner. Re-enable it in Krix → API Keys.",
+    "This key or connection has been disabled by its owner. Re-enable it in Krix API Keys.",
   );
 }
 
@@ -4339,6 +4339,7 @@ const cleanupTimer = setInterval(
         } catch {}
       }
     }
+    cleanupStaleWorkDirs(30 * 60 * 1000).catch(() => {});
   },
   3 * 60 * 1000,
 );

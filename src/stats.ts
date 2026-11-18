@@ -175,6 +175,7 @@ export interface StatsSummary {
     success: number;
   }>;
   availableYears: number[];
+  earliestDate?: string | null;
   sharedSandbox: SharedSandboxStats;
   systemHealth: SystemHealthStats;
   statusCodes: Record<string, number>;
@@ -2185,6 +2186,21 @@ export class StatsTracker {
       weeklyTimeline,
       monthlyTimeline,
       availableYears,
+      earliestDate: (() => {
+        let earliest: string | null = null;
+        if (isScoped) {
+          for (const k of activeKeys) {
+            for (const [d, cnt] of Object.entries(k.daily || {})) {
+              if (Number(cnt || 0) > 0 && (!earliest || d < earliest)) earliest = d;
+            }
+          }
+        } else {
+          for (const [d, m] of Object.entries(this.globalDaily)) {
+            if (Number(m?.requests || 0) > 0 && (!earliest || d < earliest)) earliest = d;
+          }
+        }
+        return earliest;
+      })(),
       sharedSandbox:
         sharedSandboxOverride || this.getSharedSandboxStats(sandboxRoot, isOwner),
       systemHealth,
