@@ -580,7 +580,11 @@ export function renderStorePage(params: {
         document.getElementById('deleteFileName').value = name;
         document.getElementById('deleteFileSource').value = source || 'store';
         const msg = document.getElementById('deleteModalMessage');
-        if (msg) msg.textContent = 'Are you sure you want to permanently delete ' + name + '?';
+        const safeDisplayName = name.length > 36 ? (name.slice(0, 20) + '...' + name.slice(-12)) : name;
+        if (msg) {
+          msg.style.overflowWrap = 'anywhere';
+          msg.textContent = 'Are you sure you want to permanently delete ' + safeDisplayName + '?';
+        }
         const modal = document.getElementById('deleteFileModal');
         if (modal) {
           modal.hidden = false;
