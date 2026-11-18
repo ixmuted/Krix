@@ -107,6 +107,7 @@ export function renderStorePage(params: {
         </div>
       </div>
 
+      <div class="store-view-body">
       <div class="table-wrap">
         <table id="storeTable">
           <thead><tr><th>Name</th><th class="hide-sm">Size</th><th class="hide-sm">Retention</th><th class="hide-sm">Visibility</th><th class="hide-sm">Uploaded</th><th style="text-align:right;"><span class="sr-only">Actions</span></th></tr></thead>
@@ -214,7 +215,10 @@ export function renderStorePage(params: {
       </div>
 
       <div id="storeGrid" class="store-grid" style="display:none;">
-        ${files
+        ${
+          files.length === 0
+            ? `<div class="empty" style="grid-column:1 / -1;">No files yet. Upload files to see them here.</div>`
+            : files
           .map((file, idx) => {
             const fId = escapeHtml(file.id || `file_${idx}`);
             const rawFileName = String(
@@ -298,6 +302,7 @@ export function renderStorePage(params: {
             `;
           })
           .join("")}
+      </div>
       </div>
 
       <div id="storePagination" class="pager" style="padding:16px 20px; border-top:1px solid var(--border-subtle);">

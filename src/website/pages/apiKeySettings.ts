@@ -162,7 +162,6 @@ export function renderApiKeySettingsPage(params: {
     <div class="key-metadata-grid">
       <div class="stat">
         <div><div class="key-meta-label">Key Status</div><div id="keyStatusText" class="key-meta-value" style="color:${isKeyDisabled ? "var(--error)" : "var(--success)"};">${isKeyDisabled ? "Disabled" : "Active"}</div></div>
-        <label class="switch krix-switch" title="${rawKeyId === "primary-key" ? "The primary key cannot be disabled" : "Enable or disable this key"}"><input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} ${rawKeyId === "primary-key" ? "disabled" : ""} onchange="updateKeyStatusLabel(this.checked)"><span class="krix-slider"></span></label>
       </div>
       <div class="stat"><div class="key-meta-label">Created Date</div><div class="key-meta-value">${escapeHtml(createdDate)}</div></div>
       <div class="stat"><div class="key-meta-label">Connected App</div><div class="key-meta-value">${appName}</div></div>
@@ -268,6 +267,20 @@ export function renderApiKeySettingsPage(params: {
       <div class="key-pagination"><button type="button" class="pager-btn pager-prev" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button><span id="keyToolsPageInfo">Page 1 of 1</span><button type="button" class="pager-btn pager-next" id="keyToolsNext" onclick="changeKeyToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button></div>
     </section>
 
+    <section class="panel key-settings-card">
+      <h2 class="key-section-title" style="margin-bottom:14px;">Friendly zone</h2>
+      <div class="rows">
+        <div class="row">
+          <div><div class="row-title">Key status</div><div class="row-desc">${rawKeyId === "primary-key" ? "The primary key is always active." : "Enable or disable this key without deleting it."}</div></div>
+          <label class="switch krix-switch" title="${rawKeyId === "primary-key" ? "The primary key cannot be disabled" : "Enable or disable this key"}"><input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} ${rawKeyId === "primary-key" ? "disabled" : ""} onchange="updateKeyStatusLabel(this.checked)"><span class="krix-slider"></span></label>
+        </div>
+        <div class="row">
+          <div><div class="row-title">Rename ${key.type === "oauth" ? "app" : "API key"}</div><div class="row-desc">Update the display name for this ${key.type === "oauth" ? "authorized app" : "key"} (4–16 characters).</div></div>
+          <button type="button" class="btn danger-zone-btn" onclick="openRenameKeySettingsModal()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg("edit", 15)}<span>Rename</span></button>
+        </div>
+      </div>
+    </section>
+
     <section class="panel danger key-settings-card">
       <h2 class="key-section-title" style="color:var(--error); margin-bottom:14px;">Danger zone</h2>
       <div class="rows">
@@ -275,8 +288,37 @@ export function renderApiKeySettingsPage(params: {
           <div><div class="row-title">Reset tool permissions</div><div class="row-desc">Remove this key's own on/off choices so it follows workspace defaults again.</div></div>
           <button type="button" class="btn danger danger-zone-btn" onclick="resetKeyToolOverrides()">${renderSvg("refresh", 15)}<span>Reset to Default</span></button>
         </div>
+        <div class="row">
+          <div><div class="row-title danger">Delete ${key.type === "oauth" ? "OAuth access" : "API key"}</div><div class="row-desc">${rawKeyId === "primary-key" ? "The primary key cannot be deleted." : "Permanently revoke this key. Connected clients will lose access immediately."}</div></div>
+          <button type="button" class="btn danger danger-zone-btn" onclick="openDeleteKeySettingsModal()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg("trash", 15)}<span>Delete API Key</span></button>
+        </div>
       </div>
     </section>
+
+    <div id="renameKeySettingsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="renameKeySettingsTitle" onclick="if(event.target===this) closeRenameKeySettingsModal()">
+      <div class="modal-card">
+        <h3 class="modal-title" id="renameKeySettingsTitle">Rename ${key.type === "oauth" ? "app" : "API key"}</h3>
+        <p class="modal-text">Enter a new name (4–16 characters).</p>
+        <div class="modal-body">
+          <input type="text" id="renameKeySettingsInput" class="input" minlength="4" maxlength="16" value="${keyName}" aria-label="New name">
+        </div>
+        <div class="modal-actions" style="margin-top:0;">
+          <button type="button" class="btn" onclick="closeRenameKeySettingsModal()">Cancel</button>
+          <button type="button" id="renameKeySettingsSubmitBtn" class="btn primary" onclick="submitRenameKeySettings()">Save name</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteKeySettingsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="deleteKeySettingsTitle" onclick="if(event.target===this) closeDeleteKeySettingsModal()">
+      <div class="modal-card">
+        <h3 class="modal-title" id="deleteKeySettingsTitle">Delete ${key.type === "oauth" ? "OAuth access" : "API key"}?</h3>
+        <p class="modal-text">Are you sure you want to permanently delete "${keyName}"? Any connected clients will lose access immediately.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeDeleteKeySettingsModal()">Cancel</button>
+          <button type="button" id="deleteKeySettingsConfirmBtn" class="btn danger" onclick="submitDeleteKeySettings()">Delete</button>
+        </div>
+      </div>
+    </div>
 
     <script>
       const credentialReady = {
@@ -393,6 +435,80 @@ export function renderApiKeySettingsPage(params: {
           item.classList.toggle('active', item === button);
         });
         window.addEventListener('resize', renderKeyToolsPage, { passive: true });
+      const isOAuthKeyType = ${JSON.stringify(key.type === "oauth")};
+      function openRenameKeySettingsModal() {
+        const modal = document.getElementById('renameKeySettingsModal');
+        const input = document.getElementById('renameKeySettingsInput');
+        if (modal) {
+          if (modal.parentNode !== document.body) document.body.appendChild(modal);
+          modal.hidden = false;
+          modal.style.display = 'flex';
+          setTimeout(() => input?.focus(), 50);
+        }
+      }
+      function closeRenameKeySettingsModal() {
+        const modal = document.getElementById('renameKeySettingsModal');
+        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+      }
+      async function submitRenameKeySettings() {
+        const input = document.getElementById('renameKeySettingsInput');
+        const newName = (input?.value || '').trim();
+        if (newName.length < 4 || newName.length > 16) {
+          showToast('Name must be 4–16 characters long', 'error');
+          return;
+        }
+        const btn = document.getElementById('renameKeySettingsSubmitBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const url = isOAuthKeyType ? '/oauth/authorizations/${urlKeyId}' : '/api/keys/${urlKeyId}';
+          const payload = isOAuthKeyType ? { name: newName } : { label: newName };
+          const res = await fetch(url, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok === false || data.success === false) {
+            throw new Error(data.error || 'Rename failed');
+          }
+          showToast('Renamed successfully', 'success');
+          closeRenameKeySettingsModal();
+          setTimeout(() => window.location.reload(), 400);
+        } catch (err) {
+          showToast(err.message || 'Rename failed', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+      function openDeleteKeySettingsModal() {
+        const modal = document.getElementById('deleteKeySettingsModal');
+        if (modal) {
+          if (modal.parentNode !== document.body) document.body.appendChild(modal);
+          modal.hidden = false;
+          modal.style.display = 'flex';
+        }
+      }
+      function closeDeleteKeySettingsModal() {
+        const modal = document.getElementById('deleteKeySettingsModal');
+        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+      }
+      async function submitDeleteKeySettings() {
+        const btn = document.getElementById('deleteKeySettingsConfirmBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const url = isOAuthKeyType ? '/oauth/authorizations/${urlKeyId}' : '/api/keys/${urlKeyId}';
+          const res = await fetch(url, { method: 'DELETE' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok === false || data.success === false) {
+            throw new Error(data.error || 'Delete failed');
+          }
+          showToast('Deleted successfully', 'success');
+          setTimeout(() => { window.location.href = '/api'; }, 450);
+        } catch (err) {
+          showToast(err.message || 'Delete failed', 'error');
+          if (btn) btn.disabled = false;
+        }
+      }
       renderKeyToolsPage();
       }
       let initialActiveState = Boolean(document.getElementById('keyActiveToggle')?.checked);

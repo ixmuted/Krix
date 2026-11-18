@@ -441,17 +441,7 @@ export function renderApiKeysPage(params: {
       window.addEventListener('scroll', function() { if (activeKeyMenuId) closeKeyDropdown(activeKeyMenuId); }, true);
 
       function showToast(message, type = 'success') {
-        const container = document.getElementById('toastContainer');
-        if (!container) return;
-        const toast = document.createElement('div');
-        toast.className = 'toast ' + type;
-        toast.textContent = message;
-        container.appendChild(toast);
-        requestAnimationFrame(() => toast.classList.add('show'));
-        setTimeout(() => {
-          toast.classList.remove('show');
-          setTimeout(() => toast.remove(), 250);
-        }, 3000);
+        if (window.showToast) window.showToast(message, type);
       }
 
       // Clicking a key or OAuth row opens its settings page (ignores clicks on buttons, links and menus).

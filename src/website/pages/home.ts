@@ -1,5 +1,4 @@
-// Homepage Overview, Client Configurator, and Sandbox Workspace Explorer
-// Connect hub
+// Homepage Overview, Client Configurator, Animated Showcase, 12+ Features, and Sandbox Workspace Explorer
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
@@ -81,18 +80,126 @@ export function renderHomePage(params: {
     },
   ];
 
+  const featuresList = [
+    {
+      icon: "terminal",
+      title: "Persistent Bash Shell",
+      desc: "Keeps your working directory, exports, and environment alive across every tool call.",
+    },
+    {
+      icon: "cpu",
+      title: "Multi-Language Runner",
+      desc: "Execute Python, Node.js, TypeScript, Go, C++, Rust, Java, and Ruby in one call.",
+    },
+    {
+      icon: "shield-check",
+      title: "Per-User Linux Isolation",
+      desc: "Every key and OAuth client runs under its own unprivileged OS user and home directory.",
+    },
+    {
+      icon: "github",
+      title: "GitHub Automation",
+      desc: "Read files, inspect commits, open pull requests, and manage issues directly from your agent.",
+    },
+    {
+      icon: "layers",
+      title: "Code Graph Intelligence",
+      desc: "Build AST symbol graphs for fast call-chain tracing and blast-radius impact analysis.",
+    },
+    {
+      icon: "server",
+      title: "Render Cloud Control",
+      desc: "Trigger deploys, stream service logs, and inspect environment configs in real time.",
+    },
+    {
+      icon: "lock",
+      title: "OAuth 2.1 PKCE Discovery",
+      desc: "Zero-config authorization handshake with automatic protected-resource metadata.",
+    },
+    {
+      icon: "sliders",
+      title: "Granular Tool Permissions",
+      desc: "Toggle individual tools on or off globally or per API key with instant propagation.",
+    },
+    {
+      icon: "key",
+      title: "Per-Key Credential Overrides",
+      desc: "Bind custom GitHub or Render tokens to specific keys without exposing workspace secrets.",
+    },
+    {
+      icon: "files",
+      title: "Ephemeral & Permanent Store",
+      desc: "Upload datasets for 24-hour scratch work or persist artifacts with shareable links.",
+    },
+    {
+      icon: "activity",
+      title: "Real-Time Telemetry & Logs",
+      desc: "Track daily request timelines, P95 latency, tool breakdowns, and per-key error rates.",
+    },
+    {
+      icon: "refresh",
+      title: "Idle Workspace Auto-Clear",
+      desc: "Inactive cloned repositories automatically clear after timeout to keep storage clean.",
+    },
+  ];
+
+  const capabilityCards = [
+    {
+      tag: "Runtime",
+      meta: "Isolated Per-User Execution",
+      title: "Sandboxed Shell & Multi-Language Runner",
+      desc: "Each authenticated key and OAuth session runs inside an isolated unprivileged Linux user with a persistent bash shell, private workspace, and automatic idle cleanup.",
+      specs: [
+        { k: "Transport", v: "Streamable HTTP + SSE" },
+        { k: "Languages", v: "Python · Node · TS · Go · C++ · Rust" },
+        { k: "Shell State", v: "Persistent cwd & env per session" },
+      ],
+      ctaLabel: "Explore Sandbox Tools",
+      ctaHref: "/tools",
+    },
+    {
+      tag: "Engineering",
+      meta: "Repository & AST Analysis",
+      title: "GitHub Operations & Code Graph Intelligence",
+      desc: "Inspect repositories, manage branches, commits, and pull requests, or build a structured symbol graph for fast dependency and impact tracing across large codebases.",
+      specs: [
+        { k: "Integrations", v: "GitHub REST + Code Graph" },
+        { k: "Credential Scope", v: "Workspace or Per-Key Override" },
+        { k: "Access Control", v: "Per-Tool Granular Permissions" },
+      ],
+      ctaLabel: "Configure Credentials & Keys",
+      ctaHref: "/api",
+    },
+    {
+      tag: "Infrastructure",
+      meta: "Cloud Deployments & Artifacts",
+      title: "Render Cloud Control & Managed File Storage",
+      desc: "Trigger deployments, inspect service logs, manage environment variables, and exchange datasets or build outputs seamlessly between your browser and AI agent.",
+      specs: [
+        { k: "Storage Modes", v: "24h Ephemeral · Permanent Store" },
+        { k: "Sharing", v: "Signed & Public Download Links" },
+        { k: "Telemetry", v: "Real-Time Usage & Latency Logs" },
+      ],
+      ctaLabel: "Open Files & Usage",
+      ctaHref: "/store",
+    },
+  ];
+
   const content = `
     <section class="hero">
-      <p id="homeGreeting" class="hero-greeting" aria-live="polite">Welcome back</p>
+      <div class="hero-greeting-row">
+        <span class="hero-spark" aria-hidden="true">${renderSvg("krix-spark", 26)}</span>
+        <p id="homeGreeting" class="hero-greeting-text" aria-live="polite">Welcome back.</p>
+      </div>
       <h1 class="hero-title">Connect your AI tools to Krix</h1>
-      <p class="hero-sub">One MCP endpoint for GitHub, Render and an isolated sandbox. Add it to your client and start working.</p>
+      <p class="hero-sub">One unified MCP gateway for GitHub, Render, code-graph analysis, and an isolated execution sandbox.</p>
     </section>
 
     <div class="composer">
       <div class="endpoint-row">
         <code id="mcpEndpointValue">${escapeHtml(mcpEndpointUrl)}</code>
       </div>
-      <p class="composer-hint">Streamable HTTP with OAuth 2.1 or an API key</p>
+      <p class="composer-hint">Streamable HTTP with OAuth 2.1 PKCE or an API key</p>
       <div class="composer-bar">
         <a href="/api" class="btn sm">${renderSvg("key", 14)}<span>Create an API key</span></a>
         <button type="button" class="btn primary sm" onclick="window.copyToClipboard('${escapeHtml(mcpEndpointUrl)}', this)">
@@ -106,6 +213,74 @@ export function renderHomePage(params: {
       <a href="/upload" class="chip">${renderSvg("upload", 14)}Upload files</a>
       <a href="/store" class="chip">${renderSvg("files", 14)}Your files</a>
       <a href="/stats" class="chip">${renderSvg("activity", 14)}Usage</a>
+    </div>
+
+    <div class="home-showcase">
+      <span class="hero-kicker">
+        <span class="live-pulse-wrap" aria-hidden="true"><span class="live-pulse-dot"></span><span class="live-pulse-ring"></span></span>
+        <span>Production MCP Runtime</span>
+      </span>
+      <h2 class="home-showcase-title">Built for safe, autonomous engineering workflows</h2>
+      <p class="home-showcase-sub">Connect any MCP-compatible assistant in seconds with per-key tool permissions, encrypted credential overrides, and isolated compute.</p>
+
+      <div class="animated-terminal" aria-label="Live runtime preview">
+        <div class="animated-terminal-head">
+          <span class="term-dots"><span></span><span></span><span></span></span>
+          <span>krix-sandbox · bash</span>
+        </div>
+        <div class="animated-terminal-body">
+          <div class="term-line"><span class="term-prompt">$</span><span id="termCmdText">sandbox_exec "npm run typecheck && npm test"</span><span class="term-cursor" aria-hidden="true"></span></div>
+          <div id="termOutText" class="text-muted" style="margin-top:6px;">✓ 0 type errors · 24/24 suites passed in 1.4s</div>
+        </div>
+      </div>
+
+      <div class="home-showcase-actions">
+        <a href="/tools" class="btn primary sm">${renderSvg("terminal", 14)}<span>Inspect Tools</span></a>
+        <a href="/stats" class="btn sm">${renderSvg("activity", 14)}<span>View Telemetry</span></a>
+      </div>
+    </div>
+
+    <h2 class="section-title">Everything included</h2>
+    <div class="features-grid">
+      ${featuresList
+        .map(
+          (f) => `
+      <div class="feature-card">
+        <span class="feature-icon">${renderSvg(f.icon, 18)}</span>
+        <div class="feature-title">${escapeHtml(f.title)}</div>
+        <div class="feature-desc">${escapeHtml(f.desc)}</div>
+      </div>`,
+        )
+        .join("")}
+    </div>
+
+    <h2 class="section-title">Platform capabilities</h2>
+    <div class="editorial-stack">
+      ${capabilityCards
+        .map(
+          (card) => `
+      <article class="editorial-card">
+        <div class="editorial-card-meta">
+          <span class="badge">${escapeHtml(card.tag)}</span>
+          <span>${escapeHtml(card.meta)}</span>
+        </div>
+        <h3 class="editorial-card-title">${escapeHtml(card.title)}</h3>
+        <p class="editorial-card-desc">${escapeHtml(card.desc)}</p>
+        <div class="editorial-specs">
+          ${card.specs
+            .map(
+              (s) => `
+          <div class="editorial-spec-row">
+            <span class="editorial-spec-k">${escapeHtml(s.k)}</span>
+            <span class="editorial-spec-v">${escapeHtml(s.v)}</span>
+          </div>`,
+            )
+            .join("")}
+        </div>
+        <a href="${card.ctaHref}" class="btn editorial-cta">${escapeHtml(card.ctaLabel)} ${renderSvg("chevron-right", 14)}</a>
+      </article>`,
+        )
+        .join("")}
     </div>
 
     <h2 class="section-title">Integration options</h2>
@@ -126,7 +301,7 @@ export function renderHomePage(params: {
     </div>
 
     <h2 class="section-title">Quick configuration</h2>
-    <div class="panel flush">
+    <div class="panel flush quick-config-panel">
       <div class="panel-head">
         <div class="tabs tabs-fit" role="tablist">
           <button type="button" id="tabAiApps" class="nav-pill active" role="tab" onclick="switchClientTab('ai-apps')">AI Apps</button>
@@ -220,14 +395,99 @@ export function renderHomePage(params: {
 
     <script>
       (function() {
-        var h = new Date().getHours();
-        var greeting = (h >= 5 && h < 12) ? 'Good Morning'
-          : (h >= 12 && h < 17) ? 'Good Afternoon'
-          : (h >= 17 && h < 21) ? 'Good Evening'
-          : 'Good Night';
+        var now = new Date();
+        var h = now.getHours();
         var firstName = ${JSON.stringify(ownerFirstName)};
+        var nameSuffix = firstName ? (', ' + firstName) : '';
+
+        var morningGreetings = [
+          'Good Morning' + nameSuffix + '.',
+          'Fresh coffee, clean terminal.',
+          'Early build, zero warnings.',
+          'Ready for a morning sprint?',
+          'New day, green CI ahead.',
+          'Morning focus mode is on.',
+          'Let’s ship something clean today.',
+          'Sun’s up, sandbox is warm.',
+          'First commit of the day awaits.',
+          'Quiet morning, sharp mind.',
+          'Booting up your workspace.',
+          'Clean slate for today’s architecture.',
+          'Morning momentum starts here.'
+        ];
+
+        var afternoonGreetings = [
+          'Good Afternoon' + nameSuffix + '.',
+          'Midday shipping sprint.',
+          'Keep the momentum rolling.',
+          'Deep work, steady progress.',
+          'Afternoon build & deploy.',
+          'All systems nominal this afternoon.',
+          'Halfway through—time to ship.',
+          'Turning ideas into pull requests.',
+          'Fast feedback loops await.',
+          'Stay in flow, keep building.',
+          'Afternoon refactor session.',
+          'Sandbox is primed and ready.',
+          'Focused afternoon, clean diffs.'
+        ];
+
+        var eveningGreetings = [
+          'Good Evening' + nameSuffix + '.',
+          'Evening code & calm.',
+          'Golden hour for shipping.',
+          'Wrapping up today’s milestones.',
+          'One last clean PR before dinner?',
+          'Quiet evening, deep focus.',
+          'Polishing the final details.',
+          'Evening build session active.',
+          'Smooth deploys into the evening.',
+          'Relaxed pace, sharp execution.',
+          'Closing out tickets cleanly.',
+          'Sunset sprint in progress.',
+          'Evening lab is open.'
+        ];
+
+        var nightGreetings = [
+          'Good Night' + nameSuffix + '.',
+          'It’s a late-night jam session.',
+          'Midnight builders club.',
+          'Night owl engineering mode.',
+          'Burning the midnight oil cleanly.',
+          'Quiet world, loud ideas.',
+          'Late-night prototype lab.',
+          'Zero distractions after midnight.',
+          'Stars out, terminal glowing.',
+          'Deep-night debugging session.',
+          'Shipping while the world sleeps.',
+          'Late-night creative flow.',
+          'After-hours sandbox session.'
+        ];
+
+        var pool = (h >= 5 && h < 12) ? morningGreetings
+          : (h >= 12 && h < 17) ? afternoonGreetings
+          : (h >= 17 && h < 21) ? eveningGreetings
+          : nightGreetings;
+
+        var idx = (now.getMinutes() + now.getDate()) % pool.length;
         var el = document.getElementById('homeGreeting');
-        if (el) el.textContent = firstName ? (greeting + ', ' + firstName) : greeting;
+        if (el) el.textContent = pool[idx];
+
+        // Animated live terminal preview
+        var demos = [
+          { cmd: 'sandbox_exec "npm run typecheck && npm test"', out: '✓ 0 type errors · 24/24 suites passed in 1.4s' },
+          { cmd: 'code_graph_impact --symbol "verifyAccessToken"', out: '✓ Indexed 142 files · 3 callers traced in 18ms' },
+          { cmd: 'github_create_pr --base main --head feat/oauth', out: '✓ Pull request #84 opened · checks pending' },
+          { cmd: 'render_deploy --service krix-prod --wait', out: '✓ Live at https://krix.onrender.com · 200 OK' }
+        ];
+        var dIdx = 0;
+        setInterval(function() {
+          dIdx = (dIdx + 1) % demos.length;
+          var cEl = document.getElementById('termCmdText');
+          var oEl = document.getElementById('termOutText');
+          if (cEl) cEl.textContent = demos[dIdx].cmd;
+          if (oEl) oEl.textContent = demos[dIdx].out;
+        }, 3800);
       })();
 
       var INTEGRATION_DATA = ${JSON.stringify(

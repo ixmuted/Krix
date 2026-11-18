@@ -115,7 +115,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         </div>
         <ul id="list" class="up-list"></ul>
         <div id="emptyFilesMsg" class="empty">No files yet. Drop files on the left or choose them to begin.</div>
-        <a href="/store" id="viewStoreLink" class="btn" style="display:none; margin-top:12px;">${renderSvg("folder", 16)}<span>View in files</span></a>
+        <a href="/store" id="viewStoreLink" class="btn primary" style="display:none; margin-top:12px;">${renderSvg("files", 16)}<span>View in files</span></a>
         <div class="err" id="upErr" role="alert" style="color:var(--error); font-size:13px; margin-top:8px;"></div>
       </div>
     </div>
@@ -134,7 +134,9 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
     </div>
 
     <style ${nonceAttr}>
-      .upload-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+      .upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+      .upload-grid > .panel { height: 100%; display: flex; flex-direction: column; }
+      @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
       .up-list { list-style: none; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; }
       .up-row { border-bottom: 1px solid var(--border-subtle); padding: 10px 2px; display: flex; flex-direction: column; gap: 6px; }
       .up-row:last-child { border-bottom: 0; }
