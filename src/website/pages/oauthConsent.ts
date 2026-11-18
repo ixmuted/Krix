@@ -64,9 +64,15 @@ export function renderOAuthConsentPage(params: {
     ? decodeURIComponent(params.owner.email)
     : "owner@quickwitty.com";
   const ownerEmail = escapeHtml(rawEmail);
-  const ownerName = escapeHtml(
+  const rawOwnerName = String(
     params.owner?.name || rawEmail.split("@")[0] || "User",
   );
+  const ownerName = escapeHtml(rawOwnerName);
+  const ownerPicture = params.owner?.picture ? escapeHtml(String(params.owner.picture)) : "";
+  const profileFallbackSvg = renderSvg("user", 13);
+  const ownerPfpHtml = ownerPicture
+    ? `<span class="oauth-pfp-box"><img src="${ownerPicture}" alt="" referrerpolicy="no-referrer"><span class="oauth-pfp-fallback hidden">${profileFallbackSvg}</span></span>`
+    : `<span class="oauth-pfp-box"><span class="oauth-pfp-fallback">${profileFallbackSvg}</span></span>`;
 
   let domain = "external.app";
   try {
@@ -186,8 +192,11 @@ export function renderOAuthConsentPage(params: {
     .domain-pill img { width: 12px; height: 12px; border-radius: 2px; }
     .oauth-user-badge { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--bg-surface-1); border: 1px solid var(--border-subtle); margin-bottom: 20px; font-size: 13px; }
     .oauth-user-details { display: flex; flex-direction: column; gap: 3px; overflow-x: auto; white-space: nowrap; }
-    .oauth-user-line { white-space: nowrap; color: var(--fg-3); }
+    .oauth-user-line { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--fg-3); }
     .oauth-user-line strong { font-weight: 500; color: var(--fg); }
+    .oauth-pfp-box { width: 20px; height: 20px; border-radius: 6px; background: var(--bg-surface-2); color: var(--fg-2); border: 1px solid var(--border-subtle); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .oauth-pfp-fallback { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+    .oauth-pfp-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .oauth-scopes { display: flex; flex-direction: column; margin-bottom: 24px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-surface-1); overflow: hidden; }
     .scopes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; }
     .scopes-title { font-size: 13px; font-weight: 500; color: var(--fg); }
@@ -235,7 +244,7 @@ export function renderOAuthConsentPage(params: {
     <div class="oauth-user-badge">
       <span class="user-badge-label text-muted">Signed in as</span>
       <div class="oauth-user-details">
-        <div class="oauth-user-line">Name: <strong>${ownerName}</strong></div>
+        <div class="oauth-user-line">${ownerPfpHtml}<span>:</span> <strong>${ownerName}</strong></div>
         <div class="oauth-user-line">Email: <strong>${ownerEmail}</strong></div>
       </div>
     </div>
