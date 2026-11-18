@@ -6,6 +6,7 @@ import os from "node:os";
 import {
   renderHeader,
   renderFooter,
+  renderRecaptchaNotice,
   renderGoogleLogoSvg,
   renderAuthRequiredCard,
   renderRecaptchaScript,
@@ -224,7 +225,7 @@ test("Google reCAPTCHA v3 badge hiding, script loading, and footer terms links",
     "Upload page must pass nonce to header and scripts",
   );
 
-  const footer = renderFooter();
+  const footer = renderFooter() + renderRecaptchaNotice();
   assert.ok(
     footer.includes("This site is protected by reCAPTCHA"),
     "Footer must include required reCAPTCHA notice",
