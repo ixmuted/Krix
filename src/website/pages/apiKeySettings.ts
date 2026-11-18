@@ -455,90 +455,9 @@ export function renderApiKeySettingsPage(params: {
         document.querySelectorAll('.category-filter-pill, .settings-cat-pill').forEach(item => {
           item.classList.toggle('active', item === button);
         });
-        window.addEventListener('resize', renderKeyToolsPage, { passive: true });
-      const isOAuthKeyType = ${JSON.stringify(key.type === "oauth")};
-      function openRenameKeySettingsModal() {
-        const modal = document.getElementById('renameKeySettingsModal');
-        const input = document.getElementById('renameKeySettingsInput');
-        if (input) input.value = ${JSON.stringify(key.label || key.clientName || key.name || "")};
-        if (modal) {
-          if (modal.parentNode !== document.body) document.body.appendChild(modal);
-          modal.hidden = false;
-          modal.style.display = 'flex';
-          setTimeout(() => { input?.focus(); input?.select(); }, 50);
-        }
+        renderKeyToolsPage();
       }
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-          closeRenameKeySettingsModal();
-          closeDeleteKeySettingsModal();
-        }
-      });
-      function closeRenameKeySettingsModal() {
-        const modal = document.getElementById('renameKeySettingsModal');
-        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
-      }
-      async function submitRenameKeySettings() {
-        const input = document.getElementById('renameKeySettingsInput');
-        const newName = (input?.value || '').trim();
-        if (newName.length < 4 || newName.length > 16) {
-          showToast('Name must be 4–16 characters long', 'error');
-          return;
-        }
-        const btn = document.getElementById('renameKeySettingsSubmitBtn');
-        if (btn) btn.disabled = true;
-        try {
-          const url = isOAuthKeyType ? '/oauth/authorizations/${urlKeyId}' : '/api/keys/${urlKeyId}';
-          const payload = isOAuthKeyType ? { name: newName } : { label: newName };
-          const res = await fetch(url, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || data.ok === false || data.success === false) {
-            throw new Error(data.error || 'Rename failed');
-          }
-          showToast('Renamed successfully', 'success');
-          closeRenameKeySettingsModal();
-          setTimeout(() => window.location.reload(), 400);
-        } catch (err) {
-          showToast(err.message || 'Rename failed', 'error');
-        } finally {
-          if (btn) btn.disabled = false;
-        }
-      }
-      function openDeleteKeySettingsModal() {
-        const modal = document.getElementById('deleteKeySettingsModal');
-        if (modal) {
-          if (modal.parentNode !== document.body) document.body.appendChild(modal);
-          modal.hidden = false;
-          modal.style.display = 'flex';
-        }
-      }
-      function closeDeleteKeySettingsModal() {
-        const modal = document.getElementById('deleteKeySettingsModal');
-        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
-      }
-      async function submitDeleteKeySettings() {
-        const btn = document.getElementById('deleteKeySettingsConfirmBtn');
-        if (btn) btn.disabled = true;
-        try {
-          const url = isOAuthKeyType ? '/oauth/authorizations/${urlKeyId}' : '/api/keys/${urlKeyId}';
-          const res = await fetch(url, { method: 'DELETE' });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || data.ok === false || data.success === false) {
-            throw new Error(data.error || 'Delete failed');
-          }
-          showToast('Deleted successfully', 'success');
-          setTimeout(() => { window.location.href = '/api'; }, 450);
-        } catch (err) {
-          showToast(err.message || 'Delete failed', 'error');
-          if (btn) btn.disabled = false;
-        }
-      }
-      renderKeyToolsPage();
-      }
+      window.addEventListener('resize', renderKeyToolsPage, { passive: true });
       let initialActiveState = document.getElementById('keyActiveToggleBtn')?.dataset.active !== 'false';
       const initialToolCheckStates = new Map();
       document.querySelectorAll('.key-tool-check').forEach(chk => {
@@ -748,6 +667,93 @@ export function renderApiKeySettingsPage(params: {
         finally { if (button) button.disabled = false; }
       }
       function showToast(message, type) { if (window.showToast) window.showToast(message, type || 'success'); else alert(message); }
+      const isOAuthKeyType = ${JSON.stringify(key.type === "oauth")};
+      function openRenameKeySettingsModal() {
+        const modal = document.getElementById('renameKeySettingsModal');
+        const input = document.getElementById('renameKeySettingsInput');
+        if (input) input.value = ${JSON.stringify(rawKeyName)};
+        if (modal) {
+          if (modal.parentNode !== document.body) document.body.appendChild(modal);
+          modal.hidden = false;
+          modal.style.display = 'flex';
+          setTimeout(() => { input?.focus(); input?.select(); }, 50);
+        }
+      }
+      function closeRenameKeySettingsModal() {
+        const modal = document.getElementById('renameKeySettingsModal');
+        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+      }
+      async function submitRenameKeySettings() {
+        const input = document.getElementById('renameKeySettingsInput');
+        const newName = (input?.value || '').trim();
+        if (newName.length < 4 || newName.length > 16) {
+          showToast('Name must be 4–16 characters long', 'error');
+          return;
+        }
+        const btn = document.getElementById('renameKeySettingsSubmitBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const url = isOAuthKeyType ? '/oauth/authorizations/${urlKeyId}' : '/api/keys/${urlKeyId}';
+          const payload = isOAuthKeyType ? { name: newName } : { label: newName };
+          const res = await fetch(url, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok === false || data.success === false) {
+            throw new Error(data.error || 'Rename failed');
+          }
+          showToast('Renamed successfully', 'success');
+          closeRenameKeySettingsModal();
+          setTimeout(() => window.location.reload(), 400);
+        } catch (err) {
+          showToast(err.message || 'Rename failed', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+      function openDeleteKeySettingsModal() {
+        const modal = document.getElementById('deleteKeySettingsModal');
+        if (modal) {
+          if (modal.parentNode !== document.body) document.body.appendChild(modal);
+          modal.hidden = false;
+          modal.style.display = 'flex';
+        }
+      }
+      function closeDeleteKeySettingsModal() {
+        const modal = document.getElementById('deleteKeySettingsModal');
+        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+      }
+      async function submitDeleteKeySettings() {
+        const btn = document.getElementById('deleteKeySettingsConfirmBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const url = isOAuthKeyType ? '/oauth/authorizations/${urlKeyId}' : '/api/keys/${urlKeyId}';
+          const res = await fetch(url, { method: 'DELETE' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok === false || data.success === false) {
+            throw new Error(data.error || 'Delete failed');
+          }
+          showToast('Deleted successfully', 'success');
+          setTimeout(() => { window.location.href = '/api'; }, 450);
+        } catch (err) {
+          showToast(err.message || 'Delete failed', 'error');
+          if (btn) btn.disabled = false;
+        }
+      }
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeRenameKeySettingsModal();
+          closeDeleteKeySettingsModal();
+        }
+      });
+      window.openRenameKeySettingsModal = openRenameKeySettingsModal;
+      window.closeRenameKeySettingsModal = closeRenameKeySettingsModal;
+      window.submitRenameKeySettings = submitRenameKeySettings;
+      window.openDeleteKeySettingsModal = openDeleteKeySettingsModal;
+      window.closeDeleteKeySettingsModal = closeDeleteKeySettingsModal;
+      window.submitDeleteKeySettings = submitDeleteKeySettings;
       renderKeyToolsPage();
     </script>
   `;

@@ -56,9 +56,9 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
 
     <div class="stats" style="margin-bottom:16px;">
       <div class="stat">
-        <div class="stat-label">Session Status</div>
-        <div id="valSessionStatus" class="stat-value sm cluster"><span id="valSessionDot" class="status-dot-available" style="background:var(--fg-3);"></span><span id="valSessionLabel">Connecting…</span></div>
-        <div class="list-meta" style="margin-top:4px;">Folder: <code id="valSessionFolder" class="inline-code">N/A</code></div>
+        <div class="stat-label">Folder</div>
+        <div class="stat-value sm"><code id="valSessionFolder" class="inline-code">N/A</code></div>
+        <div class="list-meta" style="margin-top:4px;">Sandbox directory</div>
       </div>
       <div class="stat">
         <div class="stat-label">Files Uploaded</div>
@@ -144,7 +144,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
       .up-meta { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
       .up-bar { height: 4px; border-radius: 999px; background: var(--bg-surface-3); overflow: hidden; }
       .up-bar > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
-      .up-row.done .up-bar > span { background: var(--success); }
+      .up-row.done .up-bar > span { background: #166534; }
       .up-row.error .up-bar > span { background: var(--error); }
       .up-row.error .up-meta { color: var(--error); }
     </style>
@@ -200,11 +200,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         }
 
         function setSessionUi(active) {
-          var dot = document.getElementById('valSessionDot');
-          var lbl = document.getElementById('valSessionLabel');
           var fld = document.getElementById('valSessionFolder');
-          if (dot) dot.style.background = active ? 'var(--success)' : 'var(--fg-3)';
-          if (lbl) lbl.textContent = active ? 'Active Sandbox' : 'Inactive';
           if (fld) fld.textContent = active ? 'upload/' : 'N/A';
         }
         function openSession() {
