@@ -5,12 +5,12 @@ import { escapeHtml } from "../components.js";
 
 export function renderAuthRequiredCard(
   title: string = "Authentication Required",
-  messageOrReturnTo: string = "/home",
+  messageOrReturnTo: string = "/",
   optionalReturnTo?: string,
 ): string {
   let message =
     "You must sign in with your Google Account to access this section.";
-  let returnTo = "/home";
+  let returnTo = "/";
 
   if (optionalReturnTo !== undefined) {
     message = messageOrReturnTo;

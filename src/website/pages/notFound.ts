@@ -39,7 +39,7 @@ export function renderNotFoundPage(params: {
       <span class="badge bad">${renderSvg("alert", 14)}<span>404 Error</span></span>
       <h1 class="page-title">Page Not Found</h1>
       <p class="text-muted">There is nothing at <code class="inline-code">${safePath}</code> on this server.</p>
-      <a href="/home" class="btn primary">Back to home</a>
+      <a href="/" class="btn primary">Back to home</a>
     </div>
   </div>
 </body>
