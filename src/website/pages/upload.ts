@@ -57,8 +57,8 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
     <div class="stats" style="margin-bottom:16px;">
       <div class="stat">
         <div class="stat-label">Session Status</div>
-        <div class="stat-value sm cluster"><span class="status-dot-available"></span><span>Active Sandbox</span></div>
-        <div class="list-meta" style="margin-top:4px;">Folder: <code class="inline-code">upload/</code></div>
+        <div id="valSessionStatus" class="stat-value sm cluster"><span id="valSessionDot" class="status-dot-available" style="background:var(--fg-3);"></span><span id="valSessionLabel">Connecting…</span></div>
+        <div class="list-meta" style="margin-top:4px;">Folder: <code id="valSessionFolder" class="inline-code">N/A</code></div>
       </div>
       <div class="stat">
         <div class="stat-label">Files Uploaded</div>
@@ -79,16 +79,16 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
 
     <div id="session" class="upload-grid">
       <div class="panel" style="margin:0;">
-        <div class="panel-head">
+        <div class="panel-head" style="padding-bottom:14px; margin-bottom:14px; border-bottom:1px solid var(--border-subtle);">
           <h2 class="panel-title">Add files</h2>
           <span class="badge">${maxFileMb} MB per file</span>
         </div>
 
         <div class="switch-wrap upload-retention-box" data-feature="Permanent Storage" style="margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border-subtle);">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-            <label for="permSave" class="row-title" style="cursor:pointer;">Persistence</label>
-            <label class="switch krix-switch" title="Persistence (Permanent Storage)">
-              <input type="checkbox" id="permSave" aria-label="Persistence">
+            <label for="permSave" class="row-title" style="cursor:pointer;">Permanent</label>
+            <label class="switch krix-switch" title="Permanent Storage">
+              <input type="checkbox" id="permSave" aria-label="Permanent">
               <span class="krix-slider"></span>
             </label>
           </div>
@@ -98,7 +98,6 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         <div class="drop-zone dropzone" id="drop" tabindex="0" role="button" aria-label="Drop files to upload">
           <div style="display:flex; justify-content:center; margin-bottom:10px; color:var(--fg);">${renderSvg("upload", 28)}</div>
           <div class="row-title">Drag and drop files here, or click to browse</div>
-          <div class="row-desc">Up to ${maxFiles} files &middot; ${maxFileMb} MB each &middot; ${maxTotalMb} MB per session</div>
           <button type="button" id="browseBtn" class="btn" style="margin-top:16px;">Choose files</button>
         </div>
         <input id="picker" type="file" multiple hidden>
@@ -153,6 +152,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
       (function () {
         var MAX_FILES = ${maxFiles};
         var MAX_FILE_BYTES = ${maxFileMb} * 1024 * 1024;
+        var MAX_TOTAL_BYTES = ${maxTotalMb} * 1024 * 1024;
         var drop = document.getElementById('drop');
         var picker = document.getElementById('picker');
         var browseBtn = document.getElementById('browseBtn');
@@ -199,6 +199,14 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           if (typeof pct === 'number') row.fill.style.width = pct + '%';
         }
 
+        function setSessionUi(active) {
+          var dot = document.getElementById('valSessionDot');
+          var lbl = document.getElementById('valSessionLabel');
+          var fld = document.getElementById('valSessionFolder');
+          if (dot) dot.style.background = active ? 'var(--success)' : 'var(--fg-3)';
+          if (lbl) lbl.textContent = active ? 'Active Sandbox' : 'Inactive';
+          if (fld) fld.textContent = active ? 'upload/' : 'N/A';
+        }
         function openSession() {
           return fetch('/upload/api/session', {
             method: 'POST',
@@ -207,10 +215,17 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
             body: '{}'
           }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (d) {
-              if (!r.ok) throw new Error(d.error || 'Could not open an upload session (HTTP ' + r.status + ')');
+              if (!r.ok) {
+                setSessionUi(false);
+                throw new Error(d.error || 'Could not open an upload session (HTTP ' + r.status + ')');
+              }
               token = d.token;
+              setSessionUi(true);
               return d;
             });
+          }).catch(function (err) {
+            setSessionUi(false);
+            throw err;
           });
         }
 
@@ -237,8 +252,16 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         }
 
         async function uploadOne(file, row, keep) {
-          if (file.size === 0) { setRow(row, 'error', 'Empty file', 100); return false; }
-          if (file.size > MAX_FILE_BYTES) { setRow(row, 'error', 'Larger than ' + fmt(MAX_FILE_BYTES), 100); return false; }
+          if (file.size === 0) {
+            setRow(row, 'error', 'Empty file', 100);
+            toast('"' + file.name + '" is empty and cannot be uploaded.', 'error', 4200);
+            return false;
+          }
+          if (file.size > MAX_FILE_BYTES) {
+            setRow(row, 'error', 'Exceeds ' + fmt(MAX_FILE_BYTES) + ' limit', 100);
+            toast('"' + file.name + '" exceeds the ' + fmt(MAX_FILE_BYTES) + ' per-file upload limit.', 'error', 4500);
+            return false;
+          }
           try {
             if (!token) await openSession();
             var data;
@@ -260,7 +283,16 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         async function handleFiles(fileList) {
           var files = Array.prototype.slice.call(fileList || []);
           if (!files.length) return;
-          if (uploading) { toast('An upload is already running. Wait for it to finish.', 'info'); return; }
+          if (uploading) { toast('An upload is already in progress. Please wait for it to finish.', 'info'); return; }
+          if (files.length > MAX_FILES) {
+            toast('Batch limit exceeded: you can upload up to ' + MAX_FILES + ' files at once (max ' + fmt(MAX_FILE_BYTES) + ' each, ' + fmt(MAX_TOTAL_BYTES) + ' per session).', 'error', 4800);
+            return;
+          }
+          var batchBytes = files.reduce(function (acc, f) { return acc + (f.size || 0); }, 0);
+          if (bytes + batchBytes > MAX_TOTAL_BYTES) {
+            toast('Session quota exceeded: total uploads in this session cannot exceed ' + fmt(MAX_TOTAL_BYTES) + '.', 'error', 4800);
+            return;
+          }
           if (errBox) errBox.textContent = '';
           uploading = true;
           drop.style.opacity = '.7';

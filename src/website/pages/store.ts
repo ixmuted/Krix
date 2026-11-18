@@ -161,12 +161,12 @@ export function renderStorePage(params: {
                         kebabItems.push(
                           isPermanent
                             ? {
-                                label: "Revert",
+                                label: "Temporary",
                                 icon: "clock",
                                 onclick: `togglePermanent('${fId}', false)`,
                               }
                             : {
-                                label: "Keep",
+                                label: "Permanent",
                                 icon: "shield",
                                 onclick: `togglePermanent('${fId}', true)`,
                               },
@@ -258,12 +258,12 @@ export function renderStorePage(params: {
               kebabItems.push(
                 isPermanent
                   ? {
-                      label: "Revert",
+                      label: "Temporary",
                       icon: "clock",
                       onclick: `togglePermanent('${fId}', false)`,
                     }
                   : {
-                      label: "Keep",
+                      label: "Permanent",
                       icon: "shield",
                       onclick: `togglePermanent('${fId}', true)`,
                     },
