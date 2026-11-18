@@ -162,7 +162,7 @@ class MongoFileStore implements FileStore {
     null;
 
   private async init(): Promise<{ db: Db; bucket: GridFSBucket }> {
-    const uri = process.env.MONGODB_URI;
+    const uri = process.env.MONGODB_URI || process.env.MONGO_URL || process.env.DATABASE_URL;
     if (!uri)
       throw new Error(
         "File storage is not configured: MONGODB_URI is not set on the server.",

@@ -505,7 +505,7 @@ export function createUploadRouter(opts: UploadRouteOptions): Router {
           const storeLists = await Promise.all(
             Array.from(ownerKeys).map((k) =>
               store
-                .listByOwner(k, { limit: 100, status: "all" })
+                .listByOwner(k, { limit: 100, status: "active" })
                 .catch(() => ({ files: [], totalCount: 0 })),
             ),
           );

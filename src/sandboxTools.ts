@@ -476,10 +476,25 @@ export async function destroySandbox(
     processTables.delete(authKey);
   }
   try {
-    await sbxRemoveTree(dirToRemove, dirToRemove);
-    await fsp.rm(dirToRemove, { recursive: true, force: true });
-    // Free this sandbox's unix user so the number can be reused (after purging its leftovers).
-    await releaseSandboxIdentity(dirToRemove);
+    const uploadSubdir = path.join(dirToRemove, UPLOAD_DIR);
+    let hasUploads = false;
+    try {
+      hasUploads = (await fsp.readdir(uploadSubdir)).length > 0;
+    } catch {}
+    if (hasUploads) {
+      const entries = await fsp.readdir(dirToRemove).catch(() => []);
+      for (const entry of entries) {
+        if (entry === UPLOAD_DIR) continue;
+        const p = path.join(dirToRemove, entry);
+        await sbxRemoveTree(dirToRemove, p).catch(() => {});
+        await fsp.rm(p, { recursive: true, force: true }).catch(() => {});
+      }
+    } else {
+      await sbxRemoveTree(dirToRemove, dirToRemove);
+      await fsp.rm(dirToRemove, { recursive: true, force: true });
+      // Free this sandbox's unix user so the number can be reused (after purging its leftovers).
+      await releaseSandboxIdentity(dirToRemove);
+    }
   } catch {}
 }
 
