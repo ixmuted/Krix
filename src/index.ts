@@ -817,6 +817,78 @@ app.use(
 app.use(browserOriginGuard);
 app.use(createSecurityAuditMiddleware(getMongoDb));
 
+// Return the 404 page when a human browser directly navigates (GET Accept: text/html)
+// to machine-only MCP, OAuth, discovery, or internal JSON API endpoints.
+const MACHINE_ONLY_EXACT = new Set([
+  "/mcp",
+  "/sse",
+  "/mcp/server-card",
+  "/server-card",
+  "/server.json",
+  "/gemini-extension.json",
+  "/healthz",
+  "/oauth/register",
+  "/oauth/token",
+  "/oauth/revoke",
+  "/oauth/authorizations",
+  "/api/keys",
+  "/tools/execute",
+  "/stats/api",
+  "/upload/rename",
+  "/store/sandbox-file",
+]);
+
+const MACHINE_ONLY_PREFIXES = [
+  "/.well-known/",
+  "/oauth/authorizations/",
+  "/api/keys/",
+  "/api/account/",
+  "/stats/api/",
+  "/settings/api/",
+  "/store/api/",
+  "/store/files/",
+  "/store/permanent/",
+  "/store/revert-permanent/",
+  "/upload/api/",
+];
+
+app.use((req: Request, res: Response, next: NextFunction): void => {
+  if (req.method !== "GET") {
+    next();
+    return;
+  }
+  const accept = String(req.headers.accept || "");
+  const isBrowserHtmlNav =
+    accept.includes("text/html") &&
+    !req.headers.authorization &&
+    !req.headers["mcp-session-id"] &&
+    !req.headers["x-upload-token"];
+  if (!isBrowserHtmlNav) {
+    next();
+    return;
+  }
+  const p = req.path;
+  const isMachineOnly =
+    MACHINE_ONLY_EXACT.has(p) ||
+    MACHINE_ONLY_PREFIXES.some((prefix) => p.startsWith(prefix));
+  if (!isMachineOnly) {
+    next();
+    return;
+  }
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const owner = parseOwnerCookie(req);
+  res.status(404);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(
+    renderNotFoundPage({
+      base,
+      isOwner: Boolean(owner),
+      owner,
+      pathname: req.originalUrl || req.url,
+    }),
+  );
+});
+
 app.get("/healthz", (_req, res) => {
   res.json({ ok: true });
 });
