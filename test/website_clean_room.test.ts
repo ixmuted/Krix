@@ -34,9 +34,9 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
       name: "Ankit",
     });
     assert.match(html, /profile-avatar-wrap/);
-    assert.match(html, /mobile-subnav/);
-    assert.match(html, /mobile-subnav-scroll/);
-    assert.match(html, /mobile-subnav-pill active/);
+    assert.match(html, /class="topbar"/);
+    assert.match(html, /class="sidebar"|<aside class="sidebar"/);
+    assert.match(html, /sb-link active/);
     assert.match(html, /href="\/home"/);
     assert.match(html, /href="\/upload"/);
     assert.match(html, /href="\/store"/);

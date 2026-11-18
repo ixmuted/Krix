@@ -442,11 +442,11 @@ test("Tools page renders modular compact boxes, search bar, category pills, and 
 
   // Compact grid structure
   assert.ok(
-    toolsHtml.includes('class="tools-grid"'),
+    toolsHtml.includes("tools-grid"),
     "Must use tools-grid layout",
   );
   assert.ok(
-    toolsHtml.includes('class="tool-box"'),
+    toolsHtml.includes("tool-box"),
     "Must use tool-box containers",
   );
 

@@ -919,19 +919,19 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "404 page must only offer the Back to Home action",
   );
 
-  // 2. Mobile-only Horizontally Scrollable Navigation Sub-bar in header
+  // 2. Mobile top bar and slide-over navigation drawer
   const headerHtml = renderHeader("upload", owner);
   assert.ok(
-    headerHtml.includes("mobile-subnav"),
-    "Header must include mobile-subnav element",
+    headerHtml.includes('class="topbar"'),
+    "Header must include the mobile top bar",
   );
   assert.ok(
-    headerHtml.includes("mobile-subnav-scroll"),
-    "Header must include mobile-subnav-scroll container",
+    headerHtml.includes("window.toggleNav(true)"),
+    "Mobile top bar must open the navigation drawer",
   );
   assert.ok(
-    headerHtml.includes("mobile-subnav-pill active"),
-    "Active page must have active class in mobile subnav",
+    headerHtml.includes('class="sb-link active"'),
+    "Active page must have active class in the sidebar",
   );
   assert.ok(
     headerHtml.includes('href="/home"'),

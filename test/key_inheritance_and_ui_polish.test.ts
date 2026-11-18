@@ -122,9 +122,9 @@ describe("New Features & UI Polish Verification", () => {
       "Must contain oauthSearchInput",
     );
     assert.ok(
-      html.includes("width:260px; max-width:100%") ||
-        html.includes("width:260px;max-width:100%"),
-      "Active OAuth search bar must have 260px width matching API keys search bar",
+      html.includes('class="search krix-pill-search"') &&
+        html.includes('id="keySearchInput"'),
+      "Active OAuth search bar must share the API keys search bar styling",
     );
     assert.ok(
       html.includes("overflow: visible !important") ||
