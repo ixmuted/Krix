@@ -134,13 +134,13 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
 
     <style ${nonceAttr}>
       .upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
-      .upload-grid > .panel { height: 100%; display: flex; flex-direction: column; }
+      .upload-grid > .panel { height: 100%; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
       @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
-      .up-list { list-style: none; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; }
-      .up-row { border-bottom: 1px solid var(--border-subtle); padding: 10px 2px; display: flex; flex-direction: column; gap: 6px; }
+      .up-list { list-style: none; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
+      .up-row { border-bottom: 1px solid var(--border-subtle); padding: 10px 2px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
       .up-row:last-child { border-bottom: 0; }
       .up-row-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; }
-      .up-name { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .up-name { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
       .up-meta { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
       .up-bar { height: 4px; border-radius: 999px; background: var(--bg-surface-3); overflow: hidden; }
       .up-bar > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }

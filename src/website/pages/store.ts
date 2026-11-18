@@ -123,7 +123,7 @@ export function renderStorePage(params: {
                       );
                       const fName = escapeHtml(rawFileName);
                       const displayFileName = escapeHtml(
-                        truncateStoreFilename(rawFileName, 24),
+                        truncateStoreFilename(rawFileName, 32),
                       );
                       const fSize = formatBytes(file.size || 0);
                       const isPermanent = !!file.permanent;
@@ -226,7 +226,7 @@ export function renderStorePage(params: {
             );
             const fName = escapeHtml(rawFileName);
             const displayFileName = escapeHtml(
-              truncateStoreFilename(rawFileName, 24),
+              truncateStoreFilename(rawFileName, 32),
             );
             const fSize = formatBytes(file.size || 0);
             const isPermanent = !!file.permanent;
@@ -428,7 +428,7 @@ export function renderStorePage(params: {
       }
 
       function applyStoreFilenameLimits() {
-        const maxChars = window.innerWidth <= 768 ? 10 : 24;
+        const maxChars = window.innerWidth <= 768 ? 22 : 32;
         document.querySelectorAll('.store-file-name').forEach(el => {
           const fullName = el.getAttribute('data-full-name') || '';
           el.textContent = fullName.length > maxChars
