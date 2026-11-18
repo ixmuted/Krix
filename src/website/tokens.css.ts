@@ -607,7 +607,10 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .animated-terminal { margin-top: 18px; text-align: left; background: var(--bg-surface-0); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
 .animated-terminal-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface-1); font-size: 12px; color: var(--fg-3); font-family: var(--font-mono); }
 .term-dots { display: inline-flex; gap: 5px; }
-.term-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border-medium); }
+.term-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--border-medium); }
+.term-dots span:nth-child(1) { background: #ff5f56; }
+.term-dots span:nth-child(2) { background: #ffbd2e; }
+.term-dots span:nth-child(3) { background: #27c93f; }
 .animated-terminal-body { padding: 12px 14px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; color: var(--fg-2); height: 112px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .term-line { display: flex; align-items: center; gap: 8px; }
 .term-prompt { color: var(--accent); font-weight: 600; }
