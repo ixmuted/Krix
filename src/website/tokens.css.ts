@@ -677,8 +677,8 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .krix-cookie-text { font-size: 13px; line-height: 1.5; color: #a09d96; }
 .krix-cookie-text a { color: #faf9f5; text-decoration: underline; text-underline-offset: 2px; }
 .krix-cookie-text a:hover { color: #cc785c; }
-.krix-cookie-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
-.krix-cookie-actions .btn { width: 100%; height: 36px; justify-content: center; background: #252320; color: #faf9f5; border-color: rgba(250, 249, 245, 0.16); }
+.krix-cookie-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 4px; width: 100%; }
+.krix-cookie-actions .btn { width: 100%; min-width: 0; height: 38px; padding: 0 12px; justify-content: center; background: #252320; color: #faf9f5; border-color: rgba(250, 249, 245, 0.16); box-sizing: border-box; }
 .krix-cookie-actions .btn:hover { background: #302e2a; }
 .krix-cookie-actions .btn.primary { background: #faf9f5; color: #141413; border-color: #faf9f5; }
 .krix-cookie-actions .btn.primary:hover { background: #e8e6dc; border-color: #e8e6dc; }
