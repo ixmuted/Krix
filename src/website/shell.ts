@@ -1,4 +1,4 @@
-// Application frame: collapsible sidebar on desktop, slide-over drawer with a top bar on mobile.
+// Application frame: collapsible sidebar on desktop, compact dropdown menu with a top bar on mobile.
 
 import { renderSvg, renderGoogleLogoSvg } from "./icons.js";
 
@@ -21,6 +21,7 @@ const NAV_LINKS = [
 
 export function renderHeader(activeTab: string = "home", owner?: any): string {
   const isAuth = !!(owner && (owner.email || owner.name));
+  const isHome = activeTab === "home";
   const userEmail = isAuth ? escapeAttr(owner.email || "") : "";
   const userName = isAuth
     ? escapeAttr(owner.name || (owner.email || "").split("@")[0] || "User")
@@ -75,25 +76,30 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
     : `
       <a href="/auth/google" class="btn primary sb-signin">${renderGoogleLogoSvg(16)}<span>Sign in with Google</span></a>`;
 
+  const topbarLeft = isAuth
+    ? `<button type="button" id="topbarNavToggle" class="icon-btn topbar-menu-btn" onclick="window.toggleNav()" aria-label="Open menu" aria-expanded="false" aria-controls="appSidebar"><span class="icon-menu">${renderSvg("menu", 22)}</span><span class="icon-close">${renderSvg("x", 22)}</span></button>`
+    : `<span class="topbar-spacer" aria-hidden="true"></span>`;
+
+  const topbarRight = isHome
+    ? `<span class="topbar-spacer" aria-hidden="true"></span>`
+    : `<button type="button" class="icon-btn topbar-search-btn" onclick="window.toggleCommandPalette(true)" aria-label="Search">${renderSvg("search", 20)}</button>`;
+
   return `
-    <aside class="sidebar" id="appSidebar" aria-label="Primary">
+    <aside class="sidebar${isAuth ? "" : " sidebar-unauth"}" id="appSidebar" aria-label="Primary">
       <div class="sb-head">
         <a href="/home" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
         <button type="button" class="icon-btn sb-collapse-btn" onclick="window.toggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar">${renderSvg("sidebar", 20)}</button>
-        <button type="button" class="icon-btn sb-close-btn" onclick="window.toggleNav(false)" aria-label="Close menu">${renderSvg("x", 18)}</button>
       </div>
       <nav class="sb-nav">
         ${links}
-        <div class="sb-label">Search</div>
-        <button type="button" class="sb-link" onclick="window.toggleNav(false);window.toggleCommandPalette(true)">${renderSvg("search", 18)}<span>Jump to…</span></button>
       </nav>
       <div class="sb-foot">${account}</div>
     </aside>
     <div class="scrim" onclick="window.toggleNav(false)"></div>
     <header class="topbar">
-      <button type="button" class="icon-btn" onclick="window.toggleNav(true)" aria-label="Open menu">${renderSvg("sidebar", 22)}</button>
+      ${topbarLeft}
       <a href="/home" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
-      <button type="button" class="icon-btn" onclick="window.toggleCommandPalette(true)" aria-label="Search">${renderSvg("search", 20)}</button>
+      ${topbarRight}
     </header>
   `;
 }

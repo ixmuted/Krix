@@ -12,11 +12,20 @@ export function getClientScripts(): string {
     try { localStorage.setItem('krix-sidebar', collapsed ? 'collapsed' : 'expanded'); } catch (e) {}
   };
   window.toggleNav = function(open) {
-    root.classList.toggle('nav-open', !!open);
+    var next = open === undefined ? !root.classList.contains('nav-open') : !!open;
+    root.classList.toggle('nav-open', next);
+    var btn = document.getElementById('topbarNavToggle');
+    if (btn) {
+      btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+      btn.setAttribute('aria-label', next ? 'Close menu' : 'Open menu');
+    }
   };
   document.addEventListener('click', function(e) {
     var link = e.target.closest && e.target.closest('.sidebar a.sb-link');
-    if (link) root.classList.remove('nav-open');
+    if (link) { window.toggleNav(false); return; }
+    if (root.classList.contains('nav-open') && e.target.closest && !e.target.closest('#appSidebar, #topbarNavToggle')) {
+      window.toggleNav(false);
+    }
   });
 
   // ----- Toasts -----

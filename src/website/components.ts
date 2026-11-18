@@ -34,6 +34,15 @@ export function renderRecaptchaScript(nonce?: string): string {
   `;
 }
 
+export function formatCompactCount(count: number): string {
+  const n = Number(count) || 0;
+  if (n <= 9999) return n.toLocaleString();
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+  }
+  return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+}
+
 export function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return "0 B";
   const k = 1024;
@@ -191,8 +200,8 @@ export function renderCommandPaletteModal(): string {
             .join("")}
         </div>
         <div class="krix-palette-footer">
-          <span><kbd>↑</kbd> <kbd>↓</kbd> Move</span>
-          <span><kbd>↵</kbd> Open</span>
+          <span><kbd>${renderSvg("arrow-up", 11)}</kbd> <kbd>${renderSvg("arrow-down", 11)}</kbd> Move</span>
+          <span><kbd>${renderSvg("corner-down-left", 11)}</kbd> Open</span>
         </div>
       </div>
     </div>
