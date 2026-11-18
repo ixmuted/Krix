@@ -156,6 +156,10 @@ export function renderOAuthConsentPage(params: {
       btn.setAttribute("aria-expanded", willShow ? "true" : "false");
       btn.setAttribute("title", willShow ? "Hide permissions" : "Show permissions");
     }
+    document.addEventListener("DOMContentLoaded", function() {
+      var scopesBtn = document.getElementById("toggleScopesBtn");
+      if (scopesBtn) scopesBtn.addEventListener("click", toggleOAuthScopes);
+    });
     (function () {
       try {
         var m = localStorage.getItem('qw-theme');
@@ -180,8 +184,10 @@ export function renderOAuthConsentPage(params: {
     .oauth-domain-badge { display: flex; justify-content: center; margin-top: 2px; }
     .domain-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--radius-full); background: var(--bg-surface-2); font-size: 12px; font-family: var(--font-mono); color: var(--fg-3); }
     .domain-pill img { width: 12px; height: 12px; border-radius: 2px; }
-    .oauth-user-badge { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--bg-surface-1); border: 1px solid var(--border-subtle); margin-bottom: 20px; font-size: 13px; flex-wrap: wrap; }
-    .oauth-user-badge strong { font-weight: 500; overflow-wrap: anywhere; }
+    .oauth-user-badge { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--bg-surface-1); border: 1px solid var(--border-subtle); margin-bottom: 20px; font-size: 13px; }
+    .oauth-user-details { display: flex; flex-direction: column; gap: 3px; overflow-x: auto; white-space: nowrap; }
+    .oauth-user-line { white-space: nowrap; color: var(--fg-3); }
+    .oauth-user-line strong { font-weight: 500; color: var(--fg); }
     .oauth-scopes { display: flex; flex-direction: column; margin-bottom: 24px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-surface-1); overflow: hidden; }
     .scopes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; }
     .scopes-title { font-size: 13px; font-weight: 500; color: var(--fg); }
@@ -201,7 +207,7 @@ export function renderOAuthConsentPage(params: {
     .app-logo-fallback { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
   </style>
 </head>
-<body>
+<body class="surface-app">
   <div class="center-screen">
   <div class="panel oauth-card">
     <div class="oauth-handshake">
@@ -226,15 +232,17 @@ export function renderOAuthConsentPage(params: {
     </div>
 
     <div class="oauth-user-badge">
-      <span class="status-dot-available"></span>
       <span class="user-badge-label text-muted">Signed in as</span>
-      <strong>${ownerName} (${ownerEmail})</strong>
+      <div class="oauth-user-details">
+        <div class="oauth-user-line">Name: <strong>${ownerName}</strong></div>
+        <div class="oauth-user-line">Email: <strong>${ownerEmail}</strong></div>
+      </div>
     </div>
 
     <div class="oauth-scopes">
       <div class="scopes-head">
         <span class="scopes-title">This app will be able to</span>
-        <button type="button" id="toggleScopesBtn" class="scopes-expand-btn" aria-expanded="false" aria-controls="oauthScopesList" onclick="toggleOAuthScopes()" title="Show permissions">${renderSvg("more-horizontal", 16)}</button>
+        <button type="button" id="toggleScopesBtn" class="scopes-expand-btn" aria-expanded="false" aria-controls="oauthScopesList" title="Show permissions">${renderSvg("more-horizontal", 16)}</button>
       </div>
       <div id="oauthScopesList" class="oauth-scopes-list" hidden>
         ${scopeRow("terminal", "mcp:tools", "Use repository and coding sandbox tools")}
