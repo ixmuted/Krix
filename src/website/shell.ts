@@ -27,10 +27,10 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
     ? escapeAttr(owner.name || (owner.email || "").split("@")[0] || "User")
     : "";
   const userPicture = isAuth && owner.picture ? escapeAttr(owner.picture) : "";
-  const initial = userName.charAt(0).toUpperCase() || "U";
+  const profileSvg = renderSvg("user", 16);
   const avatar = userPicture
-    ? `<img src="${userPicture}" alt="" referrerpolicy="no-referrer">`
-    : `<span>${initial}</span>`;
+    ? `<img class="profile-avatar-img" src="${userPicture}" alt="" referrerpolicy="no-referrer"><span class="profile-avatar-fallback" style="display:none;align-items:center;justify-content:center;width:100%;height:100%;">${profileSvg}</span>`
+    : `<span class="profile-avatar-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;">${profileSvg}</span>`;
 
   const links = NAV_LINKS.map(
     (l) => `

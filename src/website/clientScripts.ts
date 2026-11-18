@@ -290,7 +290,7 @@ export function getClientScripts(): string {
 
   // ----- App logo fallback chain -----
   function isLogoImg(el) {
-    return el && el.tagName === 'IMG' && (el.classList.contains('oauth-app-favicon') || el.classList.contains('client-logo-img'));
+    return el && el.tagName === 'IMG' && (el.classList.contains('oauth-app-favicon') || el.classList.contains('client-logo-img') || el.classList.contains('profile-avatar-img'));
   }
   function advanceLogo(img) {
     var list = img.dataset.fallbackSrcs ? img.dataset.fallbackSrcs.split('|').filter(Boolean) : [];
@@ -305,7 +305,7 @@ export function getClientScripts(): string {
   }
   window.addEventListener('error', function(e) { if (isLogoImg(e.target)) advanceLogo(e.target); }, true);
   window.addEventListener('load', function() {
-    document.querySelectorAll('img.oauth-app-favicon, img.client-logo-img').forEach(function(im) {
+    document.querySelectorAll('img.oauth-app-favicon, img.client-logo-img, img.profile-avatar-img').forEach(function(im) {
       if (im.complete && im.naturalWidth === 0 && im.getAttribute('src')) advanceLogo(im);
     });
   });
