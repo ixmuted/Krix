@@ -1,175 +1,294 @@
-// Embedded icon assets for Krix
-// Provides both HTTPS URL generators and embedded Base64 Data URIs for universal compatibility across MCP clients.
+// Standardized SVG Vector Registry and Brand Asset Handlers for Krix
+// Standard 24x24 viewBox with 1.75px stroke width adhering to Geist & Lucide guidelines
 
-export interface McpIcon {
-  src: string;
-  url?: string;
-  mimeType: string;
-  type?: string;
-  sizes?: string[];
-  theme?: "light" | "dark";
+export const SVG_ICONS: Record<string, string> = {
+  sidebar: `<rect width="18" height="14" x="3" y="5" rx="3"/><path d="M7.5 10v4"/>`,
+  files: `<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="8" x2="16" y1="13" y2="13"/><line x1="8" x2="16" y1="17" y2="17"/>`,
+  menu: `<line x1="4" x2="20" y1="7" y2="7"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="17" y2="17"/>`,
+  "panel-left": `<rect width="18" height="18" x="3" y="3" rx="3"/><path d="M9 3v18"/>`,
+  "log-out": `<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>`,
+  "help-circle": `<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/>`,
+  // Brand & Infrastructure Vectors
+  github: `<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>`,
+  render: `<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>`,
+
+  // Top 24 Popular AI Application Logos & Connectors (OAuth 2.1 Handshake)
+  gemini: `<path d="M12 2C12 7.523 7.523 12 2 12C7.523 12 12 16.477 12 22C12 16.477 16.477 12 22 12C16.477 12 12 7.523 12 2Z" fill="currentColor"/>`,
+  claude: `<path d="M12 3.2 13.8 9l5.8 1.8-5.8 1.8-1.8 5.8-1.8-5.8L4.4 10.8 10.2 9 12 3.2Z"/>`,
+  chatgpt: `<circle cx="12" cy="12" r="9"/><path d="m9 10 3-2 3 2v4l-3 2-3-2z"/>`,
+  antigravity: `<polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="3"/>`,
+  codex: `<path d="m7 8-4 4 4 4"/><path d="m17 8 4 4-4 4"/><path d="m14 4-4 16"/>`,
+  cursor: `<polygon points="3 3 10 21 13 13 21 10 3 3"/><line x1="13" x2="20" y1="13" y2="20"/>`,
+  windsurf: `<path d="M4 18c4-6 6-12 14-14-2 8-8 10-14 14z"/><path d="M7 17l10-10"/>`,
+  cline: `<rect width="18" height="14" x="3" y="5" rx="3"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><line x1="12" x2="12" y1="2" y2="5"/>`,
+  roocode: `<path d="M18 10c0-4-3-7-7-7S4 6 4 10c0 5 4 10 8 11 4-1 6-6 6-11z"/><circle cx="9" cy="9" r="1.5"/><circle cx="15" cy="9" r="1.5"/>`,
+  continue: `<circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8"/>`,
+  zed: `<polygon points="5 5 19 5 8 19 19 19"/>`,
+  aider: `<circle cx="9" cy="8" r="4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="3"/><path d="M15 17c1.5-.6 3.5-.6 5 0"/>`,
+  perplexity: `<path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/><circle cx="12" cy="12" r="4"/>`,
+  mistral: `<path d="M4 4h4v4H4zM16 4h4v4h-4zM4 10h16v4H4zM4 16h4v4H4zM16 16h4v4h-4z"/>`,
+  grok: `<path d="M4 4l16 16M4 20L20 4"/><circle cx="12" cy="12" r="2"/>`,
+  deepseek: `<path d="M3 14c4-6 10-8 18-4-3 5-9 9-18 4z"/><circle cx="15" cy="11" r="1.5"/>`,
+  ollama: `<ellipse cx="12" cy="13" rx="7" ry="8"/><path d="M8 8l-2-5M16 8l2-5"/><circle cx="10" cy="12" r="1.2"/><circle cx="14" cy="12" r="1.2"/>`,
+  lmstudio: `<polygon points="12 2 21 9 12 22 3 9 12 2"/>`,
+  openwebui: `<rect width="18" height="18" x="3" y="3" rx="4"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/>`,
+  replit: `<path d="M4 4h7v5H4zM11 9h7v5h-7zM4 14h7v5H4z"/>`,
+  bolt: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"/>`,
+  lovable: `<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`,
+  v0: `<polygon points="12 3 2 20 22 20"/><circle cx="12" cy="14" r="2"/>`,
+  quickwitty: `<circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M7 7l2 2M15 15l2 2M7 17l2-2M15 9l2-2"/>`,
+
+  // Layout View Options (Store & Catalog)
+  list: `<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>`,
+  grid: `<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>`,
+
+  // Core Functional Micro-Interaction Icons
+  copy: `<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>`,
+  check: `<path d="M20 6 9 17l-5-5"/>`,
+  save: `<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>`,
+  eye: `<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>`,
+  "eye-off": `<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>`,
+  trash: `<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>`,
+  edit: `<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>`,
+  sliders: `<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>`,
+  settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`,
+
+  // Kebab Action Trigger (More-Vertical)
+  kebab: `<circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/>`,
+  "more-vertical": `<circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/>`,
+
+  // Navigation, Search & Command
+  home: `<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>`,
+  activity: `<path d="M3 12h4l3-8 4 16 3-8h4"/>`,
+  key: `<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>`,
+  search: `<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`,
+  command: `<path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3z"/>`,
+  terminal: `<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>`,
+  cpu: `<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>`,
+  database: `<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>`,
+  "external-link": `<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>`,
+  download: `<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M21 15v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3"/>`,
+  upload: `<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M21 15v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3"/>`,
+  refresh: `<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>`,
+
+  // Chevrons & Indicators
+  "chevron-down": `<path d="m6 9 6 6 6-6"/>`,
+  "chevron-up": `<path d="m18 15-6-6-6 6"/>`,
+  "file-code": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 12.5-2 2.5 2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/>`,
+  "file-image": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="10" cy="12.5" r="1.6"/><path d="m19.5 17-1.8-1.8a2 2 0 0 0-2.8 0L9 21"/>`,
+  "file-archive": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 6h2"/><path d="M10 10h2"/><path d="M10 14h2"/><rect x="9.5" y="17" width="4" height="3.5" rx="1"/>`,
+  "file-sheet": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M12 13v7"/>`,
+  "file-audio": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 17.5v-5l5-1v5"/><circle cx="8.5" cy="17.5" r="1.5"/><circle cx="13.5" cy="16.5" r="1.5"/>`,
+  "file-video": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 12 5 3-5 3z"/>`,
+  "shield-check": `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>`,
+  clock: `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
+  rows: `<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>`,
+  server: `<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/>`,
+  "chevron-left": `<path d="m15 18-6-6 6-6"/>`,
+  "chevron-right": `<path d="m9 18 6-6-6-6"/>`,
+  x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
+  plus: `<path d="M5 12h14"/><path d="M12 5v14"/>`,
+  minus: `<path d="M5 12h14"/>`,
+
+  // Alerts & Badges
+  info: `<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`,
+  alert: `<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>`,
+  warning: `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>`,
+  "check-circle": `<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>`,
+  shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>`,
+  lock: `<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`,
+  unlock: `<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>`,
+
+  // Files & Folders
+  folder: `<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>`,
+  file: `<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>`,
+  "arrow-up": `<path d="m12 19V5"/><path d="m5 12 7-7 7 7"/>`,
+  "arrow-down": `<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>`,
+  "corner-down-left": `<polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/>`,
+  "more-horizontal": `<circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>`,
+  "file-text": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>`,
+
+  // Theme Icons
+  sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>`,
+  moon: `<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>`,
+  monitor: `<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>`,
+  layers: `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
+  zap: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
+  "krix-spark": `<path d="M12 2v5.5M12 16.5V22M2 12h5.5M16.5 12H22M4.93 4.93l3.9 3.9M15.17 15.17l3.9 3.9M19.07 4.93l-3.9 3.9M8.83 15.17l-3.9 3.9M7.5 2.8l2.2 5M14.3 16.2l2.2 5M21.2 7.5l-5 2.2M7.8 14.3l-5 2.2" stroke-width="2"/>`,
+  user: `<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
+  sparkles: `<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>`,
+  link: `<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>`,
+  book: `<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 2v20"/>`,
+};
+
+export function renderSvg(
+  name: string,
+  size: number = 18,
+  className: string = "",
+): string {
+  const content = SVG_ICONS[name] || SVG_ICONS["info"];
+  const safeClass = className.replace(/[^a-zA-Z0-9 _-]/g, "");
+  return `<svg class="${safeClass}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${content}</svg>`;
 }
 
-export const ICON_48_DATA_URI =
-  "data:image/png;base64,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";
-export const ICON_24_DATA_URI =
-  "data:image/png;base64,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";
+export function renderGoogleLogoSvg(size: number = 18): string {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.28-2.09 3.665-5.17 3.665-9.12z"/>
+    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.13C3.25 21.31 7.34 24 12 24z"/>
+    <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.58H1.26C.46 8.18 0 9.99 0 12s.46 3.82 1.26 5.42l4.02-3.13z"/>
+    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.69 1.26 6.58l4.02 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
+  </svg>`;
+}
 
-export const ICON_48_BUFFER = Buffer.from(
-  ICON_48_DATA_URI.split(",")[1],
-  "base64",
-);
-export const ICON_24_BUFFER = Buffer.from(
-  ICON_24_DATA_URI.split(",")[1],
-  "base64",
-);
-export const GITHUB_RAW_BASE_URL =
-  "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets";
-export const GITHUB_ICON_48_URL = `${GITHUB_RAW_BASE_URL}/icon-48.png`;
-export const GITHUB_ICON_128_URL = `${GITHUB_RAW_BASE_URL}/icon-128.png`;
-export const GITHUB_ICON_192_URL = `${GITHUB_RAW_BASE_URL}/icon-192.png`;
-export const GITHUB_ICON_512_URL = `${GITHUB_RAW_BASE_URL}/icon-512.png`;
-export const GITHUB_LOGO_URL = `${GITHUB_RAW_BASE_URL}/logo.png`;
-export const GITHUB_ICON_24_URL = `${GITHUB_RAW_BASE_URL}/icon-24.png`;
+export function getCanonicalLogoUrl(): string {
+  return "/icon-48.png?v=2";
+}
 
-export const RENDER_PUBLIC_URL = "https://krix.onrender.com";
-export const RENDER_ICON_48_URL = `${RENDER_PUBLIC_URL}/icon-48.png`;
-export const RENDER_ICON_128_URL = `${RENDER_PUBLIC_URL}/icon-128.png`;
-export const RENDER_ICON_192_URL = `${RENDER_PUBLIC_URL}/icon-192.png`;
-export const RENDER_ICON_512_URL = `${RENDER_PUBLIC_URL}/icon-512.png`;
-export const RENDER_LOGO_URL = `${RENDER_PUBLIC_URL}/logo.png`;
-export const RENDER_ICON_24_URL = `${RENDER_PUBLIC_URL}/icon-24.png`;
+const APP_FAVICON_HOSTS: Array<[string[], string]> = [
+  [["gemini", "google gemini"], "https://gemini.google.com"],
+  [["claude", "anthropic"], "https://claude.ai"],
+  [["chatgpt", "openai", "gpt"], "https://chatgpt.com"],
+  [["cursor"], "https://cursor.com"],
+  [["windsurf", "codeium"], "https://windsurf.com"],
+  [["github", "copilot"], "https://github.com"],
+  [["perplexity"], "https://www.perplexity.ai"],
+  [["mistral", "lechat"], "https://mistral.ai"],
+  [["deepseek"], "https://www.deepseek.com"],
+  [["grok", "xai"], "https://grok.com"],
+  [["replit"], "https://replit.com"],
+  [["vercel", "v0"], "https://vercel.com"],
+  [["zed"], "https://zed.dev"],
+  [["ollama"], "https://ollama.com"],
+  [["bolt"], "https://bolt.new"],
+  [["lovable"], "https://lovable.dev"],
+  [["cline"], "https://cline.bot"],
+  [["roocode"], "https://roocode.com"],
+  [["continue"], "https://continue.dev"],
+  [["aider"], "https://aider.chat"],
+  [["lmstudio"], "https://lmstudio.ai"],
+  [["openwebui"], "https://openwebui.com"],
+  [["antigravity"], "https://deepmind.google"],
+];
 
-export const DEFAULT_PUBLIC_URL = GITHUB_RAW_BASE_URL;
+function safeWebsiteOrigin(value?: string): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  try {
+    const parsed = new URL(
+      trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`,
+    );
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+      return undefined;
+    if (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname.endsWith(".local")
+    ) {
+      return undefined;
+    }
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
 
-export function getServerIcons(
-  baseUrl: string = DEFAULT_PUBLIC_URL,
-): McpIcon[] {
-  const base = baseUrl ? baseUrl.replace(/\/+$/, "") : GITHUB_RAW_BASE_URL;
+function resolveFallbackIcon(name: string): string {
+  const q = (name || "").toLowerCase();
+  for (const key of Object.keys(SVG_ICONS)) {
+    if (q.includes(key)) return key;
+  }
+  return "layers";
+}
 
-  const icons: McpIcon[] = [
-    // 1. High-availability public raw GitHub HTTPS URLs (HTTP 200, CORS *, max-age 300)
-    {
-      src: GITHUB_ICON_48_URL,
-      url: GITHUB_ICON_48_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["48x48"],
-    },
-    // 2. Active Render web service HTTPS endpoints (HTTP 200, immutable cache)
-    {
-      src: RENDER_ICON_48_URL,
-      url: RENDER_ICON_48_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["48x48"],
-    },
-    // 3. Higher resolution assets
-    {
-      src: GITHUB_ICON_128_URL,
-      url: GITHUB_ICON_128_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["128x128"],
-    },
-    {
-      src: RENDER_ICON_128_URL,
-      url: RENDER_ICON_128_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["128x128"],
-    },
-    {
-      src: GITHUB_LOGO_URL,
-      url: GITHUB_LOGO_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["512x512"],
-    },
-    {
-      src: RENDER_LOGO_URL,
-      url: RENDER_LOGO_URL,
-      mimeType: "image/png",
-      type: "image/png",
-      sizes: ["512x512"],
-    },
-  ];
+/** Directly fetch provider favicon/logo from their URL, fallback to Google's favicon proxy, then vector SVG. */
+export function getAppLogoSvg(
+  name: string,
+  size: number = 20,
+  websiteUrl?: string,
+): string {
+  const q = (name || "").toLowerCase();
+  const matched = APP_FAVICON_HOSTS.find(([aliases]) =>
+    aliases.some((alias) => q.includes(alias)),
+  );
+  const origin = safeWebsiteOrigin(websiteUrl) || matched?.[1];
+  const fallbackIconName = resolveFallbackIcon(name);
+  const fallbackSvg = renderSvg(fallbackIconName, size);
+  const fallback = `<span class="app-logo-fallback" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
 
-  // Clients (e.g. Gemini) only trust icons hosted on the server's own origin, so when the server is
-  // reached through its own host, advertise those first and keep the GitHub copies as fallbacks.
-  if (
-    base &&
-    !base.includes("raw.githubusercontent.com") &&
-    !base.includes("krix-gateway.onrender.com")
-  ) {
-    const own: McpIcon[] = [
-      {
-        src: `${base}/icon-48.png`,
-        url: `${base}/icon-48.png`,
-        mimeType: "image/png",
-        type: "image/png",
-        sizes: ["48x48"],
-      },
-      {
-        src: `${base}/icon-128.png`,
-        url: `${base}/icon-128.png`,
-        mimeType: "image/png",
-        type: "image/png",
-        sizes: ["128x128"],
-      },
-      {
-        src: `${base}/icon-192.png`,
-        url: `${base}/icon-192.png`,
-        mimeType: "image/png",
-        type: "image/png",
-        sizes: ["192x192"],
-      },
-      {
-        src: `${base}/icon-512.png`,
-        url: `${base}/icon-512.png`,
-        mimeType: "image/png",
-        type: "image/png",
-        sizes: ["512x512"],
-      },
-      {
-        src: `${base}/logo.png`,
-        url: `${base}/logo.png`,
-        mimeType: "image/png",
-        type: "image/png",
-        sizes: ["512x512"],
-      },
-    ];
-    const seen = new Set<string>();
-    return [...icons, ...own].filter((i) => {
-      const key = `${i.src}|${i.theme ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  const hostOf = (o?: string): string => {
+    try {
+      return o ? new URL(o).hostname : "";
+    } catch {
+      return "";
+    }
+  };
+  const googleFavicon = (host: string) =>
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  const ddgFavicon = (host: string) =>
+    `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`;
+  // Registrable-ish parent domain (api.example.com -> example.com) for redirect URIs on subdomains.
+  const parentHost = (host: string): string => {
+    const parts = host.split(".");
+    return parts.length > 2 ? parts.slice(-2).join(".") : host;
+  };
+
+  const buildImg = (sources: string[], alt: string): string => {
+    const unique = Array.from(new Set(sources.filter(Boolean)));
+    if (!unique.length) return fallback;
+    const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const [primary, ...rest] = unique;
+    // One shared watcher (clientScripts.ts) walks data-fallback-srcs; no inline onerror,
+    // otherwise two handlers fire on the same error and skip straight to the SVG.
+    const fallbackAttr = rest.length
+      ? ` data-fallback-srcs="${rest.map((u) => esc(encodeURIComponent(u))).join("|")}"`
+      : "";
+    return `<img class="oauth-app-favicon" src="${esc(primary)}"${fallbackAttr} width="${size}" height="${size}" alt="${esc(alt)}" loading="eager" decoding="async" referrerpolicy="no-referrer"><span class="app-logo-fallback" style="display:none;align-items:center;justify-content:center;width:${size}px;height:${size}px;">${fallbackSvg}</span>`;
+  };
+
+  if (q.includes("gemini") || (origin && origin.includes("gemini"))) {
+    return buildImg(
+      [
+        "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png",
+        googleFavicon("gemini.google.com"),
+        ddgFavicon("gemini.google.com"),
+      ],
+      "Gemini",
+    );
   }
 
-  return icons;
-}
+  if (
+    q.includes("claude") ||
+    q.includes("anthropic") ||
+    (origin && (origin.includes("claude") || origin.includes("anthropic")))
+  ) {
+    return buildImg(
+      [
+        "https://claude.ai/favicon.ico",
+        googleFavicon("claude.ai"),
+        ddgFavicon("claude.ai"),
+      ],
+      "Claude",
+    );
+  }
 
-// Icons for the MCP initialize response (serverInfo) and runtime server cards.
-// Mirrors github-mcp-server exactly: themed light/dark entries that are ONLY embedded PNG data URIs
-// (no https:// URLs). gemini.google.com enforces an img-src CSP that allows `data:` but blocks
-// external hosts, so any https:// entry can be picked and render as a broken image.
-export function getServerInfoIcons(
-  _baseUrl: string = DEFAULT_PUBLIC_URL,
-): McpIcon[] {
-  return [
-    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"], theme: "light" },
-    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"], theme: "dark" },
-    { src: ICON_48_DATA_URI, mimeType: "image/png", sizes: ["48x48"], theme: "light" },
-    { src: ICON_48_DATA_URI, mimeType: "image/png", sizes: ["48x48"], theme: "dark" },
-  ];
-}
+  const isDirectImage = Boolean(
+    websiteUrl &&
+    (websiteUrl.startsWith("data:image/") ||
+      /\.(png|jpe?g|svg|webp|ico)(\?.*)?$/i.test(websiteUrl)),
+  );
 
-// Compact 24x24 embedded PNG data URIs for tools/list (same pattern as github-mcp-server).
-export function getToolIcons(): McpIcon[] {
-  return [
-    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"], theme: "light" },
-    { src: ICON_24_DATA_URI, mimeType: "image/png", sizes: ["24x24"], theme: "dark" },
-  ];
+  if (!origin && !isDirectImage) return fallback;
+
+  const host = hostOf(origin);
+  const sources: string[] = [];
+  if (isDirectImage) sources.push(String(websiteUrl));
+  if (origin) sources.push(`${origin}/favicon.ico`);
+  if (host) {
+    sources.push(googleFavicon(host), ddgFavicon(host));
+    const parent = parentHost(host);
+    if (parent !== host) sources.push(googleFavicon(parent));
+  }
+  return buildImg(sources, "");
 }
