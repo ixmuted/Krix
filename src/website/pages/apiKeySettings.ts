@@ -171,8 +171,9 @@ export function renderApiKeySettingsPage(params: {
     </div>
 
     <style>
-      .key-metadata-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
-      .key-metadata-grid>.stat{display:flex;justify-content:space-between;align-items:center;gap:8px}
+      .key-metadata-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+      .key-metadata-grid>.stat{display:flex;justify-content:space-between;align-items:center;gap:10px}
+      @media(max-width:640px){.key-metadata-grid{grid-template-columns:1fr 1fr}.key-metadata-grid>.stat{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px}.key-metadata-grid>.stat:first-child{flex-direction:row;align-items:center;justify-content:space-between}.key-metadata-grid>.stat:last-child{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}.key-meta-value{overflow-wrap:anywhere}}
       .key-identity-grid,.key-credential-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
       .key-meta-label{font-size:12px;color:var(--fg-3)}
       .key-meta-value{font-size:14px;font-weight:500;margin-top:4px;overflow-wrap:anywhere}

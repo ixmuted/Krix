@@ -107,9 +107,9 @@ export function renderStorePage(params: {
         </div>
       </div>
 
-      <div class="table-wrap" style="overflow:visible;">
+      <div class="table-wrap">
         <table id="storeTable">
-          <thead><tr><th>Name</th><th>Size</th><th>Retention</th><th>Visibility</th><th>Uploaded</th><th style="text-align:right;">Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th class="hide-sm">Size</th><th class="hide-sm">Retention</th><th class="hide-sm">Visibility</th><th class="hide-sm">Uploaded</th><th style="text-align:right;"><span class="sr-only">Actions</span></th></tr></thead>
           <tbody>
             ${
               files.length === 0
@@ -193,13 +193,16 @@ export function renderStorePage(params: {
                     <td>
                       <div class="cluster" style="flex-wrap:nowrap;">
                         ${fileTile(rawFileName, 32, 16)}
-                        <span class="store-file-name list-name mono" data-full-name="${fName}" title="${fName}" style="font-size:13px;">${displayFileName}</span>
+                        <div style="min-width:0;">
+                          <span class="store-file-name list-name mono" data-full-name="${fName}" title="${fName}" style="font-size:13px;">${displayFileName}</span>
+                          <div class="meta-sm list-meta">${fSize} · ${isPermanent ? "Permanent" : "Temporary"} · <span class="store-visibility-badge">${isPublic ? "Public" : "Private"}</span></div>
+                        </div>
                       </div>
                     </td>
-                    <td class="text-muted mono" style="font-size:13px;">${fSize}</td>
-                    <td>${isPermanent ? `<span class="badge success permanent-badge">Permanent</span>` : `<span class="badge">Temporary</span>`}</td>
-                    <td>${isPublic ? `<span class="badge success store-visibility-badge">Public</span>` : `<span class="badge store-visibility-badge">Private</span>`}</td>
-                    <td class="text-muted" style="font-size:13px;">${escapeHtml(String(file.createdAt || "Recent").slice(0, 16))}</td>
+                    <td class="text-muted mono hide-sm" style="font-size:13px;">${fSize}</td>
+                    <td class="hide-sm">${isPermanent ? `<span class="badge success permanent-badge">Permanent</span>` : `<span class="badge">Temporary</span>`}</td>
+                    <td class="hide-sm">${isPublic ? `<span class="badge success store-visibility-badge">Public</span>` : `<span class="badge store-visibility-badge">Private</span>`}</td>
+                    <td class="text-muted hide-sm" style="font-size:13px;">${escapeHtml(String(file.createdAt || "Recent").slice(0, 16))}</td>
                     <td style="text-align:right;">${renderKebabMenu(kebabItems, menuId)}</td>
                   </tr>
                 `;
@@ -474,11 +477,10 @@ export function renderStorePage(params: {
       function syncFileVisibilityUi(fileId, isPublic) {
         document.querySelectorAll('[data-file-id]').forEach(container => {
           if (container.getAttribute('data-file-id') !== fileId) return;
-          const badge = container.querySelector('.store-visibility-badge');
-          if (badge) {
+          container.querySelectorAll('.store-visibility-badge').forEach(badge => {
             badge.textContent = isPublic ? 'Public' : 'Private';
-            badge.classList.toggle('success', isPublic);
-          }
+            if (badge.classList.contains('badge')) badge.classList.toggle('success', isPublic);
+          });
           container.querySelectorAll('.krix-dropdown-item').forEach(btn => {
             const onclickAttr = btn.getAttribute('onclick') || '';
             if (onclickAttr.includes('toggleFilePrivacy(')) {

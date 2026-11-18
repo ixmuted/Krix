@@ -467,6 +467,7 @@ export function renderSettingsPage(params: {
   return renderPageShell({
     title: "Settings",
     activeTab: "settings",
+    recaptchaNotice: true,
     content,
     owner: params.owner,
   });
