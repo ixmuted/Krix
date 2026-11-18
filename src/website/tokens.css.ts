@@ -624,18 +624,18 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .feature-desc { font-size: 13px; color: var(--fg-3); line-height: 1.45; }
 
 .anthropic-id-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
   max-width: 100%;
   margin-top: 8px;
-  padding: 5px 8px 5px 10px;
+  padding: 6px 12px;
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   font-family: var(--font-mono);
   font-size: 12.5px;
   color: var(--fg-2);
+  overflow-x: auto;
+  white-space: nowrap;
 }
 .anthropic-id-label {
   font-family: var(--font-sans);
@@ -647,7 +647,7 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
   padding-right: 6px;
   border-right: 1px solid var(--border-subtle);
 }
-.anthropic-id-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.anthropic-id-val { white-space: nowrap; }
 .friendly-zone-btn { min-width: 170px; width: 170px; justify-content: center; flex-shrink: 0; }
 @media (max-width: 640px) { .friendly-zone-btn { width: 100%; } }
 @media (min-width: 641px) { .key-status-top-card { display: none !important; } }
