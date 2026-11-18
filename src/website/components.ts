@@ -125,7 +125,7 @@ export function renderCustomDropdown(params: {
   const safeId = escapeHtml(id);
 
   return `
-    <div class="krix-custom-dropdown ${escapeHtml(className)}" id="${safeId}_wrapper" style="${escapeHtml(style)}">
+    <div class="krix-custom-dropdown ${escapeHtml(className)}" id="${safeId}_wrapper">
       <button type="button" class="krix-dropdown-trigger" id="${safeId}_trigger" onclick="window.toggleCustomDropdown('${safeId}')" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHtml(ariaLabel || activeLabel)}">
         <span class="krix-dropdown-label" id="${safeId}_label">${escapeHtml(activeLabel)}</span>
         <span class="krix-dropdown-chevron">${renderSvg("chevron-down", 14)}</span>
@@ -144,7 +144,7 @@ export function renderCustomDropdown(params: {
           })
           .join("")}
       </div>
-      <select id="${safeId}" class="krix-dropdown-native" onchange="${escapeHtml(onchange || "")}" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; margin:-1px; clip:rect(0,0,0,0); overflow:hidden;">
+      <select id="${safeId}" class="krix-dropdown-native" onchange="${escapeHtml(onchange || "")}">
         ${options
           .map((opt) => {
             const isSelected = activeOpt
@@ -160,69 +160,39 @@ export function renderCustomDropdown(params: {
 
 export function renderCommandPaletteModal(): string {
   const views = [
-    { name: "Home Overview", path: "/home", icon: "terminal", cat: "Views" },
-    {
-      name: "File Ingestion Workbench",
-      path: "/upload",
-      icon: "upload",
-      cat: "Views",
-    },
-    {
-      name: "FileStore Repository",
-      path: "/store",
-      icon: "folder",
-      cat: "Views",
-    },
-    { name: "Telemetry & Metrics", path: "/stats", icon: "cpu", cat: "Views" },
-    {
-      name: "Tools Capabilities Catalog",
-      path: "/tools",
-      icon: "sliders",
-      cat: "Views",
-    },
-    {
-      name: "API Keys & Integrations",
-      path: "/api",
-      icon: "lock",
-      cat: "Views",
-    },
-    {
-      name: "Workspace Settings",
-      path: "/settings",
-      icon: "settings",
-      cat: "Views",
-    },
+    { name: "Home", path: "/home", icon: "home" },
+    { name: "Upload files", path: "/upload", icon: "upload" },
+    { name: "Files", path: "/store", icon: "folder" },
+    { name: "Tools", path: "/tools", icon: "terminal" },
+    { name: "API keys", path: "/api", icon: "key" },
+    { name: "Usage", path: "/stats", icon: "activity" },
+    { name: "Settings", path: "/settings", icon: "settings" },
+    { name: "Help", path: "/help", icon: "help-circle" },
   ];
 
   return `
-    <div id="krixCommandPalette" class="krix-palette-overlay" onclick="if(event.target===this) window.toggleCommandPalette(false)">
+    <div id="krixCommandPalette" class="krix-palette-overlay" role="dialog" aria-modal="true" aria-label="Jump to" onclick="if(event.target===this) window.toggleCommandPalette(false)">
       <div class="krix-palette-dialog">
         <div class="krix-palette-search">
-          ${renderSvg("search", 18, "text-muted")}
-          <input type="text" class="krix-palette-input" placeholder="Search views, tools, keys" oninput="filterPalette(this.value)">
-          <kbd style="font-size:10px; padding:2px 6px; background:var(--bg-surface-2); border:1px solid var(--border-subtle); border-radius:4px; font-family:var(--font-mono); color:var(--geist-gray-50);">ESC</kbd>
+          ${renderSvg("search", 18)}
+          <input type="text" class="krix-palette-input" placeholder="Jump to a page" autocomplete="off" oninput="filterPalette(this.value)">
+          <kbd>Esc</kbd>
         </div>
-
         <div class="krix-palette-results">
           ${views
             .map(
               (v) => `
-            <a href="${v.path}" class="krix-palette-item" onclick="window.toggleCommandPalette(false)">
+            <a href="${v.path}" class="krix-palette-item">
               ${renderSvg(v.icon, 16)}
-              <span style="flex:1;">${v.name}</span>
-              <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono);">${v.path}</span>
-            </a>
-          `,
+              <span>${v.name}</span>
+              <span class="krix-palette-path">${v.path}</span>
+            </a>`,
             )
             .join("")}
         </div>
-
         <div class="krix-palette-footer">
-          <span>Navigate with mouse or keyboard</span>
-          <div style="display:flex; gap:12px;">
-            <span><kbd>↑</kbd> <kbd>↓</kbd> Select</span>
-            <span><kbd>↵</kbd> Open</span>
-          </div>
+          <span><kbd>↑</kbd> <kbd>↓</kbd> Move</span>
+          <span><kbd>↵</kbd> Open</span>
         </div>
       </div>
     </div>
@@ -230,17 +200,7 @@ export function renderCommandPaletteModal(): string {
 }
 
 export function renderScrollProgressFab(): string {
-  return `
-    <div id="scrollProgressFab" title="Return to Top" aria-label="Return to Top">
-      <svg width="40" height="40" viewBox="0 0 40 40" style="transform:rotate(-90deg);">
-        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--border-subtle)" stroke-width="2.5"/>
-        <circle id="scrollProgressCircle" cx="20" cy="20" r="16" fill="none" stroke="var(--fg)" stroke-width="2.5" stroke-linecap="round" stroke-dashoffset="100"/>
-      </svg>
-      <div style="position:absolute; display:flex; align-items:center; justify-content:center;">
-        ${renderSvg("chevron-up", 16)}
-      </div>
-    </div>
-  `;
+  return "";
 }
 
 export interface PageShellOptions {
@@ -250,6 +210,8 @@ export interface PageShellOptions {
   owner?: any;
   nonce?: string;
   headExtra?: string;
+  wide?: boolean;
+  narrow?: boolean;
 }
 
 export function renderPageShell(options: PageShellOptions): string {
@@ -257,73 +219,68 @@ export function renderPageShell(options: PageShellOptions): string {
   const nonceAttr = options.nonce ? `nonce="${escapeHtml(options.nonce)}"` : "";
 
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>${pageTitle}</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png?v=3">
-  <meta name="description" content="High-efficiency Model Context Protocol hub and isolated agent execution workbench.">
+  <meta name="description" content="Krix connects your AI tools to GitHub, Render and an isolated sandbox over MCP.">
+  <script ${nonceAttr}>
+    (function () {
+      try {
+        var m = localStorage.getItem('qw-theme');
+        if (m !== 'dark' && m !== 'light') m = 'system';
+        var dark = m === 'dark' || (m === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+        if (localStorage.getItem('krix-sidebar') === 'collapsed') document.documentElement.classList.add('sb-collapsed');
+      } catch (e) {}
+    })();
+  </script>
   <style ${nonceAttr}>
     ${getTokensCss()}
   </style>
   ${options.headExtra || ""}
 </head>
-<body class="noise-overlay">
-  <!-- Ambient Radial Glow Mesh -->
-  <div class="ambient-hero-mesh"></div>
+<body>
+  <div class="app">
+    ${renderHeader(options.activeTab, options.owner)}
+    <div class="main">
+      <main class="page${options.wide ? " wide" : ""}${options.narrow ? " narrow" : ""}">
+        ${options.content}
+      </main>
+      ${renderFooter()}
+    </div>
+  </div>
 
-  <!-- Sticky Global Header -->
-  ${renderHeader(options.activeTab, options.owner)}
-
-  <!-- Main Viewport Body -->
-  <main class="wrapper">
-    ${options.content}
-  </main>
-
-  <!-- Minimalist Platform Footer -->
-  ${renderFooter()}
-
-  <!-- Custom Stacked Toast Container -->
-  <div id="krixToastContainer"></div>
-
-  <!-- Command Palette Modal Dialog -->
+  <div id="krixToastContainer" aria-live="polite"></div>
   ${renderCommandPaletteModal()}
-
-  <!-- Circular Scroll Progress FAB -->
-  ${renderScrollProgressFab()}
-
-  <!-- Google reCAPTCHA v3 Integration -->
   ${renderRecaptchaScript(options.nonce)}
 
   <script ${nonceAttr}>
     (function() {
       function applyTheme(mode) {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = mode === 'dark' || (mode === 'system' && prefersDark);
         document.documentElement.classList.toggle('dark', isDark);
-        document.querySelectorAll('.theme-mode-button').forEach(button => {
-          const selected = button.dataset.themeMode === mode;
-          button.style.background = selected ? 'var(--bg-surface-2)' : 'transparent';
-          button.style.borderColor = selected ? 'var(--border-medium)' : 'transparent';
-          button.style.color = selected ? 'var(--fg)' : 'var(--geist-gray-50)';
+        document.querySelectorAll('.theme-mode-button').forEach(function (button) {
+          button.classList.toggle('active', button.dataset.themeMode === mode);
         });
       }
-      const saved = localStorage.getItem('qw-theme');
-      const initialMode = saved === 'dark' || saved === 'light' || saved === 'system' ? saved : 'system';
+      var saved = localStorage.getItem('qw-theme');
+      var initialMode = saved === 'dark' || saved === 'light' || saved === 'system' ? saved : 'system';
       applyTheme(initialMode);
       window.setThemeMode = function(mode) {
-        const nextMode = ['system', 'light', 'dark'].includes(mode) ? mode : 'system';
+        var nextMode = ['system', 'light', 'dark'].includes(mode) ? mode : 'system';
         localStorage.setItem('qw-theme', nextMode);
         applyTheme(nextMode);
       };
       window.toggleTheme = function() {
-        const isDark = document.documentElement.classList.contains('dark');
-        window.setThemeMode(isDark ? 'light' : 'dark');
+        window.setThemeMode(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
       };
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', function () {
         if ((localStorage.getItem('qw-theme') || 'system') === 'system') applyTheme('system');
       });
     })();
