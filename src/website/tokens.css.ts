@@ -608,7 +608,7 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .animated-terminal-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface-1); font-size: 12px; color: var(--fg-3); font-family: var(--font-mono); }
 .term-dots { display: inline-flex; gap: 5px; }
 .term-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border-medium); }
-.animated-terminal-body { padding: 12px 14px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; color: var(--fg-2); min-height: 92px; }
+.animated-terminal-body { padding: 12px 14px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; color: var(--fg-2); height: 112px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .term-line { display: flex; align-items: center; gap: 8px; }
 .term-prompt { color: var(--accent); font-weight: 600; }
 .term-cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); vertical-align: middle; animation: krix-blink 1.1s step-end infinite; }
@@ -622,8 +622,38 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .feature-icon { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
 .feature-title { font-size: 14px; font-weight: 500; color: var(--fg); }
 .feature-desc { font-size: 13px; color: var(--fg-3); line-height: 1.45; }
+
+.anthropic-id-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 5px 8px 5px 10px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--fg-2);
+}
+.anthropic-id-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  padding-right: 6px;
+  border-right: 1px solid var(--border-subtle);
+}
+.anthropic-id-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.friendly-zone-btn { min-width: 170px; width: 170px; justify-content: center; flex-shrink: 0; }
+@media (max-width: 640px) { .friendly-zone-btn { width: 100%; } }
+@media (min-width: 641px) { .key-status-top-card { display: none !important; } }
 `;
 }
+
 
 
 
