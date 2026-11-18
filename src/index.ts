@@ -650,6 +650,12 @@ function createMasterServer(
           listChanged: true,
         },
       },
+      instructions:
+        "Krix MCP gateway for GitHub, Render, Code Graph, and an isolated per-user sandbox. " +
+        "Treat your active tool list as truth (disabled or unconfigured tools will not appear). " +
+        "Call set_active_context first for GitHub work, prefer surgical edits (str_replace_editor, patch_contents), " +
+        "use sandbox_exec/sandbox_run to verify builds/tests, and use sandbox_store(action:share) to share files with the user. " +
+        "Always ask for user confirmation before destructive actions (deleting repos, services, branches, files, env vars, or merging PRs).",
     },
   );
 
