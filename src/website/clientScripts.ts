@@ -174,6 +174,10 @@ export function getClientScripts(): string {
     menu.style.left = Math.round(left) + 'px';
   };
   document.addEventListener('click', function(e) {
+    if (e.target.closest('.krix-dropdown-menu .krix-dropdown-item')) {
+      closeMenus(null);
+      return;
+    }
     if (!e.target.closest('.krix-dropdown, .sb-foot, #headerProfileMenu')) closeMenus(null);
   });
   window.addEventListener('resize', function() { closeMenus(null); }, { passive: true });
