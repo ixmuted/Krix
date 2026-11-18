@@ -11,9 +11,17 @@ export function getClientScripts(): string {
     var collapsed = root.classList.toggle('sb-collapsed');
     try { localStorage.setItem('krix-sidebar', collapsed ? 'collapsed' : 'expanded'); } catch (e) {}
   };
+  function syncScrollLock() {
+    var navOpen = root.classList.contains('nav-open');
+    var profileMenu = document.getElementById('headerProfileMenu');
+    var profileOpen = !!(profileMenu && profileMenu.classList.contains('active'));
+    root.classList.toggle('scroll-locked', navOpen || profileOpen);
+  }
   window.toggleNav = function(open) {
     var next = open === undefined ? !root.classList.contains('nav-open') : !!open;
     root.classList.toggle('nav-open', next);
+    if (!next) closeMenus(null);
+    syncScrollLock();
     var btn = document.getElementById('topbarNavToggle');
     if (btn) {
       btn.setAttribute('aria-expanded', next ? 'true' : 'false');
@@ -28,19 +36,30 @@ export function getClientScripts(): string {
     }
   });
 
-  // ----- Toasts -----
+  // ----- Toasts (Claude / Anthropic-inspired editorial notification cards) -----
+  var TOAST_ICONS = {
+    success: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+    error: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+    info: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>'
+  };
+  var TOAST_CLOSE_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
   window.showToast = function(message, variant, duration) {
     variant = variant || 'default';
-    duration = duration || 3000;
+    duration = duration || 3400;
     var container = document.getElementById('krixToastContainer');
     if (!container) {
       container = document.createElement('div');
       container.id = 'krixToastContainer';
       document.body.appendChild(container);
     }
+    var kind = variant === 'error' ? 'error' : (variant === 'success' ? 'success' : 'info');
     var toast = document.createElement('div');
-    toast.className = 'krix-toast' + (variant === 'error' ? ' error' : '');
-    toast.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+    toast.className = 'krix-toast ' + kind;
+    toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    var icon = document.createElement('span');
+    icon.className = 'krix-toast-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = TOAST_ICONS[kind] || TOAST_ICONS.info;
     var text = document.createElement('span');
     text.className = 'krix-toast-text';
     text.textContent = message;
@@ -48,14 +67,18 @@ export function getClientScripts(): string {
     close.type = 'button';
     close.className = 'krix-toast-close';
     close.setAttribute('aria-label', 'Dismiss');
-    close.textContent = '\\u00d7';
+    close.innerHTML = TOAST_CLOSE_SVG;
+    toast.appendChild(icon);
     toast.appendChild(text);
     toast.appendChild(close);
     container.appendChild(toast);
     var timer;
     function remove() {
       clearTimeout(timer);
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
+      toast.classList.add('leaving');
+      setTimeout(function() {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 160);
     }
     close.addEventListener('click', remove);
     timer = setTimeout(remove, duration);
@@ -106,11 +129,18 @@ export function getClientScripts(): string {
   function resetMenu(menu) {
     menu.classList.remove('active');
     menu.style.position = menu.style.top = menu.style.left = menu.style.right = menu.style.bottom = '';
-    menu.style.maxHeight = menu.style.overflowY = '';
+    menu.style.maxHeight = menu.style.overflowY = menu.style.zIndex = '';
+    if (menu.__portalAnchor && menu.__portalAnchor.parentNode) {
+      menu.__portalAnchor.parentNode.insertBefore(menu, menu.__portalAnchor);
+      menu.__portalAnchor.parentNode.removeChild(menu.__portalAnchor);
+      menu.__portalAnchor = null;
+    }
+    syncScrollLock();
   }
   function closeMenus(except) {
     var open = document.querySelectorAll('.krix-dropdown-menu.active');
     for (var i = 0; i < open.length; i++) if (open[i] !== except) resetMenu(open[i]);
+    syncScrollLock();
   }
   window.toggleKebabMenu = function(e, menuId) {
     e.stopPropagation();
@@ -120,8 +150,15 @@ export function getClientScripts(): string {
     var wasOpen = menu.classList.contains('active');
     closeMenus(null);
     if (wasOpen) return;
+    if (menu.id === 'headerProfileMenu' && menu.parentNode !== document.body) {
+      menu.__portalAnchor = document.createComment('profile-menu-anchor');
+      menu.parentNode.insertBefore(menu.__portalAnchor, menu);
+      document.body.appendChild(menu);
+    }
     menu.classList.add('active');
     menu.style.position = 'fixed';
+    menu.style.zIndex = '650';
+    syncScrollLock();
     menu.style.right = 'auto';
     menu.style.bottom = 'auto';
     menu.style.maxHeight = Math.max(140, window.innerHeight - 16) + 'px';
@@ -137,7 +174,7 @@ export function getClientScripts(): string {
     menu.style.left = Math.round(left) + 'px';
   };
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('.krix-dropdown, .sb-foot')) closeMenus(null);
+    if (!e.target.closest('.krix-dropdown, .sb-foot, #headerProfileMenu')) closeMenus(null);
   });
   window.addEventListener('resize', function() { closeMenus(null); }, { passive: true });
 
@@ -163,7 +200,8 @@ export function getClientScripts(): string {
       var input = palette.querySelector('.krix-palette-input');
       input.value = '';
       window.filterPalette('');
-      input.focus();
+      var isTouchOrMobile = window.innerWidth <= 860 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      if (!isTouchOrMobile) input.focus();
     }
   };
   function paletteMove(dir) {
