@@ -11,7 +11,7 @@ export function escapeAttr(value: string): string {
 }
 
 const NAV_LINKS = [
-  { id: "home", href: "/home", label: "Home", icon: "home" },
+  { id: "home", href: "/", label: "Home", icon: "home" },
   { id: "upload", href: "/upload", label: "Upload", icon: "upload" },
   { id: "store", href: "/store", label: "Files", icon: "files" },
   { id: "tools", href: "/tools", label: "Tools", icon: "terminal" },
@@ -87,7 +87,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
   return `
     <aside class="sidebar${isAuth ? "" : " sidebar-unauth"}" id="appSidebar" aria-label="Primary">
       <div class="sb-head">
-        <a href="/home" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
+        <a href="/" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
         <button type="button" class="icon-btn sb-collapse-btn" onclick="window.toggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar">${renderSvg("sidebar", 20)}</button>
       </div>
       <nav class="sb-nav">
@@ -98,7 +98,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
     <div class="scrim" onclick="window.toggleNav(false)"></div>
     <header class="topbar">
       ${topbarLeft}
-      <a href="/home" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
+      <a href="/" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
       ${topbarRight}
     </header>
   `;

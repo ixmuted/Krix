@@ -300,6 +300,23 @@ export function getClientScripts(): string {
       if (im.complete && im.naturalWidth === 0 && im.getAttribute('src')) advanceLogo(im);
     });
   });
+
+  // ----- Cookie consent banner -----
+  (function() {
+    var banner = document.getElementById('krixCookieBanner');
+    if (!banner) return;
+    var accepted = false;
+    try { accepted = Boolean(localStorage.getItem('krix-cookie-consent')); } catch (e) {}
+    if (!accepted && document.cookie.indexOf('krix_consent=') !== -1) accepted = true;
+    if (!accepted) banner.hidden = false;
+  })();
+  window.acceptCookieConsent = function(choice) {
+    var val = choice === 'essential' ? 'essential' : 'accepted';
+    try { localStorage.setItem('krix-cookie-consent', val); } catch (e) {}
+    document.cookie = 'krix_consent=' + val + '; Max-Age=31536000; Path=/; SameSite=Lax';
+    var banner = document.getElementById('krixCookieBanner');
+    if (banner) banner.hidden = true;
+  };
 })();
 `;
 }

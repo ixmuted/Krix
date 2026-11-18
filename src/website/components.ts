@@ -169,7 +169,7 @@ export function renderCustomDropdown(params: {
 
 export function renderCommandPaletteModal(): string {
   const views = [
-    { name: "Home", path: "/home", icon: "home" },
+    { name: "Home", path: "/", icon: "home" },
     { name: "Upload files", path: "/upload", icon: "upload" },
     { name: "Files", path: "/store", icon: "files" },
     { name: "Tools", path: "/tools", icon: "terminal" },
@@ -205,6 +205,22 @@ export function renderCommandPaletteModal(): string {
         </div>
       </div>
     </div>
+  `;
+}
+
+export function renderCookieBanner(): string {
+  return `
+    <aside id="krixCookieBanner" class="krix-cookie-banner" role="dialog" aria-label="Cookie notice" hidden>
+      <div class="krix-cookie-head">
+        <span class="krix-cookie-icon" aria-hidden="true">${renderSvg("shield-check", 16)}</span>
+        <strong class="krix-cookie-title">Cookie Notice</strong>
+      </div>
+      <p class="krix-cookie-text">Krix uses strictly necessary cookies for authentication and security. Review our <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a>.</p>
+      <div class="krix-cookie-actions">
+        <button type="button" class="btn sm" onclick="window.acceptCookieConsent('essential')">Essential only</button>
+        <button type="button" class="btn primary sm" onclick="window.acceptCookieConsent('accepted')">Accept</button>
+      </div>
+    </aside>
   `;
 }
 
@@ -273,6 +289,7 @@ export function renderPageShell(options: PageShellOptions): string {
   </div>
 
   <div id="krixToastContainer" aria-live="polite"></div>
+  ${renderCookieBanner()}
   ${renderCommandPaletteModal()}
   ${renderRecaptchaScript(options.nonce)}
 

@@ -651,8 +651,39 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .friendly-zone-btn { min-width: 170px; width: 170px; justify-content: center; flex-shrink: 0; }
 @media (max-width: 640px) { .friendly-zone-btn { width: 100%; } }
 @media (min-width: 641px) { .key-status-top-card { display: none !important; } }
+
+/* ---------- Cookie consent banner ---------- */
+.krix-cookie-banner {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: var(--z-sticky);
+  width: min(380px, calc(100vw - 32px));
+  padding: 16px;
+  background: var(--bg-surface-0);
+  color: var(--fg);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: toast-in .18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.krix-cookie-head { display: flex; align-items: center; gap: 8px; }
+.krix-cookie-icon { width: 26px; height: 26px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.krix-cookie-title { font-size: 14px; font-weight: 600; color: var(--fg); }
+.krix-cookie-text { font-size: 13px; line-height: 1.5; color: var(--fg-3); }
+.krix-cookie-text a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
+.krix-cookie-text a:hover { color: var(--accent); }
+.krix-cookie-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+@media (max-width: 640px) {
+  .krix-cookie-banner { left: 16px; right: 16px; bottom: 16px; width: auto; }
+  .krix-cookie-actions { display: grid; grid-template-columns: 1fr 1fr; }
+}
 `;
 }
+
 
 
 
