@@ -2,6 +2,8 @@
 // Standard 24x24 viewBox with 1.75px stroke width adhering to Geist & Lucide guidelines
 
 export const SVG_ICONS: Record<string, string> = {
+  sidebar: `<rect width="18" height="14" x="3" y="5" rx="3"/><path d="M7.5 10v4"/>`,
+  files: `<path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/>`,
   menu: `<line x1="4" x2="20" y1="7" y2="7"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="17" y2="17"/>`,
   "panel-left": `<rect width="18" height="18" x="3" y="3" rx="3"/><path d="M9 3v18"/>`,
   "log-out": `<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>`,

@@ -3,7 +3,7 @@
 
 import { getTokensCss } from "./tokens.css.js";
 import { getClientScripts } from "./clientScripts.js";
-import { renderHeader, renderFooter } from "./shell.js";
+import { renderHeader, renderFooter, renderRecaptchaNotice } from "./shell.js";
 import { renderSvg } from "./icons.js";
 export { renderAuthRequiredCard } from "./pages/authCard.js";
 
@@ -162,7 +162,7 @@ export function renderCommandPaletteModal(): string {
   const views = [
     { name: "Home", path: "/home", icon: "home" },
     { name: "Upload files", path: "/upload", icon: "upload" },
-    { name: "Files", path: "/store", icon: "folder" },
+    { name: "Files", path: "/store", icon: "files" },
     { name: "Tools", path: "/tools", icon: "terminal" },
     { name: "API keys", path: "/api", icon: "key" },
     { name: "Usage", path: "/stats", icon: "activity" },
@@ -212,11 +212,18 @@ export interface PageShellOptions {
   headExtra?: string;
   wide?: boolean;
   narrow?: boolean;
+  footer?: boolean;
+  recaptchaNotice?: boolean;
 }
+
+const APP_SURFACE_TABS = new Set(["upload", "store", "tools", "api", "stats"]);
 
 export function renderPageShell(options: PageShellOptions): string {
   const pageTitle = options.title ? escapeHtml(options.title) : "Krix";
   const nonceAttr = options.nonce ? `nonce="${escapeHtml(options.nonce)}"` : "";
+  const showFooter =
+    options.footer ??
+    (options.activeTab === "home" || options.content.includes("auth-required-viewport"));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -244,14 +251,15 @@ export function renderPageShell(options: PageShellOptions): string {
   </style>
   ${options.headExtra || ""}
 </head>
-<body>
+<body class="${APP_SURFACE_TABS.has(options.activeTab || "") ? "surface-app" : ""}">
   <div class="app">
     ${renderHeader(options.activeTab, options.owner)}
     <div class="main">
       <main class="page${options.wide ? " wide" : ""}${options.narrow ? " narrow" : ""}">
         ${options.content}
+        ${options.recaptchaNotice ? renderRecaptchaNotice() : ""}
       </main>
-      ${renderFooter()}
+      ${showFooter ? renderFooter() : ""}
     </div>
   </div>
 

@@ -1,7 +1,7 @@
 // Barrel Re-Export for Krix Modular Website Architecture (src/website/)
 // Full drop-in replacement for legacy views.ts with 100% test contract preservation
 
-export { renderHeader, renderFooter } from "./shell.js";
+export { renderHeader, renderFooter, renderRecaptchaNotice } from "./shell.js";
 export {
   renderPageShell,
   escapeHtml,

@@ -13,7 +13,7 @@ export function escapeAttr(value: string): string {
 const NAV_LINKS = [
   { id: "home", href: "/home", label: "Home", icon: "home" },
   { id: "upload", href: "/upload", label: "Upload", icon: "upload" },
-  { id: "store", href: "/store", label: "Files", icon: "folder" },
+  { id: "store", href: "/store", label: "Files", icon: "files" },
   { id: "tools", href: "/tools", label: "Tools", icon: "terminal" },
   { id: "api", href: "/api", label: "API keys", icon: "key" },
   { id: "stats", href: "/stats", label: "Usage", icon: "activity" },
@@ -79,7 +79,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
     <aside class="sidebar" id="appSidebar" aria-label="Primary">
       <div class="sb-head">
         <a href="/home" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
-        <button type="button" class="icon-btn sb-collapse-btn" onclick="window.toggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar">${renderSvg("panel-left", 18)}</button>
+        <button type="button" class="icon-btn sb-collapse-btn" onclick="window.toggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar">${renderSvg("sidebar", 20)}</button>
         <button type="button" class="icon-btn sb-close-btn" onclick="window.toggleNav(false)" aria-label="Close menu">${renderSvg("x", 18)}</button>
       </div>
       <nav class="sb-nav">
@@ -91,7 +91,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
     </aside>
     <div class="scrim" onclick="window.toggleNav(false)"></div>
     <header class="topbar">
-      <button type="button" class="icon-btn" onclick="window.toggleNav(true)" aria-label="Open menu">${renderSvg("menu", 20)}</button>
+      <button type="button" class="icon-btn" onclick="window.toggleNav(true)" aria-label="Open menu">${renderSvg("sidebar", 22)}</button>
       <a href="/home" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
       <button type="button" class="icon-btn" onclick="window.toggleCommandPalette(true)" aria-label="Search">${renderSvg("search", 20)}</button>
     </header>
@@ -106,7 +106,12 @@ export function renderFooter(): string {
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
       <a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer">GitHub</a>
-      <div class="recaptcha-notice">This site is protected by reCAPTCHA and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.</div>
     </footer>
+  `;
+}
+
+export function renderRecaptchaNotice(): string {
+  return `
+    <p class="recaptcha-notice">This site is protected by reCAPTCHA and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.</p>
   `;
 }
