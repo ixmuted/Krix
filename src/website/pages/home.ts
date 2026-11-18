@@ -283,6 +283,7 @@ export function renderHomePage(params: {
   return renderPageShell({
     title: "Krix",
     activeTab: "home",
+    wide: true,
     content,
     owner: params.owner,
   });
