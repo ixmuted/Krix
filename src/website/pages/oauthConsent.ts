@@ -147,6 +147,15 @@ export function renderOAuthConsentPage(params: {
   <title>Authorize Connection - Krix</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
   <script nonce="${escapeHtml(params.nonce || "")}">
+    function toggleOAuthScopes() {
+      var list = document.getElementById("oauthScopesList");
+      var btn = document.getElementById("toggleScopesBtn");
+      if (!list || !btn) return;
+      var willShow = list.hidden;
+      list.hidden = !willShow;
+      btn.setAttribute("aria-expanded", willShow ? "true" : "false");
+      btn.setAttribute("title", willShow ? "Hide permissions" : "Show permissions");
+    }
     (function () {
       try {
         var m = localStorage.getItem('qw-theme');
@@ -173,8 +182,12 @@ export function renderOAuthConsentPage(params: {
     .domain-pill img { width: 12px; height: 12px; border-radius: 2px; }
     .oauth-user-badge { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--bg-surface-1); border: 1px solid var(--border-subtle); margin-bottom: 20px; font-size: 13px; flex-wrap: wrap; }
     .oauth-user-badge strong { font-weight: 500; overflow-wrap: anywhere; }
-    .oauth-scopes { display: flex; flex-direction: column; margin-bottom: 24px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); }
-    .scopes-title { font-size: 13px; font-weight: 500; padding: 12px 14px 8px; }
+    .oauth-scopes { display: flex; flex-direction: column; margin-bottom: 24px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-surface-1); overflow: hidden; }
+    .scopes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; }
+    .scopes-title { font-size: 13px; font-weight: 500; color: var(--fg); }
+    .scopes-expand-btn { height: 28px; min-width: 34px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--bg-surface-0); color: var(--fg-2); display: inline-flex; align-items: center; justify-content: center; }
+    .scopes-expand-btn:hover { background: var(--hover); color: var(--fg); }
+    .oauth-scopes-list { display: flex; flex-direction: column; }
     .scope-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border-subtle); color: var(--fg-3); }
     .scope-row-name { font-size: 13px; font-weight: 500; font-family: var(--font-mono); color: var(--fg); }
     .scope-row-desc { font-size: 13px; color: var(--fg-3); }
@@ -219,10 +232,15 @@ export function renderOAuthConsentPage(params: {
     </div>
 
     <div class="oauth-scopes">
-      <div class="scopes-title">This app will be able to</div>
-      ${scopeRow("terminal", "mcp:tools", "Use repository and coding sandbox tools")}
-      ${scopeRow("cpu", "mcp:sandbox", "Run build scripts and tests in an isolated sandbox")}
-      ${scopeRow("folder", "mcp:store", "Read and write your stored files")}
+      <div class="scopes-head">
+        <span class="scopes-title">This app will be able to</span>
+        <button type="button" id="toggleScopesBtn" class="scopes-expand-btn" aria-expanded="false" aria-controls="oauthScopesList" onclick="toggleOAuthScopes()" title="Show permissions">${renderSvg("more-horizontal", 16)}</button>
+      </div>
+      <div id="oauthScopesList" class="oauth-scopes-list" hidden>
+        ${scopeRow("terminal", "mcp:tools", "Use repository and coding sandbox tools")}
+        ${scopeRow("cpu", "mcp:sandbox", "Run build scripts and tests in an isolated sandbox")}
+        ${scopeRow("folder", "mcp:store", "Read and write your stored files")}
+      </div>
     </div>
 
     <form method="POST" action="/oauth/authorize" class="oauth-form">

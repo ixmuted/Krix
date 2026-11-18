@@ -223,15 +223,15 @@ export function renderSettingsPage(params: {
       <div class="rows">
         <div class="row">
           <div><div class="row-title">Reset Tool Permissions</div><div class="row-desc">Reset all tool access overrides to their default permissions.</div></div>
-          <button type="button" class="btn danger" onclick="resetToolDefaults()">${renderSvg("refresh", 15)}<span>Reset tools</span></button>
+          <button type="button" class="btn danger danger-zone-btn" onclick="resetToolDefaults()">${renderSvg("refresh", 15)}<span>Reset tools</span></button>
         </div>
         <div class="row">
           <div><div class="row-title">Sign out</div><div class="row-desc">End your Google session on this device.</div></div>
-          <a href="/auth/logout" class="btn danger">${renderSvg("log-out", 15)}<span>Sign out</span></a>
+          <a href="/auth/logout" class="btn danger danger-zone-btn">${renderSvg("log-out", 15)}<span>Sign out</span></a>
         </div>
         <div class="row">
           <div><div class="row-title danger">Delete account</div><div class="row-desc">Permanently delete your account, API keys and all uploaded files.</div></div>
-          <button type="button" class="btn danger" onclick="openDeleteAccountModal()">${renderSvg("trash", 15)}<span>Delete account</span></button>
+          <button type="button" class="btn danger danger-zone-btn" onclick="openDeleteAccountModal()">${renderSvg("trash", 15)}<span>Delete account</span></button>
         </div>
       </div>
     </div>
@@ -436,7 +436,7 @@ export function renderSettingsPage(params: {
         const prev = document.getElementById('settingsToolsPrev');
         const next = document.getElementById('settingsToolsNext');
         const end = start + pageItems.length;
-        if (info) info.textContent = filtered.length ? 'Showing ' + (start + 1) + '-' + end + ' of ' + filtered.length + ' tools · Page ' + currentSettingsToolsPage + ' of ' + totalPages : 'No matching tools';
+        if (info) info.textContent = filtered.length ? (window.innerWidth <= 640 ? ('Page ' + currentSettingsToolsPage + ' of ' + totalPages) : ('Showing ' + (start + 1) + '-' + end + ' of ' + filtered.length + ' tools · Page ' + currentSettingsToolsPage + ' of ' + totalPages)) : 'No matching tools';
         if (prev) prev.disabled = currentSettingsToolsPage <= 1 || !filtered.length;
         if (next) next.disabled = currentSettingsToolsPage >= totalPages || !filtered.length;
       }

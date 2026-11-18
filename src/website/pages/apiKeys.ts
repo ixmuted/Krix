@@ -41,7 +41,7 @@ export function renderApiKeysPage(params: {
       owner: null,
       content: renderAuthRequiredCard(
         "API Keys",
-        "You must sign in as the verified service owner or authenticate with your MCP API key to access API key management.",
+        "You must sign in with your Google Account to access API key management.",
         "/api",
       ),
     });

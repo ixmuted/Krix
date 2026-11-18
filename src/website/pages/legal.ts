@@ -23,7 +23,7 @@ export function renderPrivacyPage(params: { owner?: any }): string {
             <li><strong>Authentication Identifiers:</strong> When signing in with Google OAuth 2.0, we store your email address and profile name solely to enforce single-user owner gating and multi-user quota allocations.</li>
             <li><strong>MCP Tool Telemetry:</strong> Request counts, execution latencies, and tool call distributions are aggregated to provide dashboard performance analytics. Raw tool inputs and secrets are never logged in persistent analytics.</li>
             <li><strong>Provider Tokens:</strong> GitHub Personal Access Tokens and Render API Keys configured by you are AES-256-GCM encrypted at rest and used strictly on your behalf to execute MCP tools.</li>
-            <li><strong>Uploaded Files &amp; Datasets:</strong> Workspace artifacts uploaded to the sandbox or FileStore are retained in accordance with retention schedules (24-hour ephemeral or permanent storage).</li>
+            <li><strong>Uploaded Files &amp; Datasets:</strong> Workspace artifacts uploaded to the sandbox or Files storage are retained in accordance with retention schedules (24-hour ephemeral or permanent storage).</li>
           </ul>
         </section>
 

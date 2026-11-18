@@ -6,6 +6,7 @@ import {
   renderAuthRequiredCard,
   renderCustomDropdown,
   escapeHtml,
+  formatCompactCount,
 } from "../components.js";
 import { renderSvg } from "../icons.js";
 
@@ -98,9 +99,9 @@ export function renderToolsPage(params: {
         })}
       </div>
       <div class="stats">
-        ${stat("Invocations", "metricTotalCalls", String(params.summary?.totalRequests || 0))}
+        ${stat("Invocations", "metricTotalCalls", formatCompactCount(params.summary?.totalRequests || 0))}
         ${stat("Success rate", "metricSuccessRate", params.summary?.overallSuccessRate != null ? params.summary.overallSuccessRate + "%" : "100%", "ok")}
-        ${stat("Failures", "metricFailures", String(params.summary?.totalErrors || 0), "bad")}
+        ${stat("Failures", "metricFailures", formatCompactCount(params.summary?.totalErrors || 0), "bad")}
         ${stat("Avg latency", "metricLatency", (params.summary?.avgDurationMs || 0) + " ms")}
         ${stat("Peak usage", "metricPeak", params.summary?.throughputRpm ? params.summary.throughputRpm + " rpm" : "N/A")}
         ${stat("Last active", "metricLastActive", "Recent")}
@@ -108,14 +109,16 @@ export function renderToolsPage(params: {
       <p id="breakdownToolVerbose" class="panel-sub" style="margin-top:14px;">Global execution summary across all tools recorded by the Krix MCP runtime.</p>
     </div>
 
-    <div class="cluster" style="justify-content:space-between; margin:24px 0 14px; gap:12px;">
-      <div class="search krix-pill-search search-bar-responsive">
-        ${renderSvg("search", 16)}
-        <input type="text" id="toolSearchInput" placeholder="" aria-label="Search tools" oninput="filterTools(this.value)" autocomplete="off">
-      </div>
-      <div class="density-toggle">
-        <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')">Compact</button>
-        <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')">Detailed</button>
+    <div class="panel tools-toolbar-box" style="padding:12px 16px; margin:20px 0 14px;">
+      <div class="cluster" style="justify-content:space-between; gap:12px;">
+        <div class="search krix-pill-search search-bar-responsive">
+          ${renderSvg("search", 16)}
+          <input type="text" id="toolSearchInput" placeholder="Search tools" aria-label="Search tools" oninput="filterTools(this.value)" autocomplete="off">
+        </div>
+        <div class="density-toggle">
+          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')">Compact</button>
+          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')">Detailed</button>
+        </div>
       </div>
     </div>
 
@@ -344,7 +347,7 @@ export function renderToolsPage(params: {
         const indicator = document.getElementById('toolsPageIndicator');
         const end = start + pageItems.length;
         if (info) info.textContent = filtered.length
-          ? 'Showing ' + (start + 1) + '-' + end + ' of ' + filtered.length + ' tools'
+          ? (window.innerWidth <= 640 ? ('Page ' + currentToolsPage + ' of ' + totalPages) : ('Showing ' + (start + 1) + '-' + end + ' of ' + filtered.length + ' tools'))
           : 'No matching tools';
         if (indicator) indicator.textContent = currentToolsPage + ' / ' + totalPages;
         if (prev) prev.disabled = currentToolsPage <= 1 || filtered.length === 0;

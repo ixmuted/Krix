@@ -1,7 +1,7 @@
 // Key-specific credentials and tool permissions configuration page.
 // Route: /api/settings?key=<id>
 
-import { renderPageShell, escapeHtml } from "../components.js";
+import { renderPageShell, escapeHtml, formatCompactCount } from "../components.js";
 import { renderSvg } from "../icons.js";
 import { getToolCredentialRequirement } from "../../security.js";
 import {
@@ -116,9 +116,9 @@ export function renderApiKeySettingsPage(params: {
       key.app ||
       (key.type === "oauth" ? "OAuth Client" : "Direct API Integration"),
   );
-  const requestCount = Number(
+  const requestCount = formatCompactCount(Number(
     key.totalRequests || key.requestCount || 0,
-  ).toLocaleString();
+  ));
   const lastActive = key.lastActiveAt
     ? new Date(key.lastActiveAt).toLocaleString()
     : "No recent activity";
@@ -218,11 +218,11 @@ export function renderApiKeySettingsPage(params: {
       </div>
       <div class="key-credential-grid">
         <div><label class="key-field-label" for="customGithubToken">Custom GitHub Token</label>
-          <div class="key-secret-row" id="githubCredentialView"><code id="githubCredentialMasked" class="key-secret-value${!githubSecret ? " not-configured" : ""}" data-raw="${escapeHtml(githubSecret)}" data-is-configured="${githubSecret ? "true" : "false"}" style="${!githubSecret ? "color:var(--geist-gray-50);font-style:italic;" : ""}">${githubSecret ? escapeHtml(maskSecret(githubSecret)) : "Not configured (inherits workspace token)"}</code><div class="key-secret-actions"><button type="button" id="githubRevealBtn" onclick="toggleOverrideReveal('github',this)" title="Reveal token" aria-label="Reveal GitHub token" style="${githubSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('github')" title="Edit token" aria-label="Edit GitHub token">${renderSvg("edit", 14)}</button></div></div>
+          <div class="key-secret-row" id="githubCredentialView"><code id="githubCredentialMasked" class="key-secret-value${!githubSecret ? " not-configured" : ""}" data-raw="${escapeHtml(githubSecret)}" data-is-configured="${githubSecret ? "true" : "false"}" style="${!githubSecret ? "color:var(--geist-gray-50);" : ""}">${githubSecret ? escapeHtml(maskSecret(githubSecret)) : `Not configured<span class="hide-sm"> (inherits workspace token)</span>`}</code><div class="key-secret-actions"><button type="button" id="githubRevealBtn" onclick="toggleOverrideReveal('github',this)" title="Reveal token" aria-label="Reveal GitHub token" style="${githubSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('github')" title="Edit token" aria-label="Edit GitHub token">${renderSvg("edit", 14)}</button></div></div>
           <div id="githubCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customGithubToken" value="${escapeHtml(githubSecret)}" placeholder="Leave blank to inherit workspace token"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customGithubToken',this)" aria-label="Show GitHub token">${renderSvg("eye", 14)}</button></div>
         </div>
         <div><label class="key-field-label" for="customRenderKey">Custom Render API Key</label>
-          <div class="key-secret-row" id="renderCredentialView"><code id="renderCredentialMasked" class="key-secret-value${!renderSecret ? " not-configured" : ""}" data-raw="${escapeHtml(renderSecret)}" data-is-configured="${renderSecret ? "true" : "false"}" style="${!renderSecret ? "color:var(--geist-gray-50);font-style:italic;" : ""}">${renderSecret ? escapeHtml(maskSecret(renderSecret)) : "Not configured (inherits workspace key)"}</code><div class="key-secret-actions"><button type="button" id="renderRevealBtn" onclick="toggleOverrideReveal('render',this)" title="Reveal token" aria-label="Reveal Render token" style="${renderSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('render')" title="Edit token" aria-label="Edit Render token">${renderSvg("edit", 14)}</button></div></div>
+          <div class="key-secret-row" id="renderCredentialView"><code id="renderCredentialMasked" class="key-secret-value${!renderSecret ? " not-configured" : ""}" data-raw="${escapeHtml(renderSecret)}" data-is-configured="${renderSecret ? "true" : "false"}" style="${!renderSecret ? "color:var(--geist-gray-50);" : ""}">${renderSecret ? escapeHtml(maskSecret(renderSecret)) : `Not configured<span class="hide-sm"> (inherits workspace key)</span>`}</code><div class="key-secret-actions"><button type="button" id="renderRevealBtn" onclick="toggleOverrideReveal('render',this)" title="Reveal token" aria-label="Reveal Render token" style="${renderSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('render')" title="Edit token" aria-label="Edit Render token">${renderSvg("edit", 14)}</button></div></div>
           <div id="renderCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customRenderKey" value="${escapeHtml(renderSecret)}" placeholder="Leave blank to inherit workspace token"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customRenderKey',this)" aria-label="Show Render token">${renderSvg("eye", 14)}</button></div>
         </div>
       </div>
@@ -235,7 +235,6 @@ export function renderApiKeySettingsPage(params: {
     <section class="panel key-settings-card">
       <div class="panel-head">
         <div><h2 class="key-section-title">Tool Permissions</h2><p class="key-section-sub">Choose the exact tools this key is allowed to use.</p></div>
-        <button type="button" class="btn secondary sm" onclick="resetKeyToolOverrides()" title="Remove this key's own on/off choices so it follows the workspace settings again">Reset to workspace defaults</button>
       </div>
       <div class="search block" style="margin-bottom:12px;">${renderSvg("search", 16)}<input type="search" id="keyToolSearch" placeholder="Search tools" aria-label="Search tools" oninput="filterKeyTools()"></div>
       <div class="category-filter-grid" style="margin-bottom:14px;">
@@ -258,7 +257,7 @@ export function renderApiKeySettingsPage(params: {
                     serverToolStates?.[toolName]?.reason,
                   );
                   return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
-            <div class="grow"><div class="list-name mono" style="font-size:13px;overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div class="list-meta">${escapeHtml(category)}${Number(tool.totalCalls) > 0 ? ` · ${Number(tool.totalCalls).toLocaleString()} call${Number(tool.totalCalls) === 1 ? "" : "s"}` : ""}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
+            <div class="grow"><div class="list-name mono" style="font-size:13px;overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div class="list-meta">${escapeHtml(category)}${Number(tool.totalCalls) > 0 ? ` · ${formatCompactCount(Number(tool.totalCalls))} call${Number(tool.totalCalls) === 1 ? "" : "s"}` : ""}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
             <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
                 })
@@ -267,6 +266,16 @@ export function renderApiKeySettingsPage(params: {
         }
       </div>
       <div class="key-pagination"><button type="button" class="pager-btn pager-prev" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button><span id="keyToolsPageInfo">Page 1 of 1</span><button type="button" class="pager-btn pager-next" id="keyToolsNext" onclick="changeKeyToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button></div>
+    </section>
+
+    <section class="panel danger key-settings-card">
+      <h2 class="key-section-title" style="color:var(--error); margin-bottom:14px;">Danger zone</h2>
+      <div class="rows">
+        <div class="row">
+          <div><div class="row-title">Reset tool permissions</div><div class="row-desc">Remove this key's own on/off choices so it follows workspace defaults again.</div></div>
+          <button type="button" class="btn danger danger-zone-btn" onclick="resetKeyToolOverrides()">${renderSvg("refresh", 15)}<span>Reset to Default</span></button>
+        </div>
+      </div>
     </section>
 
     <script>
@@ -316,7 +325,7 @@ export function renderApiKeySettingsPage(params: {
         const prev = document.getElementById('keyToolsPrev');
         const next = document.getElementById('keyToolsNext');
         const end = start + pageItems.length;
-        if (info) info.textContent = matches.length ? 'Showing ' + (start + 1) + '-' + end + ' of ' + matches.length + ' tools · Page ' + keyToolPage + ' of ' + pages : 'No matching tools';
+        if (info) info.textContent = matches.length ? (window.innerWidth <= 640 ? ('Page ' + keyToolPage + ' of ' + pages) : ('Showing ' + (start + 1) + '-' + end + ' of ' + matches.length + ' tools · Page ' + keyToolPage + ' of ' + pages)) : 'No matching tools';
         if (prev) prev.disabled = keyToolPage <= 1 || !matches.length;
         if (next) next.disabled = keyToolPage >= pages || !matches.length;
       }
@@ -548,8 +557,8 @@ export function renderApiKeySettingsPage(params: {
             if (display) {
               display.dataset.raw = value;
               display.dataset.isConfigured = value ? 'true' : 'false';
-              display.textContent = value ? value.slice(0,4) + '••••••••' + value.slice(-4) : 'Not configured (inherits workspace token)';
-              display.style.fontStyle = value ? 'normal' : 'italic';
+              display.innerHTML = value ? (value.slice(0,4) + '••••••••' + value.slice(-4)) : 'Not configured<span class="hide-sm"> (inherits workspace token)</span>';
+              display.style.fontStyle = 'normal';
               display.style.color = value ? 'var(--fg)' : 'var(--geist-gray-50)';
               display.dataset.visible = 'false';
             }
@@ -566,8 +575,8 @@ export function renderApiKeySettingsPage(params: {
             if (display) {
               display.dataset.raw = value;
               display.dataset.isConfigured = value ? 'true' : 'false';
-              display.textContent = value ? value.slice(0,4) + '••••••••' + value.slice(-4) : 'Not configured (inherits workspace key)';
-              display.style.fontStyle = value ? 'normal' : 'italic';
+              display.innerHTML = value ? (value.slice(0,4) + '••••••••' + value.slice(-4)) : 'Not configured<span class="hide-sm"> (inherits workspace key)</span>';
+              display.style.fontStyle = 'normal';
               display.style.color = value ? 'var(--fg)' : 'var(--geist-gray-50)';
               display.dataset.visible = 'false';
             }

@@ -61,8 +61,8 @@ export function renderStorePage(params: {
       activeTab: "store",
       owner: null,
       content: renderAuthRequiredCard(
-        "Store",
-        "You must sign in with Google or authenticate with your MCP API key to access the FileStore repository.",
+        "Files",
+        "You must sign in with your Google Account to access your Files.",
         "/store",
       ),
     });
@@ -405,8 +405,8 @@ export function renderStorePage(params: {
         const pageInfo = document.getElementById('pageInfo');
         if (pageInfo) {
           pageInfo.textContent = total === 0
-            ? (query ? 'No matching items' : 'Showing 0-0 of 0 items')
-            : 'Showing ' + (start + 1) + '-' + (start + pageRows.length) + ' of ' + total + ' items';
+            ? (query ? 'No matching items' : (window.innerWidth <= 640 ? 'Page 1 of 1' : 'Showing 0-0 of 0 items'))
+            : (window.innerWidth <= 640 ? ('Page ' + currentStorePage + ' of ' + maxPage) : ('Showing ' + (start + 1) + '-' + (start + pageRows.length) + ' of ' + total + ' items'));
         }
         const indicator = document.getElementById('pageIndicator');
         if (indicator) indicator.textContent = currentStorePage + ' / ' + maxPage;

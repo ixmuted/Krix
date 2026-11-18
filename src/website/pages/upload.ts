@@ -20,7 +20,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
       nonce,
       content: renderAuthRequiredCard(
         "Upload",
-        "You must sign in with Google or authenticate with your MCP API key to access the Upload page.",
+        "You must sign in with your Google Account to access the Upload page.",
         "/upload",
       ),
     });
@@ -50,7 +50,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
         <p class="page-sub">Send files, datasets and scripts to your isolated sandbox.</p>
       </div>
       <div class="page-actions">
-        <a href="/store" class="btn">${renderSvg("folder", 16)}<span>View files</span></a>
+        <a href="/store" class="btn primary">${renderSvg("files", 16)}<span>Store</span></a>
       </div>
     </div>
 
@@ -84,14 +84,15 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           <span class="badge">${maxFileMb} MB per file</span>
         </div>
 
-        <div class="switch-wrap rows" data-feature="Permanent Storage" style="margin-bottom:14px;">
-          <div class="row" style="padding:0 0 14px;">
-            <div><div class="row-title">Keep</div><div class="row-desc">Store permanently instead of deleting after 24 hours.</div></div>
-            <label class="switch krix-switch" title="Keep (Permanent Storage)">
-              <input type="checkbox" id="permSave" aria-label="Permanent Storage">
+        <div class="switch-wrap upload-retention-box" data-feature="Permanent Storage" style="margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border-subtle);">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label for="permSave" class="row-title" style="cursor:pointer;">Persistence</label>
+            <label class="switch krix-switch" title="Persistence (Permanent Storage)">
+              <input type="checkbox" id="permSave" aria-label="Persistence">
               <span class="krix-slider"></span>
             </label>
           </div>
+          <div class="row-desc" style="margin-top:4px;">Store permanently instead of deleting after 24 hours.</div>
         </div>
 
         <div class="drop-zone dropzone" id="drop" tabindex="0" role="button" aria-label="Drop files to upload">
