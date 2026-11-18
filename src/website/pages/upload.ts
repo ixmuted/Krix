@@ -113,7 +113,15 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           <input type="text" id="fileFilter" class="search-input" placeholder="Search files" aria-label="Search files">
         </div>
         <ul id="list" class="up-list"></ul>
-        <div id="emptyFilesMsg" class="empty">No files yet. Drop files on the left or choose them to begin.</div>
+        <div id="emptyFilesMsg" class="empty">No files yet. Drop files above or choose them to begin.</div>
+        <div id="uploadPagination" class="pager" style="padding:14px 0 4px; border-top:1px solid var(--border-subtle); display:none;">
+          <div id="uploadPageInfo">Showing 0-0 of 0 items</div>
+          <div class="cluster">
+            <button type="button" class="pager-btn pager-prev" id="uploadPrevPageBtn" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button>
+            <span id="uploadPageIndicator" class="mono" style="font-size:12px;">1 / 1</span>
+            <button type="button" class="pager-btn pager-next" id="uploadNextPageBtn" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button>
+          </div>
+        </div>
         <a href="/store" id="viewStoreLink" class="btn primary" style="display:none; margin-top:12px;">${renderSvg("files", 16)}<span>View in files</span></a>
         <div class="err" id="upErr" role="alert" style="color:var(--error); font-size:13px; margin-top:8px;"></div>
       </div>
@@ -133,9 +141,8 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
     </div>
 
     <style ${nonceAttr}>
-      .upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
-      .upload-grid > .panel { height: 100%; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-      @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
+      .upload-grid { display: flex; flex-direction: column; gap: 16px; }
+      .upload-grid > .panel { width: 100%; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
       .up-list { list-style: none; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
       .up-row { border-bottom: 1px solid var(--border-subtle); padding: 10px 2px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
       .up-row:last-child { border-bottom: 0; }
@@ -179,6 +186,7 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           el = document.getElementById('filesCountBadge'); if (el) el.textContent = label;
           if (emptyMsg) emptyMsg.style.display = list.children.length ? 'none' : '';
           if (storeLink) storeLink.style.display = count ? 'inline-flex' : 'none';
+          if (typeof applyUploadPagination === 'function') applyUploadPagination();
         }
         function makeRow(name, size) {
           var li = document.createElement('li');
@@ -333,12 +341,49 @@ export function renderUploadPage(nonce: string = "", info?: any): string {
           handleFiles(chosen);
         });
 
+        var currentUploadPage = 1;
+        function getUploadPageSize() {
+          return window.innerWidth <= 768 ? 10 : 24;
+        }
+        function applyUploadPagination() {
+          var q = (document.getElementById('fileFilter')?.value || '').toLowerCase().trim();
+          var allRows = Array.prototype.slice.call(list.children);
+          var filtered = allRows.filter(function (li) {
+            return !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+          });
+          var total = filtered.length;
+          var pageSize = getUploadPageSize();
+          var maxPage = Math.max(1, Math.ceil(total / pageSize));
+          currentUploadPage = Math.min(Math.max(1, currentUploadPage), maxPage);
+          var start = (currentUploadPage - 1) * pageSize;
+          var end = start + pageSize;
+          var pageRows = filtered.slice(start, end);
+          allRows.forEach(function (li) { li.style.display = 'none'; });
+          pageRows.forEach(function (li) { li.style.display = ''; });
+          var pager = document.getElementById('uploadPagination');
+          if (pager) pager.style.display = allRows.length ? 'flex' : 'none';
+          var pageInfo = document.getElementById('uploadPageInfo');
+          if (pageInfo) {
+            pageInfo.textContent = total === 0
+              ? (q ? 'No matching items' : (window.innerWidth <= 640 ? 'Page 1 of 1' : 'Showing 0-0 of 0 items'))
+              : (window.innerWidth <= 640 ? ('Page ' + currentUploadPage + ' of ' + maxPage) : ('Showing ' + (start + 1) + '-' + (start + pageRows.length) + ' of ' + total + ' items'));
+          }
+          var indicator = document.getElementById('uploadPageIndicator');
+          if (indicator) indicator.textContent = currentUploadPage + ' / ' + maxPage;
+          var prevBtn = document.getElementById('uploadPrevPageBtn');
+          var nextBtn = document.getElementById('uploadNextPageBtn');
+          if (prevBtn) prevBtn.disabled = currentUploadPage <= 1 || total === 0;
+          if (nextBtn) nextBtn.disabled = currentUploadPage >= maxPage || total === 0;
+        }
+        var prevUpBtn = document.getElementById('uploadPrevPageBtn');
+        var nextUpBtn = document.getElementById('uploadNextPageBtn');
+        if (prevUpBtn) prevUpBtn.addEventListener('click', function () { currentUploadPage -= 1; applyUploadPagination(); });
+        if (nextUpBtn) nextUpBtn.addEventListener('click', function () { currentUploadPage += 1; applyUploadPagination(); });
+        window.addEventListener('resize', applyUploadPagination, { passive: true });
         var filter = document.getElementById('fileFilter');
         if (filter) filter.addEventListener('input', function () {
-          var q = filter.value.toLowerCase();
-          Array.prototype.forEach.call(list.children, function (li) {
-            li.style.display = li.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-          });
+          currentUploadPage = 1;
+          applyUploadPagination();
         });
 
         var cancel = document.getElementById('modalCancelBtn');
