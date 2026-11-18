@@ -47,334 +47,156 @@ export function renderToolsPage(params: {
     if (!categories[c]) categories[c] = 0;
   });
 
+  const stat = (label: string, id: string, value: string, cls = "") =>
+    `<div class="stat"><div class="stat-label">${label}</div><div id="${id}" class="stat-value sm ${cls}">${value}</div></div>`;
+
   const content = `
-    <!-- Top Header Deck -->
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+    <div class="page-head">
       <div>
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">CAPABILITIES MATRIX</div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.03em; color:var(--fg); margin-top:4px;">Tools Directory</h1>
-        <p style="font-size:13px; color:var(--geist-gray-50); margin-top:2px;">
-          Explore and inspect all ${totalCount} MCP tools available in this instance.
-        </p>
+        <h1 class="page-title">Tools Directory</h1>
+        <p class="page-sub">Everything your connected assistants can do. ${totalCount} tools in this instance.</p>
       </div>
-
-      <!-- Dual Density Toggle & Key Selector -->
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
-          ${renderCustomDropdown({
-            id: "keySelector",
-            options: [
-              { value: "", label: "All Keys" },
-              ...(params.summary?.keys || []).map((k: any) => {
-                const val = k.keyId || k.id;
-                const lbl = k.label || val;
-                return { value: val, label: lbl };
-              }),
-            ],
-            selectedValue:
-              params.summary?.selectedKeyId &&
-              params.summary.selectedKeyId !== "all"
-                ? params.summary.selectedKeyId
-                : "",
-            onchange: "onKeyFilterChange(this)",
-            ariaLabel: "Filter by API or OAuth key",
-          })}
-        </div>
-        <div class="density-toggle" style="display:inline-flex; align-items:center; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:3px; gap:2px; height:34px; box-sizing:border-box;">
-          <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full); height:26px; display:inline-flex; align-items:center; justify-content:center;">Concise</button>
-          <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')" style="font-size:12px; padding:4px 12px; border-radius:var(--radius-full); height:26px; display:inline-flex; align-items:center; justify-content:center;">Verbose</button>
-        </div>
+      <div class="page-actions">
+        <label for="keySelector" class="text-muted" style="font-size:13px;">Key</label>
+        ${renderCustomDropdown({
+          id: "keySelector",
+          options: [
+            { value: "", label: "All keys" },
+            ...(params.summary?.keys || []).map((k: any) => {
+              const val = k.keyId || k.id;
+              return { value: val, label: k.label || val };
+            }),
+          ],
+          selectedValue:
+            params.summary?.selectedKeyId && params.summary.selectedKeyId !== "all"
+              ? params.summary.selectedKeyId
+              : "",
+          onchange: "onKeyFilterChange(this)",
+          ariaLabel: "Filter by API or OAuth key",
+        })}
       </div>
     </div>
 
-    <!-- Telemetry Breakdown Dashboard Card -->
-    <div id="toolTelemetryCard" class="card spotlight-card card-top-border" style="padding:22px 24px; margin-bottom:24px; overflow:visible;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+    <div id="toolTelemetryCard" class="panel">
+      <div class="panel-head">
         <div>
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">TELEMETRY BREAKDOWN</div>
-          <h2 id="breakdownToolTitle" style="font-size:18px; font-weight:700; color:var(--fg); margin-top:2px;">All Tools Aggregate</h2>
-          <p id="breakdownToolSubtitle" style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Execution statistics across all MCP tool invocations</p>
+          <h2 id="breakdownToolTitle" class="panel-title">All Tools Aggregate</h2>
+          <p id="breakdownToolSubtitle" class="panel-sub">Execution statistics across all MCP tool invocations</p>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label for="toolBreakdownSelect" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Select Tool:</label>
-          ${renderCustomDropdown({
-            id: "toolBreakdownSelect",
-            options: [
-              { value: "", label: "All Tools (Global)" },
-              ...tools.map((t) => ({
-                value: t.name,
-                label: `${t.name} (${t.category === "Files" || t.category === "Search" ? "Sandbox" : t.category || "General"})`,
-              })),
-            ],
-            selectedValue: "",
-            onchange: "selectToolBreakdown(this.value)",
-            ariaLabel: "Select Tool for Telemetry Breakdown",
-            style: "max-width:280px;",
-          })}
-        </div>
+        ${renderCustomDropdown({
+          id: "toolBreakdownSelect",
+          options: [
+            { value: "", label: "All Tools (Global)" },
+            ...tools.map((t) => ({
+              value: t.name,
+              label: `${t.name} (${t.category === "Files" || t.category === "Search" ? "Sandbox" : t.category || "General"})`,
+            })),
+          ],
+          selectedValue: "",
+          onchange: "selectToolBreakdown(this.value)",
+          ariaLabel: "Select tool for usage breakdown",
+        })}
       </div>
-
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-bottom:14px;">
-        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Invocations</div>
-          <div id="metricTotalCalls" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${params.summary?.totalRequests || 0}</div>
-        </div>
-        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Success Rate</div>
-          <div id="metricSuccessRate" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--success); margin-top:4px;">${params.summary?.overallSuccessRate != null ? params.summary.overallSuccessRate + "%" : "100%"}</div>
-        </div>
-        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Failures</div>
-          <div id="metricFailures" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--error); margin-top:4px;">${params.summary?.totalErrors || 0}</div>
-        </div>
-        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Avg Latency</div>
-          <div id="metricLatency" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${params.summary?.avgDurationMs || 0} ms</div>
-        </div>
-        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Peak Usage</div>
-          <div id="metricPeak" style="font-size:18px; font-weight:700; font-family:var(--font-mono); color:var(--fg); margin-top:4px;">${params.summary?.throughputRpm ? params.summary.throughputRpm + " rpm" : "N/A"}</div>
-        </div>
-        <div style="padding:12px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-          <div style="font-size:11px; color:var(--geist-gray-50); font-weight:600; text-transform:uppercase;">Last Active</div>
-          <div id="metricLastActive" style="font-size:14px; font-weight:600; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">Recent</div>
-        </div>
+      <div class="stats">
+        ${stat("Invocations", "metricTotalCalls", String(params.summary?.totalRequests || 0))}
+        ${stat("Success rate", "metricSuccessRate", params.summary?.overallSuccessRate != null ? params.summary.overallSuccessRate + "%" : "100%", "ok")}
+        ${stat("Failures", "metricFailures", String(params.summary?.totalErrors || 0), "bad")}
+        ${stat("Avg latency", "metricLatency", (params.summary?.avgDurationMs || 0) + " ms")}
+        ${stat("Peak usage", "metricPeak", params.summary?.throughputRpm ? params.summary.throughputRpm + " rpm" : "N/A")}
+        ${stat("Last active", "metricLastActive", "Recent")}
       </div>
+      <p id="breakdownToolVerbose" class="panel-sub" style="margin-top:14px;">Global execution summary across all tools recorded by the Krix MCP runtime.</p>
+    </div>
 
-      <div id="breakdownToolVerbose" style="font-size:12px; color:var(--geist-gray-50); line-height:1.5; padding:10px 14px; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
-        Global execution summary across all tools recorded by the Krix MCP runtime.
+    <div class="cluster" style="justify-content:space-between; margin:24px 0 14px; gap:12px;">
+      <div class="search krix-pill-search search-bar-responsive">
+        ${renderSvg("search", 16)}
+        <input type="text" id="toolSearchInput" placeholder="" aria-label="Search tools" oninput="filterTools(this.value)" autocomplete="off">
+      </div>
+      <div class="density-toggle">
+        <button type="button" id="densityConciseBtn" class="nav-pill active" onclick="setToolDensity('concise')">Compact</button>
+        <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')">Detailed</button>
       </div>
     </div>
 
-    <!-- Search & Category Filters (Contract Invariants: id="toolSearchInput" placeholder="", data-cat pills) -->
-    <div class="card spotlight-card" style="padding:16px 20px; margin-bottom:24px; display:flex; flex-direction:column; gap:12px;">
-      <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:10px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; height:38px; min-height:38px; box-sizing:border-box;">
-        ${renderSvg("search", 16, "text-muted")}
-        <input type="text" id="toolSearchInput" placeholder="" oninput="filterTools(this.value)" style="flex:1; font-size:13px; color:var(--fg); background:transparent; border:none; outline:none;">
-      </div>
-
-      <div class="category-filter-grid">
-        <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterCategory('All', this)">
-          All (${totalCount})
-        </button>
-        <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)">
-          Sandbox (${categories["Sandbox"] || 0})
-        </button>
-        <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterCategory('Render', this)">
-          Render (${categories["Render"] || 0})
-        </button>
-        <button type="button" class="category-filter-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)">
-          GitHub (${categories["GitHub"] || 0})
-        </button>
-        <button type="button" class="category-filter-pill" data-cat="Code Graph" onclick="filterCategory('Code Graph', this)">
-          Code Graph (${categories["Code Graph"] || 0})
-        </button>
-      </div>
+    <div class="category-filter-grid" style="margin-bottom:16px;">
+      <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterCategory('All', this)">All (${totalCount})</button>
+      <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)">Sandbox (${categories["Sandbox"] || 0})</button>
+      <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterCategory('Render', this)">Render (${categories["Render"] || 0})</button>
+      <button type="button" class="category-filter-pill" data-cat="GitHub" onclick="filterCategory('GitHub', this)">GitHub (${categories["GitHub"] || 0})</button>
+      <button type="button" class="category-filter-pill" data-cat="Code Graph" onclick="filterCategory('Code Graph', this)">Code Graph (${categories["Code Graph"] || 0})</button>
     </div>
 
-    <!-- Tools Catalog Grid (Contract Invariant: class="tools-grid", class="tool-box") -->
-    <div id="toolsGrid" class="tools-grid tools-container concise" style="display:flex; flex-direction:column; gap:8px;">
+    <div id="toolsGrid" class="panel flush tools-grid tools-container concise">
       ${
         tools.length === 0
-          ? `<div style="text-align:center; padding:48px; color:var(--geist-gray-50);">No tools loaded in catalog.</div>`
+          ? `<div class="empty">No tools loaded in catalog.</div>`
           : tools
               .map((tool, idx) => {
                 const tName = escapeHtml(tool.name || `tool_${idx}`);
-                const tDesc = escapeHtml(
-                  tool.description || "No description provided",
-                );
+                const tDesc = escapeHtml(tool.description || "No description provided");
                 const rawCat = tool.category || "General";
-                const cleanCat =
-                  rawCat === "Files" || rawCat === "Search"
-                    ? "Sandbox"
-                    : rawCat;
-                const tCat = escapeHtml(cleanCat);
+                const tCat = escapeHtml(rawCat === "Files" || rawCat === "Search" ? "Sandbox" : rawCat);
                 const schemaJson = escapeHtml(
                   JSON.stringify(
-                    tool.inputSchema || {
-                      type: "object",
-                      properties: {},
-                      additionalProperties: false,
-                    },
+                    tool.inputSchema || { type: "object", properties: {}, additionalProperties: false },
                   ),
                 );
-
                 return `
-            <div class="tool-row tool-box card spotlight-card" data-cat="${tCat}" data-name="${tName}" data-description="${tDesc}" data-schema="${schemaJson}" style="padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer;" onclick="openToolDrawerFromRow(this)" role="button" tabindex="0">
-              <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-                <div style="width:28px; height:28px; border-radius:6px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; color:var(--fg); flex-shrink:0;">
-                  ${renderSvg("terminal", 14)}
-                </div>
-                <div style="min-width:0; flex:1;">
-                  <div style="font-weight:600; font-family:var(--font-mono); font-size:13px; color:var(--fg); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${tName}</div>
-                  <div class="tool-desc" style="display:none; font-size:12px; color:var(--geist-gray-50); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">${tDesc}</div>
-                </div>
-              </div>
-
-              <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-                <span style="font-size:11px; padding:2px 8px; border-radius:var(--radius-full); background:var(--bg-surface-2); border:1px solid var(--border-subtle); color:var(--geist-gray-50);">
-                  ${tCat}
-                </span>
-                ${renderSvg("chevron-right", 14, "text-muted")}
-              </div>
-            </div>
-          `;
+        <div class="tool-row tool-box list-item clickable" tabindex="0" role="button" data-cat="${tCat}" data-name="${tName}" data-description="${tDesc}" data-schema="${schemaJson}" onclick="openToolDrawerFromRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openToolDrawerFromRow(this)}">
+          <div class="grow">
+            <div class="list-name mono" style="font-size:13px;">${tName}</div>
+            <div class="tool-desc list-meta">${tDesc}</div>
+          </div>
+          <span class="badge">${tCat}</span>
+        </div>`;
               })
               .join("")
       }
     </div>
 
-    <div id="toolsPagination" class="permission-pagination" style="display:flex; justify-content:space-between; align-items:center; padding:16px 4px 0; border-top:1px solid var(--border-subtle); margin:16px 0 28px; font-size:12px; color:var(--geist-gray-50); flex-wrap:wrap; gap:10px;">
+    <div id="toolsPagination" class="pager permission-pagination">
       <div id="toolsPageInfo">Showing 1-${Math.min(tools.length, 10)} of ${tools.length} tools</div>
-      <div style="display:flex; align-items:center; gap:6px;">
+      <div class="cluster">
         <button type="button" class="pager-btn pager-prev" id="toolsPrevPage" onclick="changeToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button>
-        <span id="toolsPageIndicator" style="font-family:var(--font-mono); font-size:11px; padding:0 6px;">1 / 1</span>
+        <span id="toolsPageIndicator" class="mono" style="font-size:12px;">1 / 1</span>
         <button type="button" class="pager-btn pager-next" id="toolsNextPage" onclick="changeToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button>
       </div>
     </div>
 
-    <style>
-      /* Keep the inspector below the persistent mobile and desktop app headers. */
-      #toolDrawer {
-        top: 56px !important;
-        bottom: 0 !important;
-        height: calc(100dvh - 56px) !important;
-        max-height: calc(100dvh - 56px) !important;
-        z-index: 900 !important;
-      }
-      @media (max-width: 768px) {
-        #toolDrawer {
-          inset: 104px 0 0 0 !important;
-          top: 104px !important;
-          right: 0 !important;
-          bottom: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          max-width: 100vw !important;
-          height: calc(100dvh - 104px) !important;
-          max-height: calc(100dvh - 104px) !important;
-          padding: 0 14px 14px !important;
-          border-left: 0 !important;
-          border-top: 1px solid var(--border-medium) !important;
-          border-radius: 14px 14px 0 0 !important;
-          box-sizing: border-box !important;
-          z-index: 900 !important;
-        }
-        #toolDrawer .tool-drawer-header {
-          position: sticky !important;
-          top: 0 !important;
-          min-height: 52px !important;
-          padding: 10px 0 10px !important;
-          margin: 0 0 12px !important;
-          gap: 8px !important;
-          box-sizing: border-box !important;
-        }
-        #toolDrawer .tool-drawer-header > div {
-          min-width: 0 !important;
-        }
-        #toolDrawer .tool-drawer-header button {
-          width: 34px !important;
-          min-width: 34px !important;
-          height: 34px !important;
-          min-height: 34px !important;
-          padding: 0 !important;
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          white-space: nowrap !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-        }
-        #toolDrawerContent {
-          width: 100% !important;
-          min-width: 0 !important;
-          overflow-x: hidden !important;
-          overflow-y: auto !important;
-          padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
-          box-sizing: border-box !important;
-        }
-        #toolDrawerContent > *,
-        #toolDrawer #toolRunnerPanel,
-        #toolDrawer #drawerToolSchema {
-          max-width: 100% !important;
-          min-width: 0 !important;
-          box-sizing: border-box !important;
-        }
-        #toolDrawer #drawerToolSchema {
-          white-space: pre-wrap !important;
-          overflow-wrap: anywhere !important;
-        }
-        #toolDrawer #drawerToolArgs {
-          display: block !important;
-          width: 100% !important;
-          min-width: 0 !important;
-          max-width: 100% !important;
-          box-sizing: border-box !important;
-          resize: vertical !important;
-        }
-        #toolDrawer #drawerToolRunButton {
-          max-width: 100% !important;
-          white-space: normal !important;
-        }
-      }
-    </style>
-
-    <style>
-      /* The drawer body is a flex column: without flex-shrink:0 the schema box was squashed to
-         almost nothing on phones. Give it a real height and let the page scroll instead. */
-      #toolDrawerContent > * { flex-shrink: 0; }
-      #toolDrawer .drawer-schema-box {
-        flex: 0 0 auto;
-        min-height: 160px;
-        max-height: min(56dvh, 420px);
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      #toolDrawer .drawer-schema-box pre { font-size: 12px; line-height: 1.55; }
-      @media (max-width: 640px) {
-        #toolDrawer .drawer-schema-box { min-height: 220px; max-height: 52dvh; padding: 12px 14px; }
-        #toolDrawer .drawer-schema-box pre { font-size: 12.5px; }
-      }
-    </style>
-
-    <!-- Slide-Over Inspector Drawer -->
-    <div id="toolDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName" style="position:fixed; top:56px; right:0; bottom:0; width:480px; max-width:100vw; height:calc(100dvh - 56px); max-height:calc(100dvh - 56px); box-sizing:border-box; background:var(--bg-surface-0); border-left:1px solid var(--border-medium); box-shadow:var(--shadow-popover); z-index:900; transform:translateX(105%); transition:transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); display:flex; flex-direction:column; padding:0 20px 20px; overflow:hidden;">
-      <div class="tool-drawer-header" style="position:sticky; top:0; z-index:2; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-shrink:0; padding:18px 0 14px; background:var(--bg-surface-0); border-bottom:1px solid var(--border-subtle); margin-bottom:16px;">
-        <div style="min-width:0; flex:1;">
-          <div style="font-size:10px; font-weight:600; color:var(--geist-gray-50); letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px;">Tool Inspector</div>
-          <h2 id="drawerToolName" style="font-size:15px; font-weight:700; font-family:var(--font-mono); color:var(--fg); overflow-wrap:anywhere;"></h2>
-        </div>
-        <button type="button" class="btn ghost icon-btn" onclick="closeToolDrawer()" style="width:34px; height:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:6px; border:1px solid var(--border-medium); background:var(--bg-surface-1); color:var(--fg); flex-shrink:0; cursor:pointer;" aria-label="Close tool inspector" title="Close">
-          ${renderSvg("x", 16)}
-        </button>
+    <aside id="toolDrawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerToolName">
+      <div class="drawer-head tool-drawer-header">
+        <h2 id="drawerToolName" class="mono" style="font-size:15px; font-weight:500; overflow-wrap:anywhere;"></h2>
+        <button type="button" class="icon-btn" onclick="closeToolDrawer()" aria-label="Close">${renderSvg("x", 18)}</button>
       </div>
-
-      <div id="toolDrawerContent" style="flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column;">
-        <p id="drawerToolDesc" style="font-size:13px; color:var(--geist-gray-50); line-height:1.5; margin-bottom:18px;"></p>
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50); margin-bottom:6px;">Parameters Schema</div>
-        <div id="drawerSchemaBox" class="drawer-schema-box" style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px; margin-bottom:18px; overflow:auto;">
-          <pre id="drawerToolSchema" style="font-family:var(--font-mono); color:var(--fg); white-space:pre-wrap; overflow-wrap:anywhere; margin:0;"></pre>
-        </div>
-
-        <div id="toolRunnerPanel" style="padding:14px; border:1px solid var(--border-subtle); border-radius:var(--radius-md); background:var(--bg-surface-1); margin-bottom:10px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:600; color:var(--fg);">Run in isolated sandbox</div>
-            <span class="status-pill" style="font-size:10px;">Sandbox only</span>
+      <div id="toolDrawerContent" class="drawer-body">
+        <p id="drawerToolDesc" class="text-muted"></p>
+        <div>
+          <div class="row-title" style="margin-bottom:6px;">Parameters</div>
+          <div id="drawerSchemaBox" class="codeblock drawer-schema-box" style="max-height:min(50dvh, 380px); overflow:auto;">
+            <pre id="drawerToolSchema" style="padding:12px; font-size:12px; line-height:1.55;"></pre>
           </div>
-          <p id="toolRunnerHint" style="font-size:11px; color:var(--geist-gray-50); margin-bottom:10px;">Run a command or compile and test code in a disposable sandbox for this request.</p>
-          <label for="drawerToolArgs" style="display:block; font-size:11px; color:var(--geist-gray-50); margin-bottom:5px;">Arguments (JSON)</label>
-          <textarea id="drawerToolArgs" rows="7" spellcheck="false" style="width:100%; resize:vertical; background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:6px; padding:10px; color:var(--fg); font:11px/1.5 var(--font-mono);">{}</textarea>
-          <div style="display:flex; justify-content:flex-end; margin-top:10px;">
-            <button type="button" id="drawerToolRunButton" class="btn primary" onclick="executeDrawerTool()" style="height:36px; border-radius:6px;" disabled>Run in Sandbox</button>
+        </div>
+        <div id="toolRunnerPanel" class="panel" style="padding:16px;">
+          <div class="panel-head" style="margin-bottom:6px;">
+            <div class="row-title">Run in isolated sandbox</div>
+            <span class="status-pill">Sandbox only</span>
+          </div>
+          <p id="toolRunnerHint" class="panel-sub" style="margin:0 0 12px;">Run a command or compile and test code in a disposable sandbox for this request.</p>
+          <div class="field">
+            <label for="drawerToolArgs">Arguments (JSON)</label>
+            <textarea id="drawerToolArgs" class="input" rows="7" spellcheck="false"></textarea>
+          </div>
+          <div class="modal-actions" style="margin-top:12px;">
+            <button type="button" id="drawerToolRunButton" class="btn primary" onclick="executeDrawerTool()" disabled>Run in sandbox</button>
           </div>
           <div id="toolRunnerOutputWrap" hidden style="margin-top:12px;">
-            <div style="font-size:11px; font-weight:600; color:var(--geist-gray-50); margin-bottom:5px;">Execution output</div>
-            <pre id="toolRunnerOutput" style="max-height:220px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--bg-surface-0); border:1px solid var(--border-subtle); border-radius:6px; padding:10px; margin:0; color:var(--fg); font:11px/1.5 var(--font-mono);"></pre>
+            <div class="row-title" style="margin-bottom:6px;">Output</div>
+            <pre id="toolRunnerOutput" class="codeblock" style="max-height:220px; overflow:auto; padding:12px; font-size:12px;"></pre>
           </div>
         </div>
       </div>
-    </div>
+    </aside>
 
     <script>
       let currentCategory = 'All';
@@ -467,17 +289,11 @@ export function renderToolsPage(params: {
         if (mode === 'verbose') {
           grid.classList.remove('concise');
           grid.classList.add('verbose');
-          document.querySelectorAll('.tool-desc').forEach(d => {
-            d.style.display = 'block';
-            d.style.whiteSpace = 'normal';
-          });
+
         } else {
           grid.classList.remove('verbose');
           grid.classList.add('concise');
-          document.querySelectorAll('.tool-desc').forEach(d => {
-            d.style.display = 'none';
-            d.style.whiteSpace = 'nowrap';
-          });
+
         }
       }
 

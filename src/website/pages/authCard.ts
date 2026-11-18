@@ -27,27 +27,13 @@ export function renderAuthRequiredCard(
   const loginUrl = `/auth/google?returnTo=${safeReturn}`;
 
   return `
-    <div class="auth-required-viewport" style="min-height:50vh; display:flex; align-items:center; justify-content:center; padding:32px 16px;">
-      <div class="auth-required-card card spotlight-card card-top-border" style="max-width:440px; width:100%; padding:36px 32px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px; box-shadow:var(--shadow-lg);">
-        <!-- Shield/Lock Icon Avatar Halo -->
-        <div class="auth-icon-halo" style="width:52px; height:52px; border-radius:50%; background:var(--bg-surface-2); border:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:center; color:var(--fg);">
-          ${renderSvg("shield", 22)}
-        </div>
-
-        <!-- Typography -->
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">Authentication Required</div>
-          <h2 style="font-size:20px; font-weight:700; letter-spacing:-0.02em; color:var(--fg);">
-            ${escapeHtml(title)}
-          </h2>
-          <p style="font-size:13px; color:var(--geist-gray-50); line-height:1.5;">
-            ${escapeHtml(message)}
-          </p>
-        </div>
-
-        <!-- Sign in Action -->
-        <a href="${loginUrl}" class="btn primary deploy-btn" style="width:100%; padding:10px 20px; font-size:13px; border-radius:var(--radius-full); gap:10px;">
-          ${renderGoogleLogoSvg(18)}
+    <div class="auth-gate auth-required-viewport">
+      <div class="auth-gate-card auth-required-card">
+        <span class="badge">${renderSvg("lock", 13)}<span>Authentication Required</span></span>
+        <h2>${escapeHtml(title)}</h2>
+        <p class="text-muted">${escapeHtml(message)}</p>
+        <a href="${loginUrl}" class="btn primary">
+          ${renderGoogleLogoSvg(16)}
           <span>Sign in with Google</span>
         </a>
       </div>

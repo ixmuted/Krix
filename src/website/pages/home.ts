@@ -1,5 +1,5 @@
 // Homepage Overview, Client Configurator, and Sandbox Workspace Explorer
-// Minimalist Layout with Maximalist Effects (Spotlight cards, live KPI telemetry, zero operation slop)
+// Connect hub
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
@@ -38,164 +38,63 @@ export function renderHomePage(params: {
   );
 
   const content = `
-    <!-- Hero Section -->
-    <section style="display:flex; flex-direction:column; align-items:center; text-align:center; padding:48px 0 32px; gap:16px;">
-      <!-- Headline with Metallic Gradient -->
-      <h1 style="font-size: clamp(32px, 5vw, 48px); font-weight:800; letter-spacing:-0.03em; line-height:1.1; max-width:760px; color:var(--fg);">
-        High-Efficiency Model Context Protocol Hub
-      </h1>
-
-      <p style="font-size:15px; color:var(--geist-gray-50); max-width:620px; line-height:1.6;">
-        Combines GitHub repository inspection, token-efficient cloud deployments, and isolated execution sandboxes into a single streaming port.
-      </p>
-
-      <!-- Primary Action Row -->
-      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:12px; margin-top:8px;">
-        <button type="button" class="btn primary deploy-btn" onclick="window.copyToClipboard('${escapeHtml(mcpEndpointUrl)}', this)" style="padding:10px 20px; border-radius:var(--radius-full); gap:8px;">
-          ${renderSvg("copy", 15)}
-          <span>Copy MCP Endpoint</span>
-        </button>
-
-        <a href="/tools" class="btn" style="padding:10px 20px; border-radius:var(--radius-full); gap:8px;">
-          ${renderSvg("sliders", 15)}
-          <span>Browse 117 Tools</span>
-        </a>
-
-        <a href="/api" class="btn ghost" style="padding:10px 16px; border-radius:var(--radius-full); gap:6px;">
-          ${renderSvg("lock", 14)}
-          <span>API Keys</span>
-        </a>
-      </div>
+    <section class="hero">
+      <h1 class="hero-title">Connect your AI tools to Krix</h1>
+      <p class="hero-sub">One MCP endpoint for GitHub, Render and an isolated sandbox. Add it to your client and start working.</p>
     </section>
 
-    <!-- Bento Grid Architecture -->
-    <div class="home-bento-grid" style="display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:20px; margin-top:16px;">
-      <!-- Card 1: Interactive Client Configurator (8 Columns) -->
-      <div class="card spotlight-card card-top-border home-config-card" style="grid-column:span 8; min-width:0; padding:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;">
-          <div>
-            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">01 // CLIENT CONFIGURATION</div>
-            <h2 style="font-size:17px; font-weight:700; color:var(--fg); margin-top:4px;">Connect Your AI Workspace</h2>
-          </div>
-          <button type="button" class="btn snippet-copy-button" aria-label="Copy snippet" title="Copy snippet" onclick="window.copyToClipboard(document.getElementById('mcpSnippetCode').textContent, this)" style="padding:8px; width:36px; height:36px; justify-content:center; border-radius:8px;">
-            ${renderSvg("copy", 16)}
-          </button>
-        </div>
-
-        <!-- Segmented Tab Pills -->
-        <div style="display:flex; gap:6px; margin-bottom:14px; border-bottom:1px solid var(--border-subtle); padding-bottom:10px; overflow-x:auto;">
-          <button type="button" id="tabClaude" class="nav-pill active" onclick="switchClientTab('claude')">Claude Desktop</button>
-          <button type="button" id="tabCursor" class="nav-pill" onclick="switchClientTab('cursor')">Cursor</button>
-          <button type="button" id="tabVsCode" class="nav-pill" onclick="switchClientTab('vscode')">VS Code</button>
-          <button type="button" id="tabRaw" class="nav-pill" onclick="switchClientTab('raw')">Raw Endpoints</button>
-        </div>
-
-        <!-- Syntax Code Snippet -->
-        <div style="position:relative; background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px; overflow:hidden;">
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); margin-bottom:10px; border-bottom:1px solid var(--border-subtle); padding-bottom:8px;">
-            <span id="snippetFilePath">claude_desktop_config.json</span>
-            <span>JSON</span>
-          </div>
-          <pre id="mcpSnippetCode" style="font-family:var(--font-mono); font-size:12px; line-height:1.6; color:var(--fg); overflow-x:auto;">${escapeHtml(claudeConfigJson)}</pre>
-        </div>
+    <div class="composer">
+      <div class="endpoint-row">
+        <code id="mcpEndpointValue">${escapeHtml(mcpEndpointUrl)}</code>
+        <button type="button" class="btn primary sm" onclick="window.copyToClipboard('${escapeHtml(mcpEndpointUrl)}', this)">
+          ${renderSvg("copy", 14)}<span>Copy</span>
+        </button>
       </div>
+      <div class="composer-bar">
+        <span class="text-muted" style="font-size:13px;">Streamable HTTP with OAuth 2.1 or an API key</span>
+        <a href="/api" class="btn sm">${renderSvg("key", 14)}<span>Create an API key</span></a>
+      </div>
+    </div>
 
-      <!-- Card 2: Live Protocol Telemetry (4 Columns) -->
-      <div class="card spotlight-card card-top-border home-telemetry-card" style="grid-column:span 4; min-width:0; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
-        <div>
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">02 // TELEMETRY SUMMARY</div>
-          <h2 style="font-size:17px; font-weight:700; color:var(--fg); margin-top:4px;">Platform Metrics</h2>
+    <div class="chips" style="justify-content:center; margin-top:16px;">
+      <a href="/tools" class="chip">${renderSvg("terminal", 14)}Browse tools</a>
+      <a href="/upload" class="chip">${renderSvg("upload", 14)}Upload files</a>
+      <a href="/store" class="chip">${renderSvg("folder", 14)}Your files</a>
+      <a href="/stats" class="chip">${renderSvg("activity", 14)}Usage</a>
+    </div>
+
+    <h2 class="section-title">Add Krix to your client</h2>
+    <div class="panel flush">
+      <div class="panel-head">
+        <div class="tabs" role="tablist">
+          <button type="button" id="tabClaude" class="nav-pill active" role="tab" onclick="switchClientTab('claude')">Claude Desktop</button>
+          <button type="button" id="tabCursor" class="nav-pill" role="tab" onclick="switchClientTab('cursor')">Cursor</button>
+          <button type="button" id="tabVsCode" class="nav-pill" role="tab" onclick="switchClientTab('vscode')">VS Code</button>
+          <button type="button" id="tabRaw" class="nav-pill" role="tab" onclick="switchClientTab('raw')">Endpoints</button>
         </div>
+        <button type="button" class="btn ghost sm snippet-copy-button" aria-label="Copy snippet" onclick="window.copyToClipboard(document.getElementById('mcpSnippetCode').textContent, this)">
+          ${renderSvg("copy", 14)}<span>Copy</span>
+        </button>
+      </div>
+      <div class="codeblock" style="border:0; border-radius:0;">
+        <div class="codeblock-head"><span id="snippetFilePath">claude_desktop_config.json</span></div>
+        <pre id="mcpSnippetCode">${escapeHtml(claudeConfigJson)}</pre>
+      </div>
+    </div>
 
-        <div style="display:flex; flex-direction:column; gap:14px; margin:20px 0;">
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle);">
-            <div style="display:flex; align-items:center; gap:8px;">
-              ${renderSvg("sliders", 16)}
-              <span style="font-size:13px; color:var(--geist-gray-50);">Catalog Tools</span>
-            </div>
-            <span style="font-size:15px; font-weight:700; font-family:var(--font-mono);">117</span>
-          </div>
-
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle);">
-            <div style="display:flex; align-items:center; gap:8px;">
-              ${renderSvg("terminal", 16)}
-              <span style="font-size:13px; color:var(--geist-gray-50);">Transport Layer</span>
-            </div>
-            <span style="font-size:12px; font-weight:600; color:var(--success); font-family:var(--font-mono);">Streamable HTTP</span>
-          </div>
-
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle);">
-            <div style="display:flex; align-items:center; gap:8px;">
-              ${renderSvg("shield", 16)}
-              <span style="font-size:13px; color:var(--geist-gray-50);">Auth Protocol</span>
-            </div>
-            <span style="font-size:12px; font-weight:600; font-family:var(--font-mono);">OAuth 2.1 PKCE</span>
-          </div>
-        </div>
-
-        <a href="/stats" class="btn" style="width:100%; border-radius:var(--radius-full); justify-content:center;">
-          ${renderSvg("cpu", 14)}
-          <span>Open Full Telemetry</span>
+    <h2 class="section-title">Your workspace</h2>
+    <div class="panel flush">
+      <div class="list">
+        <a href="/upload" class="list-item clickable">
+          <div class="list-main">${renderSvg("upload", 18)}<div><div class="list-name">upload/</div><div class="list-meta">Drop files here for your agent. Kept for 24 hours.</div></div></div>
+          ${renderSvg("chevron-right", 16)}
         </a>
-      </div>
-
-      <!-- Card 3: Interactive Sandbox Workspace Explorer (12 Columns) -->
-      <div class="card spotlight-card card-top-border" style="grid-column:span 12; padding:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:12px;">
-          <div>
-            <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">03 // AGENT WORKSPACE</div>
-            <h2 style="font-size:17px; font-weight:700; color:var(--fg); margin-top:4px;">Sandbox Directory Structure</h2>
-          </div>
-          <div style="display:flex; gap:10px;">
-            <a href="/upload" class="btn" style="border-radius:var(--radius-full);">
-              ${renderSvg("upload", 14)}
-              <span>Ingestion Workbench</span>
-            </a>
-            <a href="/store" class="btn" style="border-radius:var(--radius-full);">
-              ${renderSvg("folder", 14)}
-              <span>View FileStore</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Interactive File Tree UI (Replacing static ASCII tree) -->
-        <div style="background:var(--bg-surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-md); overflow:hidden;">
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:var(--bg-surface-2); border-bottom:1px solid var(--border-subtle); font-size:12px; font-family:var(--font-mono); color:var(--geist-gray-50);">
-            <div style="display:flex; align-items:center; gap:8px;">
-              ${renderSvg("folder", 15)}
-              <span style="color:var(--fg); font-weight:600;">krix-sandbox/</span>
-            </div>
-            <span>Ephemeral & Persistent Mounts</span>
-          </div>
-
-          <div style="padding:12px 16px; display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:13px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:4px; hover:background:var(--bg-surface-2);">
-              <div style="display:flex; align-items:center; gap:8px;">
-                ${renderSvg("folder", 15, "text-muted")}
-                <span style="color:var(--fg);">upload/</span>
-                <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-sans);">(Web Ingestion Dropzone • 24h retention)</span>
-              </div>
-              <a href="/upload" style="font-size:11px; color:var(--accent);">Upload Files &rarr;</a>
-            </div>
-
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:4px;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                ${renderSvg("folder", 15, "text-muted")}
-                <span style="color:var(--fg);">store/</span>
-                <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-sans);">(Persistent Cloud FileStore datasets)</span>
-              </div>
-              <a href="/store" style="font-size:11px; color:var(--accent);">Inspect Store &rarr;</a>
-            </div>
-
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:4px;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                ${renderSvg("folder", 15, "text-muted")}
-                <span style="color:var(--fg);">workspace/</span>
-                <span style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-sans);">(Isolated execution scratch directory)</span>
-              </div>
-              <span style="font-size:11px; color:var(--geist-gray-50);">Agent Scratch</span>
-            </div>
-          </div>
+        <a href="/store" class="list-item clickable">
+          <div class="list-main">${renderSvg("folder", 18)}<div><div class="list-name">store/</div><div class="list-meta">Files you keep. Share them with a link.</div></div></div>
+          ${renderSvg("chevron-right", 16)}
+        </a>
+        <div class="list-item">
+          <div class="list-main">${renderSvg("terminal", 18)}<div><div class="list-name">workspace/</div><div class="list-meta">Scratch space for code your agent runs.</div></div></div>
         </div>
       </div>
     </div>

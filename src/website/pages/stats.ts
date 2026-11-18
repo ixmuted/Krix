@@ -100,8 +100,8 @@ export function renderStatsPage(params: {
   ];
 
   const keySelectorHtml = `
-    <div style="display:flex; align-items:center; gap:8px;">
-      <label for="keySelector" style="font-size:12px; color:var(--geist-gray-50); font-weight:500;">Filter Key:</label>
+    <div class="cluster">
+      <label for="keySelector" class="text-muted" style="font-size:13px;">Key</label>
       ${renderCustomDropdown({
         id: "keySelector",
         options: keyOptions,
@@ -129,104 +129,78 @@ export function renderStatsPage(params: {
     }
   }
 
+  const kv = (label: string, value: string, id = "", cls = "") =>
+    `<div class="row"><span class="text-muted">${label}</span><span${id ? ` id="${id}"` : ""} class="mono ${cls}">${value}</span></div>`;
+  const timelineBars = (items: any[]) =>
+    items
+      .map((item: any) => {
+        const reqs = item.requests || 0;
+        const h = Math.min(100, Math.max(8, reqs * 10));
+        return `<div class="bar-col"><div class="bar" style="height:${h}px;" title="${escapeHtml(item.date || "")}: ${reqs} calls"></div><span class="bar-label">${escapeHtml((item.date || "").slice(5))}</span></div>`;
+      })
+      .join("");
+
   const content = `
-    <!-- Top Header Deck -->
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; flex-wrap:wrap; gap:16px;">
+    <div class="page-head">
       <div>
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">TELEMETRY & ANALYTICS</div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.03em; color:var(--fg); margin-top:4px;">Usage &amp; Analytics</h1>
-        <p style="font-size:13px; color:var(--geist-gray-50); margin-top:2px;">
-          Live throughput, latency distribution, and per-key request analytics.
-        </p>
+        <h1 class="page-title">Usage</h1>
+        <p class="page-sub">Live throughput, latency and per-key request activity.</p>
       </div>
-
-      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div class="page-actions">
         ${keySelectorHtml}
-        <div class="status-pill">
-          <span class="status-dot-available"></span>
-          <span>Live</span>
-        </div>
+        <span class="status-pill"><span class="status-dot-available"></span><span>Live</span></span>
       </div>
     </div>
 
-    <!-- 4 High-Level KPI Cards -->
-    <div class="grid-4" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:28px;">
-      <div class="card spotlight-card card-top-border" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50);">Total Requests</div>
-        <div class="metric-value" id="valTotalRequests" style="font-size:28px; font-weight:800; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${totalRequests.toLocaleString()}</div>
-        <div style="font-size:12px; color:var(--geist-gray-50); margin-top:4px; display:flex; align-items:center; gap:6px;">
+    <div class="stats grid-4" style="margin-bottom:16px;">
+      <div class="stat">
+        <div class="stat-label">Total Requests</div>
+        <div class="stat-value metric-value" id="valTotalRequests">${totalRequests.toLocaleString()}</div>
+        <div class="cluster" style="margin-top:6px; font-size:12px;">
           <span class="badge success" id="valSuccessRate">${overallSuccessRate}% success</span>
-          <span id="valErrorCount">${totalErrors} errors</span>
+          <span class="text-muted" id="valErrorCount">${totalErrors} errors</span>
         </div>
       </div>
-
-      <div class="card spotlight-card card-top-border" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50);">Throughput &amp; Streams</div>
-        <div class="metric-value" id="valThroughput" style="font-size:28px; font-weight:800; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">
-          ${throughputRpm} <span style="font-size:14px; font-weight:500;">RPM</span>
-        </div>
-        <div style="font-size:12px; color:var(--geist-gray-50); margin-top:4px;">
-          Active HTTP streams: <strong id="valActiveStreams" style="color:var(--fg);">${activeHttpSessions}</strong>
-        </div>
+      <div class="stat">
+        <div class="stat-label">Throughput &amp; Streams</div>
+        <div class="stat-value metric-value" id="valThroughput">${throughputRpm} <span class="text-muted" style="font-size:14px; font-family:var(--font-sans);">RPM</span></div>
+        <div class="text-muted" style="font-size:12px; margin-top:6px;">Active HTTP streams: <strong id="valActiveStreams" style="color:var(--fg);">${activeHttpSessions}</strong></div>
       </div>
-
-      <div class="card spotlight-card card-top-border" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50);">Latency (Avg / P95)</div>
-        <div class="metric-value" id="valLatency" style="font-size:28px; font-weight:800; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">
-          ${avgDurationMs} <span style="font-size:14px; font-weight:500;">/ ${p95DurationMs} ms</span>
-        </div>
-        <div style="font-size:12px; color:var(--geist-gray-50); margin-top:4px;">
-          Peak window: <strong id="valPeakTime" data-utc-hour="${hasPeakTraffic ? summary.peakTraffic.peakHourUtc : ""}" data-utc-day="${hasPeakTraffic ? summary.peakTraffic.peakDay : ""}" style="color:var(--fg);">${
-            hasPeakTraffic
-              ? `${summary.peakTraffic.peakHourUtc}:00 UTC (${summary.peakTraffic.peakDay})`
-              : "N/A"
-          }</strong>
-        </div>
+      <div class="stat">
+        <div class="stat-label">Latency (Avg / P95)</div>
+        <div class="stat-value metric-value" id="valLatency">${avgDurationMs} <span class="text-muted" style="font-size:14px; font-family:var(--font-sans);">/ ${p95DurationMs} ms</span></div>
+        <div class="text-muted" style="font-size:12px; margin-top:6px;">Peak window: <strong id="valPeakTime" data-utc-hour="${hasPeakTraffic ? summary.peakTraffic.peakHourUtc : ""}" data-utc-day="${hasPeakTraffic ? summary.peakTraffic.peakDay : ""}" style="color:var(--fg);">${
+          hasPeakTraffic
+            ? `${summary.peakTraffic.peakHourUtc}:00 UTC (${summary.peakTraffic.peakDay})`
+            : "N/A"
+        }</strong></div>
       </div>
-
-      <div class="card spotlight-card card-top-border" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--geist-gray-50);">Sandbox Storage</div>
-        <div class="metric-value" id="valQuotaUsed" style="font-size:28px; font-weight:800; font-family:var(--font-mono); color:var(--fg); margin-top:6px;">${sharedSandbox.quotaUsedPercent}%</div>
-        <div class="progress-bar-bg" style="height:6px; background:var(--bg-surface-2); border-radius:var(--radius-full); overflow:hidden; margin-top:8px;">
-          <div class="progress-bar-fill" id="barQuotaFill" style="height:100%; background:var(--accent); width: ${sharedSandbox.totalDiskBytes > 0 ? Math.min(100, Math.max(2, sharedSandbox.quotaUsedPercent)) : 0}%;"></div>
-        </div>
-        <div style="font-size:11px; color:var(--geist-gray-50); margin-top:6px; display:flex; justify-content:space-between;">
-          <span id="valDiskBytes">${formatBytes(sharedSandbox.totalDiskBytes)} used</span>
-          <span>${sharedSandbox.quotaLimitMb} MB quota</span>
-        </div>
-        <p style="font-size:11px; color:var(--geist-gray-50); margin-top:6px;">Shared storage across all API keys and OAuth clients.</p>
+      <div class="stat">
+        <div class="stat-label">Sandbox Storage</div>
+        <div class="stat-value metric-value" id="valQuotaUsed">${sharedSandbox.quotaUsedPercent}%</div>
+        <div class="progress" style="margin-top:8px;"><span id="barQuotaFill" style="width:${sharedSandbox.totalDiskBytes > 0 ? Math.min(100, Math.max(2, sharedSandbox.quotaUsedPercent)) : 0}%;"></span></div>
+        <div class="cluster" style="justify-content:space-between; margin-top:6px; font-size:12px;" ><span class="text-muted" id="valDiskBytes">${formatBytes(sharedSandbox.totalDiskBytes)} used</span><span class="text-muted">${sharedSandbox.quotaLimitMb} MB quota</span></div>
+        <p class="text-muted" style="font-size:12px; margin-top:6px;">Shared storage across all API keys and OAuth clients.</p>
       </div>
     </div>
 
-    <!-- Timeline Graph Section (Vector SVG with 10-day Chunk Navigation) -->
-    <div class="card spotlight-card" style="padding:24px; margin-bottom:28px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+    <div class="panel">
+      <div class="panel-head">
         <div>
-          <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Activity Timeline</h2>
-          <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Volume of requests and tool invocations over time</p>
+          <h2 class="panel-title">Activity</h2>
+          <p class="panel-sub">Requests per day</p>
         </div>
-
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <!-- 10-Day Desktop Chunk Slider (Contract Invariants: dailyChunkNav, btnPrevDailyChunk, btnNextDailyChunk) -->
-          <div id="dailyChunkNav" class="dailyChunkNav" style="display:inline-flex; align-items:center; justify-content:center; height:34px; min-height:34px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 10px; gap:6px; box-sizing:border-box;">
-            <button type="button" class="pager-btn pager-icon btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--fg); cursor:pointer; padding:0;">
-              ${renderSvg("chevron-left", 14)}
-            </button>
-            <span id="lblDailyChunkRange" style="font-size:11px; font-family:var(--font-mono); color:var(--fg); padding:0 4px; text-align:center;">${initialRangeText}</span>
-            <button type="button" class="pager-btn pager-icon btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--fg); cursor:pointer; padding:0;">
-              ${renderSvg("chevron-right", 14)}
-            </button>
+        <div class="cluster">
+          <div id="dailyChunkNav" class="dailyChunkNav cluster" style="gap:4px;">
+            <button type="button" class="pager-btn btnPrevDailyChunk" id="btnPrevDailyChunk" aria-label="Previous 10 days" title="Previous 10 days" onclick="changeDailyChunk(-1)">${renderSvg("chevron-left", 14)}</button>
+            <span id="lblDailyChunkRange" class="mono" style="font-size:12px; min-width:84px; text-align:center;">${initialRangeText}</span>
+            <button type="button" class="pager-btn btnNextDailyChunk" id="btnNextDailyChunk" aria-label="Next 10 days" title="Next 10 days" onclick="changeDailyChunk(1)">${renderSvg("chevron-right", 14)}</button>
           </div>
-
-          <!-- Smart Year Filter -->
           ${renderCustomDropdown({
             id: "yearFilter",
             options: [
-              { value: "all", label: "All Years" },
-              ...availableYears.map((y: any) => ({
-                value: String(y),
-                label: String(y),
-              })),
+              { value: "all", label: "All years" },
+              ...availableYears.map((y: any) => ({ value: String(y), label: String(y) })),
             ],
             selectedValue: "all",
             onchange: "renderTimelineChart()",
@@ -234,184 +208,97 @@ export function renderStatsPage(params: {
           })}
         </div>
       </div>
-
-      <div id="timelineChart" style="min-height:140px; display:flex; align-items:flex-end; gap:6px; padding:16px 0; border-bottom:1px solid var(--border-subtle);">
-        ${
-          (summary.dailyTimeline || [])
-            .slice(-10)
-            .map((item: any) => {
-              const reqs = item.requests || 0;
-              const h = Math.min(100, Math.max(8, reqs * 10));
-              return `
-              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
-                <div style="width:100%; height:${h}px; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.85;" title="${item.date}: ${reqs} calls"></div>
-                <span style="font-size:10px; font-family:var(--font-mono); color:var(--geist-gray-50);">${(item.date || "").slice(5)}</span>
-              </div>
-            `;
-            })
-            .join("") ||
-          `<div style="width:100%; text-align:center; color:var(--geist-gray-50); font-size:12px; padding:40px 0;">No timeline data available</div>`
-        }
+      <div id="timelineChart" class="chart">
+        ${timelineBars((summary.dailyTimeline || []).slice(-10)) || `<div class="empty" style="width:100%;">No timeline data available</div>`}
       </div>
     </div>
 
-    <!-- System Performance, Status Codes & Client Ecosystem -->
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:28px;">
-      <!-- Process Health -->
-      <div class="card spotlight-card" style="padding:20px;">
-        <h3 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
-          ${renderSvg("cpu", 15)} System Process Health
-        </h3>
-        <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">Heap Memory:</span>
-            <span id="valHeap" style="font-family:var(--font-mono); color:var(--fg);">${systemHealth.heapUsedMb} MB / ${systemHealth.heapTotalMb} MB</span>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">Resident RSS:</span>
-            <span id="valRss" style="font-family:var(--font-mono); color:var(--fg);">${systemHealth.rssMb} MB</span>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">Process Uptime:</span>
-            <span id="valUptime" style="font-family:var(--font-mono); color:var(--fg);">${Math.round(systemHealth.uptimeSec / 60)} mins</span>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">Platform:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${systemHealth.platform}</span>
-          </div>
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); margin-bottom:16px; align-items:start;">
+      <div class="panel" style="margin:0;">
+        <h3 class="panel-title" style="margin-bottom:12px;">Process health</h3>
+        <div class="rows">
+          ${kv("Heap memory", `${systemHealth.heapUsedMb} MB / ${systemHealth.heapTotalMb} MB`, "valHeap")}
+          ${kv("Resident RSS", `${systemHealth.rssMb} MB`, "valRss")}
+          ${kv("Uptime", `${Math.round(systemHealth.uptimeSec / 60)} mins`, "valUptime")}
+          ${kv("Platform", escapeHtml(String(systemHealth.platform)))}
         </div>
       </div>
-
-      <!-- HTTP Status Codes -->
-      <div class="card spotlight-card" style="padding:20px;">
-        <h3 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
-          ${renderSvg("server", 15)} Response Status Codes
-        </h3>
-        <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">200 OK:</span>
-            <strong style="color:var(--success); font-family:var(--font-mono);">${statusCodes["200"] || 0}</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">400 Bad Request:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${statusCodes["400"] || 0}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">401 Unauthorized:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${statusCodes["401"] || 0}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">500 Server Error:</span>
-            <span style="color:var(--error); font-family:var(--font-mono);">${statusCodes["500"] || 0}</span>
-          </div>
+      <div class="panel" style="margin:0;">
+        <h3 class="panel-title" style="margin-bottom:12px;">Response codes</h3>
+        <div class="rows">
+          ${kv("200 OK", String(statusCodes["200"] || 0), "", "text-ok")}
+          ${kv("400 Bad Request", String(statusCodes["400"] || 0))}
+          ${kv("401 Unauthorized", String(statusCodes["401"] || 0))}
+          ${kv("500 Server Error", String(statusCodes["500"] || 0), "", "text-bad")}
         </div>
       </div>
-
-      <!-- Client Ecosystem -->
-      <div class="card spotlight-card" style="padding:20px;">
-        <h3 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
-          ${renderSvg("activity", 15)} Client Ecosystem
-        </h3>
-        <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;" id="clientEcosystemList">
+      <div class="panel" style="margin:0;">
+        <h3 class="panel-title" style="margin-bottom:12px;">Clients</h3>
+        <div class="rows" id="clientEcosystemList">
           ${
             totalClientTraffic > 0
               ? Object.entries(clientEcosystems)
-                  .map(
-                    ([client, count]) => `
-                  <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--geist-gray-50);">${escapeHtml(client)}:</span>
-                    <strong style="font-family:var(--font-mono); color:var(--fg);">${count}</strong>
-                  </div>
-                `,
-                  )
+                  .map(([client, count]) => kv(escapeHtml(client), String(count)))
                   .join("")
-              : `<div style="font-size:13px; color:var(--geist-gray-50); text-align:center; padding:12px 0;">No client traffic recorded yet (N/A)</div>`
+              : `<div class="empty" style="padding:12px 0;">No client traffic recorded yet (N/A)</div>`
           }
         </div>
       </div>
     </div>
 
-    <!-- Top Tools & Storage Details -->
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:28px;">
-      <!-- Top Tools Executed -->
-      <div class="card spotlight-card" style="padding:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-          <h3 style="font-size:14px; font-weight:600; color:var(--fg);">Top Tools Executed</h3>
-          <a href="/tools" class="btn ghost" style="font-size:11px; padding:3px 8px;">View tools</a>
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); margin-bottom:16px; align-items:start;">
+      <div class="panel" style="margin:0;">
+        <div class="panel-head">
+          <h3 class="panel-title">Top tools</h3>
+          <a href="/tools" class="btn ghost sm">View tools</a>
         </div>
-        <div id="topToolsList" style="display:flex; flex-direction:column; gap:12px;">
+        <div id="topToolsList" class="stack" style="gap:14px;">
           ${
             toolEntries.length > 0
-              ? toolEntries
-                  .sort((a, b) => (b[1] as number) - (a[1] as number))
-                  .slice(0, 5)
-                  .map(
-                    ([tool, count]) => `
+              ? (() => {
+                  const sorted = toolEntries
+                    .sort((a, b) => (b[1] as number) - (a[1] as number))
+                    .slice(0, 5);
+                  const max = Math.max(1, ...sorted.map((e) => Number(e[1]) || 0));
+                  return sorted
+                    .map(
+                      ([tool, count]) => `
                     <div>
-                      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
-                        <span style="font-family:var(--font-mono); font-weight:600; color:var(--fg);">${escapeHtml(tool)}</span>
-                        <span style="color:var(--geist-gray-50); font-family:var(--font-mono);">${count} calls</span>
+                      <div class="cluster" style="justify-content:space-between; font-size:13px; margin-bottom:6px;">
+                        <span class="mono">${escapeHtml(tool)}</span>
+                        <span class="text-muted">${count} calls</span>
                       </div>
-                      <div style="height:4px; background:var(--bg-surface-2); border-radius:var(--radius-full); overflow:hidden;">
-                        <div style="height:100%; background:var(--accent); width:60%;"></div>
-                      </div>
-                    </div>
-                  `,
-                  )
-                  .join("")
-              : `<div style="font-size:13px; color:var(--geist-gray-50); padding:16px 0; text-align:center;">No tool calls recorded yet (N/A)</div>`
+                      <div class="progress"><span style="width:${Math.max(3, Math.round(((Number(count) || 0) / max) * 100))}%;"></span></div>
+                    </div>`,
+                    )
+                    .join("");
+                })()
+              : `<div class="empty" style="padding:16px 0;">No tool calls recorded yet (N/A)</div>`
           }
         </div>
       </div>
-
-      <!-- Storage & Bandwidth Telemetry -->
-      <div class="card spotlight-card" style="padding:20px;">
-        <h3 style="font-size:14px; font-weight:600; color:var(--fg); margin-bottom:14px;">Storage &amp; Bandwidth Telemetry</h3>
-        <div style="display:flex; flex-direction:column; gap:12px; font-size:12px;">
-          <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border-subtle);">
-            <span style="color:var(--geist-gray-50);">Data Volume Transferred:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${formatBytes(summary.totalBytesIn || 0)} in / ${formatBytes(summary.totalBytesOut || 0)} out</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border-subtle);">
-            <span style="color:var(--geist-gray-50);">Stored Files (all keys combined):</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${sharedSandbox.uploadFileCount} files (${formatBytes(sharedSandbox.uploadBytes || 0)})</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border-subtle);">
-            <span style="color:var(--geist-gray-50);">Active Repositories:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${sharedSandbox.activeWorkDirs} active repositories</span>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:var(--geist-gray-50);">Quota Threshold:</span>
-            <span style="font-family:var(--font-mono); color:var(--fg);">${sharedSandbox.quotaLimitMb} MB shared by all your keys</span>
-          </div>
+      <div class="panel" style="margin:0;">
+        <h3 class="panel-title" style="margin-bottom:12px;">Storage &amp; bandwidth</h3>
+        <div class="rows">
+          ${kv("Data transferred", `${formatBytes(summary.totalBytesIn || 0)} in / ${formatBytes(summary.totalBytesOut || 0)} out`)}
+          ${kv("Stored files", `${sharedSandbox.uploadFileCount} files (${formatBytes(sharedSandbox.uploadBytes || 0)})`)}
+          ${kv("Active repositories", `${sharedSandbox.activeWorkDirs} active repositories`)}
+          ${kv("Quota", `${sharedSandbox.quotaLimitMb} MB shared by all your keys`)}
         </div>
       </div>
     </div>
 
-    <!-- Per-Key Filtered Metrics Table (Contract Invariants: statsKeySearchInput, statsKeysTableBody) -->
-    <div class="card spotlight-card" style="padding:24px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Per-Key &amp; Client Breakdown</h2>
-          <span class="badge" style="font-size:11px;">${keys.length} keys</span>
-        </div>
-        <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; width:260px; height:34px; min-height:34px; box-sizing:border-box;">
-          ${renderSvg("search", 14, "text-muted")}
-          <input type="text" id="statsKeySearchInput" class="statsKeySearchInput" placeholder="Filter keys" oninput="filterStatsKeys(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
+    <div class="panel flush">
+      <div class="panel-head">
+        <div class="cluster"><h2 class="panel-title">Per-key breakdown</h2><span class="badge">${keys.length} keys</span></div>
+        <div class="search krix-pill-search">
+          ${renderSvg("search", 15)}
+          <input type="text" id="statsKeySearchInput" class="statsKeySearchInput" placeholder="Filter keys" aria-label="Filter keys" oninput="filterStatsKeys(this.value)">
         </div>
       </div>
-
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border-subtle); color:var(--geist-gray-50); font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">
-              <th style="padding:10px 12px; font-weight:600;">Key ID</th>
-              <th style="padding:10px 12px; font-weight:600;">Requests</th>
-              <th style="padding:10px 12px; font-weight:600;">Errors</th>
-              <th style="padding:10px 12px; font-weight:600;">Latency</th>
-              <th style="padding:10px 12px; font-weight:600;">Status</th>
-            </tr>
-          </thead>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Key</th><th>Requests</th><th>Errors</th><th>Latency</th><th>Status</th></tr></thead>
           <tbody id="statsKeysTableBody">
             ${
               keys.length > 0
@@ -424,36 +311,18 @@ export function renderStatsPage(params: {
                           ? "Primary Key"
                           : k.label || k.keyId;
                       const displayKeyId =
-                        k.keyId === "master-env-key"
-                          ? "primary-key"
-                          : k.keyId || k.id;
-
+                        k.keyId === "master-env-key" ? "primary-key" : k.keyId || k.id;
                       return `
-                <tr style="border-bottom:1px solid var(--border-subtle);" class="stats-row stats-key-row">
-                  <td style="padding:12px;">
-                    <div style="font-weight:600; color:var(--fg);">${escapeHtml(displayLabel)}</div>
-                    <div style="font-family:var(--font-mono); font-size:11px; color:var(--geist-gray-50);">${escapeHtml(displayKeyId)}</div>
-                  </td>
-                  <td style="padding:12px; font-family:var(--font-mono); color:var(--fg);">${k.totalRequests || 0}</td>
-                  <td style="padding:12px; font-family:var(--font-mono); color:${k.errorCount > 0 ? "var(--error)" : "var(--success)"};">${k.errorCount || 0}</td>
-                  <td style="padding:12px; font-family:var(--font-mono); color:var(--fg);">${k.avgDurationMs || 0}ms</td>
-                  <td style="padding:12px;">
-                    <span class="status-pill" style="font-size:11px;">
-                      <span class="status-dot-available" style="width:5px; height:5px;"></span>
-                      <span>Active</span>
-                    </span>
-                  </td>
-                </tr>
-              `;
+                <tr class="stats-row stats-key-row">
+                  <td><div class="list-name">${escapeHtml(displayLabel)}</div><div class="list-meta mono">${escapeHtml(displayKeyId)}</div></td>
+                  <td class="mono">${k.totalRequests || 0}</td>
+                  <td class="mono ${k.errorCount > 0 ? "text-bad" : "text-ok"}">${k.errorCount || 0}</td>
+                  <td class="mono">${k.avgDurationMs || 0}ms</td>
+                  <td><span class="badge success">Active</span></td>
+                </tr>`;
                     })
                     .join("")
-                : `
-                <tr>
-                  <td colspan="5" style="text-align:center; padding:24px; color:var(--geist-gray-50); font-size:13px;">
-                    No client activity recorded yet. Connect an MCP client above to start tracking.
-                  </td>
-                </tr>
-              `
+                : `<tr><td colspan="5" class="empty">No client activity yet. Connect an MCP client to start tracking.</td></tr>`
             }
           </tbody>
         </table>
@@ -493,15 +362,13 @@ export function renderStatsPage(params: {
         const chart = document.getElementById("timelineChart");
         if (chart) {
           if (!chunkItems.length) {
-            chart.innerHTML = '<div style="width:100%; text-align:center; color:var(--geist-gray-50); font-size:12px; padding:40px 0;">No timeline data available for this range</div>';
+            chart.innerHTML = '<div class="empty" style="width:100%;">No timeline data available for this range</div>';
           } else {
             chart.innerHTML = chunkItems.map(item => {
               const reqs = item.requests || 0;
               const h = Math.min(100, Math.max(8, reqs * 10));
-              return '<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">' +
-                '<div style="width:100%; height:' + h + 'px; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.85;" title="' + (item.date || '') + ': ' + reqs + ' calls"></div>' +
-                '<span style="font-size:10px; font-family:var(--font-mono); color:var(--geist-gray-50);">' + (item.date || '').slice(5) + '</span>' +
-              '</div>';
+              const date = String(item.date || '').replace(/[<>&"]/g, '');
+              return '<div class="bar-col"><div class="bar" style="height:' + h + 'px;" title="' + date + ': ' + reqs + ' calls"></div><span class="bar-label">' + date.slice(5) + '</span></div>';
             }).join('');
           }
         }

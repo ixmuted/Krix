@@ -69,101 +69,55 @@ export function renderApiKeysPage(params: {
     : "Not Configured";
 
   const content = `
-    <!-- Top Header Deck -->
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; flex-wrap:wrap; gap:16px;">
+    <div class="page-head">
       <div>
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">CREDENTIALS & ACCESS</div>
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.03em; color:var(--fg); margin-top:4px;">API Keys & Integrations</h1>
-        <p style="font-size:13px; color:var(--geist-gray-50); margin-top:2px;">
-          Manage personal access keys, OAuth 2.1 client applications, and default provider tokens.
-        </p>
+        <h1 class="page-title">API keys</h1>
+        <p class="page-sub">Keys and connected apps that can reach your MCP endpoint.</p>
       </div>
-
-      <button type="button" class="btn primary deploy-btn" onclick="openCreateKeyModal()" style="border-radius:var(--radius-full); gap:8px;">
-        ${renderSvg("key", 15)}
-        <span>Create API Key</span>
-      </button>
+      <div class="page-actions">
+        <button type="button" class="btn primary" onclick="openCreateKeyModal()">${renderSvg("plus", 16)}<span>Create key</span></button>
+      </div>
     </div>
 
-    <!-- Profile Default Integrations Card (Managed in /settings) -->
-    <div id="providerCredentialsCard" class="card spotlight-card card-top-border" style="display:none;" aria-hidden="true">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-        <div>
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--geist-gray-50);">DEFAULT INTEGRATIONS</div>
-          <h2 style="font-size:16px; font-weight:600; color:var(--fg); margin-top:2px;">Platform Provider Credentials</h2>
-        </div>
-        <button type="button" class="btn" onclick="openEditCredsModal()" style="padding:5px 14px; font-size:12px; border-radius:var(--radius-full); gap:6px;">
-          ${renderSvg("edit", 13)}
-          <span>Edit Credentials</span>
-        </button>
+    <div id="providerCredentialsCard" class="panel" style="display:none;" aria-hidden="true">
+      <div class="panel-head">
+        <h2 class="panel-title">Provider credentials</h2>
+        <button type="button" class="btn sm" onclick="openEditCredsModal()">${renderSvg("edit", 14)}<span>Edit credentials</span></button>
       </div>
-
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
-        <!-- GitHub Token Cell -->
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle);">
-          <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-            ${renderSvg("github", 20)}
-            <div style="min-width:0; flex:1;">
-              <div style="font-size:12px; font-weight:600; color:var(--fg);">GitHub Token</div>
-              <code id="githubTokenCode" data-raw="${escapeHtml(githubToken)}" data-masked-val="${escapeHtml(maskedGithub)}" data-masked="true" style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(maskedGithub)}</code>
-            </div>
-          </div>
-          <div style="display:flex; gap:4px; flex-shrink:0;">
-            <button type="button" class="btn ghost toggleCredReveal" onclick="window.toggleSecretReveal('githubTokenCode', this)" style="padding:4px;" title="Reveal Secret">
-              ${renderSvg("eye", 14)}
-            </button>
-            <button type="button" class="btn ghost copyCredSecret" onclick="window.copyToClipboard('${escapeHtml(githubToken)}', this)" style="padding:4px;" title="Copy Secret">
-              ${renderSvg("copy", 14)}
-            </button>
-          </div>
+      <div class="stack">
+        <div class="endpoint-row">
+          ${renderSvg("github", 18)}
+          <code id="githubTokenCode" data-raw="${escapeHtml(githubToken)}" data-masked-val="${escapeHtml(maskedGithub)}" data-masked="true">${escapeHtml(maskedGithub)}</code>
+          <button type="button" class="btn ghost icon toggleCredReveal" onclick="window.toggleSecretReveal('githubTokenCode', this)" title="Reveal secret" aria-label="Reveal GitHub token">${renderSvg("eye", 15)}</button>
+          <button type="button" class="btn ghost icon copyCredSecret" onclick="window.copyToClipboard('${escapeHtml(githubToken)}', this)" title="Copy secret" aria-label="Copy GitHub token">${renderSvg("copy", 15)}</button>
         </div>
-
-        <!-- Render API Key Cell -->
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle);">
-          <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-            ${renderSvg("render", 20)}
-            <div style="min-width:0; flex:1;">
-              <div style="font-size:12px; font-weight:600; color:var(--fg);">Render API Key</div>
-              <code id="renderTokenCode" data-raw="${escapeHtml(renderApiKey)}" data-masked-val="${escapeHtml(maskedRender)}" data-masked="true" style="font-size:11px; color:var(--geist-gray-50); font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(maskedRender)}</code>
-            </div>
-          </div>
-          <div style="display:flex; gap:4px; flex-shrink:0;">
-            <button type="button" class="btn ghost toggleCredReveal" onclick="window.toggleSecretReveal('renderTokenCode', this)" style="padding:4px;" title="Reveal Secret">
-              ${renderSvg("eye", 14)}
-            </button>
-            <button type="button" class="btn ghost copyCredSecret" onclick="window.copyToClipboard('${escapeHtml(renderApiKey)}', this)" style="padding:4px;" title="Copy Secret">
-              ${renderSvg("copy", 14)}
-            </button>
-          </div>
+        <div class="endpoint-row">
+          ${renderSvg("render", 18)}
+          <code id="renderTokenCode" data-raw="${escapeHtml(renderApiKey)}" data-masked-val="${escapeHtml(maskedRender)}" data-masked="true">${escapeHtml(maskedRender)}</code>
+          <button type="button" class="btn ghost icon toggleCredReveal" onclick="window.toggleSecretReveal('renderTokenCode', this)" title="Reveal secret" aria-label="Reveal Render key">${renderSvg("eye", 15)}</button>
+          <button type="button" class="btn ghost icon copyCredSecret" onclick="window.copyToClipboard('${escapeHtml(renderApiKey)}', this)" title="Copy secret" aria-label="Copy Render key">${renderSvg("copy", 15)}</button>
         </div>
       </div>
     </div>
 
-    <!-- Active API Keys Table Section (Contract Invariant: id="keySearchInput", keysCountBadge, Client ID) -->
-    <div class="card spotlight-card" style="padding:24px; margin-bottom:28px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Active API Keys</h2>
-          <span class="badge ${keys.length > 0 ? "success" : ""}" id="keysCountBadge" style="font-family:var(--font-mono);">${keys.length} active</span>
+    <div class="panel flush">
+      <div class="panel-head">
+        <div class="cluster">
+          <h2 class="panel-title">Active keys</h2>
+          <span class="badge ${keys.length > 0 ? "success" : ""}" id="keysCountBadge">${keys.length} active</span>
         </div>
-        <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; width:260px; max-width:100%; height:34px; min-height:34px; box-sizing:border-box;">
-          ${renderSvg("search", 14, "text-muted")}
-          <input type="text" id="keySearchInput" placeholder="Search API keys" oninput="filterApiKeys(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
+        <div class="search krix-pill-search">
+          ${renderSvg("search", 15)}
+          <input type="text" id="keySearchInput" placeholder="Search keys" aria-label="Search API keys" oninput="filterApiKeys(this.value)">
         </div>
       </div>
-
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border-subtle); color:var(--geist-gray-50); font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">
-              <th style="padding:10px 12px; font-weight:600;">Label</th>
-              <th style="padding:10px 12px; font-weight:600; text-align:right;">Actions</th>
-            </tr>
-          </thead>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Label</th><th>Client ID</th><th style="text-align:right;">Actions</th></tr></thead>
           <tbody id="keysTableBody">
             ${
               keys.length === 0
-                ? `<tr id="emptyKeysRow"><td colspan="2" style="text-align:center; padding:32px; color:var(--geist-gray-50);">No active API keys found. Click "Create API Key" to generate one.</td></tr>`
+                ? `<tr id="emptyKeysRow"><td colspan="3" class="empty">No API keys yet. Create one to connect a client.</td></tr>`
                 : keys
                     .map((k, idx) => {
                       const rawKeyId = String(k.id || "");
@@ -178,32 +132,22 @@ export function renderApiKeysPage(params: {
                       const menuId = `keyMenu_${idx}`;
 
                       return `
-                  <tr class="api-key-row" id="row-${keyId}" data-label="${keyLabel.toLowerCase()}" data-client-id="${clientId.toLowerCase()}" data-href="/api/settings?key=${encodeURIComponent(rawKeyId)}" tabindex="0" style="border-bottom:1px solid var(--border-subtle);cursor:pointer;">
-                    <td style="padding:12px;">
-                      <span id="key-name-text-${keyId}" class="key-label-text-${keyId}" style="font-weight:600; color:var(--fg);">${keyLabel}</span>
-                      <div style="font-family:var(--font-mono); font-size:11px; color:var(--geist-gray-50);">${keyId}</div>
+                  <tr class="api-key-row clickable" id="row-${keyId}" data-label="${keyLabel.toLowerCase()}" data-client-id="${clientId.toLowerCase()}" data-href="/api/settings?key=${encodeURIComponent(rawKeyId)}" tabindex="0">
+                    <td>
+                      <div id="key-name-text-${keyId}" class="key-label-text-${keyId} list-name">${keyLabel}</div>
+                      <div class="list-meta mono">${keyId}</div>
                     </td>
-                    <td style="padding:12px; text-align:right; position:relative; overflow:visible;">
-                      <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
-                        <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${menuId}', this)" style="padding:4px 6px;" aria-label="Key Actions">
-                          ${renderSvg("more-vertical", 14)}
-                        </button>
-                        <div id="${menuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:680; min-width:160px; text-align:left;">
-                          <a href="/api/settings?key=${encodeURIComponent(keyId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
-                            ${renderSvg("info", 13)}
-                            <span>Info</span>
-                          </a>
-                          <button type="button" class="btn ghost" onclick="openRenameKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm);">
-                            ${renderSvg("edit", 13)}
-                            <span>Rename</span>
-                          </button>
-                          <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
-                          <button type="button" class="btn ghost danger" onclick="openRevokeKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
-                            ${renderSvg("trash", 13)}
-                            <span>Delete</span>
-                          </button>
-                        </div>
+                    <td class="mono text-muted" style="font-size:13px;">${clientId}</td>
+                    <td style="text-align:right;">
+                      <div class="krix-dropdown">
+                      <button type="button" class="krix-kebab-trigger kebab-trigger" onclick="toggleKeyDropdown('${menuId}', this)" aria-label="Actions" aria-haspopup="menu">${renderSvg("more-vertical", 16)}</button>
+                      <div id="${menuId}" class="krix-dropdown-menu" role="menu" style="display:none;">
+                        <a href="/api/settings?key=${encodeURIComponent(keyId)}" class="krix-dropdown-item" role="menuitem">${renderSvg("info", 16)}<span>Info</span></a>
+                        <button type="button" class="krix-dropdown-item" role="menuitem" onclick="openRenameKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')">${renderSvg("edit", 16)}<span>Rename</span></button>
+                        <div class="krix-dropdown-divider"></div>
+                        <button type="button" class="krix-dropdown-item danger" role="menuitem" onclick="openRevokeKeyModal(${keyIdArg}, ${keyLabelArg}); closeKeyDropdown('${menuId}')">${renderSvg("trash", 16)}<span>Delete</span></button>
                       </div>
+                    </div>
                     </td>
                   </tr>
                 `;
@@ -215,27 +159,21 @@ export function renderApiKeysPage(params: {
       </div>
     </div>
 
-    <!-- Active OAuth Authorizations Section (Contract Invariant: Active OAuth Authorizations, oauthSearchInput, filterOAuth) -->
-    <div class="card spotlight-card oauth-authorizations-card" style="padding:24px; height:auto; min-height:0; align-self:start;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+    <div class="panel flush oauth-authorizations-card">
+      <div class="panel-head">
         <div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <h2 style="font-size:16px; font-weight:600; color:var(--fg);">Active OAuth Authorizations</h2>
-            <span class="badge" id="oauthCountBadge">${oauthClients.length}</span>
-          </div>
-          <p style="font-size:12px; color:var(--geist-gray-50); margin-top:2px;">Applications granted access to your MCP instance</p>
+          <div class="cluster"><h2 class="panel-title">Active OAuth Authorizations</h2><span class="badge" id="oauthCountBadge">${oauthClients.length}</span></div>
+          <p class="panel-sub">Applications you have given access to your MCP instance.</p>
         </div>
-
-        <div class="krix-pill-search search-bar-responsive" style="display:flex; align-items:center; gap:8px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-full); padding:0 16px; width:260px; max-width:100%; height:34px; min-height:34px; box-sizing:border-box;">
-          ${renderSvg("search", 14, "text-muted")}
-          <input type="text" id="oauthSearchInput" class="filterOAuth" placeholder="Filter applications" oninput="filterOAuthClients(this.value)" style="border:none; background:transparent; font-size:12px; color:var(--fg); outline:none; width:100%;">
+        <div class="search krix-pill-search">
+          ${renderSvg("search", 15)}
+          <input type="text" id="oauthSearchInput" class="filterOAuth" placeholder="Filter applications" aria-label="Filter applications" oninput="filterOAuthClients(this.value)">
         </div>
       </div>
-
-      <div id="oauthClientsContainer" class="oauth-clients-scroll" style="display:flex; flex-direction:column; align-items:stretch; gap:8px; overflow:visible; max-width:100%; height:auto; min-height:0; flex:none;">
+      <div id="oauthClientsContainer" class="list oauth-clients-scroll">
         ${
           oauthClients.length === 0
-            ? `<div style="text-align:center; padding:32px; color:var(--geist-gray-50); font-size:13px;">No third-party applications authorized yet.</div>`
+            ? `<div class="empty">No apps have been authorized yet.</div>`
             : (() => {
                 const oauthNameCounts: Record<string, number> = {};
                 const oauthNameTotals: Record<string, number> = {};
@@ -327,38 +265,23 @@ export function renderApiKeysPage(params: {
                     const oauthMenuId = `oauth_menu_${cId.replace(/[^a-zA-Z0-9_-]/g, "_")}_${idx}`;
 
                     return `
-              <div class="oauth-client-row card" data-name="${cName.toLowerCase()}" data-client-id="${cId}" data-href="/api/settings?key=${encodeURIComponent(rawClientId)}" tabindex="0" style="cursor:pointer;display:flex; justify-content:space-between; align-items:center; gap:8px; box-sizing:border-box; width:100%; min-height:68px; height:auto; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-surface-1); border:1px solid var(--border-subtle); position:relative; overflow:visible; flex:0 0 auto;">
-                <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
-                  <div style="width:36px; height:36px; flex:0 0 36px; border-radius:8px; background:var(--bg-surface-2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-subtle); color:var(--fg);">
-                    ${appLogo}
-                  </div>
-                  <div style="min-width:0; flex:1;">
-                    <div style="font-weight:600; font-size:13px; color:var(--fg); overflow-wrap:anywhere;">${cName}</div>
+              <div class="oauth-client-row list-item clickable" data-name="${cName.toLowerCase()}" data-client-id="${cId}" data-href="/api/settings?key=${encodeURIComponent(rawClientId)}" tabindex="0">
+                <div class="list-main">
+                  <div class="logo-tile">${appLogo}</div>
+                  <div style="min-width:0;">
+                    <div class="list-name">${cName}</div>
                     <div class="oauth-scope-line">${scopeChips}</div>
                   </div>
                 </div>
-
-                <div style="display:flex; align-items:center; flex:0 0 auto;">
-                  <div class="krix-dropdown" style="display:inline-block; position:relative; overflow:visible;">
-                    <button type="button" class="btn ghost kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}', this)" style="padding:4px 6px;" aria-label="OAuth Actions">
-                      ${renderSvg("more-vertical", 14)}
-                    </button>
-                    <div id="${oauthMenuId}" class="krix-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--bg-surface-0); border:1px solid var(--border-medium); border-radius:var(--radius-md); box-shadow:var(--shadow-popover); padding:4px; z-index:680; min-width:160px; text-align:left;">
-                      <a href="/api/settings?key=${encodeURIComponent(rawClientId)}" class="btn ghost" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); text-decoration:none;">
-                        ${renderSvg("info", 13)}
-                        <span>Info</span>
-                      </a>
-                      <button type="button" class="btn ghost" onclick="openRenameOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%;justify-content:flex-start;font-size:12px;padding:6px 10px;border-radius:var(--radius-sm);">
-                        ${renderSvg("edit", 13)}<span>Rename</span>
-                      </button>
-                      <div style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
-                      <button type="button" class="btn ghost danger" onclick="openRevokeOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')" style="width:100%; justify-content:flex-start; font-size:12px; padding:6px 10px; border-radius:var(--radius-sm); color:var(--error);">
-                        ${renderSvg("trash", 13)}
-                        <span>Delete</span>
-                      </button>
+                <div class="krix-dropdown">
+                      <button type="button" class="krix-kebab-trigger kebab-trigger" onclick="toggleKeyDropdown('${oauthMenuId}', this)" aria-label="Actions" aria-haspopup="menu">${renderSvg("more-vertical", 16)}</button>
+                      <div id="${oauthMenuId}" class="krix-dropdown-menu" role="menu" style="display:none;">
+                        <a href="/api/settings?key=${encodeURIComponent(rawClientId)}" class="krix-dropdown-item" role="menuitem">${renderSvg("info", 16)}<span>Info</span></a>
+                        <button type="button" class="krix-dropdown-item" role="menuitem" onclick="openRenameOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')">${renderSvg("edit", 16)}<span>Rename</span></button>
+                        <div class="krix-dropdown-divider"></div>
+                        <button type="button" class="krix-dropdown-item danger" role="menuitem" onclick="openRevokeOAuthModal(${clientIdArg}, ${displayNameArg}); closeKeyDropdown('${oauthMenuId}')">${renderSvg("trash", 16)}<span>Delete</span></button>
+                      </div>
                     </div>
-                  </div>
-                </div>
               </div>
             `;
                   })
@@ -368,97 +291,72 @@ export function renderApiKeysPage(params: {
       </div>
     </div>
 
-    <style>
-      .oauth-scope-line{display:flex;flex-wrap:wrap;gap:4px 5px;margin-top:6px;max-height:44px;overflow:hidden;min-width:0}
-      .oauth-scope-chip{font:600 10px/1 var(--font-mono);padding:4px 7px;border-radius:999px;background:var(--bg-surface-2);border:1px solid var(--border-subtle);color:var(--geist-gray-50);white-space:nowrap}
-      .oauth-authorizations-card,
-      .oauth-authorizations-card.card,
-      .oauth-authorizations-card.spotlight-card,
-      .oauth-clients-scroll,
-      .oauth-client-row,
-      .oauth-client-row.card {
-        overflow: visible !important;
-      }
-    </style>
-
-    <!-- Create API Key Modal (Concentric Vercel Geist Dialog) -->
-    <div id="createKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-card card spotlight-card" style="max-width:420px; width:100%; padding:24px; box-shadow:var(--shadow-popover);">
-        <h3 style="font-size:16px; font-weight:700; color:var(--fg); margin-bottom:6px;">Create API Key</h3>
-        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Provide a descriptive label for your new key (4–16 characters).</p>
-        <form id="createKeyForm" onsubmit="event.preventDefault(); handleCreateKey(event); return false;" action="javascript:void(0);" method="post" style="display:flex; flex-direction:column; gap:12px;">
-          <input type="text" id="createKeyInput" minlength="4" maxlength="16" placeholder="e.g. Gemini-CLI or Cursor-Prod" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-size:13px; color:var(--fg); outline:none;">
-          <div style="display:flex; justify-content:flex-end; gap:8px;">
-            <button type="button" class="btn ghost" onclick="closeCreateKeyModal()">Cancel</button>
-            <button type="button" id="createKeyBtn" class="btn primary" onclick="handleCreateKey(event)">Generate Key</button>
+    <div id="createKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="createKeyTitle">
+      <div class="modal-card">
+        <h3 class="modal-title" id="createKeyTitle">Create API key</h3>
+        <p class="modal-text">Give the key a name you will recognize (4–16 characters).</p>
+        <form id="createKeyForm" onsubmit="event.preventDefault(); handleCreateKey(event); return false;" action="javascript:void(0);" method="post">
+          <div class="modal-body">
+            <input type="text" id="createKeyInput" class="input" minlength="4" maxlength="16" placeholder="e.g. Cursor-Work" aria-label="Key name" autocomplete="off">
+          </div>
+          <div class="modal-actions" style="margin-top:0;">
+            <button type="button" class="btn" onclick="closeCreateKeyModal()">Cancel</button>
+            <button type="button" id="createKeyBtn" class="btn primary" onclick="handleCreateKey(event)">Create key</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Rename API Key Modal (Concentric Vercel Geist Dialog) -->
-    <div id="renameKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-card card spotlight-card" style="max-width:420px; width:100%; padding:24px; box-shadow:var(--shadow-popover);">
-        <h3 style="font-size:16px; font-weight:700; color:var(--fg); margin-bottom:6px;">Rename API Key</h3>
-        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Enter a new label for this key (4–16 characters).</p>
-        <input type="text" id="renameKeyInput" minlength="4" maxlength="16" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-size:13px; color:var(--fg); margin-bottom:20px; outline:none;">
-        <div style="display:flex; justify-content:flex-end; gap:8px;">
-          <button type="button" class="btn ghost" onclick="closeRenameKeyModal()">Cancel</button>
-          <button type="button" id="renameKeySubmitBtn" class="btn primary" onclick="submitRenameKey()">Save Changes</button>
+    <div id="renameKeyModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="renameKeyTitle">
+      <div class="modal-card">
+        <h3 class="modal-title" id="renameKeyTitle">Rename API key</h3>
+        <p class="modal-text">Enter a new name (4–16 characters).</p>
+        <div class="modal-body"><input type="text" id="renameKeyInput" class="input" minlength="4" maxlength="16" aria-label="New key name"></div>
+        <div class="modal-actions" style="margin-top:0;">
+          <button type="button" class="btn" onclick="closeRenameKeyModal()">Cancel</button>
+          <button type="button" id="renameKeySubmitBtn" class="btn primary" onclick="submitRenameKey()">Save changes</button>
         </div>
       </div>
     </div>
 
-    <!-- Rename OAuth Client Modal -->
-    <div id="renameOAuthModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:var(--z-modal);display:none;align-items:center;justify-content:center;padding:16px;">
-      <div class="modal-card card spotlight-card" style="max-width:420px;width:100%;padding:24px;box-shadow:var(--shadow-popover);">
-        <h3 style="font-size:16px;font-weight:700;color:var(--fg);margin-bottom:6px;">Rename OAuth Client</h3>
-        <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:16px;">Choose a new display name for this authorized application.</p>
-        <input type="text" id="renameOAuthInput" minlength="4" maxlength="16" style="width:100%;padding:8px 12px;background:var(--bg-surface-1);border:1px solid var(--border-medium);border-radius:6px;font-size:13px;color:var(--fg);margin-bottom:20px;outline:none;">
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button type="button" class="btn ghost" onclick="closeRenameOAuthModal()">Cancel</button>
-          <button type="button" class="btn primary" id="renameOAuthSubmitBtn" onclick="submitRenameOAuth()">Save Changes</button>
+    <div id="renameOAuthModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="renameOAuthTitle">
+      <div class="modal-card">
+        <h3 class="modal-title" id="renameOAuthTitle">Rename app</h3>
+        <p class="modal-text">Choose a new display name for this authorized app.</p>
+        <div class="modal-body"><input type="text" id="renameOAuthInput" class="input" minlength="4" maxlength="16" aria-label="New app name"></div>
+        <div class="modal-actions" style="margin-top:0;">
+          <button type="button" class="btn" onclick="closeRenameOAuthModal()">Cancel</button>
+          <button type="button" class="btn primary" id="renameOAuthSubmitBtn" onclick="submitRenameOAuth()">Save changes</button>
         </div>
       </div>
     </div>
 
-    <!-- Edit Provider Credentials Modal (Concentric Vercel Geist Dialog) -->
-    <div id="editCredsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-card card spotlight-card" style="max-width:460px; width:100%; padding:24px; box-shadow:var(--shadow-popover);">
-        <h3 style="font-size:16px; font-weight:700; color:var(--fg); margin-bottom:6px;">Platform Provider Credentials</h3>
-        <p style="font-size:12px; color:var(--geist-gray-50); margin-bottom:16px;">Configure your GitHub PAT token and Render API key for agent tooling.</p>
-        
-        <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:20px;">
-          <div>
-            <label for="inputGithubToken" style="font-size:12px; font-weight:600; color:var(--fg); display:block; margin-bottom:4px;">GitHub Personal Access Token</label>
-            <input type="password" id="inputGithubToken" placeholder="ghp_token or github_pat_token" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
-          </div>
-          <div>
-            <label for="inputRenderKey" style="font-size:12px; font-weight:600; color:var(--fg); display:block; margin-bottom:4px;">Render API Key</label>
-            <input type="password" id="inputRenderKey" placeholder="rnd_token" style="width:100%; padding:8px 12px; background:var(--bg-surface-1); border:1px solid var(--border-medium); border-radius:var(--radius-md); font-family:var(--font-mono); font-size:12px; color:var(--fg); outline:none;">
-          </div>
+    <div id="editCredsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="editCredsTitle">
+      <div class="modal-card">
+        <h3 class="modal-title" id="editCredsTitle">Provider credentials</h3>
+        <p class="modal-text">Add your GitHub token and Render API key for agent tools.</p>
+        <div class="modal-body">
+          <div class="field"><label for="inputGithubToken">GitHub personal access token</label><input type="password" id="inputGithubToken" class="input mono" placeholder="ghp_… or github_pat_…"></div>
+          <div class="field"><label for="inputRenderKey">Render API key</label><input type="password" id="inputRenderKey" class="input mono" placeholder="rnd_…"></div>
         </div>
-
-        <div style="display:flex; justify-content:flex-end; gap:8px;">
-          <button type="button" class="btn ghost" onclick="closeEditCredsModal()">Cancel</button>
-          <button type="button" id="saveCredsSubmitBtn" class="btn primary" onclick="submitEditCreds()">Save Credentials</button>
+        <div class="modal-actions" style="margin-top:0;">
+          <button type="button" class="btn" onclick="closeEditCredsModal()">Cancel</button>
+          <button type="button" id="saveCredsSubmitBtn" class="btn primary" onclick="submitEditCreds()">Save credentials</button>
         </div>
       </div>
     </div>
 
-    <!-- Custom Confirmation Modal (Contract Invariant: id="confirmModal" class="modal-backdrop" hidden) -->
-    <div id="confirmModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:var(--z-modal); display:none; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-card card spotlight-card" style="max-width:400px; width:100%; padding:24px; box-shadow:var(--shadow-popover);">
-        <h3 id="modalTitle" style="font-size:16px; font-weight:700; color:var(--fg); margin-bottom:6px;">Confirm Action</h3>
-        <p id="modalDesc" style="font-size:13px; color:var(--geist-gray-50); margin-bottom:20px; line-height:1.5;">Are you sure you want to revoke this API key? Any connected applications will lose access.</p>
-        <div style="display:flex; justify-content:flex-end; gap:8px;">
-          <button type="button" class="btn ghost" onclick="closeConfirmModal()">Cancel</button>
-          <button type="button" id="modalConfirmBtn" class="btn danger" onclick="executeConfirmedAction()">Revoke Key</button>
+    <div id="confirmModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-card">
+        <h3 id="modalTitle" class="modal-title">Confirm action</h3>
+        <p id="modalDesc" class="modal-text">Are you sure you want to revoke this API key? Any connected applications will lose access.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeConfirmModal()">Cancel</button>
+          <button type="button" id="modalConfirmBtn" class="btn danger" onclick="executeConfirmedAction()">Revoke key</button>
         </div>
       </div>
     </div>
 
-    <!-- Custom Toast Notification Container (Contract Invariant: class="toast-container") -->
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
     <script>
@@ -478,7 +376,6 @@ export function renderApiKeysPage(params: {
         }
         document.body.appendChild(menu);
         menu.style.display = 'flex';
-        menu.style.flexDirection = 'column';
         // Measure the real, settled size: no entry animation/transform, border-box sizing.
         menu.style.animation = 'none';
         menu.style.transform = 'none';

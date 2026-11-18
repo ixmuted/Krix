@@ -151,86 +151,96 @@ export function renderApiKeySettingsPage(params: {
   }
 
   const content = `
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+    <div class="page-head">
       <div style="min-width:0;">
-        <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.03em; color:var(--fg);">Configure Key: ${keyName}</h1>
-        <p style="font-size:13px; color:var(--geist-gray-50); margin-top:2px; font-family:var(--font-mono); overflow-wrap:anywhere;">Key ID: ${keyId}</p>
+        <a href="/api" class="text-muted" style="font-size:13px; display:inline-flex; align-items:center; gap:4px; margin-bottom:8px;">${renderSvg("chevron-left", 14)}<span>API keys</span></a>
+        <h1 class="page-title">${keyName}</h1>
+        <p class="page-sub mono" style="font-size:13px; overflow-wrap:anywhere;">${keyId}</p>
       </div>
     </div>
 
-    <div class="key-metadata-grid" style="display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:10px; margin-bottom:22px;">
-      <div class="card spotlight-card card-top-border" style="padding:14px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+    <div class="key-metadata-grid">
+      <div class="stat">
         <div><div class="key-meta-label">Key Status</div><div id="keyStatusText" class="key-meta-value" style="color:${isKeyDisabled ? "var(--error)" : "var(--success)"};">${isKeyDisabled ? "Disabled" : "Active"}</div></div>
         <label class="switch krix-switch" title="${rawKeyId === "primary-key" ? "The primary key cannot be disabled" : "Enable or disable this key"}"><input type="checkbox" id="keyActiveToggle" ${!isKeyDisabled ? "checked" : ""} ${rawKeyId === "primary-key" ? "disabled" : ""} onchange="updateKeyStatusLabel(this.checked)"><span class="krix-slider"></span></label>
       </div>
-      <div class="card spotlight-card card-top-border" style="padding:14px;"><div class="key-meta-label">Created Date</div><div class="key-meta-value">${escapeHtml(createdDate)}</div></div>
-      <div class="card spotlight-card card-top-border" style="padding:14px;"><div class="key-meta-label">Connected App</div><div class="key-meta-value">${appName}</div></div>
-      <div class="card spotlight-card card-top-border" style="padding:14px;"><div class="key-meta-label">Total Invocations</div><div class="key-meta-value">${requestCount} calls</div></div>
-      <div class="card spotlight-card card-top-border" style="padding:14px;"><div class="key-meta-label">Last Active</div><div class="key-meta-value">${escapeHtml(lastActive)}</div></div>
+      <div class="stat"><div class="key-meta-label">Created Date</div><div class="key-meta-value">${escapeHtml(createdDate)}</div></div>
+      <div class="stat"><div class="key-meta-label">Connected App</div><div class="key-meta-value">${appName}</div></div>
+      <div class="stat"><div class="key-meta-label">Total Invocations</div><div class="key-meta-value">${requestCount} calls</div></div>
+      <div class="stat"><div class="key-meta-label">Last Active</div><div class="key-meta-value">${escapeHtml(lastActive)}</div></div>
     </div>
 
     <style>
-      .key-meta-label{font-size:10px;font-weight:650;text-transform:uppercase;letter-spacing:.04em;color:var(--geist-gray-50)}
-      .key-meta-value{font-size:13px;font-weight:650;color:var(--fg);margin-top:6px;overflow-wrap:anywhere}
+      .key-metadata-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+      .key-metadata-grid>.stat{display:flex;justify-content:space-between;align-items:center;gap:8px}
+      .key-identity-grid,.key-credential-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+      .key-meta-label{font-size:12px;color:var(--fg-3)}
+      .key-meta-value{font-size:14px;font-weight:500;margin-top:4px;overflow-wrap:anywhere}
       .key-secret-row{display:flex;align-items:center;gap:6px;min-width:0}
-      .key-secret-value{display:block;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 11px;background:var(--bg-surface-1);border:1px solid var(--border-subtle);border-radius:6px;color:var(--fg);font:12px var(--font-mono)}
-      .key-secret-actions{display:flex;gap:3px;flex-shrink:0}
-      .key-secret-actions button{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-1);color:var(--fg)}
-      .key-credential-input{width:100%;min-width:0;padding:9px 11px;background:var(--bg-surface-1);border:1px solid var(--border-subtle);border-radius:6px;color:var(--fg);font:12px var(--font-mono)}
-      .key-tool-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:6px;background:var(--bg-surface-1);border:1px solid var(--border-subtle)}
+      .key-secret-value{display:block;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 12px;background:var(--bg-surface-1);border:1px solid var(--border-subtle);border-radius:var(--radius-md);font:13px var(--font-mono)}
+      .key-secret-value.not-configured{color:var(--fg-3)}
+      .key-secret-actions{display:flex;gap:4px;flex-shrink:0}
+      .key-secret-actions button{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-md);color:var(--fg-3)}
+      .key-secret-actions button:hover{background:var(--hover);color:var(--fg)}
+      .key-credential-input{width:100%;min-width:0;height:38px;padding:0 12px;background:var(--bg-surface-0);border:1px solid var(--border-medium);border-radius:var(--radius-md);font:13px var(--font-mono);color:var(--fg)}
+      .key-credential-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+      .key-tool-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border-subtle)}
       .key-tool-row[hidden]{display:none!important}
-      .key-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px}
-      @media(max-width:900px){.key-metadata-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.key-metadata-grid>div:first-child{grid-column:span 2}}
-      @media(max-width:540px){.key-metadata-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.key-meta-value{font-size:12px}.key-identity-grid{grid-template-columns:minmax(0,1fr)!important}.key-settings-card{padding:16px!important}.key-tool-row{padding:9px 10px}}
+      .key-tool-row:last-child{border-bottom:0}
+      #keyToolGrid{max-height:460px;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+      .key-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px;font-size:13px;color:var(--fg-3)}
+      .key-section-title{font-size:16px;font-weight:500}
+      .key-section-sub{font-size:13px;color:var(--fg-3);margin-top:2px}
+      .key-field-label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
     </style>
 
-    <section class="card spotlight-card card-top-border key-settings-card" style="padding:22px; margin-bottom:20px;">
-      <h2 style="font-size:16px;font-weight:650;color:var(--fg);margin-bottom:5px;">Key Identity</h2>
-      <p style="font-size:12px;color:var(--geist-gray-50);margin-bottom:14px;">View this key's token and OAuth client identifier.</p>
-      <div class="key-identity-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+    <section class="panel key-settings-card">
+      <h2 class="key-section-title">Key Identity</h2>
+      <p class="key-section-sub" style="margin-bottom:14px;">The token and OAuth client ID for this key.</p>
+      <div class="key-identity-grid">
         ${
           showTokenField
-            ? `<div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">API Key Token</label>
+            ? `<div><label class="key-field-label">API Key Token</label>
           <div class="key-secret-row"><code id="apiKeyTokenValue" class="key-secret-value" data-raw="${escapeHtml(rawApiToken)}" data-masked="${escapeHtml(rawApiToken ? maskedApiToken : "••••••••••••")}" data-is-visible="false" data-fetch-url="/api/keys/${encodeURIComponent(rawKeyId)}/secret">${escapeHtml(rawApiToken ? maskedApiToken : "••••••••••••")}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('apiKeyTokenValue',this)" title="Reveal token" aria-label="Reveal token">${renderSvg("eye", 14)}</button><button type="button" onclick="copyKeyIdentity('apiKeyTokenValue',this)" title="Copy token" aria-label="Copy token">${renderSvg("copy", 14)}</button></div></div>
         </div>`
             : ""
         }
-        <div style="min-width:0;"><label style="display:block;font-size:11px;font-weight:600;color:var(--geist-gray-50);margin-bottom:6px;">Client ID</label>
+        <div><label class="key-field-label">Client ID</label>
           <div class="key-secret-row"><code id="oauthClientIdValue" class="key-secret-value" data-raw="${escapeHtml(clientId || rawKeyId)}" data-masked="${escapeHtml(maskedClientId)}" data-is-visible="false">${escapeHtml(maskedClientId)}</code><div class="key-secret-actions"><button type="button" onclick="toggleKeyIdentityReveal('oauthClientIdValue',this)" title="Reveal client ID" aria-label="Reveal client ID">${renderSvg("eye", 14)}</button><button type="button" onclick="copyKeyIdentity('oauthClientIdValue',this)" title="Copy client ID" aria-label="Copy client ID">${renderSvg("copy", 14)}</button></div></div>
         </div>
       </div>
     </section>
 
-    <section class="card spotlight-card card-top-border key-settings-card" style="padding:22px;margin-bottom:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
-        <div><h2 style="font-size:16px;font-weight:650;color:var(--fg);">Credential Overrides</h2><p style="font-size:12px;color:var(--geist-gray-50);margin-top:3px;">Optional provider credentials used only by this key. Empty values inherit workspace credentials.</p></div>
+    <section class="panel key-settings-card">
+      <div class="panel-head" style="margin-bottom:14px;">
+        <div><h2 class="key-section-title">Credential Overrides</h2><p class="key-section-sub">Provider credentials used only by this key. Empty values inherit workspace credentials.</p></div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
-        <div style="min-width:0;"><label for="customGithubToken" style="display:block;font-size:12px;font-weight:600;color:var(--fg);margin-bottom:6px;">Custom GitHub Token</label>
+      <div class="key-credential-grid">
+        <div><label class="key-field-label" for="customGithubToken">Custom GitHub Token</label>
           <div class="key-secret-row" id="githubCredentialView"><code id="githubCredentialMasked" class="key-secret-value${!githubSecret ? " not-configured" : ""}" data-raw="${escapeHtml(githubSecret)}" data-is-configured="${githubSecret ? "true" : "false"}" style="${!githubSecret ? "color:var(--geist-gray-50);font-style:italic;" : ""}">${githubSecret ? escapeHtml(maskSecret(githubSecret)) : "Not configured (inherits workspace token)"}</code><div class="key-secret-actions"><button type="button" id="githubRevealBtn" onclick="toggleOverrideReveal('github',this)" title="Reveal token" aria-label="Reveal GitHub token" style="${githubSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('github')" title="Edit token" aria-label="Edit GitHub token">${renderSvg("edit", 14)}</button></div></div>
-          <div id="githubCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customGithubToken" value="${escapeHtml(githubSecret)}" placeholder="Leave blank to inherit workspace token" style="flex:1 1 200px;min-width:0;box-sizing:border-box;"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customGithubToken',this)" aria-label="Show GitHub token" style="height:36px;flex-shrink:0;">${renderSvg("eye", 14)}</button></div>
+          <div id="githubCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customGithubToken" value="${escapeHtml(githubSecret)}" placeholder="Leave blank to inherit workspace token"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customGithubToken',this)" aria-label="Show GitHub token">${renderSvg("eye", 14)}</button></div>
         </div>
-        <div style="min-width:0;"><label for="customRenderKey" style="display:block;font-size:12px;font-weight:600;color:var(--fg);margin-bottom:6px;">Custom Render API Key</label>
+        <div><label class="key-field-label" for="customRenderKey">Custom Render API Key</label>
           <div class="key-secret-row" id="renderCredentialView"><code id="renderCredentialMasked" class="key-secret-value${!renderSecret ? " not-configured" : ""}" data-raw="${escapeHtml(renderSecret)}" data-is-configured="${renderSecret ? "true" : "false"}" style="${!renderSecret ? "color:var(--geist-gray-50);font-style:italic;" : ""}">${renderSecret ? escapeHtml(maskSecret(renderSecret)) : "Not configured (inherits workspace key)"}</code><div class="key-secret-actions"><button type="button" id="renderRevealBtn" onclick="toggleOverrideReveal('render',this)" title="Reveal token" aria-label="Reveal Render token" style="${renderSecret ? "" : "display:none;"}">${renderSvg("eye", 14)}</button><button type="button" onclick="editOverride('render')" title="Edit token" aria-label="Edit Render token">${renderSvg("edit", 14)}</button></div></div>
-          <div id="renderCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customRenderKey" value="${escapeHtml(renderSecret)}" placeholder="Leave blank to inherit workspace token" style="flex:1 1 200px;min-width:0;box-sizing:border-box;"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customRenderKey',this)" aria-label="Show Render token" style="height:36px;flex-shrink:0;">${renderSvg("eye", 14)}</button></div>
+          <div id="renderCredentialEdit" style="display:none;gap:6px;align-items:center;width:100%;box-sizing:border-box;flex-wrap:wrap;"><input class="key-credential-input" type="password" id="customRenderKey" value="${escapeHtml(renderSecret)}" placeholder="Leave blank to inherit workspace token"><button type="button" class="btn ghost" onclick="toggleOverrideInput('customRenderKey',this)" aria-label="Show Render token">${renderSvg("eye", 14)}</button></div>
         </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;">
-        <button type="button" id="cancelKeySettingsButton" class="btn secondary" onclick="cancelKeySettings()" style="display:none;border-radius:6px;padding:8px 18px;"><span>Cancel Changes</span></button>
-        <button type="button" id="saveKeySettingsButton" class="btn primary" onclick="saveKeySettings()" style="display:none;border-radius:6px;">${renderSvg("save", 14)}<span>Save Changes</span></button>
+      <div class="modal-actions">
+        <button type="button" id="cancelKeySettingsButton" class="btn secondary" onclick="cancelKeySettings()" style="display:none;"><span>Cancel</span></button>
+        <button type="button" id="saveKeySettingsButton" class="btn primary" onclick="saveKeySettings()" style="display:none;"><span>Save changes</span></button>
       </div>
     </section>
 
-    <section class="card spotlight-card key-settings-card" style="padding:22px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
-        <div><h2 style="font-size:16px;font-weight:650;color:var(--fg);">Tool Permissions</h2><p style="font-size:12px;color:var(--geist-gray-50);margin-top:3px;">Choose the exact tools this key is allowed to use.</p></div>
-        <button type="button" class="btn secondary" onclick="resetKeyToolOverrides()" title="Remove this key's own on/off choices so it follows the workspace settings again" style="border-radius:6px;padding:7px 12px;font-size:12px;">Reset to workspace defaults</button>
-        <input type="search" id="keyToolSearch" placeholder="Search tools" oninput="filterKeyTools()" style="width:min(260px,100%);padding:8px 11px;border:1px solid var(--border-subtle);border-radius:6px;background:var(--bg-surface-1);color:var(--fg);font-size:12px;">
+    <section class="panel key-settings-card">
+      <div class="panel-head">
+        <div><h2 class="key-section-title">Tool Permissions</h2><p class="key-section-sub">Choose the exact tools this key is allowed to use.</p></div>
+        <button type="button" class="btn secondary sm" onclick="resetKeyToolOverrides()" title="Remove this key's own on/off choices so it follows the workspace settings again">Reset to workspace defaults</button>
       </div>
+      <div class="search block" style="margin-bottom:12px;">${renderSvg("search", 16)}<input type="search" id="keyToolSearch" placeholder="Search tools" aria-label="Search tools" oninput="filterKeyTools()"></div>
       <div class="category-filter-grid" style="margin-bottom:14px;">
         ${categories.map((category) => `<button type="button" class="category-filter-pill${category === "All" ? " active" : ""}" data-cat="${escapeHtml(category)}" onclick="selectKeyToolCategory('${escapeHtml(category).replace(/'/g, "\\'")}',this)">${escapeHtml(category)} (${category === "All" ? tools.length : categoryCounts.get(category) || 0})</button>`).join("")}
       </div>
-      <div id="keyToolGrid" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto;padding:2px;">
+      <div id="keyToolGrid">
         ${
           tools.length
             ? tools
@@ -247,15 +257,15 @@ export function renderApiKeySettingsPage(params: {
                     serverToolStates?.[toolName]?.reason,
                   );
                   return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
-            <div style="min-width:0;flex:1;"><div style="font:600 12px var(--font-mono);color:var(--fg);overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div style="font-size:11px;color:var(--geist-gray-50);margin-top:2px;">${escapeHtml(category)}${Number(tool.totalCalls) > 0 ? ` · ${Number(tool.totalCalls).toLocaleString()} call${Number(tool.totalCalls) === 1 ? "" : "s"}` : ""}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
+            <div class="grow"><div class="list-name mono" style="font-size:13px;overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div class="list-meta">${escapeHtml(category)}${Number(tool.totalCalls) > 0 ? ` · ${Number(tool.totalCalls).toLocaleString()} call${Number(tool.totalCalls) === 1 ? "" : "s"}` : ""}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
             <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
                 })
                 .join("")
-            : `<div style="text-align:center;padding:28px;color:var(--geist-gray-50);font-size:12px;">No tools available.</div>`
+            : `<div>No tools available.</div>`
         }
       </div>
-      <div class="key-pagination"><button type="button" class="pager-btn pager-prev" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button><span id="keyToolsPageInfo" style="font-size:11px;color:var(--geist-gray-50);">Page 1 of 1</span><button type="button" class="pager-btn pager-next" id="keyToolsNext" onclick="changeKeyToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button></div>
+      <div class="key-pagination"><button type="button" class="pager-btn pager-prev" id="keyToolsPrev" onclick="changeKeyToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button><span id="keyToolsPageInfo">Page 1 of 1</span><button type="button" class="pager-btn pager-next" id="keyToolsNext" onclick="changeKeyToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button></div>
     </section>
 
     <script>

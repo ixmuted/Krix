@@ -130,266 +130,80 @@ export function renderOAuthConsentPage(params: {
 
   const cancelUrl = `${params.redirectUri}${params.redirectUri.includes("?") ? "&" : "?"}error=access_denied&state=${encodeURIComponent(params.state || "")}`;
 
+  const scopeRow = (icon: string, name: string, desc: string) => `
+      <div class="scope-row">
+        ${renderSvg(icon, 18)}
+        <div>
+          <div class="scope-row-name">${name}</div>
+          <div class="scope-row-desc">${desc}</div>
+        </div>
+      </div>`;
+
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Authorize Connection - Krix</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
+  <script nonce="${escapeHtml(params.nonce || "")}">
+    (function () {
+      try {
+        var m = localStorage.getItem('qw-theme');
+        var dark = m === 'dark' || (m !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) {}
+    })();
+  </script>
   <style nonce="${escapeHtml(params.nonce || "")}">
     ${getTokensCss()}
-    @keyframes pulse-beam {
-      0%, 100% { opacity: 0.4; transform: scaleX(0.9); }
-      50% { opacity: 1; transform: scaleX(1.1); }
-    }
-    .oauth-page-body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 32px 16px;
-      box-sizing: border-box;
-    }
-    .oauth-card {
-      max-width: 480px;
-      width: 100%;
-      padding: 36px 32px;
-      box-shadow: var(--shadow-popover);
-      position: relative;
-      z-index: 1;
-      box-sizing: border-box;
-    }
-    .oauth-handshake {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      margin-bottom: 28px;
-    }
-    .oauth-logo-card {
-      width: 64px;
-      height: 64px;
-      border-radius: var(--radius-xl);
-      background: var(--bg-surface-1);
-      border: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--fg);
-      box-shadow: var(--shadow-md);
-      overflow: hidden;
-    }
-    .oauth-logo-card img.client-logo-img {
-      width: 36px;
-      height: 36px;
-      object-fit: contain;
-    }
-    .oauth-avatar-card {
-      width: 64px;
-      height: 64px;
-      border-radius: var(--radius-xl);
-      background: var(--bg-surface-1);
-      border: 1px solid var(--border-subtle);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow-md);
-    }
-    .oauth-avatar-card img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .handshake-beam {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: var(--success);
-      animation: pulse-beam 2s ease-in-out infinite;
-    }
-    .beam-segment {
-      width: 24px;
-      height: 2px;
-      background: linear-gradient(90deg, var(--border-subtle), var(--success));
-    }
-    .beam-segment.right {
-      background: linear-gradient(90deg, var(--success), var(--border-subtle));
-    }
-    .oauth-header {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-    .oauth-header h1 {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--fg);
-      margin: 0;
-    }
-    .oauth-header p {
-      font-size: 13px;
-      color: var(--geist-gray-50);
-      line-height: 1.5;
-      margin: 0;
-    }
-    .oauth-domain-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 4px;
-    }
-    .domain-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 10px;
-      border-radius: var(--radius-full);
-      background: var(--bg-surface-2);
-      border: 1px solid var(--border-subtle);
-      font-size: 11px;
-      font-family: var(--font-mono);
-      color: var(--geist-gray-50);
-    }
-    .domain-pill img {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-    }
-    .oauth-user-badge {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: var(--radius-md);
-      background: var(--bg-surface-1);
-      border: 1px solid var(--border-subtle);
-      margin-bottom: 20px;
-      font-size: 12px;
-    }
-    .oauth-user-badge strong {
-      color: var(--fg);
-      font-weight: 500;
-    }
-    .oauth-scopes {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 28px;
-    }
-    .scopes-title {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--geist-gray-50);
-    }
-    .scope-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: var(--radius-md);
-      background: var(--bg-surface-1);
-      border: 1px solid var(--border-subtle);
-    }
-    .scope-row-text {
-      flex: 1;
-    }
-    .scope-row-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--fg);
-    }
-    .scope-row-desc {
-      font-size: 11px;
-      color: var(--geist-gray-50);
-    }
-    .oauth-form {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .oauth-submit-btn {
-      width: 100%;
-      padding: 11px;
-      font-size: 13px;
-      border-radius: var(--radius-full);
-      box-sizing: border-box;
-      justify-content: center;
-    }
-    .oauth-cancel-btn {
-      width: 100%;
-      padding: 10px;
-      font-size: 13px;
-      text-align: center;
-      box-sizing: border-box;
-      justify-content: center;
-      text-decoration: none;
-    }
-    .oauth-legal {
-      text-align: center;
-      margin-top: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .oauth-legal-text {
-      font-size: 11px;
-      color: var(--geist-gray-50);
-    }
-    .oauth-legal-text a {
-      color: var(--fg);
-      text-decoration: underline;
-    }
-    .hidden {
-      display: none !important;
-    }
-    img:not([src]),
-    img[src=""],
-    img.hidden {
-      display: none !important;
-    }
-    .app-logo-fallback {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-    }
+    .oauth-card { max-width: 460px; width: 100%; padding: 32px 28px; border-radius: 20px; box-shadow: var(--shadow-md); }
+    .oauth-handshake { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 24px; }
+    .oauth-logo-card, .oauth-avatar-card { width: 60px; height: 60px; border-radius: var(--radius-xl); background: var(--bg-surface-2); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--fg); }
+    .oauth-logo-card img.client-logo-img { width: 34px; height: 34px; object-fit: contain; }
+    .oauth-avatar-card img { width: 100%; height: 100%; object-fit: cover; }
+    .handshake-beam { display: flex; align-items: center; gap: 6px; color: var(--fg-3); }
+    .beam-segment { width: 20px; height: 1.5px; background: var(--border-medium); }
+    .oauth-header { text-align: center; display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+    .oauth-header h1 { font-family: var(--font-serif); font-size: 26px; font-weight: 400; letter-spacing: -0.01em; }
+    .oauth-header p { font-size: 14px; color: var(--fg-3); }
+    .oauth-header strong { color: var(--fg); font-weight: 500; }
+    .oauth-domain-badge { display: flex; justify-content: center; margin-top: 2px; }
+    .domain-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--radius-full); background: var(--bg-surface-2); font-size: 12px; font-family: var(--font-mono); color: var(--fg-3); }
+    .domain-pill img { width: 12px; height: 12px; border-radius: 2px; }
+    .oauth-user-badge { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--bg-surface-1); border: 1px solid var(--border-subtle); margin-bottom: 20px; font-size: 13px; flex-wrap: wrap; }
+    .oauth-user-badge strong { font-weight: 500; overflow-wrap: anywhere; }
+    .oauth-scopes { display: flex; flex-direction: column; margin-bottom: 24px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); }
+    .scopes-title { font-size: 13px; font-weight: 500; padding: 12px 14px 8px; }
+    .scope-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border-subtle); color: var(--fg-3); }
+    .scope-row-name { font-size: 13px; font-weight: 500; font-family: var(--font-mono); color: var(--fg); }
+    .scope-row-desc { font-size: 13px; color: var(--fg-3); }
+    .oauth-form { display: flex; flex-direction: column; gap: 8px; }
+    .oauth-submit-btn, .oauth-cancel-btn { width: 100%; height: 42px; }
+    .oauth-legal { text-align: center; margin-top: 18px; display: flex; flex-direction: column; gap: 6px; }
+    .oauth-legal-text { font-size: 12px; color: var(--fg-3); }
+    .oauth-legal-text a { color: var(--fg); text-decoration: underline; }
+    .hidden { display: none !important; }
+    img:not([src]), img[src=""], img.hidden { display: none !important; }
+    .app-logo-fallback { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
   </style>
 </head>
-<body class="oauth-page-body">
-  <div class="ambient-hero-mesh"></div>
-
-  <div class="card spotlight-card card-top-border oauth-card">
+<body>
+  <div class="center-screen">
+  <div class="panel oauth-card">
     <div class="oauth-handshake">
-      <div class="oauth-logo-card">
-        ${clientLogoHtml}
+      <div class="oauth-logo-card">${clientLogoHtml}</div>
+      <div class="handshake-beam" aria-hidden="true">
+        <span class="beam-segment"></span>${renderSvg("link", 16)}<span class="beam-segment"></span>
       </div>
-
-      <div class="handshake-beam">
-        <span class="beam-segment"></span>
-        <span class="status-dot-available"></span>
-        <span class="beam-segment right"></span>
-      </div>
-
       <div class="oauth-avatar-card">
-        <img src="/icon-512.png?v=3" srcset="/icon-128.png?v=3 1x, /icon-512.png?v=3 2x" width="64" height="64" alt="Krix">
+        <img src="/icon-512.png?v=3" srcset="/icon-128.png?v=3 1x, /icon-512.png?v=3 2x" width="60" height="60" alt="Krix">
       </div>
     </div>
 
     <div class="oauth-header">
       <h1>Authorize Access</h1>
-      <p>
-        Authorize Connection: <strong class="client-name-highlight">${safeName}</strong> is requesting permission to connect to your Krix MCP Gateway.
-      </p>
-
+      <p>Authorize Connection: <strong class="client-name-highlight">${safeName}</strong> is asking to connect to your Krix account.</p>
       <div class="oauth-domain-badge">
         <span class="domain-pill">
           <img src="https://www.google.com/s2/favicons?domain=${escapeHtml(domain)}&amp;sz=32" alt="" onerror="this.classList.add('hidden')">
@@ -400,36 +214,15 @@ export function renderOAuthConsentPage(params: {
 
     <div class="oauth-user-badge">
       <span class="status-dot-available"></span>
-      <span class="user-badge-label">Signed in as:</span>
+      <span class="user-badge-label text-muted">Signed in as</span>
       <strong>${ownerName} (${ownerEmail})</strong>
     </div>
 
     <div class="oauth-scopes">
-      <div class="scopes-title">Requested Scopes</div>
-      
-      <div class="scope-row">
-        ${renderSvg("terminal", 16)}
-        <div class="scope-row-text">
-          <div class="scope-row-name">mcp:tools</div>
-          <div class="scope-row-desc">Execute repository navigation and coding sandbox tools</div>
-        </div>
-      </div>
-
-      <div class="scope-row">
-        ${renderSvg("cpu", 16)}
-        <div class="scope-row-text">
-          <div class="scope-row-name">mcp:sandbox</div>
-          <div class="scope-row-desc">Run isolated build scripts and test executions</div>
-        </div>
-      </div>
-
-      <div class="scope-row">
-        ${renderSvg("folder", 16)}
-        <div class="scope-row-text">
-          <div class="scope-row-name">mcp:store</div>
-          <div class="scope-row-desc">Access persistent file repository datasets</div>
-        </div>
-      </div>
+      <div class="scopes-title">This app will be able to</div>
+      ${scopeRow("terminal", "mcp:tools", "Use repository and coding sandbox tools")}
+      ${scopeRow("cpu", "mcp:sandbox", "Run build scripts and tests in an isolated sandbox")}
+      ${scopeRow("folder", "mcp:store", "Read and write your stored files")}
     </div>
 
     <form method="POST" action="/oauth/authorize" class="oauth-form">
@@ -439,24 +232,15 @@ export function renderOAuthConsentPage(params: {
       <input type="hidden" name="state" value="${safeState}">
       <input type="hidden" name="code_challenge" value="${safeChallenge}">
       <input type="hidden" name="code_challenge_method" value="${safeMethod}">
-
-      <button type="submit" class="btn primary deploy-btn oauth-submit-btn">
-        Authorize Connection
-      </button>
-
-      <a href="${cancelUrl}" class="btn ghost oauth-cancel-btn">
-        Cancel
-      </a>
+      <button type="submit" class="btn primary oauth-submit-btn">Authorize Connection</button>
+      <a href="${cancelUrl}" class="btn oauth-cancel-btn">Cancel</a>
     </form>
 
     <div class="oauth-legal">
-      <span class="oauth-legal-text">
-        By connecting, you agree to Krix's <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.
-      </span>
-      <span class="oauth-legal-text">
-        You can revoke access anytime in Credentials &amp; Settings.
-      </span>
+      <span class="oauth-legal-text">By connecting, you agree to Krix’s <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span>
+      <span class="oauth-legal-text">You can revoke access any time in API keys.</span>
     </div>
+  </div>
   </div>
 
   <script nonce="${escapeHtml(params.nonce || "")}">
