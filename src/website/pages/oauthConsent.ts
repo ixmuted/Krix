@@ -195,6 +195,7 @@ export function renderOAuthConsentPage(params: {
     .scopes-expand-btn:hover { background: var(--hover); color: var(--fg); }
     .oauth-scopes-list { display: flex; flex-direction: column; }
     .scope-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border-subtle); color: var(--fg-3); }
+    .scope-row svg { width: 18px; height: 18px; flex-shrink: 0; }
     .scope-row-name { font-size: 13px; font-weight: 500; font-family: var(--font-mono); color: var(--fg); }
     .scope-row-desc { font-size: 13px; color: var(--fg-3); }
     .oauth-form { display: flex; flex-direction: column; gap: 8px; }
@@ -247,7 +248,7 @@ export function renderOAuthConsentPage(params: {
       <div id="oauthScopesList" class="oauth-scopes-list" hidden>
         ${scopeRow("terminal", "mcp:tools", "Use repository and coding sandbox tools")}
         ${scopeRow("cpu", "mcp:sandbox", "Run build scripts and tests in an isolated sandbox")}
-        ${scopeRow("folder", "mcp:store", "Read and write your stored files")}
+        ${scopeRow("files", "mcp:store", "Read and write your stored files")}
       </div>
     </div>
 
