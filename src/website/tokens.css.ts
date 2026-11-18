@@ -681,8 +681,28 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
   .krix-cookie-banner { left: 16px; right: 16px; bottom: 16px; width: auto; }
   .krix-cookie-actions { display: grid; grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- Homepage-specific header, spacing, and full-width balance ---------- */
+body[data-tab="home"] .topbar { height: 64px; padding: 0 20px; }
+body[data-tab="home"] .topbar .sb-brand { font-size: 24px; gap: 11px; }
+body[data-tab="home"] .topbar .sb-brand img { width: 28px; height: 28px; }
+body[data-tab="home"] .topbar .icon-btn { width: 40px; height: 40px; }
+body[data-tab="home"] .main { padding-top: 64px; }
+body[data-tab="home"] .sidebar { top: 70px; }
+body[data-tab="home"] .page.wide { max-width: 1140px; padding: 18px 24px 36px; }
+body[data-tab="home"] .hero { padding: 14px 0 20px; }
+@media (max-width: 1024px) {
+  body[data-tab="home"] .page.wide { max-width: 100%; padding: 16px 18px 32px; }
+}
+@media (max-width: 640px) {
+  body[data-tab="home"] .page.wide { padding: 14px 14px 28px; }
+  body[data-tab="home"] .topbar { height: 60px; padding: 0 14px; }
+  body[data-tab="home"] .main { padding-top: 60px; }
+  body[data-tab="home"] .sidebar { top: 66px; }
+}
 `;
 }
+
 
 
 

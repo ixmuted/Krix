@@ -216,9 +216,14 @@ export function getClientScripts(): string {
   document.addEventListener('keydown', function(e) {
     var palette = document.getElementById('krixCommandPalette');
     var paletteOpen = palette && palette.classList.contains('active');
+    var activeEl = document.activeElement;
+    var isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable);
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       window.toggleCommandPalette();
+    } else if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping && !paletteOpen) {
+      e.preventDefault();
+      window.toggleCommandPalette(true);
     } else if (e.key === 'Escape') {
       if (paletteOpen) window.toggleCommandPalette(false);
       closeMenus(null);

@@ -202,6 +202,7 @@ export function renderCommandPaletteModal(): string {
         <div class="krix-palette-footer">
           <span><kbd>${renderSvg("arrow-up", 11)}</kbd> <kbd>${renderSvg("arrow-down", 11)}</kbd> Move</span>
           <span><kbd>${renderSvg("corner-down-left", 11)}</kbd> Open</span>
+          <span style="margin-left:auto;"><kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>/</kbd></span>
         </div>
       </div>
     </div>
@@ -276,7 +277,7 @@ export function renderPageShell(options: PageShellOptions): string {
   </style>
   ${options.headExtra || ""}
 </head>
-<body class="${APP_SURFACE_TABS.has(options.activeTab || "") ? "surface-app" : ""}">
+<body data-tab="${escapeHtml(options.activeTab || "home")}" class="${APP_SURFACE_TABS.has(options.activeTab || "") ? "surface-app" : ""}">
   <div class="app">
     ${renderHeader(options.activeTab, options.owner)}
     <div class="main">

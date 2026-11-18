@@ -82,7 +82,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
 
   const topbarRight = isHome
     ? `<span class="topbar-spacer" aria-hidden="true"></span>`
-    : `<button type="button" class="icon-btn topbar-search-btn" onclick="window.toggleCommandPalette(true)" aria-label="Search">${renderSvg("search", 20)}</button>`;
+    : `<button type="button" class="icon-btn topbar-search-btn" onclick="window.toggleCommandPalette(true)" aria-label="Search" title="Search (Ctrl+K or /)">${renderSvg("search", 20)}</button>`;
 
   return `
     <aside class="sidebar${isAuth ? "" : " sidebar-unauth"}" id="appSidebar" aria-label="Primary">
