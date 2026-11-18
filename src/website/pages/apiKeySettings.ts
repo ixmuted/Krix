@@ -2,7 +2,7 @@
 // Route: /api/settings?key=<id>
 
 import { renderPageShell, escapeHtml, formatCompactCount } from "../components.js";
-import { renderSvg } from "../icons.js";
+import { renderSvg, getAppLogoSvg } from "../icons.js";
 import { getToolCredentialRequirement } from "../../security.js";
 import {
   blockedToolReasonLabel,
@@ -38,9 +38,25 @@ export function renderApiKeySettingsPage(params: {
   // & < > " ' (and "</script>" must never appear), so scripts get these instead.
   const jsKeyId = JSON.stringify(rawKeyId).replace(/</g, "\\u003c");
   const urlKeyId = encodeURIComponent(rawKeyId).replace(/'/g, "%27");
-  const keyName = escapeHtml(
+  const rawKeyName = String(
     key.label || key.clientName || key.name || `Key ${rawKeyId.slice(0, 4)}`,
   );
+  const keyName = escapeHtml(rawKeyName);
+  const clientWebsite =
+    key.logoUri ||
+    key.clientUri ||
+    key.client_uri ||
+    key.website ||
+    key.url ||
+    (Array.isArray(key.redirectUris)
+      ? key.redirectUris.find((u: string) => !u.includes("localhost") && !u.includes("127.0.0.1"))
+      : Array.isArray(key.redirect_uris)
+        ? key.redirect_uris.find((u: string) => !u.includes("localhost") && !u.includes("127.0.0.1"))
+        : undefined);
+  const keyLogoHtml =
+    key.type === "oauth"
+      ? getAppLogoSvg(rawKeyName, 22, clientWebsite)
+      : renderSvg("key", 20);
   const tools = Array.isArray(params.toolsCatalog) ? params.toolsCatalog : [];
   const settings = params.keySettings || {};
   const globalSettings =
@@ -154,11 +170,12 @@ export function renderApiKeySettingsPage(params: {
     <div class="page-head">
       <div style="min-width:0;">
         <a href="/api" class="text-muted" style="font-size:13px; display:inline-flex; align-items:center; gap:4px; margin-bottom:8px;">${renderSvg("chevron-left", 14)}<span>API keys</span></a>
-        <h1 class="page-title">${keyName}</h1>
+        <div class="cluster" style="gap:12px; align-items:center;">
+          <div class="logo-tile" style="width:40px; height:40px; flex-basis:40px;">${keyLogoHtml}</div>
+          <h1 class="page-title">${keyName}</h1>
+        </div>
         <div class="anthropic-id-pill">
-          <span class="anthropic-id-label">Client ID</span>
-          <code class="anthropic-id-val" title="${keyId}">${keyId}</code>
-          <button type="button" class="btn ghost sm" style="height:24px;padding:0 6px;" onclick="window.copyToClipboard(${jsKeyId}, this)" aria-label="Copy ID" title="Copy ID">${renderSvg("copy", 13)}</button>
+          <code class="anthropic-id-val">${keyId}</code>
         </div>
       </div>
     </div>
@@ -302,13 +319,13 @@ export function renderApiKeySettingsPage(params: {
     <div id="renameKeySettingsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="renameKeySettingsTitle" onclick="if(event.target===this) closeRenameKeySettingsModal()">
       <div class="modal-card">
         <h3 class="modal-title" id="renameKeySettingsTitle">Rename ${key.type === "oauth" ? "app" : "API key"}</h3>
-        <p class="modal-text">Enter a new name (4–16 characters).</p>
+        <p class="modal-text">${key.type === "oauth" ? "Choose a new display name for this authorized app." : "Enter a new name (4–16 characters)."}</p>
         <div class="modal-body">
           <input type="text" id="renameKeySettingsInput" class="input" minlength="4" maxlength="16" value="${keyName}" aria-label="New name">
         </div>
         <div class="modal-actions" style="margin-top:0;">
           <button type="button" class="btn" onclick="closeRenameKeySettingsModal()">Cancel</button>
-          <button type="button" id="renameKeySettingsSubmitBtn" class="btn primary" onclick="submitRenameKeySettings()">Save name</button>
+          <button type="button" id="renameKeySettingsSubmitBtn" class="btn primary" onclick="submitRenameKeySettings()">Save changes</button>
         </div>
       </div>
     </div>
