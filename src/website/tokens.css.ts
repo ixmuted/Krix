@@ -653,6 +653,13 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .anthropic-id-val { white-space: nowrap; }
 .friendly-zone-btn { min-width: 170px; width: 170px; justify-content: center; flex-shrink: 0; }
 @media (max-width: 640px) { .friendly-zone-btn { width: 100%; } }
+.friendly-zone-select { min-width: 230px; width: 230px; flex-shrink: 0; }
+@media (max-width: 640px) { .friendly-zone-select { width: 100%; } }
+/* A tool its provider credential is missing for: greyed out and locked, but it keeps the choice
+   made for it, so adding the credential back needs no re-enabling. */
+.tool-blocked .list-name, .tool-blocked .list-meta { opacity: .55; }
+.krix-switch input:disabled { cursor: not-allowed; }
+.tool-blocked .krix-switch input:checked + .krix-slider { background: var(--fg-3); }
 @media (min-width: 641px) { .key-status-top-card { display: none !important; } }
 
 /* ---------- Cookie consent banner (Anthropic solid dark floating card) ---------- */
