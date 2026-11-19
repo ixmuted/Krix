@@ -227,7 +227,7 @@ export function renderSettingsPage(params: {
         </div>
         <div class="row">
           <div><div class="row-title">Sign out</div><div class="row-desc">End your Google session on this device.</div></div>
-          <a href="/auth/logout" class="btn danger danger-zone-btn">${renderSvg("log-out", 15)}<span>Sign out</span></a>
+          <button type="button" class="btn danger danger-zone-btn" onclick="window.openSignOutModal ? window.openSignOutModal() : (window.location.href='/auth/logout')">${renderSvg("log-out", 15)}<span>Sign out</span></button>
         </div>
         <div class="row">
           <div><div class="row-title danger">Delete account</div><div class="row-desc">Permanently delete your account, API keys and all uploaded files.</div></div>
@@ -236,7 +236,18 @@ export function renderSettingsPage(params: {
       </div>
     </div>
 
-    <div id="deleteAccountModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+    <div id="resetToolsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="resetToolsTitle" onclick="if(event.target===this) closeResetToolsModal()">
+      <div class="modal-card">
+        <h3 class="modal-title" id="resetToolsTitle">Reset tool permissions?</h3>
+        <p class="modal-text">Reset all tool access overrides to their default permissions? Any custom on/off choices will be cleared.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeResetToolsModal()">Cancel</button>
+          <button type="button" id="confirmResetToolsBtn" class="btn danger" onclick="submitResetToolDefaults()">Reset tools</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteAccountModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle" onclick="if(event.target===this) closeDeleteAccountModal()">
       <div class="modal-card">
         <h3 class="modal-title" id="deleteAccountTitle">Delete account and data?</h3>
         <p class="modal-text">This is permanent. All your API keys, OAuth authorizations and stored files will be erased.</p>
@@ -447,17 +458,45 @@ export function renderSettingsPage(params: {
       }
 
       function resetToolDefaults() {
-        fetch('/settings/api/tools', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ keyId: activeKeyId, enabledTools: [], disabledTools: [] })
-        }).then(res => res.json()).then(data => {
-          if (data && data.ok) {
-            if (window.showToast) window.showToast('Tool permissions reset', 'success');
-            setTimeout(() => window.location.reload(), 500);
-          }
-        });
+        const m = document.getElementById('resetToolsModal');
+        if (m) {
+          if (m.parentNode !== document.body) document.body.appendChild(m);
+          m.hidden = false;
+          m.style.display = 'flex';
+        }
       }
+
+      function closeResetToolsModal() {
+        const m = document.getElementById('resetToolsModal');
+        if (m) { m.hidden = true; m.style.display = 'none'; }
+      }
+
+      async function submitResetToolDefaults() {
+        const btn = document.getElementById('confirmResetToolsBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await fetch('/settings/api/tools', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyId: activeKeyId, enabledTools: [], disabledTools: [] })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Could not reset tool permissions.');
+          closeResetToolsModal();
+          if (window.showToast) window.showToast('Tool permissions reset', 'success');
+          setTimeout(() => window.location.reload(), 500);
+        } catch (err) {
+          if (btn) btn.disabled = false;
+          if (window.showToast) window.showToast(err.message || 'Could not reset tool permissions.', 'error');
+        }
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeResetToolsModal();
+          closeDeleteAccountModal();
+        }
+      });
 
       window.addEventListener('resize', renderSettingsTools, { passive: true });
       renderSettingsTools();

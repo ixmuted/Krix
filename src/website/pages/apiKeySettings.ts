@@ -330,6 +330,17 @@ export function renderApiKeySettingsPage(params: {
       </div>
     </div>
 
+    <div id="resetKeyToolsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="resetKeyToolsTitle" onclick="if(event.target===this) closeResetKeyToolsModal()">
+      <div class="modal-card">
+        <h3 class="modal-title" id="resetKeyToolsTitle">Reset tool permissions?</h3>
+        <p class="modal-text">Remove all of this key's own tool choices? It will follow your workspace defaults again.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeResetKeyToolsModal()">Cancel</button>
+          <button type="button" id="resetKeyToolsConfirmBtn" class="btn danger" onclick="submitResetKeyToolOverrides()">Reset to Default</button>
+        </div>
+      </div>
+    </div>
+
     <div id="deleteKeySettingsModal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="deleteKeySettingsTitle" onclick="if(event.target===this) closeDeleteKeySettingsModal()">
       <div class="modal-card">
         <h3 class="modal-title" id="deleteKeySettingsTitle">Delete ${key.type === "oauth" ? "OAuth access" : "API key"}?</h3>
@@ -431,8 +442,21 @@ export function renderApiKeySettingsPage(params: {
           input.disabled = false;
         }
       }
-      async function resetKeyToolOverrides() {
-        if (!confirm('Remove all of this key\\'s own tool choices? It will follow the workspace settings again.')) return;
+      function resetKeyToolOverrides() {
+        const modal = document.getElementById('resetKeyToolsModal');
+        if (modal) {
+          if (modal.parentNode !== document.body) document.body.appendChild(modal);
+          modal.hidden = false;
+          modal.style.display = 'flex';
+        }
+      }
+      function closeResetKeyToolsModal() {
+        const modal = document.getElementById('resetKeyToolsModal');
+        if (modal) { modal.hidden = true; modal.style.display = 'none'; }
+      }
+      async function submitResetKeyToolOverrides() {
+        const btn = document.getElementById('resetKeyToolsConfirmBtn');
+        if (btn) btn.disabled = true;
         try {
           const res = await fetch('/settings/api/tools/reset', {
             method: 'POST',
@@ -441,12 +465,17 @@ export function renderApiKeySettingsPage(params: {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) throw new Error(data.error || 'Could not reset tool permissions.');
+          closeResetKeyToolsModal();
           showToast('Tool permissions reset to workspace defaults', 'success');
           setTimeout(() => location.reload(), 500);
         } catch (err) {
+          if (btn) btn.disabled = false;
           showToast(err.message || 'Could not reset tool permissions.', 'error');
         }
       }
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeResetKeyToolsModal();
+      });
       function changeKeyToolsPage(delta) { keyToolPage += delta; renderKeyToolsPage(); }
       function filterKeyTools() { keyToolPage = 1; renderKeyToolsPage(); }
       function selectKeyToolCategory(category, button) {
