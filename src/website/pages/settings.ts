@@ -35,7 +35,6 @@ export function renderSettingsPage(params: {
     ? "Server Owner"
     : "Standard Member (1/10th Limits)";
   const pidsLimit = isOwner ? "2048 PIDs" : "204 PIDs";
-  const perFileLimit = isOwner ? "25 MB" : "2.5 MB";
   const bufferLimit = isOwner ? "4 MB max output" : "400 KB max output";
 
   const keySettings = params.keySettings || {};
