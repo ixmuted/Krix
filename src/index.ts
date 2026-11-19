@@ -156,6 +156,10 @@ import {
   scheduleAccountDeletion,
   cancelAccountDeletion,
   isAccountScheduledForDeletion,
+  resolveAcceptGlobalEnables,
+  setKeyGlobalEnableMode,
+  setWorkspaceGlobalLock,
+  type GlobalEnableMode,
   type KeySettings,
 } from "./userSettings.js";
 import {
@@ -309,22 +313,6 @@ function effectiveOAuthScopes(clientId: string): string[] {
   return ["mcp:tools", "mcp:sandbox", "mcp:admin"].filter((s) => scopes.has(s));
 }
 
-/** After a credential is removed, switch off any explicitly-enabled tool that now lacks it. */
-function pruneToolsMissingCredentials(keyId: string): string[] {
-  const settings = getKeySettings(keyId);
-  const ready = keyCredentialsReady(keyId, settings);
-  const enabled = settings.enabledTools || [];
-  const removed = enabled.filter((t) => getMissingToolCredential(t, ready));
-  if (removed.length) {
-    updateKeyTools(
-      keyId,
-      enabled.filter((t) => !removed.includes(t)),
-      settings.disabledTools || [],
-    );
-  }
-  return removed;
-}
-
 async function pruneAffectedKeysForCredentialRemoval(
   email: string,
   keyId: string,
@@ -335,8 +323,10 @@ async function pruneAffectedKeysForCredentialRemoval(
       ? Array.from(new Set([keyId, ...ownedStatsKeyIds(email)]))
       : [keyId];
   let closedSessions = 0;
+  // A removed credential must NOT erase anyone's on/off choices: the tools simply show as
+  // unavailable (greyed out) until a credential is added again, then come back as they were.
+  // Only the live sessions are closed so clients reconnect with the new tool list.
   for (const targetId of targets) {
-    pruneToolsMissingCredentials(targetId);
     await syncKeySettingsToMongo(getKeySettings(targetId));
     closedSessions += closeSessionsForKey(targetId);
   }
@@ -438,7 +428,10 @@ function findToolBlockedByServer(
 function buildToolStates(
   keyId: string,
   credentials: { github: boolean; render: boolean },
-): Record<string, { enabled: boolean; reason: string }> {
+): Record<
+  string,
+  { enabled: boolean; reason: string; remembered: boolean }
+> {
   const settings = getKeySettings(keyId);
   const btsEmail = String(settings.email || "").trim().toLowerCase();
   const wsKeyId =
@@ -449,7 +442,10 @@ function buildToolStates(
         : "";
   const primary =
     wsKeyId && keyId !== wsKeyId ? getKeySettings(wsKeyId) : undefined;
-  const states: Record<string, { enabled: boolean; reason: string }> = {};
+  const states: Record<
+    string,
+    { enabled: boolean; reason: string; remembered: boolean }
+  > = {};
   for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
     const categoryAllowed = isCategoryAllowedOnServer(category);
     const { reason } = resolveToolState({
@@ -462,21 +458,77 @@ function buildToolStates(
       keyDisabled: settings.disabledTools,
       globalEnabled: primary?.enabledTools,
       globalDisabled: primary?.disabledTools,
+      acceptGlobalEnables: resolveAcceptGlobalEnables(settings, primary),
+      globalBaseline: settings.globalEnableBaseline,
     });
-    states[toolName] = {
-      enabled: isToolEnabledForKey(
-        keyId,
-        toolName,
-        category,
-        undefined,
-        credentials,
-        categoryAllowed,
-        wsKeyId,
-      ),
-      reason,
-    };
+    const enabled = isToolEnabledForKey(
+      keyId,
+      toolName,
+      category,
+      undefined,
+      credentials,
+      categoryAllowed,
+      wsKeyId,
+    );
+    // What the switch would show if the missing provider credential were present. Tools that
+    // are greyed out only because a credential is missing keep this, so re-adding the
+    // credential brings them back without anyone switching them on again.
+    const credentialBlocked = reason === "needs-github" || reason === "needs-render";
+    const remembered = credentialBlocked
+      ? isToolEnabledForKey(
+          keyId,
+          toolName,
+          category,
+          undefined,
+          { github: true, render: true },
+          categoryAllowed,
+          wsKeyId,
+        )
+      : enabled;
+    states[toolName] = { enabled, reason, remembered };
   }
   return states;
+}
+
+/**
+ * Tools that are on for this key right now only because of global inheritance (a workspace
+ * "on" override, or a default that a provider credential unlocks). Recorded when a key stops
+ * accepting global enables, so it keeps what it has and ignores what is switched on later.
+ */
+function computeInheritedBaseline(keyId: string): string[] {
+  const settings = getKeySettings(keyId);
+  const credentials = keyCredentialsReady(keyId, settings);
+  const email = String(settings.email || "").trim().toLowerCase();
+  const wsKeyId =
+    email && email !== "anonymous"
+      ? getWorkspaceKeyIdForEmail(email)
+      : keyId === "primary-key"
+        ? "primary-key"
+        : "";
+  const primary =
+    wsKeyId && keyId !== wsKeyId ? getKeySettings(wsKeyId) : undefined;
+  const baseline: string[] = [];
+  for (const [toolName, category] of Object.entries(TOOL_CATEGORY)) {
+    const requires = getToolCredentialRequirement(toolName, category);
+    const { enabled, reason } = resolveToolState({
+      toolName,
+      category,
+      requires,
+      credentials,
+      categoryAllowed: isCategoryAllowedOnServer(category),
+      keyEnabled: settings.enabledTools,
+      keyDisabled: settings.disabledTools,
+      globalEnabled: primary?.enabledTools,
+      globalDisabled: primary?.disabledTools,
+      acceptGlobalEnables: true,
+    });
+    if (
+      enabled &&
+      (reason === "global-on" || (reason === "default-on" && requires !== null))
+    )
+      baseline.push(toolName);
+  }
+  return baseline;
 }
 
 /**
@@ -2382,6 +2434,11 @@ app.get("/api/settings", async (req, res) => {
         effectiveKeyId,
         keyCredentialsReady(effectiveKeyId, keySettings),
       ),
+      globalLocked:
+        getKeySettings(getWorkspaceKeyIdForEmail(owner.email))
+          .lockGlobalEnables === true,
+      isWorkspaceKey:
+        effectiveKeyId === getWorkspaceKeyIdForEmail(owner.email),
     }),
   );
 });
@@ -2554,13 +2611,7 @@ app.post("/api/keys/:id/settings", express.json(), async (req, res) => {
     settings.disabled = disabled;
   }
   const justDisabled = settings.disabled === true && !wasDisabled;
-  // If a credential was just cleared, drop any explicitly-enabled tool that now lacks it.
-  {
-    const ready = keyCredentialsReady(id, settings);
-    settings.enabledTools = (settings.enabledTools || []).filter(
-      (t) => !getMissingToolCredential(t, ready),
-    );
-  }
+  // Clearing a credential keeps the key's tool choices (they show greyed out until it is back).
   settings.updatedAt = Date.now();
   saveSettingsToDisk();
   await syncKeySettingsToMongo(settings);
@@ -3277,6 +3328,9 @@ app.get("/settings", async (req, res) => {
         selectedKeyId,
         keyCredentialsReady(selectedKeyId, keySettings),
       ),
+      globalLocked:
+        getKeySettings(getWorkspaceKeyIdForEmail(owner.email))
+          .lockGlobalEnables === true,
       userQuota,
     }),
   );
@@ -3468,6 +3522,113 @@ app.post("/settings/api/tool-toggle", express.json(), async (req, res) => {
     res
       .status(500)
       .json({ ok: false, error: err?.message || "Failed to toggle tool." });
+  }
+});
+
+/**
+ * Keys owned by this account get their owner email recorded on first touch. Keys that never
+ * connected still say "anonymous", which would make them look unrelated to the workspace when
+ * their inherited tools are worked out.
+ */
+function claimOwnedKeySettings(email: string, keyId: string): void {
+  const k = getKeySettings(keyId);
+  const current = String(k.email || "").trim().toLowerCase();
+  if (!current || current === "anonymous") k.email = email;
+}
+
+app.post("/settings/api/global-lock", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { locked } = req.body || {};
+  if (typeof locked !== "boolean") {
+    res.status(400).json({ ok: false, error: "Invalid parameters." });
+    return;
+  }
+  try {
+    const wsKeyId = getWorkspaceKeyIdForEmail(owner.email);
+    const followers = Array.from(ownedStatsKeyIds(owner.email));
+    for (const id of followers) if (id !== wsKeyId) claimOwnedKeySettings(owner.email, id);
+    const { workspace, changedKeyIds } = setWorkspaceGlobalLock(
+      wsKeyId,
+      locked,
+      followers,
+      computeInheritedBaseline,
+    );
+    await syncKeySettingsToMongo(workspace);
+    // Turning the lock on changes nothing a key can do today (each key keeps what it has),
+    // but sessions are refreshed anyway so they re-read the policy.
+    let refreshedSessions = refreshSessionsForKey(wsKeyId);
+    for (const id of changedKeyIds) refreshedSessions += refreshSessionsForKey(id);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      ok: true,
+      locked: workspace.lockGlobalEnables === true,
+      updatedKeys: changedKeyIds.length,
+      refreshedSessions,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      ok: false,
+      error: err?.message || "Failed to update the global tool lock.",
+    });
+  }
+});
+
+app.post("/settings/api/key-global-mode", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized. Please sign in." });
+    return;
+  }
+  const { keyId, mode } = req.body || {};
+  if (
+    !keyId ||
+    typeof keyId !== "string" ||
+    !["follow", "accept", "block"].includes(mode)
+  ) {
+    res.status(400).json({ ok: false, error: "Invalid parameters." });
+    return;
+  }
+  if (!userOwnsKey(owner.email, keyId)) {
+    res.status(403).json({
+      ok: false,
+      error: "Forbidden: You do not have permission to manage this key.",
+    });
+    return;
+  }
+  const wsKeyId = getWorkspaceKeyIdForEmail(owner.email);
+  if (keyId === wsKeyId) {
+    res.status(400).json({
+      ok: false,
+      error:
+        "This is the workspace key itself. Use the global tool lock in Settings instead.",
+    });
+    return;
+  }
+  try {
+    claimOwnedKeySettings(owner.email, keyId);
+    const updated = setKeyGlobalEnableMode(
+      keyId,
+      mode as GlobalEnableMode,
+      wsKeyId,
+      () => computeInheritedBaseline(keyId),
+    );
+    await syncKeySettingsToMongo(updated);
+    const refreshedSessions = refreshSessionsForKey(keyId);
+    const accepts = resolveAcceptGlobalEnables(
+      updated,
+      getKeySettings(wsKeyId),
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, mode, accepts, refreshedSessions });
+  } catch (err: any) {
+    res.status(500).json({
+      ok: false,
+      error: err?.message || "Failed to update this key.",
+    });
   }
 });
 

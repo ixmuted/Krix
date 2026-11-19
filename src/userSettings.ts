@@ -53,6 +53,19 @@ export interface KeySettings {
   toolRiskLevels?: Record<string, ToolRiskLevel>;
   riskAcknowledgedTools?: string[];
   disabled?: boolean;
+  /**
+   * Workspace key only. When true, tools switched on globally (or unlocked by adding a GitHub /
+   * Render credential) are NOT applied to keys that follow the workspace. Switching tools off
+   * globally still applies everywhere.
+   */
+  lockGlobalEnables?: boolean;
+  /** Per key: true = accept global enables, false = ignore them, unset = follow the workspace. */
+  acceptGlobalEnables?: boolean;
+  /**
+   * Tools that were already on through global inheritance at the moment this key stopped
+   * accepting global enables. They keep following the workspace; new global enables do not.
+   */
+  globalEnableBaseline?: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -515,6 +528,97 @@ export function updateKeyToolRiskLevel(
 }
 
 /**
+ * Does this key pick up tools that get switched on globally? The key's own choice wins; with no
+ * choice it follows the workspace lock. The workspace key itself is never "behind" anything.
+ */
+export function resolveAcceptGlobalEnables(
+  settings: Pick<KeySettings, "acceptGlobalEnables">,
+  workspace?: Pick<KeySettings, "lockGlobalEnables">,
+): boolean {
+  if (typeof settings.acceptGlobalEnables === "boolean")
+    return settings.acceptGlobalEnables;
+  return workspace ? workspace.lockGlobalEnables !== true : true;
+}
+
+export type GlobalEnableMode = "follow" | "accept" | "block";
+
+/**
+ * Sets how one key treats global enables. When the key goes from accepting to not accepting,
+ * `baselineProvider` is asked (before anything changes) which tools are on through inheritance
+ * right now, so the key keeps them and only ignores what is switched on later.
+ */
+export function setKeyGlobalEnableMode(
+  keyId: string,
+  mode: GlobalEnableMode,
+  workspaceKeyId: string | undefined,
+  baselineProvider: () => string[],
+): KeySettings {
+  const settings = getKeySettings(keyId);
+  const workspace =
+    workspaceKeyId && workspaceKeyId !== keyId
+      ? keySettingsMap.get(workspaceKeyId)
+      : undefined;
+  const before = resolveAcceptGlobalEnables(settings, workspace);
+  const next: Pick<KeySettings, "acceptGlobalEnables"> = {
+    acceptGlobalEnables:
+      mode === "follow" ? undefined : mode === "accept",
+  };
+  const after = resolveAcceptGlobalEnables(next, workspace);
+  const baseline = before && !after ? baselineProvider() : undefined;
+
+  if (mode === "follow") delete settings.acceptGlobalEnables;
+  else settings.acceptGlobalEnables = mode === "accept";
+  if (after) delete settings.globalEnableBaseline;
+  else if (baseline) settings.globalEnableBaseline = baseline;
+  settings.updatedAt = Date.now();
+  saveSettingsToDisk();
+  syncKeySettingsToMongo(settings).catch(() => {});
+  return settings;
+}
+
+/**
+ * Turns the workspace-wide lock on or off. Keys that follow the workspace (no choice of their
+ * own) change behaviour with it, so each one gets its baseline recorded (lock on) or cleared
+ * (lock off). Returns the ids of the keys whose behaviour changed.
+ */
+export function setWorkspaceGlobalLock(
+  workspaceKeyId: string,
+  locked: boolean,
+  followerKeyIds: string[],
+  baselineProvider: (keyId: string) => string[],
+): { workspace: KeySettings; changedKeyIds: string[] } {
+  const workspace = getKeySettings(workspaceKeyId);
+  const wasLocked = workspace.lockGlobalEnables === true;
+  const changedKeyIds: string[] = [];
+  if (wasLocked !== locked) {
+    const baselines = new Map<string, string[]>();
+    if (locked) {
+      for (const id of followerKeyIds) {
+        if (id === workspaceKeyId) continue;
+        if (typeof getKeySettings(id).acceptGlobalEnables === "boolean") continue;
+        baselines.set(id, baselineProvider(id));
+      }
+    }
+    if (locked) workspace.lockGlobalEnables = true;
+    else delete workspace.lockGlobalEnables;
+    workspace.updatedAt = Date.now();
+    for (const id of followerKeyIds) {
+      if (id === workspaceKeyId) continue;
+      const k = getKeySettings(id);
+      if (typeof k.acceptGlobalEnables === "boolean") continue;
+      if (locked) k.globalEnableBaseline = baselines.get(id) || [];
+      else delete k.globalEnableBaseline;
+      k.updatedAt = Date.now();
+      changedKeyIds.push(id);
+      syncKeySettingsToMongo(k).catch(() => {});
+    }
+    saveSettingsToDisk();
+    syncKeySettingsToMongo(workspace).catch(() => {});
+  }
+  return { workspace, changedKeyIds };
+}
+
+/**
  * Policy for one tool on one key: hard blocks, then the key's own override, then the
  * workspace (primary-key) override, then the default (see resolveToolState).
  *
@@ -560,6 +664,8 @@ export function isToolEnabledForKey(
     keyDisabled: settings.disabledTools,
     globalEnabled: primary?.enabledTools,
     globalDisabled: primary?.disabledTools,
+    acceptGlobalEnables: resolveAcceptGlobalEnables(settings, primary),
+    globalBaseline: settings.globalEnableBaseline,
   });
   if (!state.enabled) return false;
 
@@ -875,6 +981,11 @@ export async function syncKeySettingsToMongo(
     };
     delete persisted.customGitHubToken;
     delete persisted.customRenderToken;
+    if (settings.lockGlobalEnables !== true) delete persisted.lockGlobalEnables;
+    if (typeof settings.acceptGlobalEnables !== "boolean")
+      delete persisted.acceptGlobalEnables;
+    if (!Array.isArray(settings.globalEnableBaseline))
+      delete persisted.globalEnableBaseline;
     const githubEncrypted = encryptStoredSecret(settings.customGitHubToken);
     const renderEncrypted = encryptStoredSecret(settings.customRenderToken);
     if (githubEncrypted) persisted.customGitHubTokenEncrypted = githubEncrypted;
@@ -891,6 +1002,15 @@ export async function syncKeySettingsToMongo(
           customRenderToken: "",
           ...(githubEncrypted ? {} : { customGitHubTokenEncrypted: "" }),
           ...(renderEncrypted ? {} : { customRenderTokenEncrypted: "" }),
+          // Optional switches are deleted from the object when cleared; $set alone would leave
+          // the old value in Mongo and it would come back after a restart.
+          ...(settings.lockGlobalEnables === true ? {} : { lockGlobalEnables: "" }),
+          ...(typeof settings.acceptGlobalEnables === "boolean"
+            ? {}
+            : { acceptGlobalEnables: "" }),
+          ...(Array.isArray(settings.globalEnableBaseline)
+            ? {}
+            : { globalEnableBaseline: "" }),
         },
       },
       { upsert: true },
@@ -958,6 +1078,13 @@ export async function loadSettingsFromMongo(): Promise<void> {
             : ["core", "sandbox", "files"],
           // Without this the Active switch was forgotten whenever settings reloaded from Mongo.
           disabled: d.disabled === true,
+          ...(d.lockGlobalEnables === true ? { lockGlobalEnables: true } : {}),
+          ...(typeof d.acceptGlobalEnables === "boolean"
+            ? { acceptGlobalEnables: d.acceptGlobalEnables }
+            : {}),
+          ...(Array.isArray(d.globalEnableBaseline)
+            ? { globalEnableBaseline: d.globalEnableBaseline.map(String) }
+            : {}),
           createdAt: d.createdAt || Date.now(),
           updatedAt: d.updatedAt || Date.now(),
         };

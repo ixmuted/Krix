@@ -48,6 +48,7 @@ export type ToolStateReason =
   | "key-off" // switched off for this key
   | "global-on" // switched on in workspace settings
   | "global-off" // switched off in workspace settings
+  | "global-skipped" // on in workspace settings / by default, but this key does not accept global enables
   | "default-on"
   | "default-off"
   | "needs-github" // no GitHub token for this key or workspace
@@ -68,12 +69,27 @@ export interface ToolStateInput {
   /** Workspace (global) overrides, inherited by every key that has no override of its own. */
   globalEnabled?: readonly string[];
   globalDisabled?: readonly string[];
+  /**
+   * Whether this key picks up tools that get switched ON globally (a workspace override, or a
+   * credential-gated default that a newly added GitHub / Render credential unlocks). Defaults to
+   * true. Switching a tool OFF globally always applies, whatever this says.
+   */
+  acceptGlobalEnables?: boolean;
+  /**
+   * Only used when acceptGlobalEnables is false: the tools that were already on through global
+   * inheritance when the key stopped accepting. They keep following the workspace, so a global
+   * disable still reaches them; anything switched on globally afterwards does not.
+   */
+  globalBaseline?: readonly string[];
 }
 
 /**
  * The one place that decides whether a tool is on. The server (tools/list, tools/call, OAuth
  * scopes) and the Settings pages both use it so they can never disagree.
  * Order: hard blocks -> this key's own override -> workspace override -> default.
+ *
+ * A key that does not accept global enables ignores workspace "on" overrides and credential-gated
+ * defaults for tools outside its baseline. Workspace "off" overrides are never ignored.
  */
 export function resolveToolState(i: ToolStateInput): {
   enabled: boolean;
@@ -88,11 +104,22 @@ export function resolveToolState(i: ToolStateInput): {
   if (i.keyEnabled?.includes(i.toolName)) return { enabled: true, reason: "key-on" };
   if (i.globalDisabled?.includes(i.toolName))
     return { enabled: false, reason: "global-off" };
-  if (i.globalEnabled?.includes(i.toolName))
-    return { enabled: true, reason: "global-on" };
-  return isDefaultOnTool(i.toolName, i.category)
-    ? { enabled: true, reason: "default-on" }
-    : { enabled: false, reason: "default-off" };
+
+  const mayInherit =
+    i.acceptGlobalEnables !== false || Boolean(i.globalBaseline?.includes(i.toolName));
+  let skipped = false;
+
+  if (i.globalEnabled?.includes(i.toolName)) {
+    if (mayInherit) return { enabled: true, reason: "global-on" };
+    skipped = true;
+  }
+  if (isDefaultOnTool(i.toolName, i.category)) {
+    // Sandbox / file tools that need no credential are the baseline everyone gets. Only a
+    // default that a provider credential unlocks counts as a "global enable".
+    if (i.requires === null || mayInherit) return { enabled: true, reason: "default-on" };
+    skipped = true;
+  }
+  return { enabled: false, reason: skipped ? "global-skipped" : "default-off" };
 }
 
 export type CredentialProvider = "github" | "render";
@@ -141,6 +168,13 @@ export function blockedToolReasonLabel(reason: string | undefined): string {
     default:
       return "";
   }
+}
+
+/** Hint shown under a tool that is on globally but not applied to this key. Not a lock. */
+export function globalSkippedLabel(reason: string | undefined): string {
+  return reason === "global-skipped"
+    ? "On globally, not applied to this key"
+    : "";
 }
 
 /**
