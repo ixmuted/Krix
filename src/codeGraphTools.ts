@@ -10,6 +10,7 @@ import {
   getToolAnnotations,
   makeRegistrar,
   getAuthKeyForSession,
+  getSandboxIdForSession,
   sandboxRootForAuthKey,
   getSessionContext,
 } from "./security.js";
@@ -397,7 +398,7 @@ async function resolveUserSandboxPath(
   sessionId: string,
   rawPath?: string,
 ): Promise<{ root: string; abs: string }> {
-  const authKey = getAuthKeyForSession(sessionId);
+  const authKey = getSandboxIdForSession(sessionId);
   const root = sandboxRootForAuthKey(authKey);
   await ensureSandboxRoot(root);
   const ctx = getSessionContext(sessionId);
@@ -1313,7 +1314,7 @@ export function registerCodeGraphTools(
   const reg = makeRegistrar(server, registry, sessionId);
 
   const getCtx = (graphName?: string) => {
-    const authKey = getAuthKeyForSession(sessionId);
+    const authKey = getSandboxIdForSession(sessionId);
     const root = sandboxRootForAuthKey(authKey);
     const state = getUserState(authKey);
     const activeGraphName = sanitizeGraphName(graphName || state.activeGraph);

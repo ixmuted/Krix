@@ -205,6 +205,7 @@ export function getWorkspaceKeyIdForEmail(email?: string): string {
 export function getWorkspaceCredential(
   provider: "github" | "render",
   email?: string,
+  allowPrimaryFallback: boolean = true,
 ): string {
   const normalized = String(email || "").trim().toLowerCase();
   if (normalized && normalized !== "anonymous" && !isOwnerEmail(normalized)) {
@@ -216,6 +217,9 @@ export function getWorkspaceCredential(
         ? wsSettings?.customGitHubToken
         : wsSettings?.customRenderToken;
     return token ? token.trim() : "";
+  }
+  if (!isOwnerEmail(normalized) && !allowPrimaryFallback) {
+    return "";
   }
   if (provider === "github") {
     return (
@@ -250,7 +254,7 @@ export function getEffectiveCredential(
   if (override && override.trim()) {
     return override.trim();
   }
-  return getWorkspaceCredential(provider, settings.email);
+  return getWorkspaceCredential(provider, settings.email, keyId === "primary-key");
 }
 
 /** Which provider credentials a key can actually use (own override, or workspace default). */
@@ -689,7 +693,13 @@ function createMasterServer(
   tagCategory(registry, categoryOf, "codegraph");
 
   const policyKeyId = keySettings?.keyId || "primary-key";
-  const policyWsKeyId = getWorkspaceKeyIdForEmail(keySettings?.email);
+  const policyEmail = String(keySettings?.email || "").trim().toLowerCase();
+  const policyWsKeyId =
+    policyEmail && policyEmail !== "anonymous"
+      ? getWorkspaceKeyIdForEmail(policyEmail)
+      : policyKeyId === "primary-key"
+        ? "primary-key"
+        : "";
   const credentials = {
     github: Boolean(githubToken?.trim()),
     render: Boolean(renderToken?.trim()),
@@ -996,18 +1006,24 @@ async function authenticate(
         rejectDisabledKey(res);
         return;
       }
-      const oauthAuth = clientId
-        ? listActiveOAuthAuthorizations().find((oa) => oa.clientId === clientId)
-        : undefined;
+      const tokenEmail =
+        payload.email ||
+        (typeof payload.sub === "string" && payload.sub.includes("@")
+          ? payload.sub
+          : undefined);
+      let resolvedOAuthEmail = tokenEmail;
+      if (!resolvedOAuthEmail && clientId) {
+        const matches = listActiveOAuthAuthorizations().filter(
+          (oa) => oa.clientId === clientId && oa.ownerEmail,
+        );
+        if (matches.length === 1) {
+          resolvedOAuthEmail = matches[0].ownerEmail;
+        }
+      }
       (req as any).clientAuth = {
         keyId,
         label,
-        email:
-          payload.email ||
-          oauthAuth?.ownerEmail ||
-          (typeof payload.sub === "string" && payload.sub.includes("@")
-            ? payload.sub
-            : undefined),
+        email: resolvedOAuthEmail,
         type: "oauth",
       };
       next();
@@ -1142,7 +1158,7 @@ async function startSession(opts: StartSessionOptions) {
   const { req, keyId, keySettings, githubToken, renderToken, identity } = opts;
   const newSessionId = crypto.randomUUID();
   registerSessionAuth(newSessionId, identity);
-  registerSessionSandboxId(newSessionId, computeAuthKey(identity));
+  registerSessionSandboxId(newSessionId, computeUserAuthKey(identity));
   registerSessionRole(
     newSessionId,
     keyId === "primary-key" || isOwnerEmail(keySettings.email) ? "owner" : "user",
@@ -1259,12 +1275,17 @@ app.all(
       }),
     ]);
     const startTime = Date.now();
-    const clientAuth = (req as any).clientAuth || {
-      keyId: "primary-key",
-      label: "Primary Key",
-      type: "master_key",
-    };
-    const keyId = clientAuth.keyId || "primary-key";
+    const clientAuth = (req as any).clientAuth;
+    if (!clientAuth || !clientAuth.keyId) {
+      jsonRpcError(
+        res,
+        401,
+        -32000,
+        "Unauthorized. Connect using OAuth 2.1 or supply a valid API key.",
+      );
+      return;
+    }
+    const keyId = clientAuth.keyId;
     const keySettings = getKeySettings(keyId);
     const clientEmail = String(clientAuth.email || "")
       .trim()
@@ -1526,7 +1547,10 @@ app.all(
       if (req.method === "POST" && !isInit && isModernStatelessRequest(body)) {
         const statelessSessionId = `stateless-${crypto.randomUUID()}`;
         registerSessionAuth(statelessSessionId, sessionIdentity);
-        registerSessionSandboxId(statelessSessionId, expectedAuthKey);
+        registerSessionSandboxId(
+          statelessSessionId,
+          computeUserAuthKey(sessionIdentity),
+        );
         registerSessionRole(
           statelessSessionId,
           keyId === "primary-key" || isOwnerEmail(keySettings.email)
@@ -1833,13 +1857,13 @@ app.get(
 app.get(["/", "/home"], async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
-  const authKey = computeAuthKey(
-    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
-  );
+  const authKey = owner
+    ? computeUserAuthKey({ email: owner.email })
+    : computeAuthKey("anonymous");
   const root = sandboxRootForAuthKey(authKey);
   const uploads = await listUploadedFiles(root);
   const dynamicKeys = owner ? listDynamicKeys(owner.email) : [];
-  const isOwner = Boolean(owner);
+  const isOwner = Boolean(owner && isOwnerEmail(owner.email));
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(
@@ -2703,9 +2727,7 @@ app.get("/tools", async (req, res) => {
     clearToolRegistrations(probeSessionId);
     unregisterSessionAuth(probeSessionId);
   }
-  const authKey = computeAuthKey(
-    owner ? `user_${owner.email.toLowerCase()}` : "anonymous",
-  );
+  const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
   const allowedToolKeys = ownedStatsKeyIds(owner.email);
   const targetToolKey = allKeysRequested ? undefined : selectedKeyId;
@@ -3113,10 +3135,10 @@ app.get("/settings", async (req, res) => {
         keySettings: getKeySettings("primary-key"),
         sandboxAllowed,
         credentialAvailability: {
-          github: Boolean(getWorkspaceCredential("github")),
-          render: Boolean(getWorkspaceCredential("render")),
-          workspaceGithub: Boolean(getWorkspaceCredential("github")),
-          workspaceRender: Boolean(getWorkspaceCredential("render")),
+          github: false,
+          render: false,
+          workspaceGithub: false,
+          workspaceRender: false,
           sandboxEnabled: sandboxAllowed,
         },
         toolsCatalog: statsTracker.getSummary("/tmp").toolsCatalog,
@@ -3210,7 +3232,7 @@ app.get("/settings", async (req, res) => {
 
   const userRole = isOwner ? "owner" : "user";
   const userQuota = getUserQuota(userRole);
-  const authKey = computeAuthKey(`user_${owner.email.toLowerCase()}`);
+  const authKey = computeUserAuthKey({ email: owner.email });
   const root = sandboxRootForAuthKey(authKey);
   const allowedSettingsKeys = ownedStatsKeyIds(owner.email);
   const summary = statsTracker.getSummary(
@@ -4431,7 +4453,7 @@ app.use((req: Request, res: Response): void => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   if (req.accepts("html")) {
     const owner = parseOwnerCookie(req);
-    const isOwner = Boolean(owner);
+    const isOwner = Boolean(owner && isOwnerEmail(owner.email));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(
       renderNotFoundPage({

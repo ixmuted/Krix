@@ -16,6 +16,7 @@ import {
   getToolAnnotations,
   makeRegistrar,
   getAuthKeyForSession,
+  getSandboxIdForSession,
   getSessionRole,
   sanitizeOutput,
 } from "./security.js";
@@ -988,7 +989,7 @@ export async function shareFile(
   expiresInHours: number | null;
   permanent: boolean;
 }> {
-  const ownerKey = getAuthKeyForSession(sessionId);
+  const ownerKey = getSandboxIdForSession(sessionId);
   if (!uploadLimiter.hit(ownerKey))
     throw new Error(
       "Upload rate limit reached (20/min). Wait a moment and retry.",
@@ -1155,7 +1156,7 @@ export async function getMongoStorageStatus(
   }
 
   try {
-    const ownerKey = getAuthKeyForSession(sessionId);
+    const ownerKey = getSandboxIdForSession(sessionId);
     const store = getFileStore();
 
     const usagePromise = store.usage(ownerKey);
@@ -1655,7 +1656,7 @@ export function registerFileTools(
     },
     async (args: any) => {
       try {
-        const ownerKey = getAuthKeyForSession(sessionId);
+        const ownerKey = getSandboxIdForSession(sessionId);
         switch (args.action) {
           case "share": {
             const out = await shareFile(sessionId, args, getBaseUrl());
