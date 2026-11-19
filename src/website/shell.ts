@@ -116,6 +116,98 @@ export function renderFooter(): string {
   `;
 }
 
+export function renderHomeFooter(owner?: any): string {
+  const isAuth = !!(owner && (owner.email || owner.name));
+  const year = new Date().getFullYear();
+  const accountLink = isAuth
+    ? `<li><a href="/settings">Account settings</a></li>`
+    : `<li><a href="/auth/google">Sign in with Google</a></li>`;
+
+  return `
+    <footer class="hm-footer" aria-label="Site footer">
+      <div class="hm-footer-inner">
+        <div class="hm-footer-grid">
+          <div class="hm-footer-brand">
+            <a href="/" class="hm-footer-logo">
+              <img src="/icon-48.png?v=2" alt="" width="28" height="28">
+              <span>Krix</span>
+            </a>
+            <p class="hm-footer-tagline">An isolated MCP server connecting AI assistants to GitHub, Render, code intelligence, and a persistent Linux sandbox with per-key access control.</p>
+            <div class="hm-footer-status">
+              <span class="hm-footer-status-dot" aria-hidden="true"></span>
+              <span>Streamable HTTP · OAuth 2.1</span>
+            </div>
+            <div class="hm-footer-social">
+              <a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer" aria-label="Krix on GitHub" title="GitHub">
+                ${renderSvg("github", 16)}
+                <span>GitHub</span>
+              </a>
+              <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener noreferrer" aria-label="QuickWitty" title="QuickWitty">
+                ${renderSvg("external-link", 15)}
+                <span>QuickWitty</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="hm-footer-col">
+            <h3 class="hm-footer-heading">Platform</h3>
+            <ul>
+              <li><a href="/tools">Tools catalog</a></li>
+              <li><a href="/api">API keys</a></li>
+              <li><a href="/stats">Usage &amp; telemetry</a></li>
+              <li><a href="/#platform">Capabilities</a></li>
+              <li><a href="/#security">Security</a></li>
+            </ul>
+          </div>
+
+          <div class="hm-footer-col">
+            <h3 class="hm-footer-heading">Workspace</h3>
+            <ul>
+              <li><a href="/upload">Upload files</a></li>
+              <li><a href="/store">Saved files</a></li>
+              <li><a href="/#quickstart">Quick start</a></li>
+              <li><a href="/settings">Workspace settings</a></li>
+            </ul>
+          </div>
+
+          <div class="hm-footer-col">
+            <h3 class="hm-footer-heading">Resources</h3>
+            <ul>
+              <li><a href="/help">Setup guide</a></li>
+              <li><a href="/#faq">FAQ</a></li>
+              <li><a href="/server.json">Server manifest</a></li>
+              <li><a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer">Source repository</a></li>
+              <li><a href="https://quickwitty.onrender.com" target="_blank" rel="noopener noreferrer">QuickWitty</a></li>
+            </ul>
+          </div>
+
+          <div class="hm-footer-col">
+            <h3 class="hm-footer-heading">Legal &amp; Account</h3>
+            <ul>
+              <li><a href="/privacy">Privacy Policy</a></li>
+              <li><a href="/terms">Terms of Service</a></li>
+              ${accountLink}
+            </ul>
+          </div>
+        </div>
+
+        <div class="hm-footer-bottom">
+          <div class="hm-footer-meta">
+            <span>&copy; ${year} Krix. Built by <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener noreferrer">QuickWitty</a>.</span>
+            <span class="hm-footer-recaptcha">Protected by reCAPTCHA · <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy</a> &amp; <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms</a>.</span>
+          </div>
+          <div class="hm-footer-legal">
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/help">Help</a>
+            <a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  `;
+}
+
 export function renderRecaptchaNotice(): string {
   return `
     <p class="recaptcha-notice">This site is protected by reCAPTCHA and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.</p>

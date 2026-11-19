@@ -3,7 +3,7 @@
 
 import { getTokensCss } from "./tokens.css.js";
 import { getClientScripts } from "./clientScripts.js";
-import { renderHeader, renderFooter, renderRecaptchaNotice } from "./shell.js";
+import { renderHeader, renderFooter, renderHomeFooter, renderRecaptchaNotice } from "./shell.js";
 import { renderSvg } from "./icons.js";
 export { renderAuthRequiredCard } from "./pages/authCard.js";
 
@@ -285,7 +285,7 @@ export function renderPageShell(options: PageShellOptions): string {
         ${options.content}
         ${options.recaptchaNotice ? renderRecaptchaNotice() : ""}
       </main>
-      ${showFooter ? renderFooter() : ""}
+      ${showFooter ? (options.activeTab === "home" ? renderHomeFooter(options.owner) : renderFooter()) : ""}
     </div>
   </div>
 
