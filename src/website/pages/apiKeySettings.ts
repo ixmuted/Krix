@@ -7,6 +7,7 @@ import { getToolCredentialRequirement } from "../../security.js";
 import {
   blockedToolReasonLabel,
   credentialRequiredMessage,
+  globalSkippedLabel,
   isDefaultGithubTool,
 } from "../../toolDefaults.js";
 
@@ -28,7 +29,11 @@ export function renderApiKeySettingsPage(params: {
   };
   sandboxAllowed?: boolean;
   /** Per-tool on/off decided by the server (same rules as tools/list). */
-  toolStates?: Record<string, { enabled: boolean; reason?: string }>;
+  toolStates?: Record<string, { enabled: boolean; reason?: string; remembered?: boolean }>;
+  /** True when the workspace stops global tool enables from reaching keys. */
+  globalLocked?: boolean;
+  /** True when this page is the workspace (global) key itself. */
+  isWorkspaceKey?: boolean;
 }): string {
   const key = params.key || {};
   const sandboxAllowed = params.sandboxAllowed !== false;
@@ -81,7 +86,15 @@ export function renderApiKeySettingsPage(params: {
     Array.isArray(settings.enabledCategories) ? settings.enabledCategories : [],
   );
   const isKeyDisabled = !!settings.disabled;
-  const serverToolStates: Record<string, { enabled: boolean; reason?: string }> | undefined =
+  const globalLocked = params.globalLocked === true;
+  const showGlobalMode = rawKeyId !== "primary-key" && params.isWorkspaceKey !== true;
+  const globalMode: "follow" | "accept" | "block" =
+    settings.acceptGlobalEnables === true
+      ? "accept"
+      : settings.acceptGlobalEnables === false
+        ? "block"
+        : "follow";
+  const serverToolStates: Record<string, { enabled: boolean; reason?: string; remembered?: boolean }> | undefined =
     params.toolStates && typeof params.toolStates === "object"
       ? params.toolStates
       : undefined;
@@ -271,14 +284,24 @@ export function renderApiKeySettingsPage(params: {
                     rawCategory === "Files" || rawCategory === "Search"
                       ? "Sandbox"
                       : rawCategory;
-                  const checked = isToolEnabled(tool);
                   const requires = getToolCredentialRequirement(toolName) || "";
-                  const blockedLabel = blockedToolReasonLabel(
-                    serverToolStates?.[toolName]?.reason,
-                  );
-                  return `<div class="key-tool-row" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
-            <div class="grow"><div class="list-name mono" style="font-size:13px;overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div class="list-meta">${escapeHtml(category)}${Number(tool.totalCalls) > 0 ? ` · ${formatCompactCount(Number(tool.totalCalls))} call${Number(tool.totalCalls) === 1 ? "" : "s"}` : ""}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div></div>
-            <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
+                  const toolState = serverToolStates?.[toolName];
+                  const blockedLabel = blockedToolReasonLabel(toolState?.reason);
+                  const skippedLabel = globalSkippedLabel(toolState?.reason);
+                  const credentialBlocked = /^needs-/.test(String(toolState?.reason || ""));
+                  // Missing credential: greyed out and locked, but it still shows the choice
+                  // made for it, so adding the credential back needs no re-enabling.
+                  const checked =
+                    credentialBlocked && toolState
+                      ? Boolean(toolState.remembered)
+                      : isToolEnabled(tool);
+                  const returnsHint =
+                    credentialBlocked && toolState?.remembered
+                      ? " · back on once added"
+                      : "";
+                  return `<div class="key-tool-row${credentialBlocked ? " tool-blocked" : ""}" data-requires="${requires}" data-cat="${escapeHtml(category)}" data-search="${escapeHtml(`${toolName} ${category} ${tool.description || ""}`.toLowerCase())}">
+            <div class="grow"><div class="list-name mono" style="font-size:13px;overflow-wrap:anywhere;">${escapeHtml(toolName)}</div><div class="list-meta">${escapeHtml(category)}${Number(tool.totalCalls) > 0 ? ` · ${formatCompactCount(Number(tool.totalCalls))} call${Number(tool.totalCalls) === 1 ? "" : "s"}` : ""}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}${escapeHtml(returnsHint)}` : ""}${skippedLabel ? ` · ${escapeHtml(skippedLabel)}` : ""}</div></div>
+            <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : `Toggle permission for ${escapeHtml(toolName)}`}"><input type="checkbox" class="key-tool-check" value="${escapeHtml(toolName)}" ${checked ? "checked" : ""}${credentialBlocked ? " disabled" : ""} onchange="onKeyToolToggle(this)"><span class="krix-slider"></span></label>
           </div>`;
                 })
                 .join("")
@@ -295,6 +318,18 @@ export function renderApiKeySettingsPage(params: {
           <div><div class="row-title">Key status</div><div class="row-desc">${rawKeyId === "primary-key" ? "The primary key is always active." : "Enable or disable this key without deleting it."}</div></div>
           <button type="button" id="keyActiveToggleBtn" class="btn friendly-zone-btn" data-active="${!isKeyDisabled ? "true" : "false"}" onclick="toggleKeyActiveStatus()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg(isKeyDisabled ? "unlock" : "lock", 15)}<span>${isKeyDisabled ? "Enable Key" : "Disable Key"}</span></button>
         </div>
+        ${
+          showGlobalMode
+            ? `<div class="row">
+          <div><div class="row-title">Global tool enables</div><div class="row-desc">Choose whether tools switched on globally, or unlocked by adding a GitHub or Render credential, reach this key. Turning a tool off globally always applies.</div></div>
+          <select id="globalModeSelect" class="friendly-zone-select" data-current="${globalMode}" aria-label="Global tool enables for this key" onchange="changeGlobalMode(this)">
+            <option value="follow"${globalMode === "follow" ? " selected" : ""}>Follow workspace (${globalLocked ? "locked" : "unlocked"})</option>
+            <option value="accept"${globalMode === "accept" ? " selected" : ""}>Accept global enables</option>
+            <option value="block"${globalMode === "block" ? " selected" : ""}>Ignore global enables</option>
+          </select>
+        </div>`
+            : ""
+        }
         <div class="row">
           <div><div class="row-title">Rename ${key.type === "oauth" ? "app" : "API key"}</div><div class="row-desc">Update the display name for this ${key.type === "oauth" ? "authorized app" : "key"} (4–16 characters).</div></div>
           <button type="button" class="btn friendly-zone-btn" onclick="openRenameKeySettingsModal()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg("edit", 15)}<span>Rename</span></button>
@@ -440,6 +475,28 @@ export function renderApiKeySettingsPage(params: {
           showToast(err.message || 'Failed to toggle tool', 'error');
         } finally {
           input.disabled = false;
+        }
+      }
+      async function changeGlobalMode(select) {
+        const previous = select.dataset.current || 'follow';
+        const mode = select.value;
+        select.disabled = true;
+        try {
+          const res = await fetch('/settings/api/key-global-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyId: ${jsKeyId}, mode: mode })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update this key.');
+          select.dataset.current = mode;
+          showToast(data.accepts ? 'This key now accepts global tool enables' : 'This key now ignores global tool enables', 'success');
+          setTimeout(() => location.reload(), 500);
+        } catch (err) {
+          select.value = previous;
+          showToast(err.message || 'Could not update this key.', 'error');
+        } finally {
+          select.disabled = false;
         }
       }
       function resetKeyToolOverrides() {

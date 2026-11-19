@@ -3,7 +3,11 @@
 
 import { renderPageShell, escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
-import { blockedToolReasonLabel, isDefaultGithubTool } from "../../toolDefaults.js";
+import {
+  blockedToolReasonLabel,
+  globalSkippedLabel,
+  isDefaultGithubTool,
+} from "../../toolDefaults.js";
 
 export function renderSettingsPage(params: {
   base: string;
@@ -19,9 +23,12 @@ export function renderSettingsPage(params: {
   codeGraphCount?: number;
   sandboxAllowed?: boolean;
   /** Per-tool on/off decided by the server (same rules as tools/list). */
-  toolStates?: Record<string, { enabled: boolean; reason?: string }>;
+  toolStates?: Record<string, { enabled: boolean; reason?: string; remembered?: boolean }>;
+  /** True when the workspace stops global tool enables from reaching keys. */
+  globalLocked?: boolean;
 }): string {
   const isOwner = !!(params.isOwner || params.isServerOwner);
+  const globalLocked = params.globalLocked === true;
   const sandboxAllowed = params.sandboxAllowed !== false;
   const quotaLimitDisplay = isOwner ? "300 MB" : "50 MB";
   const roleBadge = isOwner
@@ -55,7 +62,7 @@ export function renderSettingsPage(params: {
       ? keySettings.enabledCategories
       : [],
   );
-  const serverToolStates: Record<string, { enabled: boolean; reason?: string }> | undefined =
+  const serverToolStates: Record<string, { enabled: boolean; reason?: string; remembered?: boolean }> | undefined =
     params.toolStates && typeof params.toolStates === "object"
       ? params.toolStates
       : undefined;
@@ -177,18 +184,28 @@ export function renderSettingsPage(params: {
         )
           .map((t: any) => {
             const cat = t.category || "General";
-            const isEnabled = isToolEnabled(t);
-            const blockedLabel = blockedToolReasonLabel(
-              serverToolStates?.[String(t.name || "")]?.reason,
-            );
+            const toolState = serverToolStates?.[String(t.name || "")];
+            const blockedLabel = blockedToolReasonLabel(toolState?.reason);
+            const skippedLabel = globalSkippedLabel(toolState?.reason);
+            const credentialBlocked = /^needs-/.test(String(toolState?.reason || ""));
+            // A tool that is only blocked by a missing credential keeps showing the choice made
+            // for it (greyed out), so adding the credential back needs no re-enabling.
+            const isEnabled =
+              credentialBlocked && toolState
+                ? Boolean(toolState.remembered)
+                : isToolEnabled(t);
+            const returnsHint =
+              credentialBlocked && toolState?.remembered
+                ? " · back on once added"
+                : "";
             return `
-          <div class="settings-tool-row tool-toggle-row" data-cat="${escapeHtml(cat)}" data-tool-name="${escapeHtml(t.name).toLowerCase()}" data-name="${escapeHtml(t.name)}">
+          <div class="settings-tool-row tool-toggle-row${credentialBlocked ? " tool-blocked" : ""}" data-cat="${escapeHtml(cat)}" data-tool-name="${escapeHtml(t.name).toLowerCase()}" data-name="${escapeHtml(t.name)}">
             <div class="grow">
               <div class="list-name mono" style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.name)}</div>
-              <div class="list-meta">${escapeHtml(cat)}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}` : ""}</div>
+              <div class="list-meta">${escapeHtml(cat)}${blockedLabel ? ` · ${escapeHtml(blockedLabel)}${escapeHtml(returnsHint)}` : ""}${skippedLabel ? ` · ${escapeHtml(skippedLabel)}` : ""}</div>
             </div>
             <label class="switch krix-switch" title="${blockedLabel ? escapeHtml(blockedLabel) : "Toggle tool permission"}">
-              <input type="checkbox" aria-label="${escapeHtml(t.name)}" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}>
+              <input type="checkbox" aria-label="${escapeHtml(t.name)}" onchange="toggleToolPermission('${escapeHtml(t.name)}', this.checked, this)" ${isEnabled ? "checked" : ""}${credentialBlocked ? " disabled" : ""}>
               <span class="krix-slider"></span>
             </label>
           </div>`;
@@ -200,6 +217,19 @@ export function renderSettingsPage(params: {
         <div class="cluster">
           <button type="button" id="settingsToolsPrev" class="pager-btn pager-prev" onclick="changeSettingsToolsPage(-1)" aria-label="Previous page">${renderSvg("chevron-left", 16)}<span>Previous</span></button>
           <button type="button" id="settingsToolsNext" class="pager-btn pager-next" onclick="changeSettingsToolsPage(1)" aria-label="Next page"><span>Next</span>${renderSvg("chevron-right", 16)}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title" style="margin-bottom:14px;">Friendly zone</h2>
+      <div class="rows">
+        <div class="row">
+          <div>
+            <div class="row-title">Lock global tool enabling <span id="globalLockBadge" class="badge" style="margin-left:6px;">${globalLocked ? "Locked" : "Unlocked"}</span></div>
+            <div class="row-desc">Stops tools that get switched on here, or unlocked by adding a GitHub or Render credential, from turning on for your existing API keys and OAuth apps. Turning a tool off here still applies everywhere. Each key can override this on its own page.</div>
+          </div>
+          <button type="button" id="globalLockBtn" class="btn friendly-zone-btn" data-locked="${globalLocked ? "true" : "false"}" onclick="toggleGlobalLock()">${renderSvg(globalLocked ? "unlock" : "lock", 15)}<span>${globalLocked ? "Unlock enabling" : "Lock enabling"}</span></button>
         </div>
       </div>
     </div>
@@ -271,6 +301,33 @@ export function renderSettingsPage(params: {
       let currentSettingsToolsPage = 1;
       function getSettingsToolsPageSize() {
         return window.innerWidth <= 768 ? 10 : 24;
+      }
+
+      const LOCK_SVG = '${renderSvg("lock", 15)}';
+      const UNLOCK_SVG = '${renderSvg("unlock", 15)}';
+      async function toggleGlobalLock() {
+        const btn = document.getElementById('globalLockBtn');
+        if (!btn) return;
+        const nextLocked = btn.dataset.locked !== 'true';
+        btn.disabled = true;
+        try {
+          const res = await fetch('/settings/api/global-lock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ locked: nextLocked })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update the global tool lock.');
+          btn.dataset.locked = data.locked ? 'true' : 'false';
+          btn.innerHTML = (data.locked ? UNLOCK_SVG : LOCK_SVG) + '<span>' + (data.locked ? 'Unlock enabling' : 'Lock enabling') + '</span>';
+          const badge = document.getElementById('globalLockBadge');
+          if (badge) badge.textContent = data.locked ? 'Locked' : 'Unlocked';
+          if (window.showToast) window.showToast(data.locked ? 'Global enabling locked. Your keys keep the tools they have now.' : 'Global enabling unlocked. Your keys follow workspace tool changes again.', 'success');
+        } catch (err) {
+          if (window.showToast) window.showToast(err.message || 'Could not update the global tool lock.', 'error');
+        } finally {
+          btn.disabled = false;
+        }
       }
 
       function openDeleteAccountModal() {
