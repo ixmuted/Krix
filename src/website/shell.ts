@@ -77,7 +77,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
       <a href="/auth/google" class="btn primary sb-signin">${renderGoogleLogoSvg(16)}<span>Sign in with Google</span></a>`;
 
   const topbarLeft = isAuth
-    ? `<button type="button" id="topbarNavToggle" class="icon-btn topbar-menu-btn" onclick="window.toggleNav()" aria-label="Open menu" aria-expanded="false" aria-controls="appSidebar"><span class="icon-menu">${renderSvg("sidebar", 22)}</span><span class="icon-close">${renderSvg("x", 22)}</span></button>`
+    ? `<button type="button" id="topbarNavToggle" class="icon-btn topbar-menu-btn" onclick="window.toggleNav()" aria-label="Open menu" title="Menu (Ctrl+B)" aria-expanded="false" aria-controls="appSidebar"><span class="icon-menu">${renderSvg("sidebar", 22)}</span><span class="icon-close">${renderSvg("x", 22)}</span></button>`
     : `<span class="topbar-spacer" aria-hidden="true"></span>`;
 
   const topbarRight = isHome

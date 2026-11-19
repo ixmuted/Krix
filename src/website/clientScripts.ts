@@ -225,6 +225,10 @@ export function getClientScripts(): string {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       window.toggleCommandPalette();
+    } else if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'b' && document.getElementById('topbarNavToggle')) {
+      e.preventDefault();
+      if (paletteOpen) window.toggleCommandPalette(false);
+      window.toggleNav();
     } else if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping && !paletteOpen) {
       e.preventDefault();
       window.toggleCommandPalette(true);
