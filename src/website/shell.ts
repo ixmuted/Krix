@@ -133,10 +133,6 @@ export function renderHomeFooter(owner?: any): string {
               <span>Krix</span>
             </a>
             <p class="hm-footer-tagline">An isolated MCP server connecting AI assistants to GitHub, Render, code intelligence, and a persistent Linux sandbox with per-key access control.</p>
-            <div class="hm-footer-status">
-              <span class="hm-footer-status-dot" aria-hidden="true"></span>
-              <span>Streamable HTTP · OAuth 2.1</span>
-            </div>
             <div class="hm-footer-social">
               <a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer" aria-label="Krix on GitHub" title="GitHub">
                 ${renderSvg("github", 16)}
