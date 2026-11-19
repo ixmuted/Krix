@@ -1,7 +1,7 @@
 // Homepage: editorial hero, live runtime preview, client compatibility, how it works, capabilities, security, setup snippets, FAQ
 
 import { renderPageShell, escapeHtml } from "../components.js";
-import { renderSvg } from "../icons.js";
+import { renderSvg, renderGoogleLogoSvg } from "../icons.js";
 
 const FEATURES = [
   ["terminal", "Persistent Bash Shell", "Keeps your working directory, exports, and environment alive across every tool call."],
@@ -112,7 +112,6 @@ export function renderHomePage(params: {
   <div class="hm">
     <section class="hm-hero">
       <div class="hm-hero-text">
-        <span class="hm-kicker"><i></i>Model Context Protocol server</span>
         <h1 class="hm-title"><strong>One endpoint for your agents.</strong> GitHub, Render and an isolated sandbox, wired up over MCP.</h1>
         <p class="hm-lead">Krix gives every AI assistant a real workspace to write code, run it, open pull requests and deploy, with permissions you control per key.</p>
         <div class="hm-endpoint">
@@ -123,7 +122,14 @@ export function renderHomePage(params: {
           ${primaryCta}
           <a href="/tools" class="btn">${renderSvg("terminal", 15)}<span>Browse tools</span></a>
           <a href="/help" class="btn ghost">${renderSvg("help-circle", 15)}<span>Setup guide</span></a>
-        </div>
+        </div>${
+          !isAuth
+            ? `
+        <div class="hm-google-signup">
+          <a href="/auth/google" class="btn hm-google-btn">${renderGoogleLogoSvg(18)}<span>Sign up with Google</span></a>
+        </div>`
+            : ""
+        }
       </div>
       <div class="hm-art" aria-label="Live runtime preview">
         <div class="hm-term">
@@ -154,7 +160,7 @@ export function renderHomePage(params: {
       </div>
     </section>
 
-    <section>
+    <section id="platform">
       ${sectionHead("Platform", "Everything an agent needs to ship real work")}
       <div class="hm-caps">
         ${CAPABILITIES.map((c) => `
@@ -177,7 +183,7 @@ export function renderHomePage(params: {
       </div>
     </section>
 
-    <section class="hm-secure">
+    <section id="security" class="hm-secure">
       <div>
         <div class="hm-eyebrow">Security</div>
         <h2 class="hm-h2">Built to be trusted with your code</h2>
@@ -188,7 +194,7 @@ export function renderHomePage(params: {
       </div>
     </section>
 
-    <section>
+    <section id="quickstart">
       ${sectionHead("Quick start", "Add Krix to your client", "Use the JSON config in any MCP client, or one command in Claude Code.")}
       <div class="hm-code-grid">
         ${codeBlock("mcp_config.json", "mcpSnippetCode", jsonConfig)}
@@ -205,7 +211,7 @@ export function renderHomePage(params: {
       </div>
     </section>
 
-    <section>
+    <section id="faq">
       ${sectionHead("FAQ", "Questions, answered")}
       <div class="hm-faq">
         ${FAQ.map((q) => `<details class="hm-faq-item"><summary>${escapeHtml(q[0])}</summary><p>${escapeHtml(q[1])}</p></details>`).join("")}
