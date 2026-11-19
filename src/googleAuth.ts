@@ -999,8 +999,14 @@ export function createGoogleAuthRouter(): Router {
 
   // GET /auth/logout
   router.get("/logout", (_req: Request, res: Response): void => {
-    res.clearCookie("krix_session", { path: "/" });
-    res.redirect("/");
+    res.clearCookie("krix_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(302, "/");
   });
 
   // GET /auth/session - returns current session status
