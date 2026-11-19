@@ -37,7 +37,7 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.match(html, /class="topbar"/);
     assert.match(html, /class="sidebar"|<aside class="sidebar"/);
     assert.match(html, /sb-link active/);
-    assert.match(html, /href="\/home"/);
+    assert.match(html, /href="\/"/);
     assert.match(html, /href="\/upload"/);
     assert.match(html, /href="\/store"/);
     assert.match(html, /href="\/stats"/);
@@ -59,7 +59,7 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.match(html, /404 Error/);
     assert.match(html, /Page Not Found/);
     assert.match(html, /\/missing-subsystem/);
-    assert.match(html, /\/home/);
+    assert.match(html, /href="\/" class="btn primary">Back to home<\/a>/);
     // The 404 page only offers a way back home.
     assert.doesNotMatch(html, /Browse Tools/);
     assert.doesNotMatch(html, /href="\/tools"/);
@@ -80,7 +80,7 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     });
     assert.match(html, /<title>Tools<\/title>/);
     assert.match(html, /id="toolSearchInput"/);
-    assert.match(html, /placeholder=""/);
+    assert.match(html, /placeholder="Search tools"/);
   });
 
   test("renderApiKeysPage adheres to credential management and DOM ID invariants", () => {
@@ -116,11 +116,11 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.doesNotMatch(html, /Revoke\.\.\./);
   });
 
-  test("renderUploadPage adheres to >Keep< switch and disallows legacy misleading text", () => {
+  test("renderUploadPage adheres to >Permanent< switch and disallows legacy misleading text", () => {
     const html = renderUploadPage("mock_nonce_123", {
       owner: { email: "owner@quickwitty.com" },
     });
-    assert.match(html, />Keep</);
+    assert.match(html, />Permanent</);
     assert.doesNotMatch(html, />Permanent Storage</);
     assert.doesNotMatch(html, /Exempt uploaded files from 24h auto-cleanup/);
     assert.doesNotMatch(html, /Files are saved in your sandbox at upload/);
@@ -137,7 +137,7 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.match(ownerHtml, />300 MB</);
     assert.match(ownerHtml, /287\.5 MB free/);
     assert.match(ownerHtml, /Owner tier/);
-    assert.match(ownerHtml, /100 MB per session/);
+    assert.match(ownerHtml, /25 MB per file/);
 
     const userHtml = renderUploadPage("n2", {
       owner: { email: "user@example.com" },

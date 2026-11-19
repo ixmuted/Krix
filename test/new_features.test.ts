@@ -720,12 +720,12 @@ test("Store permanent file toggle, revert retention, and dynamic live counters",
     "Store must render kebab-dropdown menu",
   );
   assert.ok(
-    storeHtml.includes("Revert"),
-    "Store must render Revert option in kebab menu",
+    /togglePermanent\(&#039;[^&]+&#039;, false\)/.test(storeHtml),
+    "Store must render the Temporary (revert) option in kebab menu",
   );
   assert.ok(
-    storeHtml.includes("Keep"),
-    "Store must render Keep option in kebab menu",
+    /togglePermanent\(&#039;[^&]+&#039;, true\)/.test(storeHtml),
+    "Store must render the Permanent (keep) option in kebab menu",
   );
   assert.ok(
     storeHtml.includes("Copy URL"),
@@ -912,7 +912,7 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "404 page must display requested pathname",
   );
   assert.ok(
-    notFoundHtml.includes("/home"),
+    notFoundHtml.includes('href="/" class="btn primary">Back to home</a>'),
     "404 page must provide Back to Home link",
   );
   assert.ok(
@@ -927,7 +927,7 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "Header must include the mobile top bar",
   );
   assert.ok(
-    headerHtml.includes("window.toggleNav(true)"),
+    headerHtml.includes("window.toggleNav()"),
     "Mobile top bar must open the navigation drawer",
   );
   assert.ok(
@@ -935,7 +935,7 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "Active page must have active class in the sidebar",
   );
   assert.ok(
-    headerHtml.includes('href="/home"'),
+    headerHtml.includes('href="/"'),
     "Mobile subnav must link to Home",
   );
   assert.ok(
@@ -1004,8 +1004,8 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "Tools page must render toolSearchInput",
   );
   assert.ok(
-    toolsHtml.includes('placeholder=""'),
-    "Tools search input must have empty placeholder",
+    toolsHtml.includes('placeholder="Search tools"'),
+    "Tools search input must have the Search tools placeholder",
   );
 
   // 4. API Keys & OAuth Search, Eye icon, Clipboard copy, and scroll container
@@ -1049,7 +1049,7 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     "OAuth search must have filterOAuth function",
   );
 
-  // 5. Upload Page Redesign: Keep switch, removed unwanted texts
+  // 5. Upload Page Redesign: Permanent switch, removed unwanted texts
   const uploadHtml = renderUploadPage("nonce-test", {
     ttlMinutes: 60,
     retentionMinutes: 1440,
@@ -1060,8 +1060,8 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
     owner,
   });
   assert.ok(
-    uploadHtml.includes(">Keep<"),
-    "Upload page switch must be named Keep",
+    uploadHtml.includes(">Permanent<"),
+    "Upload page switch must be named Permanent",
   );
   assert.ok(
     !uploadHtml.includes(">Permanent Storage<"),
@@ -1069,7 +1069,7 @@ test("404 error page, mobile navigation subnav, OAuth search, eye/copy icons, an
   );
   assert.ok(
     !uploadHtml.includes("Exempt uploaded files from 24h auto-cleanup"),
-    "Upload page must remove exemption text beneath Keep",
+    "Upload page must remove exemption text beneath Permanent",
   );
   assert.ok(
     !uploadHtml.includes("Files are saved in your sandbox at upload"),

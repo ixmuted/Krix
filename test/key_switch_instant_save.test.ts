@@ -21,7 +21,7 @@ function renderPage(): string {
 function pageScript(html: string): string {
   const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
     .map((m) => m[1])
-    .filter((s) => s.includes("updateKeyStatusLabel"));
+    .filter((s) => s.includes("toggleKeyActiveStatus"));
   assert.equal(scripts.length, 1);
   return scripts[0];
 }
@@ -41,11 +41,11 @@ test("Save / Cancel start hidden", () => {
 test("the Active switch saves by itself and never opens the Save / Cancel bar", () => {
   const script = pageScript(renderPage());
   const fn = script.slice(
-    script.indexOf("async function updateKeyStatusLabel"),
+    script.indexOf("async function toggleKeyActiveStatus"),
     script.indexOf("function refreshKeySettingsBar"),
   );
   assert.match(fn, /fetch\('\/api\/keys\/krix_key_switch_test\/settings'/);
-  assert.match(fn, /disabled: !active/);
+  assert.match(fn, /disabled: !nextActive/);
   assert.ok(!fn.includes("showKeySettingsSave"), "switch must not show the bar");
   assert.ok(!fn.includes("refreshKeySettingsBar"), "switch must not touch the bar");
   // The bar is driven only by credential editing.

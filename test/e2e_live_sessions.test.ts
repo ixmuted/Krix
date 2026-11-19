@@ -244,12 +244,12 @@ describe("live server: tool policy, toggles, disabled keys, session recovery", (
         "git_diff",
         "sandbox_status",
         "sandbox_store",
-        "set_active_context",
       ]) {
         assert.ok(names.has(t), `${t} should be on without any credential`);
       }
       for (const t of [
         "get_file_contents", // GitHub default set needs a token
+        "set_active_context", // part of the GitHub default set, so it needs a token too
         "create_pull_request",
         "git_clone", // remote git needs a token
         "git_commit_push",

@@ -259,11 +259,11 @@ describe("New Features & UI Polish Verification", () => {
     });
 
     assert.ok(
-      html.includes("Not configured (inherits workspace token)"),
+      html.includes('Not configured<span class="hide-sm"> (inherits workspace token)</span>'),
       "Must show 'Not configured (inherits workspace token)' when custom GitHub token is empty",
     );
     assert.ok(
-      html.includes("Not configured (inherits workspace key)"),
+      html.includes('Not configured<span class="hide-sm"> (inherits workspace key)</span>'),
       "Must show 'Not configured (inherits workspace key)' when custom Render key is empty",
     );
   });

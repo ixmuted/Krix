@@ -74,7 +74,7 @@ describe("web upload sessions", () => {
       r.headers.get("content-security-policy") || "",
       /script-src 'nonce-/,
     );
-    assert.match(await r.text(), /MCP API key/);
+    assert.match(await r.text(), /sign in with your Google Account/i);
   });
 
   test("wrong key is rejected and creates no session", async () => {
