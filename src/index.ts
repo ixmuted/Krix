@@ -440,7 +440,13 @@ function buildToolStates(
   credentials: { github: boolean; render: boolean },
 ): Record<string, { enabled: boolean; reason: string }> {
   const settings = getKeySettings(keyId);
-  const wsKeyId = getWorkspaceKeyIdForEmail(settings.email);
+  const btsEmail = String(settings.email || "").trim().toLowerCase();
+  const wsKeyId =
+    btsEmail && btsEmail !== "anonymous"
+      ? getWorkspaceKeyIdForEmail(btsEmail)
+      : keyId === "primary-key"
+        ? "primary-key"
+        : "";
   const primary =
     wsKeyId && keyId !== wsKeyId ? getKeySettings(wsKeyId) : undefined;
   const states: Record<string, { enabled: boolean; reason: string }> = {};

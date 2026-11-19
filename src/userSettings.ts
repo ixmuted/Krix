@@ -534,11 +534,17 @@ export function isToolEnabledForKey(
 ): boolean {
   const settings = getKeySettings(keyId);
   const effectiveEmail = String(settings.email || "").trim().toLowerCase();
-  const isNonOwnerAccount =
-    Boolean(effectiveEmail) &&
-    effectiveEmail !== "anonymous" &&
-    !isOwnerEmail(effectiveEmail);
-  const fallbackGlobalId = workspaceKeyId || (isNonOwnerAccount ? undefined : "primary-key");
+  const isOwnerAccount =
+    keyId === "primary-key" ||
+    (Boolean(effectiveEmail) &&
+      effectiveEmail !== "anonymous" &&
+      isOwnerEmail(effectiveEmail));
+  const fallbackGlobalId =
+    workspaceKeyId !== undefined
+      ? workspaceKeyId || undefined
+      : isOwnerAccount
+        ? "primary-key"
+        : undefined;
   const primary =
     fallbackGlobalId && keyId !== fallbackGlobalId
       ? keySettingsMap.get(fallbackGlobalId)
