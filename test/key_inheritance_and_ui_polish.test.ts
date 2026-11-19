@@ -285,14 +285,32 @@ describe("New Features & UI Polish Verification", () => {
         "Workspace should expose primary key GitHub token",
       );
 
-      // Verify effective credential inheritance for a child key without override
+      // A child key that is not tied to the owner account is isolated and must NOT inherit the
+      // primary workspace credential
       const childSettings = getKeySettings("test-child-key-dynamic");
       delete childSettings.customGitHubToken;
       assert.equal(
         getEffectiveCredential("test-child-key-dynamic", "github"),
-        "ghp_workspaceGlobalGitHubToken123456",
-        "Child key should dynamically inherit workspace credential",
+        "",
+        "Anonymous child key must not inherit the primary workspace credential",
       );
+
+      // A child key that belongs to the owner account inherits the workspace credential dynamically
+      const originalEmail = childSettings.email;
+      const prevOwnerEmail = process.env.OWNER_EMAIL;
+      process.env.OWNER_EMAIL = "owner-inherit-test@example.com";
+      childSettings.email = process.env.OWNER_EMAIL;
+      try {
+        assert.equal(
+          getEffectiveCredential("test-child-key-dynamic", "github"),
+          "ghp_workspaceGlobalGitHubToken123456",
+          "Owner-account child key should dynamically inherit workspace credential",
+        );
+      } finally {
+        childSettings.email = originalEmail;
+        if (prevOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
+        else process.env.OWNER_EMAIL = prevOwnerEmail;
+      }
 
       // Verify that when a child key has its own override, it takes precedence
       childSettings.customGitHubToken = "ghp_childKeyCustomOverride789";

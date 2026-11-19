@@ -83,7 +83,7 @@ describe("every tool respects the enable/disable toggle", () => {
     assert.equal(isToolEnabledForKey(key, "delete_file", "core", ALL_CATS), true);
   });
 
-  test("global settings on primary-key are inherited by OAuth clients and API keys unless overridden per key", () => {
+  test("global settings on primary-key are inherited only by owner-account or explicitly workspace-scoped keys, and per-key overrides win", () => {
     const primary = getKeySettings("primary-key");
     const prevEnabled = [...(primary.enabledTools || [])];
     const prevDisabled = [...(primary.disabledTools || [])];
@@ -94,18 +94,39 @@ describe("every tool respects the enable/disable toggle", () => {
       toggleKeyTool("primary-key", "find_code", true);
       toggleKeyTool("primary-key", "delete_file", false);
 
-      // Both OAuth client and API key inherit the global toggles dynamically
-      assert.equal(isToolEnabledForKey(oauthClientId, "find_code", "codegraph", ALL_CATS), true);
-      assert.equal(isToolEnabledForKey(oauthClientId, "delete_file", "core", ALL_CATS), false);
-      assert.equal(isToolEnabledForKey(apiKeyId, "find_code", "codegraph", ALL_CATS), true);
+      // Keys that are not tied to the owner account and have no workspace scope are isolated:
+      // they must NOT pick up the primary key's global toggles
+      assert.equal(isToolEnabledForKey(oauthClientId, "find_code", "codegraph", ALL_CATS), false);
+      assert.equal(isToolEnabledForKey(apiKeyId, "find_code", "codegraph", ALL_CATS), false);
+
+      // Keys explicitly scoped to the primary workspace inherit the global toggles dynamically
+      const inherit = (id: string, tool: string, cat: string) =>
+        isToolEnabledForKey(id, tool, cat, ALL_CATS, undefined, true, "primary-key");
+      assert.equal(inherit(oauthClientId, "find_code", "codegraph"), true);
+      assert.equal(inherit(oauthClientId, "delete_file", "core"), false);
+      assert.equal(inherit(apiKeyId, "find_code", "codegraph"), true);
+
+      // Keys whose account email is the owner's also inherit without an explicit workspace id
+      const ownerKeyId = "krix_key_inherit_owner_test";
+      const prevOwnerEmail = process.env.OWNER_EMAIL;
+      process.env.OWNER_EMAIL = "owner-inherit-test@example.com";
+      getKeySettings(ownerKeyId).email = process.env.OWNER_EMAIL;
+      try {
+        assert.equal(isToolEnabledForKey(ownerKeyId, "find_code", "codegraph", ALL_CATS), true);
+        assert.equal(isToolEnabledForKey(ownerKeyId, "delete_file", "core", ALL_CATS), false);
+      } finally {
+        if (prevOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
+        else process.env.OWNER_EMAIL = prevOwnerEmail;
+        removeKeySettings(ownerKeyId);
+      }
 
       // Per-key override on the OAuth client takes precedence over global settings without affecting other keys
       toggleKeyTool(oauthClientId, "find_code", false);
       toggleKeyTool(oauthClientId, "delete_file", true);
-      assert.equal(isToolEnabledForKey(oauthClientId, "find_code", "codegraph", ALL_CATS), false);
-      assert.equal(isToolEnabledForKey(oauthClientId, "delete_file", "core", ALL_CATS), true);
-      assert.equal(isToolEnabledForKey(apiKeyId, "find_code", "codegraph", ALL_CATS), true);
-      assert.equal(isToolEnabledForKey(apiKeyId, "delete_file", "core", ALL_CATS), false);
+      assert.equal(inherit(oauthClientId, "find_code", "codegraph"), false);
+      assert.equal(inherit(oauthClientId, "delete_file", "core"), true);
+      assert.equal(inherit(apiKeyId, "find_code", "codegraph"), true);
+      assert.equal(inherit(apiKeyId, "delete_file", "core"), false);
 
       // Per-key settings UI renders inherited global state and per-key overrides accurately
       const keyDetailHtml = renderApiKeySettingsPage({
