@@ -707,6 +707,52 @@ body[data-tab="home"] .hero { padding: 14px 0 20px; }
   body[data-tab="home"] .main { padding-top: 60px; }
   body[data-tab="home"] .sidebar { top: 66px; }
 }
+
+/* ---------- PC-only: app pages use the same full-width container as the homepage ---------- */
+@media (min-width: 1025px) {
+  body[data-tab="upload"] .page,
+  body[data-tab="store"] .page,
+  body[data-tab="tools"] .page,
+  body[data-tab="api"] .page,
+  body[data-tab="stats"] .page,
+  body[data-tab="settings"] .page { max-width: 1140px; padding: 32px 24px 36px; }
+  body[data-tab="upload"] .topbar,
+  body[data-tab="store"] .topbar,
+  body[data-tab="tools"] .topbar,
+  body[data-tab="api"] .topbar,
+  body[data-tab="stats"] .topbar,
+  body[data-tab="settings"] .topbar { height: 64px; padding: 0 20px; }
+  body[data-tab="upload"] .topbar .sb-brand,
+  body[data-tab="store"] .topbar .sb-brand,
+  body[data-tab="tools"] .topbar .sb-brand,
+  body[data-tab="api"] .topbar .sb-brand,
+  body[data-tab="stats"] .topbar .sb-brand,
+  body[data-tab="settings"] .topbar .sb-brand { font-size: 24px; gap: 11px; }
+  body[data-tab="upload"] .topbar .sb-brand img,
+  body[data-tab="store"] .topbar .sb-brand img,
+  body[data-tab="tools"] .topbar .sb-brand img,
+  body[data-tab="api"] .topbar .sb-brand img,
+  body[data-tab="stats"] .topbar .sb-brand img,
+  body[data-tab="settings"] .topbar .sb-brand img { width: 28px; height: 28px; }
+  body[data-tab="upload"] .topbar .icon-btn,
+  body[data-tab="store"] .topbar .icon-btn,
+  body[data-tab="tools"] .topbar .icon-btn,
+  body[data-tab="api"] .topbar .icon-btn,
+  body[data-tab="stats"] .topbar .icon-btn,
+  body[data-tab="settings"] .topbar .icon-btn { width: 40px; height: 40px; }
+  body[data-tab="upload"] .main,
+  body[data-tab="store"] .main,
+  body[data-tab="tools"] .main,
+  body[data-tab="api"] .main,
+  body[data-tab="stats"] .main,
+  body[data-tab="settings"] .main { padding-top: 64px; }
+  body[data-tab="upload"] .sidebar,
+  body[data-tab="store"] .sidebar,
+  body[data-tab="tools"] .sidebar,
+  body[data-tab="api"] .sidebar,
+  body[data-tab="stats"] .sidebar,
+  body[data-tab="settings"] .sidebar { top: 70px; }
+}
 `;
 }
 
