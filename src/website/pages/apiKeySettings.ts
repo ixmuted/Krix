@@ -1,7 +1,7 @@
 // Key-specific credentials and tool permissions configuration page.
 // Route: /api/settings?key=<id>
 
-import { renderPageShell, escapeHtml, formatCompactCount } from "../components.js";
+import { renderPageShell, renderCustomDropdown, escapeHtml, formatCompactCount } from "../components.js";
 import { renderSvg, getAppLogoSvg } from "../icons.js";
 import { getToolCredentialRequirement } from "../../security.js";
 import {
@@ -315,23 +315,30 @@ export function renderApiKeySettingsPage(params: {
       <h2 class="key-section-title" style="margin-bottom:14px;">Friendly zone</h2>
       <div class="rows">
         <div class="row">
-          <div><div class="row-title">Key status</div><div class="row-desc">${rawKeyId === "primary-key" ? "The primary key is always active." : "Enable or disable this key without deleting it."}</div></div>
+          <div class="grow"><div class="row-title">Key status</div><div class="row-desc">${rawKeyId === "primary-key" ? "The primary key is always active." : "Enable or disable this key without deleting it."}</div></div>
           <button type="button" id="keyActiveToggleBtn" class="btn friendly-zone-btn" data-active="${!isKeyDisabled ? "true" : "false"}" onclick="toggleKeyActiveStatus()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg(isKeyDisabled ? "unlock" : "lock", 15)}<span>${isKeyDisabled ? "Enable Key" : "Disable Key"}</span></button>
         </div>
         ${
           showGlobalMode
             ? `<div class="row">
-          <div><div class="row-title">Global tool enables</div><div class="row-desc">Choose whether tools switched on globally, or unlocked by adding a GitHub or Render credential, reach this key. Turning a tool off globally always applies.</div></div>
-          <select id="globalModeSelect" class="friendly-zone-select" data-current="${globalMode}" aria-label="Global tool enables for this key" onchange="changeGlobalMode(this)">
-            <option value="follow"${globalMode === "follow" ? " selected" : ""}>Follow workspace (${globalLocked ? "locked" : "unlocked"})</option>
-            <option value="accept"${globalMode === "accept" ? " selected" : ""}>Accept global enables</option>
-            <option value="block"${globalMode === "block" ? " selected" : ""}>Ignore global enables</option>
-          </select>
+          <div class="grow"><div class="row-title">Global tool enables</div><div class="row-desc">Choose whether tools switched on globally, or unlocked by adding a GitHub or Render credential, reach this key. Turning a tool off globally always applies.</div></div>
+          ${renderCustomDropdown({
+            id: "globalModeSelect",
+            className: "friendly-zone-select",
+            options: [
+              { value: "follow", label: `Follow workspace (${globalLocked ? "locked" : "unlocked"})` },
+              { value: "accept", label: "Accept global enables" },
+              { value: "block", label: "Ignore global enables" },
+            ],
+            selectedValue: globalMode,
+            onchange: "changeGlobalMode(this)",
+            ariaLabel: "Global tool enables for this key",
+          })}
         </div>`
             : ""
         }
         <div class="row">
-          <div><div class="row-title">Rename ${key.type === "oauth" ? "app" : "API key"}</div><div class="row-desc">Update the display name for this ${key.type === "oauth" ? "authorized app" : "key"} (4–16 characters).</div></div>
+          <div class="grow"><div class="row-title">Rename ${key.type === "oauth" ? "app" : "API key"}</div><div class="row-desc">Update the display name for this ${key.type === "oauth" ? "authorized app" : "key"} (4–16 characters).</div></div>
           <button type="button" class="btn friendly-zone-btn" onclick="openRenameKeySettingsModal()" ${rawKeyId === "primary-key" ? "disabled" : ""}>${renderSvg("edit", 15)}<span>Rename</span></button>
         </div>
       </div>
@@ -477,10 +484,14 @@ export function renderApiKeySettingsPage(params: {
           input.disabled = false;
         }
       }
+      let currentGlobalMode = ${JSON.stringify(globalMode)};
       async function changeGlobalMode(select) {
-        const previous = select.dataset.current || 'follow';
+        const previous = currentGlobalMode || 'follow';
         const mode = select.value;
+        if (mode === previous) return;
+        const trigger = document.getElementById('globalModeSelect_trigger');
         select.disabled = true;
+        if (trigger) trigger.disabled = true;
         try {
           const res = await fetch('/settings/api/key-global-mode', {
             method: 'POST',
@@ -489,14 +500,16 @@ export function renderApiKeySettingsPage(params: {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update this key.');
-          select.dataset.current = mode;
+          currentGlobalMode = mode;
           showToast(data.accepts ? 'This key now accepts global tool enables' : 'This key now ignores global tool enables', 'success');
           setTimeout(() => location.reload(), 500);
         } catch (err) {
-          select.value = previous;
+          if (window.setCustomDropdownValue) window.setCustomDropdownValue('globalModeSelect', previous);
+          else select.value = previous;
           showToast(err.message || 'Could not update this key.', 'error');
         } finally {
           select.disabled = false;
+          if (trigger) trigger.disabled = false;
         }
       }
       function resetKeyToolOverrides() {
