@@ -134,10 +134,10 @@ export function renderCustomDropdown(params: {
   const safeId = escapeHtml(id);
 
   return `
-    <div class="krix-custom-dropdown ${escapeHtml(className)}" id="${safeId}_wrapper">
+    <div class="krix-custom-dropdown ${escapeHtml(className)}" id="${safeId}_wrapper"${style ? ` style="${escapeHtml(style)}"` : ""}>
       <button type="button" class="krix-dropdown-trigger" id="${safeId}_trigger" onclick="window.toggleCustomDropdown('${safeId}')" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHtml(ariaLabel || activeLabel)}">
         <span class="krix-dropdown-label" id="${safeId}_label">${escapeHtml(activeLabel)}</span>
-        <span class="krix-dropdown-chevron">${renderSvg("chevron-down", 14)}</span>
+        <span class="krix-dropdown-chevron" aria-hidden="true">${renderSvg("chevron-down", 15)}</span>
       </button>
       <div class="krix-dropdown-popover" id="${safeId}_popover" role="listbox" hidden>
         ${options
@@ -147,19 +147,20 @@ export function renderCustomDropdown(params: {
               : false;
             return `
           <div class="krix-dropdown-option ${isSelected ? "selected" : ""}" role="option" aria-selected="${isSelected ? "true" : "false"}" data-value="${escapeHtml(opt.value)}" onclick="window.selectCustomDropdownOption('${safeId}', '${escapeHtml(opt.value).replace(/'/g, "\\'")}', '${escapeHtml(opt.label).replace(/'/g, "\\'")}')">
-            ${escapeHtml(opt.label)}
+            <span class="krix-dropdown-option-label">${escapeHtml(opt.label)}</span>
+            ${renderSvg("check", 14, "krix-dropdown-check")}
           </div>
         `;
           })
           .join("")}
       </div>
-      <select id="${safeId}" class="krix-dropdown-native" onchange="${escapeHtml(onchange || "")}">
+      <select id="${safeId}" class="krix-dropdown-native" aria-hidden="true" tabindex="-1" onchange="${escapeHtml(onchange || "")}">
         ${options
           .map((opt) => {
             const isSelected = activeOpt
               ? opt.value === activeOpt.value
               : false;
-            return `<option value="${escapeHtml(opt.value)}" ${isSelected ? "selected" : ""}>${escapeHtml(opt.label)}</option>`;
+            return `<option value="${escapeHtml(opt.value)}"${isSelected ? " selected" : ""}>${escapeHtml(opt.label)}</option>`;
           })
           .join("")}
       </select>

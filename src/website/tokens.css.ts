@@ -356,15 +356,21 @@ kbd { font-size: 11px; padding: 1px 6px; background: var(--bg-surface-2); border
 .profile-menu-name { font-size: 14px; font-weight: 500; }
 .profile-menu-email { font-size: 12px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .krix-custom-dropdown { position: relative; display: inline-block; min-width: 160px; }
-.krix-dropdown-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 36px; padding: 0 10px 0 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-surface-0); font-size: 14px; text-align: left; }
-.krix-dropdown-trigger:hover { background: var(--hover); }
-.krix-dropdown-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.krix-dropdown-chevron { display: inline-flex; color: var(--fg-3); }
-.krix-custom-dropdown.open .krix-dropdown-chevron { transform: rotate(180deg); }
-.krix-dropdown-popover { position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; max-height: 280px; overflow-y: auto; padding: 6px; background: var(--bg-surface-0); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); z-index: var(--z-dropdown); animation: pop .12s ease-out; }
-.krix-dropdown-option { padding: 8px 10px; border-radius: var(--radius-md); font-size: 14px; cursor: pointer; white-space: nowrap; }
-.krix-dropdown-option:hover { background: var(--hover); }
-.krix-dropdown-option.selected { background: var(--active); font-weight: 500; }
+.krix-dropdown-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 36px; padding: 0 10px 0 12px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-surface-0); color: var(--fg); font-size: 13.5px; font-weight: 450; text-align: left; cursor: pointer; transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease; }
+.krix-dropdown-trigger:hover:not(:disabled) { border-color: var(--fg-3); background: var(--bg-surface-1); }
+.krix-dropdown-trigger:focus-visible, .krix-custom-dropdown.open .krix-dropdown-trigger { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+.krix-dropdown-trigger:disabled { opacity: .55; cursor: not-allowed; }
+.krix-dropdown-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.krix-dropdown-chevron { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; color: var(--fg-3); transition: transform .18s cubic-bezier(0.16, 1, 0.3, 1), color .14s ease; }
+.krix-dropdown-chevron svg { display: block; width: 15px; height: 15px; }
+.krix-custom-dropdown.open .krix-dropdown-chevron { transform: rotate(180deg); color: var(--fg); }
+.krix-dropdown-popover { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; max-width: min(320px, calc(100vw - 32px)); max-height: 280px; overflow-y: auto; padding: 5px; background: var(--bg-surface-0); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); z-index: var(--z-dropdown); animation: pop .12s ease-out; display: flex; flex-direction: column; gap: 2px; }
+.krix-dropdown-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md); font-size: 13.5px; color: var(--fg-2); cursor: pointer; white-space: nowrap; transition: background-color .1s ease, color .1s ease; }
+.krix-dropdown-option:hover { background: var(--hover); color: var(--fg); }
+.krix-dropdown-option.selected { background: var(--accent-soft); color: var(--fg); font-weight: 500; }
+.krix-dropdown-option-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.krix-dropdown-check { opacity: 0; color: var(--accent); flex-shrink: 0; transition: opacity .12s ease; }
+.krix-dropdown-option.selected .krix-dropdown-check { opacity: 1; }
 .krix-dropdown-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 /* ---------- Modal, drawer, toast, palette ---------- */
@@ -653,8 +659,9 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
 .anthropic-id-val { white-space: nowrap; }
 .friendly-zone-btn { min-width: 170px; width: 170px; justify-content: center; flex-shrink: 0; }
 @media (max-width: 640px) { .friendly-zone-btn { width: 100%; } }
-.friendly-zone-select { min-width: 230px; width: 230px; flex-shrink: 0; }
-@media (max-width: 640px) { .friendly-zone-select { width: 100%; } }
+.friendly-zone-select { min-width: 244px; width: 244px; flex-shrink: 0; }
+.friendly-zone-select .krix-dropdown-popover { left: auto; right: 0; min-width: 100%; }
+@media (max-width: 640px) { .friendly-zone-select { width: 100%; min-width: 0; } .friendly-zone-select .krix-dropdown-popover { left: 0; right: 0; } }
 /* A tool its provider credential is missing for: greyed out and locked, but it keeps the choice
    made for it, so adding the credential back needs no re-enabling. */
 .tool-blocked .list-name, .tool-blocked .list-meta { opacity: .55; }

@@ -249,6 +249,7 @@ export function getClientScripts(): string {
     } else if (e.key === 'Escape') {
       if (paletteOpen) window.toggleCommandPalette(false);
       closeMenus(null);
+      closeSelects(null);
       root.classList.remove('nav-open');
       if (window.closeSignOutModal) window.closeSignOutModal();
     } else if (paletteOpen && e.key === 'ArrowDown') { e.preventDefault(); paletteMove(1); }
@@ -300,6 +301,22 @@ export function getClientScripts(): string {
       native.value = value;
       native.dispatchEvent(new Event('change', { bubbles: true }));
     }
+  };
+  window.setCustomDropdownValue = function(id, value) {
+    var popover = document.getElementById(id + '_popover');
+    var labelEl = document.getElementById(id + '_label');
+    var native = document.getElementById(id);
+    if (native) native.value = value;
+    var nextLabel = '';
+    if (popover) {
+      popover.querySelectorAll('.krix-dropdown-option').forEach(function(opt) {
+        var match = opt.getAttribute('data-value') === value;
+        opt.classList.toggle('selected', match);
+        opt.setAttribute('aria-selected', match ? 'true' : 'false');
+        if (match) nextLabel = opt.textContent.trim();
+      });
+    }
+    if (labelEl && nextLabel) labelEl.textContent = nextLabel;
   };
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.krix-custom-dropdown')) closeSelects(null);
