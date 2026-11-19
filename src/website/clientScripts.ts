@@ -217,6 +217,20 @@ export function getClientScripts(): string {
     next.classList.add('selected');
     next.scrollIntoView({ block: 'nearest' });
   }
+  window.openSignOutModal = function() {
+    closeMenus(null);
+    if (window.toggleNav) window.toggleNav(false);
+    var so = document.getElementById('headerSignOutModal');
+    if (!so) { window.location.href = '/auth/logout'; return; }
+    so.hidden = false;
+    so.style.display = 'flex';
+  };
+  window.closeSignOutModal = function() {
+    var so = document.getElementById('headerSignOutModal');
+    if (!so) return;
+    so.style.display = 'none';
+    so.hidden = true;
+  };
   document.addEventListener('keydown', function(e) {
     var palette = document.getElementById('krixCommandPalette');
     var paletteOpen = palette && palette.classList.contains('active');
@@ -236,8 +250,7 @@ export function getClientScripts(): string {
       if (paletteOpen) window.toggleCommandPalette(false);
       closeMenus(null);
       root.classList.remove('nav-open');
-      var so = document.getElementById('headerSignOutModal');
-      if (so) so.style.display = 'none';
+      if (window.closeSignOutModal) window.closeSignOutModal();
     } else if (paletteOpen && e.key === 'ArrowDown') { e.preventDefault(); paletteMove(1); }
     else if (paletteOpen && e.key === 'ArrowUp') { e.preventDefault(); paletteMove(-1); }
     else if (paletteOpen && e.key === 'Enter') {

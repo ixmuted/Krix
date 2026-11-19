@@ -60,18 +60,8 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
         <a href="https://quickwitty.onrender.com" target="_blank" rel="noopener noreferrer" class="krix-dropdown-item" role="menuitem">${renderSvg("external-link", 16)}<span>QuickWitty</span></a>
         <a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer" class="krix-dropdown-item" role="menuitem">${renderSvg("github", 16)}<span>GitHub</span></a>
         <div class="krix-dropdown-divider"></div>
-        <button type="button" class="krix-dropdown-item danger" role="menuitem" onclick="document.getElementById('headerSignOutModal').style.display='flex'">${renderSvg("log-out", 16)}<span>Sign out</span></button>
+        <button type="button" class="krix-dropdown-item danger" role="menuitem" onclick="window.openSignOutModal()">${renderSvg("log-out", 16)}<span>Sign out</span></button>
       </div>
-      </div>
-      <div class="modal-backdrop" id="headerSignOutModal" hidden role="dialog" aria-modal="true" aria-labelledby="signOutTitle" onclick="if(event.target===this)this.style.display='none'">
-        <div class="modal-card">
-          <h3 class="modal-title" id="signOutTitle">Sign out of Krix?</h3>
-          <p class="modal-text">You will need to sign in with Google again to manage keys and files.</p>
-          <div class="modal-actions">
-            <button type="button" class="btn" onclick="document.getElementById('headerSignOutModal').style.display='none'">Cancel</button>
-            <a href="/auth/logout" class="btn danger">Confirm Sign Out</a>
-          </div>
-        </div>
       </div>`
     : `
       <a href="/auth/google" class="btn primary sb-signin">${renderGoogleLogoSvg(16)}<span>Sign in with Google</span></a>`;
@@ -100,7 +90,21 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
       ${topbarLeft}
       <a href="/" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
       ${topbarRight}
-    </header>
+    </header>${
+      isAuth
+        ? `
+    <div class="modal-backdrop" id="headerSignOutModal" hidden role="dialog" aria-modal="true" aria-labelledby="signOutTitle" onclick="if(event.target===this)window.closeSignOutModal()">
+      <div class="modal-card">
+        <h3 class="modal-title" id="signOutTitle">Sign out of Krix?</h3>
+        <p class="modal-text">You will need to sign in with Google again to manage keys and files.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="window.closeSignOutModal()">Cancel</button>
+          <a href="/auth/logout" class="btn danger">Confirm Sign Out</a>
+        </div>
+      </div>
+    </div>`
+        : ""
+    }
   `;
 }
 
