@@ -738,7 +738,7 @@ export async function sendAccountDeletedEmail(
 
   const bodyContent = `
     <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>${graceDays}-Day Deletion Grace Period Active:</strong> We received a request to delete your Krix account. Your account and all associated tokens will be permanently deleted on <strong>${deadlineStr}</strong>.
+      <strong>${graceDays}-Day Deletion Grace Period Active:</strong> We received a request to delete your Krix account. Your API keys and OAuth connections are now disabled, and your account will be permanently deleted on <strong>${deadlineStr}</strong>.
     </div>
     ${renderInfoTable([
       { icon: "profile", label: "Account Email", value: params.email },
