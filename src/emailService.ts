@@ -358,28 +358,28 @@ function renderEmailShell(params: {
 }): string {
   const badgeBg =
     params.badgeTone === "amber"
-      ? "#fffbeb"
+      ? "#fbf5e8"
       : params.badgeTone === "red"
-        ? "#fef2f2"
+        ? "#fbeeee"
         : params.badgeTone === "emerald"
-          ? "#f0fdf4"
-          : "#18181b";
+          ? "#ecf7ef"
+          : "#f9ebe6";
   const badgeBorder =
     params.badgeTone === "amber"
-      ? "#fde68a"
+      ? "#ebd4a2"
       : params.badgeTone === "red"
-        ? "#fecaca"
+        ? "#efc6c6"
         : params.badgeTone === "emerald"
-          ? "#bbf7d0"
-          : "#27272a";
+          ? "#bce3c8"
+          : "#eec9bc";
   const badgeColor =
     params.badgeTone === "amber"
-      ? "#b45309"
+      ? "#9a6a12"
       : params.badgeTone === "red"
-        ? "#dc2626"
+        ? "#991b1b"
         : params.badgeTone === "emerald"
-          ? "#15803d"
-          : "#e4e4e7";
+          ? "#166534"
+          : "#b4553a";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -388,31 +388,30 @@ function renderEmailShell(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(params.title)} - Krix</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f8fafc; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing:antialiased; color:#0f172a;">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#f8fafc; padding:32px 12px 48px;">
+<body style="margin:0; padding:0; background-color:#faf9f5; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing:antialiased; color:#141413;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#faf9f5; padding:32px 12px 48px;">
     <tr>
       <td align="center" style="vertical-align:top;">
-        <!-- Card Container with Fixed Alignment -->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:580px; margin:0 auto; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
-          <!-- Header with Krix Brand Logo and Title -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:580px; margin:0 auto; background-color:#ffffff; border:1px solid #e5e3db; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(20,20,19,0.05);">
+          <!-- Header matching Krix warm editorial navbar -->
           <tr>
-            <td style="background-color:#09090b; padding:22px 28px; border-bottom:1px solid #27272a;">
+            <td style="background-color:#f5f4ed; padding:18px 28px; border-bottom:1px solid #e5e3db;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                   <td align="left" style="vertical-align:middle;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td style="vertical-align:middle; padding-right:12px; width:36px; min-width:36px; max-width:36px;">
-                          <img src="${KRIX_LOGO_URL}" width="36" height="36" alt="Krix" style="display:block; width:36px; height:36px; border-radius:8px; border:1px solid #3f3f46; object-fit:cover;" />
+                        <td style="vertical-align:middle; padding-right:10px; width:30px; min-width:30px; max-width:30px;">
+                          <img src="${KRIX_LOGO_URL}" width="30" height="30" alt="Krix" style="display:block; width:30px; height:30px; border-radius:8px; border:1px solid #e0ddd3; object-fit:cover;" />
                         </td>
                         <td style="vertical-align:middle;">
-                          <span style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:17px; font-weight:800; color:#ffffff; letter-spacing:0.08em; text-transform:uppercase; line-height:1; display:inline-block;">KRIX</span>
+                          <span style="font-family:ui-serif, 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', serif; font-size:19px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1; display:inline-block;">Krix</span>
                         </td>
                       </tr>
                     </table>
                   </td>
                   <td align="right" style="vertical-align:middle;">
-                    <span style="display:inline-block; padding:4px 12px; background-color:${badgeBg}; border:1px solid ${badgeBorder}; color:${badgeColor}; border-radius:9999px; font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <span style="display:inline-block; padding:4px 11px; background-color:${badgeBg}; border:1px solid ${badgeBorder}; color:${badgeColor}; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                       ${escapeHtml(params.badge)}
                     </span>
                   </td>
@@ -423,11 +422,11 @@ function renderEmailShell(params: {
 
           <!-- Main Body -->
           <tr>
-            <td style="padding:32px 28px 24px; background-color:#ffffff; text-align:left;">
-              <h1 style="margin:0 0 8px; font-size:20px; font-weight:700; color:#09090b; letter-spacing:-0.01em; line-height:1.3; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <td style="padding:32px 28px 26px; background-color:#ffffff; text-align:left;">
+              <h1 style="margin:0 0 8px; font-size:22px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1.25; font-family:ui-serif, 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', serif;">
                 ${escapeHtml(params.title)}
               </h1>
-              <p style="margin:0 0 20px; font-size:14px; color:#52525b; line-height:1.6; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <p style="margin:0 0 20px; font-size:14px; color:#3d3d3a; line-height:1.6; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 ${escapeHtml(params.description)}
               </p>
 
@@ -436,10 +435,10 @@ function renderEmailShell(params: {
               ${
                 params.ctaText && params.ctaUrl
                   ? `
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:28px 0 10px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:28px 0 6px;">
                 <tr>
                   <td align="center">
-                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#09090b; color:#ffffff !important; text-decoration:none !important; padding:13px 32px; border-radius:9999px; font-size:13.5px; font-weight:600; letter-spacing:0.02em; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align:center;">
+                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#c6613f; color:#ffffff !important; text-decoration:none !important; padding:12px 28px; border-radius:8px; font-size:13.5px; font-weight:600; letter-spacing:0.01em; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align:center;">
                       ${escapeHtml(params.ctaText)}
                     </a>
                   </td>
@@ -452,9 +451,9 @@ function renderEmailShell(params: {
 
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 28px; background-color:#fafafa; border-top:1px solid #e4e4e7; font-size:12px; color:#71717a; line-height:1.6; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              <p style="margin:0;">Recipient Account: <strong>${escapeHtml(params.footerAccount)}</strong> &nbsp;&middot;&nbsp; Recorded: <strong>${escapeHtml(params.timestamp)}</strong></p>
-              <p style="margin:4px 0 0; font-size:11.5px; color:#a1a1aa;">This is an automated security and account notification from your Krix instance.</p>
+            <td style="padding:18px 28px; background-color:#f5f4ed; border-top:1px solid #e5e3db; font-size:12px; color:#73726c; line-height:1.6; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <p style="margin:0;">Account: <strong style="color:#3d3d3a;">${escapeHtml(params.footerAccount)}</strong> &nbsp;&middot;&nbsp; Recorded: <strong style="color:#3d3d3a;">${escapeHtml(params.timestamp)}</strong></p>
+              <p style="margin:4px 0 0; font-size:11.5px; color:#73726c;">Automated security &amp; account notification from Krix.</p>
             </td>
           </tr>
         </table>
