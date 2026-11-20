@@ -1589,6 +1589,24 @@ html.dark .hm-footer {
 .hlp-card-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--fg-3); }
 .hlp-card-go { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; color: var(--fg-2); transition: color .14s ease; }
 
+.hlp-jump-bar { display: none; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.hlp-jump-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
+  color: var(--fg-2);
+  transition: border-color .14s ease, color .14s ease, background .14s ease;
+}
+.hlp-jump-pill:hover { border-color: var(--border-medium); color: var(--fg); background: var(--bg-surface-0); }
+
+@media (max-width: 960px) {
+  .hlp-jump-bar { display: flex; }
+}
 @media (max-width: 900px) {
   .hlp-transport { grid-template-columns: 1fr; padding: 28px 22px; gap: 24px; border-radius: 22px; }
   .hlp-grid { grid-template-columns: 1fr; }
