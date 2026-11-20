@@ -67,8 +67,8 @@ export interface SendAccountFinallyDeletedParams {
 export const KRIX_LOGO_URL =
   process.env.PUBLIC_BASE_URL &&
   !process.env.PUBLIC_BASE_URL.includes("example.com")
-    ? `${process.env.PUBLIC_BASE_URL.replace(/\/+$/, "")}/icon-48.png`
-    : "https://raw.githubusercontent.com/ixmuted/Krix/gem/assets/icon-48.png";
+    ? `${process.env.PUBLIC_BASE_URL.replace(/\/+$/, "")}/icon-192.png`
+    : "https://raw.githubusercontent.com/ixmuted/Krix/live/assets/icon-192.png";
 
 export function isGmailApiConfigured(): boolean {
   return Boolean(
