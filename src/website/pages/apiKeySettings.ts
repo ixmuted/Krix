@@ -1,7 +1,7 @@
 // Key-specific credentials and tool permissions configuration page.
 // Route: /api/settings?key=<id>
 
-import { renderPageShell, renderCustomDropdown, escapeHtml, formatCompactCount } from "../components.js";
+import { renderPageShell, escapeHtml, formatCompactCount } from "../components.js";
 import { renderSvg, getAppLogoSvg } from "../icons.js";
 import { getToolCredentialRequirement } from "../../security.js";
 import {
@@ -94,6 +94,8 @@ export function renderApiKeySettingsPage(params: {
       : settings.acceptGlobalEnables === false
         ? "block"
         : "follow";
+  const inheritsGlobal =
+    globalMode === "accept" || (globalMode === "follow" && !globalLocked);
   const serverToolStates: Record<string, { enabled: boolean; reason?: string; remembered?: boolean }> | undefined =
     params.toolStates && typeof params.toolStates === "object"
       ? params.toolStates
@@ -321,19 +323,8 @@ export function renderApiKeySettingsPage(params: {
         ${
           showGlobalMode
             ? `<div class="row">
-          <div class="grow"><div class="row-title">Global tool enables</div><div class="row-desc">Choose whether tools switched on globally, or unlocked by adding a GitHub or Render credential, reach this key. Turning a tool off globally always applies.</div></div>
-          ${renderCustomDropdown({
-            id: "globalModeSelect",
-            className: "friendly-zone-select",
-            options: [
-              { value: "follow", label: `Follow workspace (${globalLocked ? "locked" : "unlocked"})` },
-              { value: "accept", label: "Accept global enables" },
-              { value: "block", label: "Ignore global enables" },
-            ],
-            selectedValue: globalMode,
-            onchange: "changeGlobalMode(this)",
-            ariaLabel: "Global tool enables for this key",
-          })}
+          <div class="grow"><div class="row-title">Inherit global tool changes${globalLocked && globalMode === "follow" ? ` <span id="globalModeWorkspaceBadge" class="badge" style="margin-left:6px;">Locked by workspace</span>` : ""}</div><div class="row-desc">When off, global tool enables and disables won't affect this key.</div></div>
+          <label class="switch krix-switch" title="Toggle global tool inheritance"><input type="checkbox" id="globalModeToggle" ${inheritsGlobal ? "checked" : ""} aria-label="Inherit global tool changes"><span class="krix-slider"></span></label>
         </div>`
             : ""
         }
@@ -484,33 +475,32 @@ export function renderApiKeySettingsPage(params: {
           input.disabled = false;
         }
       }
-      let currentGlobalMode = ${JSON.stringify(globalMode)};
-      async function changeGlobalMode(select) {
-        const previous = currentGlobalMode || 'follow';
-        const mode = select.value;
-        if (mode === previous) return;
-        const trigger = document.getElementById('globalModeSelect_trigger');
-        select.disabled = true;
-        if (trigger) trigger.disabled = true;
-        try {
-          const res = await fetch('/settings/api/key-global-mode', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keyId: ${jsKeyId}, mode: mode })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update this key.');
-          currentGlobalMode = mode;
-          showToast(data.accepts ? 'This key now accepts global tool enables' : 'This key now ignores global tool enables', 'success');
-          setTimeout(() => location.reload(), 500);
-        } catch (err) {
-          if (window.setCustomDropdownValue) window.setCustomDropdownValue('globalModeSelect', previous);
-          else select.value = previous;
-          showToast(err.message || 'Could not update this key.', 'error');
-        } finally {
-          select.disabled = false;
-          if (trigger) trigger.disabled = false;
-        }
+      const workspaceGlobalLocked = ${globalLocked ? "true" : "false"};
+      const globalModeToggle = document.getElementById('globalModeToggle');
+      if (globalModeToggle) {
+        globalModeToggle.addEventListener('change', async () => {
+          const nextChecked = globalModeToggle.checked;
+          const mode = nextChecked === !workspaceGlobalLocked
+            ? 'follow'
+            : (nextChecked ? 'accept' : 'block');
+          globalModeToggle.disabled = true;
+          try {
+            const res = await fetch('/settings/api/key-global-mode', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keyId: ${jsKeyId}, mode: mode })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update this key.');
+            showToast(data.accepts ? 'This key now inherits global tool changes' : 'This key now ignores global tool changes', 'success');
+            setTimeout(() => location.reload(), 500);
+          } catch (err) {
+            globalModeToggle.checked = !nextChecked;
+            showToast(err.message || 'Could not update this key.', 'error');
+          } finally {
+            globalModeToggle.disabled = false;
+          }
+        });
       }
       function resetKeyToolOverrides() {
         const modal = document.getElementById('resetKeyToolsModal');

@@ -224,10 +224,10 @@ export function renderSettingsPage(params: {
       <div class="rows">
         <div class="row">
           <div>
-            <div class="row-title">Lock global tool enabling <span id="globalLockBadge" class="badge" style="margin-left:6px;">${globalLocked ? "Locked" : "Unlocked"}</span></div>
-            <div class="row-desc">Stops tools that get switched on here, or unlocked by adding a GitHub or Render credential, from turning on for your existing API keys and OAuth apps. Turning a tool off here still applies everywhere. Each key can override this on its own page.</div>
+            <div class="row-title">Lock global tool changes <span id="globalLockBadge" class="badge" style="margin-left:6px;">${globalLocked ? "Locked" : "Unlocked"}</span></div>
+            <div class="row-desc">Stops global tool enables and disables, plus newly unlocked GitHub or Render defaults, from affecting your existing API keys and OAuth apps. Each key can override this on its own page.</div>
           </div>
-          <button type="button" id="globalLockBtn" class="btn friendly-zone-btn" data-locked="${globalLocked ? "true" : "false"}" onclick="toggleGlobalLock()">${renderSvg(globalLocked ? "unlock" : "lock", 15)}<span>${globalLocked ? "Unlock enabling" : "Lock enabling"}</span></button>
+          <button type="button" id="globalLockBtn" class="btn friendly-zone-btn" data-locked="${globalLocked ? "true" : "false"}" onclick="toggleGlobalLock()">${renderSvg(globalLocked ? "unlock" : "lock", 15)}<span>${globalLocked ? "Unlock changes" : "Lock changes"}</span></button>
         </div>
       </div>
     </div>
@@ -317,10 +317,10 @@ export function renderSettingsPage(params: {
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update the global tool lock.');
           btn.dataset.locked = data.locked ? 'true' : 'false';
-          btn.innerHTML = (data.locked ? UNLOCK_SVG : LOCK_SVG) + '<span>' + (data.locked ? 'Unlock enabling' : 'Lock enabling') + '</span>';
+          btn.innerHTML = (data.locked ? UNLOCK_SVG : LOCK_SVG) + '<span>' + (data.locked ? 'Unlock changes' : 'Lock changes') + '</span>';
           const badge = document.getElementById('globalLockBadge');
           if (badge) badge.textContent = data.locked ? 'Locked' : 'Unlocked';
-          if (window.showToast) window.showToast(data.locked ? 'Global enabling locked. Your keys keep the tools they have now.' : 'Global enabling unlocked. Your keys follow workspace tool changes again.', 'success');
+          if (window.showToast) window.showToast(data.locked ? 'Global tool changes locked. Your keys keep the tools they have now.' : 'Global tool changes unlocked. Your keys follow workspace tool changes again.', 'success');
         } catch (err) {
           if (window.showToast) window.showToast(err.message || 'Could not update the global tool lock.', 'error');
         } finally {
