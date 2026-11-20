@@ -184,7 +184,6 @@ export function renderApiKeySettingsPage(params: {
   const content = `
     <div class="page-head">
       <div style="min-width:0;">
-        <a href="/api" class="text-muted" style="font-size:13px; display:inline-flex; align-items:center; gap:4px; margin-bottom:8px;">${renderSvg("chevron-left", 14)}<span>API keys</span></a>
         <div class="cluster" style="gap:12px; align-items:center;">
           <div class="logo-tile" style="width:40px; height:40px; flex-basis:40px;">${keyLogoHtml}</div>
           <h1 class="page-title">${keyName}</h1>
