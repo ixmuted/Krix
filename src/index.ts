@@ -1018,6 +1018,15 @@ function rejectDisabledKey(res: Response): void {
   );
 }
 
+function rejectScheduledDeletion(res: Response): void {
+  jsonRpcError(
+    res,
+    403,
+    -32000,
+    "This account is scheduled for deletion. Sign back in to Krix to restore your account and re-enable your keys.",
+  );
+}
+
 async function authenticate(
   req: Request,
   res: Response,
