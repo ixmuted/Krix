@@ -1,5 +1,6 @@
 // Help Center & Category Documentation Pages for Krix MCP Gateway
-// Modeled directly on the homepage visual system (.hm) with dedicated /help/:slug guides.
+// Modeled on the homepage visual system (.hm) with detailed tool references,
+// user-facing account limits, and zero internal security implementation leakage.
 
 import { escapeHtml, renderPageShell } from "../components.js";
 import { renderSvg } from "../icons.js";
@@ -83,22 +84,22 @@ export const HELP_CATEGORIES: HelpCategory[] = [
     icon: "zap",
     badge: "Setup",
     summary:
-      "Configure any Streamable HTTP MCP client, desktop editor, or terminal agent against your Krix endpoint.",
+      "Connect any Streamable HTTP MCP client, desktop editor, or CLI agent to Krix and verify your first tool call.",
     readTime: "4 min read",
     topics: [
       "Streamable HTTP endpoint (/mcp)",
-      "JSON and CLI client configs",
-      "Discovery and health checks",
-      "Verifying the first tool call",
+      "Desktop, IDE, and CLI configurations",
+      "OAuth 2.1 automatic discovery",
+      "Testing your first tool call",
     ],
     keywords:
-      "setup connect mcp streamable http client editor cli agent bearer x-api-key endpoint healthz discovery",
+      "setup connect mcp streamable http client editor cli agent bearer x-api-key endpoint oauth discovery",
     sections: [
       {
         id: "endpoint",
         title: "1. Streamable HTTP endpoint",
         render: ({ mcpUrl }) => `
-          <p>Krix exposes the Model Context Protocol over <strong>Streamable HTTP</strong> at <code class="inline-code">POST/GET /mcp</code>. Any MCP-compatible editor, desktop client, or command-line agent connects to this URL.</p>
+          <p>Krix serves the Model Context Protocol over <strong>Streamable HTTP</strong> at <code class="inline-code">POST/GET /mcp</code>. Any MCP-compatible desktop editor, web assistant, or terminal agent connects using this single HTTPS endpoint.</p>
           ${darkCodeBlock(
             "MCP Transport",
             `URL:     ${mcpUrl}
@@ -107,20 +108,20 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
           )}
           ${editorialNote(
             "info",
-            "Header authentication",
-            `Pass your key in the <code class="inline-code">Authorization</code> or <code class="inline-code">x-api-key</code> header. Query-string keys (<code class="inline-code">?api_key=</code>) remain disabled unless the server sets <code class="inline-code">ALLOW_QUERY_API_KEY=true</code>.`,
+            "Use header authentication",
+            `Always send your API key in the <code class="inline-code">Authorization</code> or <code class="inline-code">x-api-key</code> HTTP header rather than embedding secrets in query strings.`,
           )}
         `,
       },
       {
         id: "client-configs",
         title: "2. Client configuration templates",
-        render: ({ mcpUrl, base }) => `
-          <p>If your client supports <strong>OAuth 2.1 discovery</strong>, enter only the <code class="inline-code">/mcp</code> URL and complete consent in the browser. Otherwise, attach an API key header using one of the formats below.</p>
+        render: ({ mcpUrl }) => `
+          <p>If your client supports <strong>OAuth 2.1 discovery</strong>, paste only the <code class="inline-code">/mcp</code> URL and approve access in the browser consent dialog—no manual key header is needed. For static API key connections, use one of the standard templates below.</p>
           <div class="ant-two-col">
             <div class="ant-col-block">
-              <h4>${renderSvg("command", 16)} Desktop &amp; IDE configuration</h4>
-              <p>Standard <code class="inline-code">mcpServers</code> JSON block for desktop editors and IDE extensions:</p>
+              <h4>${renderSvg("command", 16)} Desktop &amp; IDE JSON config</h4>
+              <p>Add Krix under <code class="inline-code">mcpServers</code> in your editor or desktop client configuration:</p>
               ${darkCodeBlock(
                 "mcp_config.json",
                 `{
@@ -137,7 +138,7 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
             </div>
             <div class="ant-col-block">
               <h4>${renderSvg("terminal", 16)} CLI &amp; HTTP clients</h4>
-              <p>Streamable HTTP configuration using <code class="inline-code">x-api-key</code>:</p>
+              <p>For terminal agents or custom HTTP integrations using the <code class="inline-code">x-api-key</code> header:</p>
               ${darkCodeBlock(
                 "Streamable HTTP",
                 `{
@@ -150,25 +151,18 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
               )}
             </div>
           </div>
-          <h3>Discovery and health endpoints</h3>
-          ${darkCodeBlock(
-            "Endpoints",
-            `OAuth Metadata:  ${base}/.well-known/oauth-authorization-server
-Resource Meta:   ${base}/.well-known/oauth-protected-resource
-Health Check:    ${base}/healthz`,
-          )}
         `,
       },
       {
         id: "first-call",
         title: "3. Verify your connection",
         render: () => `
-          <p>After connecting, call <code class="inline-code">sandbox_status</code> to inspect available runtimes, memory, isolation status, and storage quota, or call <code class="inline-code">get_me</code> to confirm your GitHub token. You can also run any enabled tool directly from the <a class="ant-link" href="/tools">Tools catalog</a>.</p>
-          ${editorialNote(
-            "tip",
-            "Set default repository context",
-            `Call <code class="inline-code">set_active_context</code> once per session with your <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> so later GitHub calls do not need to repeat them.`,
-          )}
+          <p>Once connected, run a quick health check through your assistant or test any enabled tool directly in the browser from the <a class="ant-link" href="/tools">Tools catalog</a>:</p>
+          <ul>
+            <li>Call <code class="inline-code">sandbox_status</code> to verify available language runtimes, active repository state, and remaining storage quota.</li>
+            <li>Call <code class="inline-code">get_me</code> after adding a GitHub token to confirm your authenticated GitHub account.</li>
+            <li>Call <code class="inline-code">set_active_context</code> once per session with your default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> so follow-up calls stay concise.</li>
+          </ul>
         `,
       },
     ],
@@ -181,76 +175,71 @@ Health Check:    ${base}/healthz`,
     icon: "key",
     badge: "Keys & auth",
     summary:
-      "Generate Krix API keys, store GitHub and Render credentials, set per-key overrides, and revoke OAuth clients.",
+      "Create Krix API keys, attach GitHub and Render credentials, configure per-key overrides, and manage OAuth authorizations.",
     readTime: "5 min read",
     topics: [
       "Creating a Krix API key",
       "Adding GitHub and Render tokens",
-      "Per-key overrides vs workspace defaults",
-      "OAuth 2.1 scopes and revocation",
+      "Workspace defaults vs. per-key overrides",
+      "OAuth 2.1 scopes and instant revocation",
     ],
     keywords:
-      "add key create api key bearer x-api-key github pat render token credentials settings override oauth pkce revoke",
+      "add key create api key bearer x-api-key github pat render token credentials settings override oauth revoke",
     sections: [
       {
         id: "create-krix-key",
         title: "1. Creating a Krix API key",
         render: () => `
-          <p>Krix separates <strong>gateway API keys</strong> (used by your MCP client to authenticate with Krix) from <strong>provider credentials</strong> (your GitHub or Render tokens used by Krix to call upstream APIs).</p>
+          <p>Krix separates <strong>gateway API keys</strong> (used by your MCP client to authenticate with Krix) from <strong>provider tokens</strong> (your GitHub or Render credentials used when Krix calls external APIs on your behalf).</p>
           <ol>
             <li><strong>Sign in:</strong> Open <a class="ant-link" href="/auth/google">Sign in</a> to initialize your isolated workspace and storage quota.</li>
-            <li><strong>Open API Keys:</strong> Go to <a class="ant-link" href="/api">API keys</a> and create a new key.</li>
-            <li><strong>Label the key:</strong> Use a clear name (such as <em>Workstation</em> or <em>Staging CI</em>) so it is easy to audit or revoke later.</li>
-            <li><strong>Copy the key:</strong> Paste it into your MCP client's <code class="inline-code">Authorization: Bearer &lt;key&gt;</code> or <code class="inline-code">x-api-key</code> header.</li>
+            <li><strong>Open API keys:</strong> Navigate to <a class="ant-link" href="/api">API keys</a> and click <strong>Create API Key</strong>.</li>
+            <li><strong>Label the key:</strong> Name each key by device or purpose (for example, <em>Laptop Editor</em> or <em>Docs Automation</em>) so you can track usage in <a class="ant-link" href="/stats">Usage</a> and revoke individually.</li>
+            <li><strong>Store securely:</strong> Copy the key once and add it to your client's <code class="inline-code">Authorization: Bearer</code> or <code class="inline-code">x-api-key</code> header.</li>
           </ol>
-          ${editorialNote(
-            "info",
-            "Owner primary key",
-            `The server's <code class="inline-code">MCP_API_KEY</code> environment variable serves as the primary owner key. Dynamic keys created in the dashboard support per-key tool toggles and provider overrides.`,
-          )}
         `,
       },
       {
         id: "add-provider-tokens",
-        title: "2. Adding GitHub and Render credentials",
+        title: "2. Adding GitHub and Render tokens",
         render: () => `
-          <p>GitHub and Render tools remain disabled until a corresponding token is configured. You can add credentials at two levels:</p>
+          <p>GitHub and Render tools remain hidden until a valid token is saved, so your assistant never encounters broken authentication errors. You can configure credentials in two ways:</p>
           <div class="ant-two-col">
             <div class="ant-col-block">
-              <h4>${renderSvg("settings", 16)} Workspace-wide defaults</h4>
-              <p>Open <a class="ant-link" href="/settings">Settings</a> and save your <strong>GitHub Personal Access Token</strong> and <strong>Render API Key</strong>. Every API key inherits these credentials unless overridden.</p>
+              <h4>${renderSvg("settings", 16)} Workspace defaults</h4>
+              <p>Open <a class="ant-link" href="/settings">Settings</a> to save your default <strong>GitHub Personal Access Token</strong> and <strong>Render API Key</strong>. All API keys and OAuth sessions inherit these credentials automatically unless overridden.</p>
             </div>
             <div class="ant-col-block">
               <h4>${renderSvg("sliders", 16)} Per-key overrides</h4>
-              <p>Open any individual key on <a class="ant-link" href="/api">API keys</a> to attach a separate GitHub or Render token to that key alone—useful for isolating repositories, staging accounts, or read-only scopes.</p>
+              <p>Open any individual key on <a class="ant-link" href="/api">API keys</a> to bind a dedicated GitHub or Render token exclusively to that key—ideal for separating personal repositories, client projects, or read-only access.</p>
             </div>
           </div>
           ${editorialNote(
             "tip",
-            "Encryption at rest and output redaction",
-            `Provider tokens are encrypted at rest with <strong>AES-256-GCM</strong> (<code class="inline-code">KEY_ENCRYPTION_SECRET</code>) and scrubbed from tool outputs before responses return to the client.`,
+            "Strong credential protection",
+            `All provider tokens are strongly encrypted at rest, never logged in analytics, and automatically filtered out of tool responses and sandbox environments.`,
           )}
         `,
       },
       {
         id: "precedence",
-        title: "3. Tool permission precedence",
+        title: "3. How tool permissions work",
         render: () => `
-          <p>A single resolver (<code class="inline-code">resolveToolState</code>) determines tool availability across <code class="inline-code">tools/list</code>, <code class="inline-code">tools/call</code>, OAuth scopes, and Settings in this order:</p>
+          <p>Tool availability is evaluated consistently across client discovery, tool execution, OAuth consent, and the Settings dashboard:</p>
           <ol>
-            <li><strong>Server &amp; credential checks:</strong> Tools blocked by server configuration (such as <code class="inline-code">ENABLE_SANDBOX=false</code>) or missing required credentials stay disabled.</li>
-            <li><strong>Per-key override:</strong> Toggles saved on a specific API key take priority for that key.</li>
-            <li><strong>Workspace setting:</strong> Account-level toggles in <a class="ant-link" href="/settings">Settings</a>.</li>
-            <li><strong>Defaults:</strong> All 15 Sandbox tools and 17 core GitHub tools start on. Extended GitHub (34), Render (21), and Code Graph (30) start off until enabled.</li>
+            <li><strong>Credential requirements:</strong> GitHub and Render tools only activate when their respective token is present.</li>
+            <li><strong>Per-key toggles:</strong> Custom enable/disable rules on an individual API key override your workspace defaults for that key alone.</li>
+            <li><strong>Workspace settings:</strong> Your account-level toggles in <a class="ant-link" href="/settings">Settings</a> apply to all keys that inherit workspace configuration.</li>
+            <li><strong>Starting defaults:</strong> Sandbox (15) and Core GitHub (17) tools start enabled. Extended GitHub (34), Render (21), and Code Graph (30) start off until you switch them on.</li>
           </ol>
         `,
       },
       {
         id: "oauth-and-revocation",
-        title: "4. OAuth 2.1 clients and revocation",
+        title: "4. OAuth 2.1 connections and revocation",
         render: () => `
-          <p>Clients that support OAuth 2.1 dynamic registration (<code class="inline-code">/oauth/register</code>) authenticate with PKCE S256 and RS256-signed tokens scoped to <code class="inline-code">mcp:tools</code>, <code class="inline-code">mcp:sandbox</code>, and <code class="inline-code">mcp:admin</code>.</p>
-          <p style="margin-top:10px;">Revoking a key or OAuth client on <a class="ant-link" href="/api">API keys</a> immediately invalidates active sessions and clears cached key telemetry.</p>
+          <p>Clients that support OAuth 2.1 connect through a standard browser consent screen showing the requesting application and scopes (<code class="inline-code">mcp:tools</code>, <code class="inline-code">mcp:sandbox</code>, <code class="inline-code">mcp:admin</code>).</p>
+          <p style="margin-top:10px;">You can revoke any API key or connected OAuth client at any time from <a class="ant-link" href="/api">API keys</a>. Revocation takes effect immediately and clears cached telemetry for that key.</p>
         `,
       },
     ],
@@ -263,63 +252,111 @@ Health Check:    ${base}/healthz`,
     icon: "github",
     badge: "51 tools",
     summary:
-      "Inspect file trees, search code, apply line-level edits, push multi-file commits, and manage pull requests, issues, and releases.",
-    readTime: "4 min read",
+      "Complete reference for all 17 core and 34 extended GitHub tools—repository search, surgical edits, branches, PRs, reviews, issues, and releases.",
+    readTime: "7 min read",
     topics: [
-      "Fine-grained PAT permissions",
-      "17 core tools (default on)",
-      "34 extended tools (opt-in)",
-      "Line-level editing workflow",
+      "Token setup & recommended scopes",
+      "17 core tools (default enabled)",
+      "34 extended tools (issues, PRs, releases, teams)",
+      "Surgical editing workflow",
     ],
     keywords:
-      "github pat token octokit git_tree grep str_replace_editor patch_contents push_files pull request issues releases",
+      "github pat token git_tree grep view_file_outline str_replace_editor patch_contents push_files pull request issues reviews releases tags commits",
     sections: [
       {
         id: "github-setup",
-        title: "1. Token permissions",
+        title: "1. Token setup",
         render: () => `
-          <p>Create a <strong>Fine-Grained Personal Access Token</strong> restricted to the repositories you intend to work on (with <em>Contents: Read &amp; Write</em> and <em>Pull Requests: Read &amp; Write</em>), or a Classic PAT with <code class="inline-code">repo</code> scope.</p>
-          <p style="margin-top:10px;">Save the token in <a class="ant-link" href="/settings">Settings</a> or on a single key via <a class="ant-link" href="/api">API keys</a>.</p>
+          <p>Create a <strong>Fine-Grained Personal Access Token</strong> in GitHub scoped only to the repositories you want to work on (with <em>Contents: Read &amp; Write</em> and <em>Pull Requests: Read &amp; Write</em>, plus <em>Issues</em> if using extended tools), or a Classic PAT with <code class="inline-code">repo</code> scope.</p>
+          <p style="margin-top:10px;">Save the token in <a class="ant-link" href="/settings">Settings</a> or on a dedicated key in <a class="ant-link" href="/api">API keys</a>. All GitHub tools automatically fall back to the default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> set via <code class="inline-code">set_active_context</code>.</p>
         `,
       },
       {
-        id: "github-tiers",
-        title: "2. Core vs. extended GitHub tools",
+        id: "github-core-read",
+        title: "2. Core tools: Context, browsing & search (8 tools — enabled by default)",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
               <thead>
-                <tr>
-                  <th>Group</th>
-                  <th>Default</th>
-                  <th>Tools &amp; capabilities</th>
-                </tr>
+                <tr><th>Tool</th><th>What it does</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td><strong>Core (17 tools)</strong></td>
-                  <td><span class="badge success">Enabled</span></td>
-                  <td><code class="inline-code">set_active_context</code>, <code class="inline-code">get_me</code>, <code class="inline-code">search_repositories</code>, <code class="inline-code">git_tree</code>, <code class="inline-code">view_file_outline</code>, <code class="inline-code">grep</code>, <code class="inline-code">search_code</code>, <code class="inline-code">get_file_contents</code>, <code class="inline-code">str_replace_editor</code>, <code class="inline-code">patch_contents</code>, <code class="inline-code">create_or_update_file</code>, <code class="inline-code">push_files</code>, <code class="inline-code">delete_file</code>, <code class="inline-code">list_branches</code>, <code class="inline-code">create_branch</code>, <code class="inline-code">delete_branch</code>, <code class="inline-code">create_pull_request</code>.</td>
-                </tr>
-                <tr>
-                  <td><strong>Extended (34 tools)</strong></td>
-                  <td><span class="badge">Opt-in</span></td>
-                  <td>Issues and sub-issues, pull request reads/updates/merges, line-level reviews, commits, tags, releases, team membership, repository administration, and secret-scanning alerts.</td>
-                </tr>
+                <tr><td><code class="inline-code">set_active_context</code></td><td>Sets default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, <code class="inline-code">branch</code>, and optional sandbox directory for the session.</td></tr>
+                <tr><td><code class="inline-code">get_me</code></td><td>Returns the authenticated GitHub user profile to verify token identity.</td></tr>
+                <tr><td><code class="inline-code">search_repositories</code></td><td>Searches repositories or lists repositories accessible to your account.</td></tr>
+                <tr><td><code class="inline-code">git_tree</code></td><td>Retrieves the recursive file path tree for a repository and branch.</td></tr>
+                <tr><td><code class="inline-code">view_file_outline</code></td><td>Extracts top-level AST symbols (classes, functions, exports) from a source file without downloading its full body.</td></tr>
+                <tr><td><code class="inline-code">grep</code></td><td>Pattern search across repository files with configurable line windows and path filters.</td></tr>
+                <tr><td><code class="inline-code">search_code</code></td><td>GitHub code search across repositories by query, language, or path.</td></tr>
+                <tr><td><code class="inline-code">get_file_contents</code></td><td>Reads a file or specific line range (<code class="inline-code">startLine</code> / <code class="inline-code">endLine</code>) from a branch or ref.</td></tr>
               </tbody>
             </table>
           </div>
         `,
       },
       {
-        id: "github-workflow",
-        title: "3. Recommended editing flow",
+        id: "github-core-write",
+        title: "3. Core tools: Editing, branches & pull requests (9 tools — enabled by default)",
         render: () => `
-          <ul>
-            <li><strong>Inspect before reading full files:</strong> Use <code class="inline-code">git_tree</code>, <code class="inline-code">view_file_outline</code>, and <code class="inline-code">grep</code> with line windows.</li>
-            <li><strong>Edit targeted ranges:</strong> Prefer <code class="inline-code">str_replace_editor</code> or <code class="inline-code">patch_contents</code> over full-file rewrites.</li>
-            <li><strong>Batch commits:</strong> Use <code class="inline-code">push_files</code> to commit related edits atomically before opening a pull request.</li>
-          </ul>
+          <div class="ant-table-wrap">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">str_replace_editor</code></td><td>Replaces an exact block of text in a file and commits the change directly to the target branch.</td></tr>
+                <tr><td><code class="inline-code">patch_contents</code></td><td>Replaces a specified 1-indexed line range in a file and commits the update.</td></tr>
+                <tr><td><code class="inline-code">create_or_update_file</code></td><td>Creates a new file or overwrites an existing file with a commit message.</td></tr>
+                <tr><td><code class="inline-code">delete_file</code></td><td>Removes a file from a branch with a commit message.</td></tr>
+                <tr><td><code class="inline-code">push_files</code></td><td>Commits and pushes multiple file changes together in a single atomic commit.</td></tr>
+                <tr><td><code class="inline-code">list_branches</code></td><td>Lists branches in a repository.</td></tr>
+                <tr><td><code class="inline-code">create_branch</code></td><td>Creates a new branch from a base branch or commit SHA.</td></tr>
+                <tr><td><code class="inline-code">delete_branch</code></td><td>Deletes a branch from the repository.</td></tr>
+                <tr><td><code class="inline-code">create_pull_request</code></td><td>Opens a pull request with title, body, head branch, and base branch.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          ${editorialNote(
+            "tip",
+            "Recommended editing workflow",
+            `Use <code class="inline-code">git_tree</code>, <code class="inline-code">view_file_outline</code>, and <code class="inline-code">grep</code> to locate target lines first, then apply focused changes with <code class="inline-code">str_replace_editor</code> or <code class="inline-code">patch_contents</code>—or batch multi-file updates atomically with <code class="inline-code">push_files</code>.`,
+          )}
+        `,
+      },
+      {
+        id: "github-extended",
+        title: "4. Extended GitHub tools (34 tools — opt-in in Settings)",
+        render: () => `
+          <p>Switch on Extended GitHub in <a class="ant-link" href="/settings">Settings</a> (or per API key) to enable full issue tracking, PR review threads, releases, and repository administration:</p>
+          <div class="ant-table-wrap" style="margin-top:14px;">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Area</th><th>Tools</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Issues &amp; sub-issues (6)</strong></td>
+                  <td><code class="inline-code">list_issues</code>, <code class="inline-code">issue_read</code>, <code class="inline-code">issue_write</code>, <code class="inline-code">sub_issue_write</code>, <code class="inline-code">add_issue_comment</code>, <code class="inline-code">search_issues</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Pull requests &amp; reviews (9)</strong></td>
+                  <td><code class="inline-code">list_pull_requests</code>, <code class="inline-code">pull_request_read</code>, <code class="inline-code">update_pull_request</code>, <code class="inline-code">update_pull_request_branch</code>, <code class="inline-code">merge_pull_request</code>, <code class="inline-code">pull_request_review_write</code>, <code class="inline-code">add_comment_to_pending_review</code>, <code class="inline-code">add_reply_to_pull_request_comment</code>, <code class="inline-code">search_pull_requests</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Commits, releases, tags &amp; labels (10)</strong></td>
+                  <td><code class="inline-code">get_commit</code>, <code class="inline-code">search_commits</code>, <code class="inline-code">list_commits</code>, <code class="inline-code">get_label</code>, <code class="inline-code">list_issue_fields</code>, <code class="inline-code">list_issue_types</code>, <code class="inline-code">get_release</code>, <code class="inline-code">list_releases</code>, <code class="inline-code">get_tag</code>, <code class="inline-code">list_tags</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Teams &amp; collaborators (4)</strong></td>
+                  <td><code class="inline-code">get_teams</code>, <code class="inline-code">get_team_members</code>, <code class="inline-code">list_repository_collaborators</code>, <code class="inline-code">search_users</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Repository &amp; automation (5)</strong></td>
+                  <td><code class="inline-code">create_repository</code>, <code class="inline-code">fork_repository</code>, <code class="inline-code">run_secret_scanning</code>, plus automated PR review and issue assignment tools.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         `,
       },
     ],
@@ -332,22 +369,22 @@ Health Check:    ${base}/healthz`,
     icon: "terminal",
     badge: "15 tools",
     summary:
-      "Execute code across 11+ runtimes, run tests, manage background jobs, and clone or push repositories inside an isolated Linux user.",
-    readTime: "4 min read",
+      "Full reference for all 15 sandbox tools: multi-language execution, persistent shell, file editing, package installs, background jobs, and local git.",
+    readTime: "6 min read",
     topics: [
-      "Pre-installed language runtimes",
-      "Per-user Unix UID isolation",
-      "Persistent shell and background jobs",
-      "Command and network restrictions",
+      "11+ pre-installed language runtimes",
+      "Execution, files & package tools (8)",
+      "Local git workflow tools (6)",
+      "Cloud file sharing & workspace lifecycle",
     ],
     keywords:
-      "sandbox run exec install python node typescript go rust java cpp ruby php bash git_clone git_diff isolation uid",
+      "sandbox run exec install file ps output reset store python node typescript go rust java cpp ruby php bash git_clone git_checkout git_pull git_status git_diff git_commit_push",
     sections: [
       {
         id: "sandbox-runtimes",
-        title: "1. Runtimes and tools",
+        title: "1. Pre-installed language runtimes",
         render: () => `
-          <p>Sandbox commands run in child processes separate from the Krix server. The production container includes:</p>
+          <p>Every account runs inside a dedicated, isolated Linux workspace with a persistent working directory and pre-installed developer toolchains:</p>
           <div class="ant-chips">
             <span class="ant-chip">Node.js</span>
             <span class="ant-chip">TypeScript (tsx / bun)</span>
@@ -361,46 +398,56 @@ Health Check:    ${base}/healthz`,
             <span class="ant-chip">Bash</span>
             <span class="ant-chip">Git CLI</span>
           </div>
-          <div class="ant-table-wrap" style="margin-top:18px;">
+        `,
+      },
+      {
+        id: "sandbox-exec-tools",
+        title: "2. Execution, files & process management (8 tools)",
+        render: () => `
+          <div class="ant-table-wrap">
             <table class="ant-table">
               <thead>
-                <tr><th>Tool</th><th>Description</th></tr>
+                <tr><th>Tool</th><th>What it does &amp; key usage</th></tr>
               </thead>
               <tbody>
-                <tr><td><code class="inline-code">sandbox_run</code></td><td>Run inline code (Python by default, or pass <code class="inline-code">lang</code>) or execute an existing file.</td></tr>
-                <tr><td><code class="inline-code">sandbox_exec</code></td><td>Run shell commands in your persistent workspace (supports <code class="inline-code">background: true</code>).</td></tr>
-                <tr><td><code class="inline-code">sandbox_file</code></td><td>Read, write, append, replace (<code class="inline-code">old_str</code>/<code class="inline-code">new_str</code>), or delete files safely.</td></tr>
-                <tr><td><code class="inline-code">sandbox_install</code></td><td>Install validated <code class="inline-code">npm</code> or <code class="inline-code">pip</code> packages.</td></tr>
-                <tr><td><code class="inline-code">sandbox_ps</code> &amp; <code class="inline-code">sandbox_output</code></td><td>Manage background processes and page through truncated output via <code class="inline-code">outputId</code>.</td></tr>
-                <tr><td><code class="inline-code">git_clone</code> / <code class="inline-code">git_checkout</code> / <code class="inline-code">git_diff</code> / <code class="inline-code">git_commit_push</code></td><td>Clone repos locally, run builds and tests, inspect diffs, and push commits.</td></tr>
-                <tr><td><code class="inline-code">sandbox_status</code> &amp; <code class="inline-code">sandbox_reset</code></td><td>Check runtimes, memory, and storage quota, or clear the sandbox workspace.</td></tr>
+                <tr><td><code class="inline-code">sandbox_status</code></td><td>Checks available runtimes, memory, storage quota usage, active cloned repo/branch, and files in <code class="inline-code">upload/</code>.</td></tr>
+                <tr><td><code class="inline-code">sandbox_run</code></td><td>Runs inline code (Python by default, or pass <code class="inline-code">lang</code> for Node, TS, Go, Rust, C++, Java, Ruby, PHP, Bash) or executes an existing <code class="inline-code">filePath</code>.</td></tr>
+                <tr><td><code class="inline-code">sandbox_exec</code></td><td>Runs shell commands in a persistent terminal session that preserves <code class="inline-code">cd</code>, exports, and virtualenvs. Pass <code class="inline-code">background: true</code> for dev servers or long builds.</td></tr>
+                <tr><td><code class="inline-code">sandbox_file</code></td><td>Reads, writes, appends, edits via exact <code class="inline-code">old_str</code>/<code class="inline-code">new_str</code> replacement, or deletes sandbox files without shell-escaping pitfalls.</td></tr>
+                <tr><td><code class="inline-code">sandbox_install</code></td><td>Installs registry <code class="inline-code">npm</code> or <code class="inline-code">pip</code> packages (with optional version pins) inside your workspace.</td></tr>
+                <tr><td><code class="inline-code">sandbox_ps</code></td><td>Lists running background jobs, fetches their output, or terminates a job by PID (or <code class="inline-code">"all"</code>).</td></tr>
+                <tr><td><code class="inline-code">sandbox_output</code></td><td>Pages through long command output that was truncated by <code class="inline-code">sandbox_exec</code>, <code class="inline-code">sandbox_run</code>, or <code class="inline-code">sandbox_install</code> using the returned <code class="inline-code">outputId</code>.</td></tr>
+                <tr><td><code class="inline-code">sandbox_reset</code></td><td>Wipes scratch files, cloned repositories, persistent shell state, and background processes for a clean slate.</td></tr>
               </tbody>
             </table>
           </div>
         `,
       },
       {
-        id: "sandbox-isolation",
-        title: "2. Isolation boundaries",
+        id: "sandbox-git-tools",
+        title: "3. Local git synchronization (6 tools) & file store (1 tool)",
         render: () => `
-          <div class="ant-two-col">
-            <div class="ant-col-block">
-              <h4>${renderSvg("check-circle", 16)} Supported workflows</h4>
-              <ul>
-                <li>Private <code class="inline-code">HOME</code>, <code class="inline-code">TMPDIR</code>, and working directory under an unprivileged Unix user.</li>
-                <li>Persistent shell state, local git clones, test suites, and uploaded files under <code class="inline-code">upload/</code>.</li>
-                <li>Idle cloned repositories clear automatically after <code class="inline-code">REPO_IDLE_MINUTES</code> (default 30 min).</li>
-              </ul>
-            </div>
-            <div class="ant-col-block">
-              <h4>${renderSvg("shield", 16)} Restrictions</h4>
-              <ul>
-                <li><strong>Scrubbed environment:</strong> Child processes cannot read <code class="inline-code">MCP_API_KEY</code>, GitHub/Render tokens, or <code class="inline-code">MONGODB_URI</code>.</li>
-                <li><strong>Command &amp; network guards:</strong> <code class="inline-code">COMMAND_RESTRICTION_LEVEL</code> and <code class="inline-code">NETWORK_RESTRICTION_LEVEL</code> restrict dangerous commands and internal address probing.</li>
-                <li><strong>Host requirement:</strong> Requires <code class="inline-code">ENABLE_SANDBOX=true</code> and OS isolation (Docker recommended).</li>
-              </ul>
-            </div>
+          <div class="ant-table-wrap">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">git_clone</code></td><td>Clones a GitHub repository into your sandbox so you can build, lint, and run full test suites locally.</td></tr>
+                <tr><td><code class="inline-code">git_checkout</code></td><td>Switches to an existing branch or creates a new branch in the cloned repository.</td></tr>
+                <tr><td><code class="inline-code">git_pull</code></td><td>Fast-forward pulls the latest commits on the active branch.</td></tr>
+                <tr><td><code class="inline-code">git_status</code></td><td>Returns a compact summary of the active branch and modified files.</td></tr>
+                <tr><td><code class="inline-code">git_diff</code></td><td>Shows unstaged or staged diffs, optionally scoped to a specific file path.</td></tr>
+                <tr><td><code class="inline-code">git_commit_push</code></td><td>Stages, commits, and pushes verified local changes back to GitHub.</td></tr>
+                <tr><td><code class="inline-code">sandbox_store</code></td><td>Moves files between your sandbox, cloud storage (<a class="ant-link" href="/store">/store</a>), and the web (<code class="inline-code">share</code>, <code class="inline-code">download</code>, <code class="inline-code">list</code>, <code class="inline-code">delete</code>).</td></tr>
+              </tbody>
+            </table>
           </div>
+          ${editorialNote(
+            "info",
+            "Automatic workspace cleanup",
+            `Idle cloned repositories are cleared automatically after 30 minutes of inactivity to preserve workspace storage. Push important changes to GitHub or save outputs to <a class="ant-link" href="/store">Files</a>.`,
+          )}
         `,
       },
     ],
@@ -413,42 +460,80 @@ Health Check:    ${base}/healthz`,
     icon: "render",
     badge: "21 tools",
     summary:
-      "List services, trigger deployments, inspect runtime logs and metrics, update environment variables, and query Postgres.",
-    readTime: "3 min read",
+      "Complete reference for all 21 Render tools: workspaces, web services, static sites, cron jobs, deploys, logs, metrics, env vars, and Postgres.",
+    readTime: "5 min read",
     topics: [
-      "Connecting a Render API key",
-      "Services and deployments",
-      "Logs, metrics, and env vars",
-      "Managed Postgres queries",
+      "Connecting your Render API key",
+      "Workspaces & service lifecycle (10)",
+      "Deploys, logs & metrics (7)",
+      "Environment variables & Postgres (4)",
     ],
     keywords:
-      "render deploy logs metrics env vars postgres database cloud web service static site",
+      "render workspace list_services create_web_service create_static_site create_cron_job trigger_deploy cancel_deploy list_logs get_metrics update_env_vars delete_env_var query_render_postgres",
     sections: [
       {
         id: "render-setup",
-        title: "1. Setup",
+        title: "1. Enabling Render tools",
         render: () => `
-          <p>Render tools start <strong>off by default</strong>:</p>
+          <p>Render tools start <strong>disabled by default</strong> until you connect a Render API key and switch them on:</p>
           <ol>
             <li>Generate an API key in your Render account settings.</li>
             <li>Save the key in Krix <a class="ant-link" href="/settings">Settings</a> (or on a specific key in <a class="ant-link" href="/api">API keys</a>).</li>
-            <li>Enable the <strong>Render</strong> tool group in Settings.</li>
+            <li>Toggle the <strong>Render</strong> tool group on in Settings.</li>
           </ol>
         `,
       },
       {
-        id: "render-tools",
-        title: "2. Capabilities and controls",
+        id: "render-services",
+        title: "2. Workspaces, services & deployments (14 tools)",
         render: () => `
-          <ul>
-            <li><strong>Services &amp; deploys:</strong> <code class="inline-code">list_services</code>, <code class="inline-code">create_web_service</code>, and <code class="inline-code">trigger_deploy</code>.</li>
-            <li><strong>Observability:</strong> <code class="inline-code">list_logs</code> and <code class="inline-code">get_metrics</code> for inspecting live behavior.</li>
-            <li><strong>Configuration &amp; data:</strong> <code class="inline-code">update_env_vars</code> and <code class="inline-code">query_render_postgres</code>.</li>
-          </ul>
+          <div class="ant-table-wrap">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Group</th><th>Tools &amp; purpose</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Workspaces (3)</strong></td>
+                  <td><code class="inline-code">list_workspaces</code>, <code class="inline-code">select_workspace</code>, and <code class="inline-code">get_selected_workspace</code> to scope operations to the right Render team.</td>
+                </tr>
+                <tr>
+                  <td><strong>Services (7)</strong></td>
+                  <td><code class="inline-code">list_services</code>, <code class="inline-code">get_service</code>, <code class="inline-code">create_web_service</code>, <code class="inline-code">create_static_site</code>, <code class="inline-code">create_cron_job</code>, <code class="inline-code">restart_service</code>, and <code class="inline-code">delete_service</code>.</td>
+                </tr>
+                <tr>
+                  <td><strong>Deployments (4)</strong></td>
+                  <td><code class="inline-code">list_deploys</code>, <code class="inline-code">get_deploy</code>, <code class="inline-code">trigger_deploy</code>, and <code class="inline-code">cancel_deploy</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+      },
+      {
+        id: "render-obs-data",
+        title: "3. Logs, metrics, env vars & Postgres (7 tools)",
+        render: () => `
+          <div class="ant-table-wrap">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">list_logs</code></td><td>Streams and filters runtime or build logs by service, time range, level, or text query.</td></tr>
+                <tr><td><code class="inline-code">list_log_label_values</code></td><td>Lists available log filter labels and values for targeted log queries.</td></tr>
+                <tr><td><code class="inline-code">get_metrics</code></td><td>Retrieves CPU, memory, HTTP request rate, and latency metrics for a service.</td></tr>
+                <tr><td><code class="inline-code">list_env_vars</code></td><td>Inspects configured environment variable keys on a service.</td></tr>
+                <tr><td><code class="inline-code">update_env_vars</code></td><td>Creates or updates environment variables on a service.</td></tr>
+                <tr><td><code class="inline-code">delete_env_var</code></td><td>Removes a specific environment variable from a service.</td></tr>
+                <tr><td><code class="inline-code">query_render_postgres</code></td><td>Executes SQL queries against a connected Render Postgres instance for inspection and debugging.</td></tr>
+              </tbody>
+            </table>
+          </div>
           ${editorialNote(
             "warn",
-            "Production impact",
-            `Environment updates and service deletions apply immediately to your Render account. Disable write or delete tools per API key if you only need read access.`,
+            "Live production changes",
+            `Service deletions, restarts, and environment updates take effect immediately on your Render account. If you want read-only monitoring on a key, disable write and delete tools on that key's settings page.`,
           )}
         `,
       },
@@ -457,39 +542,60 @@ Health Check:    ${base}/healthz`,
   {
     slug: "code-graph",
     num: "06",
-    title: "Code graph & analysis",
+    title: "Code graph & structural analysis",
     shortTitle: "Code graph",
     icon: "layers",
     badge: "30 tools",
     summary:
-      "Index repositories into a structural symbol graph to trace callers, callees, inheritance hierarchies, dead code, and complexity.",
-    readTime: "3 min read",
+      "Index repositories into a structural symbol graph to trace callers, callees, class hierarchies, dead code, complexity hotspots, and web references.",
+    readTime: "5 min read",
     topics: [
-      "Enabling the cgc code graph",
-      "Indexing and symbol lookups",
-      "Dead code and complexity audits",
-      "Integrated web_search tool",
+      "Indexing repositories & background jobs",
+      "Call-chain & relationship tracing",
+      "Dead code & complexity analysis",
+      "Architecture reports & web search",
     ],
     keywords:
-      "code graph cgc callers callees hierarchy dead code complexity architecture report web_search ast",
+      "code graph add_code_to_graph find_code analyze_code_relationships find_dead_code calculate_cyclomatic_complexity find_most_complex_functions generate_report web_search",
     sections: [
       {
-        id: "cg-overview",
-        title: "1. Structural code analysis",
+        id: "cg-indexing",
+        title: "1. Indexing & watching repositories",
         render: () => `
-          <p>The Code Graph group wraps the <code class="inline-code">cgc</code> CLI together with <code class="inline-code">web_search</code>. It starts <strong>off by default</strong>; enable it in <a class="ant-link" href="/settings">Settings</a> when you need cross-file call-chain or impact analysis.</p>
-          <div class="ant-table-wrap" style="margin-top:16px;">
+          <p>The Code Graph tool group starts <strong>off by default</strong>. Enable it in <a class="ant-link" href="/settings">Settings</a> whenever you need structural impact analysis across multi-file codebases.</p>
+          <div class="ant-table-wrap" style="margin-top:14px;">
             <table class="ant-table">
               <thead>
-                <tr><th>Task</th><th>Tool(s)</th></tr>
+                <tr><th>Tool</th><th>What it does</th></tr>
               </thead>
               <tbody>
-                <tr><td>Index a cloned repository</td><td><code class="inline-code">add_code_to_graph</code></td></tr>
-                <tr><td>Locate symbols and definitions</td><td><code class="inline-code">find_code</code></td></tr>
-                <tr><td>Trace callers, callees, and hierarchy</td><td><code class="inline-code">analyze_code_relationships</code></td></tr>
-                <tr><td>Find dead code or high complexity</td><td><code class="inline-code">find_dead_code</code>, <code class="inline-code">find_most_complex_functions</code></td></tr>
-                <tr><td>Generate architecture summary</td><td><code class="inline-code">generate_report</code></td></tr>
-                <tr><td>Query web documentation</td><td><code class="inline-code">web_search</code></td></tr>
+                <tr><td><code class="inline-code">add_code_to_graph</code></td><td>Parses a cloned repository directory into the structural symbol graph.</td></tr>
+                <tr><td><code class="inline-code">add_package_to_graph</code></td><td>Indexes an installed library or package so cross-package calls can be inspected.</td></tr>
+                <tr><td><code class="inline-code">list_jobs</code> &amp; <code class="inline-code">check_job_status</code></td><td>Tracks background indexing jobs and reports completion progress.</td></tr>
+                <tr><td><code class="inline-code">watch_directory</code> / <code class="inline-code">unwatch_directory</code> / <code class="inline-code">list_watched_paths</code></td><td>Keeps the graph synchronized as files change during active development.</td></tr>
+                <tr><td><code class="inline-code">delete_repository</code></td><td>Removes a previously indexed repository from the graph store.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+      },
+      {
+        id: "cg-analysis",
+        title: "2. Relationships, quality audits & web search",
+        render: () => `
+          <div class="ant-table-wrap">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">find_code</code></td><td>Locates functions, classes, methods, and symbols across indexed repositories.</td></tr>
+                <tr><td><code class="inline-code">analyze_code_relationships</code></td><td>Traces callers, callees, class inheritance hierarchies, and import dependencies to measure refactor blast radius.</td></tr>
+                <tr><td><code class="inline-code">execute_cypher_query</code> &amp; <code class="inline-code">visualize_graph_query</code></td><td>Runs custom read-only graph queries and outputs structured relationship views.</td></tr>
+                <tr><td><code class="inline-code">find_dead_code</code></td><td>Identifies unreferenced functions, unused helpers, and orphaned modules.</td></tr>
+                <tr><td><code class="inline-code">calculate_cyclomatic_complexity</code> &amp; <code class="inline-code">find_most_complex_functions</code></td><td>Scores function complexity and ranks the highest-risk hotspots for refactoring.</td></tr>
+                <tr><td><code class="inline-code">generate_report</code></td><td>Produces a high-level architectural overview of modules, entry points, and dependency graphs.</td></tr>
+                <tr><td><code class="inline-code">web_search</code></td><td>Searches public web documentation and references during technical research.</td></tr>
               </tbody>
             </table>
           </div>
@@ -505,35 +611,54 @@ Health Check:    ${base}/healthz`,
     icon: "files",
     badge: "Storage",
     summary:
-      "Upload local files into your sandbox via /upload, share outputs through MongoDB GridFS, and manage retention in /store.",
-    readTime: "3 min read",
+      "Upload local datasets into your sandbox via /upload, share outputs from the sandbox via sandbox_store, and manage retention in /store.",
+    readTime: "4 min read",
     topics: [
       "Web upload sessions (/upload -> upload/)",
-      "Sandbox Store (share, download, list, delete)",
+      "sandbox_file vs. sandbox_store",
       "Expiring vs. permanent files in /store",
-      "Private IP download protection",
+      "Private and public download links",
     ],
     keywords:
-      "files upload store gridfs mongodb share link ttl permanent private public download ssrf",
+      "files upload store share link ttl permanent private public download sandbox_store sandbox_file",
     sections: [
       {
-        id: "upload-and-store",
-        title: "1. Moving files between your browser and sandbox",
+        id: "upload-vs-store",
+        title: "1. Web uploads vs. saved files",
         render: () => `
           <div class="ant-two-col">
             <div class="ant-col-block">
               <h4>${renderSvg("upload", 16)} Web uploads (<a class="ant-link" href="/upload">/upload</a>)</h4>
-              <p>Open a short-lived upload session (<code class="inline-code">UPLOAD_SESSION_MINUTES</code>) and drop files from your machine. They appear inside your sandbox under <code class="inline-code">upload/</code> and expire after <code class="inline-code">UPLOAD_FILE_RETENTION_MINUTES</code>.</p>
+              <p>Start a short-lived upload session and drop local datasets, archives, or documents from your browser. Files land inside your sandbox under <code class="inline-code">upload/</code> so your assistant can inspect or process them immediately, then clear automatically after the retention window.</p>
             </div>
             <div class="ant-col-block">
               <h4>${renderSvg("files", 16)} Saved files (<a class="ant-link" href="/store">/store</a>)</h4>
-              <p><code class="inline-code">sandbox_store</code> (<code class="inline-code">share</code>) saves sandbox files to MongoDB GridFS and returns an expiring private link (<code class="inline-code">FILE_TTL_HOURS</code>). In <a class="ant-link" href="/store">Files</a>, rename items, switch Private/Public visibility, or pin files as <strong>Permanent</strong>.</p>
+              <p>Use <code class="inline-code">sandbox_store</code> (<code class="inline-code">share</code>) to persist generated outputs and receive a private expiring download link. In <a class="ant-link" href="/store">Files</a>, you can rename items, switch between <strong>Private</strong> and <strong>Public</strong> visibility, mark files <strong>Permanent</strong>, download them, or delete them anytime.</p>
             </div>
           </div>
+        `,
+      },
+      {
+        id: "store-actions",
+        title: "2. sandbox_store actions",
+        render: () => `
+          <div class="ant-table-wrap">
+            <table class="ant-table">
+              <thead>
+                <tr><th>Action</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">share</code></td><td>Uploads a file from your sandbox to cloud storage and returns a private expiring download URL.</td></tr>
+                <tr><td><code class="inline-code">download</code></td><td>Fetches a public HTTP(S) file directly into your sandbox for processing.</td></tr>
+                <tr><td><code class="inline-code">list</code></td><td>Lists files currently stored in your account's file store along with expiration and size metadata.</td></tr>
+                <tr><td><code class="inline-code">delete</code></td><td>Permanently removes a stored file and frees up space against your 50 MB storage quota.</td></tr>
+              </tbody>
+            </table>
+          </div>
           ${editorialNote(
-            "info",
-            "Remote download filtering",
-            `<code class="inline-code">sandbox_store</code> (<code class="inline-code">download</code>) fetches public HTTP(S) URLs up to <code class="inline-code">DOWNLOAD_MAX_MB</code> and blocks private or internal network addresses unless <code class="inline-code">ALLOW_PRIVATE_DOWNLOADS=true</code>.`,
+            "tip",
+            "sandbox_file vs. sandbox_store",
+            `Use <code class="inline-code">sandbox_file</code> for reading and editing local workspace files during coding; use <code class="inline-code">sandbox_store</code> when moving files between the sandbox, the web, and your browser.`,
           )}
         `,
       },
@@ -542,74 +667,91 @@ Health Check:    ${base}/healthz`,
   {
     slug: "security-and-quotas",
     num: "08",
-    title: "Security, quotas & troubleshooting",
-    shortTitle: "Security & quotas",
+    title: "Security, limits & troubleshooting",
+    shortTitle: "Security & limits",
     icon: "shield-check",
     badge: "Security",
     summary:
-      "Credential encryption, output redaction, role-based resource quotas, email alerts, account deletion, and common error fixes.",
+      "How Krix protects your credentials and workspace, what your account storage and compute limits include, and how to resolve common errors.",
     readTime: "4 min read",
     topics: [
-      "AES-256-GCM & HMAC-SHA256 audit logs",
-      "Owner vs. standard user (50 MB) quotas",
-      "30-day account deletion grace period",
-      "Resolving 401, 429, and missing tools",
+      "Credential protection & workspace isolation",
+      "Account storage & compute limits",
+      "Security alerts & account deletion",
+      "Troubleshooting common errors",
     ],
     keywords:
-      "security encryption aes-256-gcm redaction audit hmac quotas 50mb rate limit email alerts deletion troubleshooting errors",
+      "security protection isolation quotas 50mb storage limits rate limit email alerts deletion troubleshooting errors 401 429",
     sections: [
       {
         id: "security",
-        title: "1. Encryption, redaction, and audit logs",
+        title: "1. How your account is protected",
         render: () => `
-          <ul>
-            <li><strong>At rest:</strong> Provider credentials are encrypted with <strong>AES-256-GCM</strong> derived from <code class="inline-code">KEY_ENCRYPTION_SECRET</code>.</li>
-            <li><strong>In transit &amp; output:</strong> Known secrets, request tokens, and connection-string passwords are redacted from tool outputs automatically.</li>
-            <li><strong>Audit logs:</strong> Security events store IP addresses pseudonymized with <strong>HMAC-SHA256</strong> (<code class="inline-code">AUDIT_HASH_SECRET</code>).</li>
-            <li><strong>Email notifications:</strong> When Gmail API or SMTP is configured, Krix sends notices on account creation, new-IP sign-ins, OAuth authorizations, and deletion requests.</li>
-          </ul>
+          <div class="ant-two-col">
+            <div class="ant-col-block">
+              <h4>${renderSvg("lock", 16)} Encrypted credentials &amp; redaction</h4>
+              <p>Provider tokens and API credentials are strongly encrypted at rest, never stored in usage analytics, and automatically filtered out of tool outputs before responses reach your assistant.</p>
+            </div>
+            <div class="ant-col-block">
+              <h4>${renderSvg("shield-check", 16)} Isolated workspaces</h4>
+              <p>Every account runs inside its own isolated execution environment and private directory. Sandbox processes cannot access other users' files, server secrets, or your stored provider credentials.</p>
+            </div>
+            <div class="ant-col-block">
+              <h4>${renderSvg("sliders", 16)} Granular access &amp; instant revocation</h4>
+              <p>Toggle individual tools on or off globally or per API key. Revoking a key or OAuth client on <a class="ant-link" href="/api">API keys</a> ends active access immediately.</p>
+            </div>
+            <div class="ant-col-block">
+              <h4>${renderSvg("activity", 16)} Activity alerts &amp; monitoring</h4>
+              <p>Automated email notifications alert you on account creation, new sign-ins, OAuth client approvals, and account deletion requests so unexpected activity is spotted early.</p>
+            </div>
+          </div>
         `,
       },
       {
         id: "quotas",
-        title: "2. Roles, quotas, and account deletion",
+        title: "2. Account limits & data lifecycle",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
               <thead>
-                <tr><th>Role</th><th>Storage</th><th>Compute &amp; lifecycle</th></tr>
+                <tr><th>Resource</th><th>What your account includes</th></tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>Owner</strong> (<code class="inline-code">OWNER_EMAIL</code>)</td>
-                  <td>Full server allocation</td>
-                  <td>Full compute, memory, and process limits plus workspace administration.</td>
+                  <td><strong>File storage</strong></td>
+                  <td><strong>50 MB</strong> of isolated storage across uploads and saved files. Monitor live usage on <a class="ant-link" href="/store">Files</a> or via <code class="inline-code">sandbox_status</code>.</td>
                 </tr>
                 <tr>
-                  <td><strong>Standard user</strong></td>
-                  <td><strong>50 MB</strong> isolated</td>
-                  <td>Private workspace and Unix user with roughly one-tenth of owner compute, memory, and process limits.</td>
+                  <td><strong>Compute &amp; sessions</strong></td>
+                  <td>Dedicated sandbox memory, process limits, and per-minute rate limits designed to keep execution responsive and fair for every user.</td>
+                </tr>
+                <tr>
+                  <td><strong>Temporary files &amp; repos</strong></td>
+                  <td>Web uploads clear after 24 hours, shared links expire automatically unless marked <strong>Permanent</strong> in <a class="ant-link" href="/store">Files</a>, and idle cloned repositories clear after 30 minutes.</td>
+                </tr>
+                <tr>
+                  <td><strong>Account deletion</strong></td>
+                  <td>Requesting account deletion in <a class="ant-link" href="/settings">Settings</a> begins a <strong>30-day grace period</strong>. Signing back in cancels it; after 30 days, all keys, stored files, and workspace data are permanently removed.</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p style="margin-top:12px;">Scheduling account deletion in <a class="ant-link" href="/settings">Settings</a> starts a <strong>30-day grace period</strong>. Signing back in cancels it; after 30 days, keys, stored files, and the workspace are purged.</p>
         `,
       },
       {
         id: "troubleshooting",
-        title: "3. Common errors",
+        title: "3. Troubleshooting common errors",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
               <thead>
-                <tr><th>Error</th><th>Cause &amp; fix</th></tr>
+                <tr><th>Error</th><th>Likely cause &amp; fix</th></tr>
               </thead>
               <tbody>
-                <tr><td><strong>401 Unauthorized</strong></td><td>Missing or revoked key, or key sent in <code class="inline-code">?api_key=</code> while <code class="inline-code">ALLOW_QUERY_API_KEY</code> is off. Send <code class="inline-code">Authorization: Bearer &lt;key&gt;</code>.</td></tr>
-                <tr><td><strong>Tool missing</strong></td><td>The tool group is off by default or requires a GitHub/Render credential. Enable it in <a class="ant-link" href="/settings">Settings</a> or on the API key page.</td></tr>
-                <tr><td><strong>Sandbox disabled</strong></td><td>Server has <code class="inline-code">ENABLE_SANDBOX=false</code> or lacks OS isolation. Deploy with the Docker image and <code class="inline-code">ENABLE_SANDBOX=true</code>.</td></tr>
-                <tr><td><strong>429 Too Many Requests</strong></td><td>Exceeded <code class="inline-code">RATE_LIMIT_PER_MIN</code> or <code class="inline-code">MAX_SESSIONS</code>. Close idle sessions or retry after the rate-limit window resets.</td></tr>
+                <tr><td><strong>401 Unauthorized</strong></td><td>The API key is missing, expired, or revoked, or was sent in the URL instead of a header. Send a valid key in <code class="inline-code">Authorization: Bearer &lt;key&gt;</code> or reconnect via OAuth 2.1.</td></tr>
+                <tr><td><strong>Tool not listed in client</strong></td><td>Opt-in groups (Extended GitHub, Render, Code Graph) start off by default, or the required GitHub/Render token is missing. Check <a class="ant-link" href="/settings">Settings</a> and your key's overrides.</td></tr>
+                <tr><td><strong>Storage quota reached</strong></td><td>Delete unused items in <a class="ant-link" href="/store">Files</a> or run <code class="inline-code">sandbox_reset</code> to clear scratch workspace files.</td></tr>
+                <tr><td><strong>429 Too Many Requests</strong></td><td>Your key exceeded the per-minute request limit or active session cap. Close idle client sessions and retry shortly.</td></tr>
               </tbody>
             </table>
           </div>
@@ -682,7 +824,7 @@ export function renderHelpPage(params: {
     ["117", "MCP tools across four groups"],
     ["8", "Category setup guides"],
     ["11+", "Sandbox language runtimes"],
-    ["AES-256", "Encrypted provider credentials"],
+    ["50 MB", "Isolated account storage"],
   ];
 
   const guideCards = HELP_CATEGORIES.map((cat) => {
@@ -774,7 +916,7 @@ export function renderHelpPage(params: {
         <div class="hm-step">
           <div class="hm-step-n">02</div>
           <h3>Save provider tokens</h3>
-          <p>Add your GitHub PAT or Render API key in <a class="ant-link" href="/settings">Settings</a> (encrypted with AES-256-GCM), or override them per key.</p>
+          <p>Add your GitHub PAT or Render API key in <a class="ant-link" href="/settings">Settings</a> (protected with strong encryption at rest), or override them per key.</p>
         </div>
         <div class="hm-step">
           <div class="hm-step-n">03</div>
@@ -798,7 +940,7 @@ export function renderHelpPage(params: {
       </div>
 
       <div id="helpSearchEmpty" class="panel empty" hidden>
-        No guides matched your search. Try <strong>keys</strong>, <strong>OAuth</strong>, <strong>GitHub</strong>, <strong>sandbox</strong>, <strong>Render</strong>, or <strong>quotas</strong>.
+        No guides matched your search. Try <strong>keys</strong>, <strong>OAuth</strong>, <strong>GitHub</strong>, <strong>sandbox</strong>, <strong>Render</strong>, or <strong>limits</strong>.
       </div>
     </section>
 
@@ -824,7 +966,7 @@ export function renderHelpPage(params: {
                 <td><strong>Sandbox &amp; Local Git</strong></td>
                 <td>15</td>
                 <td><span class="badge success">Enabled</span></td>
-                <td>Server <code class="inline-code">ENABLE_SANDBOX=true</code></td>
+                <td>Included with your workspace</td>
                 <td><a class="ant-link" href="/help/sandbox">Sandbox</a></td>
               </tr>
               <tr>
@@ -876,12 +1018,12 @@ export function renderHelpPage(params: {
           <p>Yes. Open any key on API keys to set per-key credentials and tool overrides. Keys without overrides inherit your workspace settings.</p>
         </details>
         <details class="hm-faq-item">
-          <summary>How are credentials and sandbox processes isolated?</summary>
-          <p>Provider tokens are encrypted at rest with AES-256-GCM, redacted from tool outputs, and excluded from sandbox child environments. Each user runs under an unprivileged Linux UID in a private workspace.</p>
+          <summary>How are my credentials and workspace protected?</summary>
+          <p>Provider tokens are strongly encrypted at rest, automatically filtered from tool outputs, and never exposed inside sandbox environments. Every account runs in an isolated workspace separate from other users.</p>
         </details>
         <details class="hm-faq-item">
           <summary>How long are uploaded and shared files retained?</summary>
-          <p>Files shared via sandbox_store expire after FILE_TTL_HOURS unless marked Permanent in Files. Web uploads from /upload clear automatically after the session retention window.</p>
+          <p>Web uploads clear automatically after 24 hours, and shared links expire unless you mark a file Permanent in Files. Idle cloned repositories clear after 30 minutes.</p>
         </details>
       </div>
     </section>
@@ -944,6 +1086,13 @@ export function renderHelpCategoryPage(params: {
     )
     .join("");
 
+  const jumpPills = category.sections
+    .map(
+      (s) =>
+        `<a href="#${escapeHtml(s.id)}" class="hlp-jump-pill">${escapeHtml(s.title)}</a>`,
+    )
+    .join("");
+
   const sectionsHtml = category.sections
     .map(
       (s) => `
@@ -964,12 +1113,14 @@ export function renderHelpCategoryPage(params: {
     <header class="ant-article-head">
       <div class="ant-article-head-main">
         <div class="ant-article-meta">
+          <span class="feature-icon">${renderSvg(category.icon, 16)}</span>
           <span class="badge">${escapeHtml(category.badge)}</span>
           <span aria-hidden="true">·</span>
           <span>${escapeHtml(category.readTime)}</span>
         </div>
         <h1 class="ant-article-title">${escapeHtml(category.title)}</h1>
         <p class="ant-article-sub">${escapeHtml(category.summary)}</p>
+        <nav class="hlp-jump-bar" aria-label="Jump to section">${jumpPills}</nav>
       </div>
     </header>
 
