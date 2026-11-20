@@ -133,7 +133,7 @@ export function renderHomeFooter(owner?: any): string {
         <div class="hm-footer-grid">
           <div class="hm-footer-brand">
             <a href="/" class="hm-footer-logo">
-              <img src="/icon-48.png?v=2" alt="" width="28" height="28">
+              <img src="/icon-192.png?v=3" alt="" width="28" height="28">
               <span>Krix</span>
             </a>
             <p class="hm-footer-tagline">An isolated MCP server connecting AI assistants to GitHub, Render, code intelligence, and a persistent Linux sandbox with per-key access control.</p>
