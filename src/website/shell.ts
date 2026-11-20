@@ -77,7 +77,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
   return `
     <aside class="sidebar${isAuth ? "" : " sidebar-unauth"}" id="appSidebar" aria-label="Primary">
       <div class="sb-head">
-        <a href="/" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
+        <a href="/" class="sb-brand"><img src="/icon-192.png?v=3" alt="" width="24" height="24"><span>Krix</span></a>
         <button type="button" class="icon-btn sb-collapse-btn" onclick="window.toggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar">${renderSvg("sidebar", 20)}</button>
       </div>
       <nav class="sb-nav">
@@ -88,7 +88,7 @@ export function renderHeader(activeTab: string = "home", owner?: any): string {
     <div class="scrim" onclick="window.toggleNav(false)"></div>
     <header class="topbar">
       ${topbarLeft}
-      <a href="/" class="sb-brand"><img src="/icon-48.png?v=2" alt="" width="24" height="24"><span>Krix</span></a>
+      <a href="/" class="sb-brand"><img src="/icon-192.png?v=3" alt="" width="24" height="24"><span>Krix</span></a>
       ${topbarRight}
     </header>${
       isAuth
