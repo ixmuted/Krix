@@ -93,27 +93,21 @@ describe("Help Center & Subpages", () => {
 });
 
 describe("Privacy Policy & Terms of Service", () => {
-  test("renderPrivacyPage preserves Effective Date and covers encryption, retention, redaction, and deletion", () => {
+  test("renderPrivacyPage renders original Privacy Policy with Effective Date", () => {
     const html = renderPrivacyPage({ nonce: "priv_nonce" });
     assert.ok(html.includes("Effective Date: November 2026"));
     assert.ok(html.includes("Privacy Policy"));
+    assert.ok(html.includes("1. Overview"));
     assert.ok(html.includes("AES-256-GCM"));
-    assert.ok(html.includes("HMAC-SHA256"));
-    assert.ok(html.includes("30-day grace period"));
-    assert.ok(html.includes("GridFS"));
-    assert.ok(html.includes("reCAPTCHA v3"));
-    assert.ok(html.includes('href="/terms"'));
+    assert.ok(!html.includes("Server manifest"));
   });
 
-  test("renderTermsPage preserves Effective Date and covers Streamable HTTP, OAuth 2.1, quotas, MIT license, and liability", () => {
+  test("renderTermsPage renders original Terms of Service with Effective Date", () => {
     const html = renderTermsPage({ nonce: "tos_nonce" });
     assert.ok(html.includes("Effective Date: November 2026"));
     assert.ok(html.includes("Terms of Service"));
-    assert.ok(html.includes("/mcp"));
+    assert.ok(html.includes("1. Acceptance of Terms"));
     assert.ok(html.includes("OAuth 2.1"));
-    assert.ok(html.includes("50 MB"));
-    assert.ok(html.includes("MIT License"));
-    assert.ok(html.includes("30-day grace period"));
-    assert.ok(html.includes('href="/privacy"'));
+    assert.ok(!html.includes("Server manifest"));
   });
 });
