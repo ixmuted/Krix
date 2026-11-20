@@ -338,14 +338,15 @@ describe("pages", () => {
         ...extra,
       } as any);
     const html = render({ globalLocked: true, keySettings: {} });
-    assert.ok(html.includes('id="globalModeToggle"'));
+    assert.ok(html.includes('id="globalModeBtn"'));
+    assert.ok(html.includes("friendly-zone-btn"));
     assert.ok(html.includes("Inherit global tool changes"));
     assert.ok(html.includes("Locked by workspace"));
-    assert.ok(!html.includes('id="globalModeToggle" checked'));
+    assert.ok(html.includes('data-inherits="false"'));
     assert.ok(html.includes("/settings/api/key-global-mode"));
     const unlockedHtml = render({ globalLocked: false, keySettings: {} });
-    assert.ok(unlockedHtml.includes('id="globalModeToggle" checked'));
-    assert.ok(!render({ isWorkspaceKey: true }).includes('id="globalModeToggle"'));
+    assert.ok(unlockedHtml.includes('data-inherits="true"'));
+    assert.ok(!render({ isWorkspaceKey: true }).includes('id="globalModeBtn"'));
     const row = html.split('class="key-tool-check" value="get_me"')[1].split("</label>")[0];
     assert.match(row, /checked\s+disabled/);
   });

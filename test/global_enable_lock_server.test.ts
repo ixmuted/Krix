@@ -156,7 +156,7 @@ describe("global enable lock on a real server", () => {
     const keyPage = await (
       await fetch(`${b.base}/api/settings?key=${encodeURIComponent(afterLock)}`, { headers: { Cookie: b.cookie } })
     ).text();
-    assert.ok(keyPage.includes('id="globalModeToggle"'));
+    assert.ok(keyPage.includes('id="globalModeBtn"'));
     assert.ok(keyPage.includes("Locked by workspace"));
   });
 
