@@ -242,7 +242,7 @@ export function renderPrivacyPage(params: {
   return renderPageShell({
     title: "Privacy Policy - Krix",
     activeTab: "home",
-    width: "wide",
+    wide: true,
     content,
     owner: params.owner,
     nonce: params.nonce,
