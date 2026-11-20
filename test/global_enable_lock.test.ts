@@ -76,8 +76,8 @@ describe("resolveToolState: accepting global enables", () => {
     assert.deepEqual(r, { enabled: true, reason: "default-on" });
   });
 
-  test("global DISABLES always apply, even to a key that does not accept enables", () => {
-    const r = resolveToolState({
+  test("global DISABLES are blocked for a protected key's baseline tools, while missing credentials still grey them out", () => {
+    const protectedTool = resolveToolState({
       ...base,
       toolName: "get_me",
       requires: "github",
@@ -85,7 +85,31 @@ describe("resolveToolState: accepting global enables", () => {
       globalBaseline: ["get_me"],
       globalDisabled: ["get_me"],
     });
-    assert.deepEqual(r, { enabled: false, reason: "global-off" });
+    assert.deepEqual(protectedTool, { enabled: true, reason: "global-protected" });
+
+    // Missing GitHub/Render credential still hard-blocks the tool even when protected.
+    const missingCred = resolveToolState({
+      ...base,
+      credentials: { github: false, render: true },
+      toolName: "get_me",
+      requires: "github",
+      acceptGlobalEnables: false,
+      globalBaseline: ["get_me"],
+      globalDisabled: ["get_me"],
+    });
+    assert.deepEqual(missingCred, { enabled: false, reason: "needs-github" });
+
+    // A tool that was NOT in the baseline stays off when disabled globally.
+    const notInBaseline = resolveToolState({
+      ...base,
+      toolName: "sandbox_exec",
+      category: "sandbox",
+      requires: null,
+      acceptGlobalEnables: false,
+      globalBaseline: ["get_me"],
+      globalDisabled: ["sandbox_exec"],
+    });
+    assert.deepEqual(notInBaseline, { enabled: false, reason: "global-off" });
   });
 
   test("baseline tools keep following the workspace; the key's own choice still wins", () => {
@@ -107,8 +131,9 @@ describe("resolveToolState: accepting global enables", () => {
     assert.deepEqual(own, { enabled: true, reason: "key-on" });
   });
 
-  test("only the skipped reason gets the friendly hint", () => {
+  test("skipped and protected reasons get friendly hints", () => {
     assert.match(globalSkippedLabel("global-skipped"), /not applied to this key/);
+    assert.match(globalSkippedLabel("global-protected"), /kept on for this key/);
     assert.equal(globalSkippedLabel("global-on"), "");
     assert.equal(globalSkippedLabel(undefined), "");
   });
@@ -143,7 +168,7 @@ describe("workspace lock: adding a credential does not switch tools on for exist
     assert.equal(on(k, "get_file_contents", "core"), true, "defaults are back");
   });
 
-  test("a global enable does not reach a locked key, but a global disable does", () => {
+  test("neither a global enable nor a global disable reaches a locked key", () => {
     const k = "lock-enable-disable-key";
     getKeySettings(k).email = "owner@localhost";
     setWorkspaceGlobalLock(WS, true, [k], () => []);
@@ -151,13 +176,16 @@ describe("workspace lock: adding a credential does not switch tools on for exist
 
     toggleKeyTool(WS, "list_issues", true);
     assert.equal(on(WS, "list_issues", "github_issues_prs"), true, "workspace itself is on");
-    assert.equal(on(k, "list_issues", "github_issues_prs"), false, "locked key ignores it");
+    assert.equal(on(k, "list_issues", "github_issues_prs"), false, "locked key ignores global enable");
 
-    // Disabling globally still propagates: a baseline tool follows the workspace off.
+    // Disabling globally does NOT turn off a tool in the locked key's baseline.
     getKeySettings(k).globalEnableBaseline = ["get_me"];
     assert.equal(on(k, "get_me", "core"), true);
     toggleKeyTool(WS, "get_me", false);
-    assert.equal(on(k, "get_me", "core"), false);
+    assert.equal(on(WS, "get_me", "core"), false, "workspace itself is off");
+    assert.equal(on(k, "get_me", "core"), true, "locked key stays protected from global disable");
+    // Without the GitHub credential it is still blocked (greyed out).
+    assert.equal(on(k, "get_me", "core", noGithub), false, "missing credential still blocks tool");
 
     // Clean up the shared workspace state for other tests in this file.
     updateKeyTools(WS, [], []);
@@ -268,10 +296,10 @@ describe("pages", () => {
         globalLocked: locked,
       });
       assert.ok(html.includes("Friendly zone"));
-      assert.ok(html.includes("Lock global tool enabling"));
+      assert.ok(html.includes("Lock global tool changes"));
       assert.ok(html.includes('id="globalLockBtn"'));
       assert.ok(html.includes(`data-locked="${locked}"`));
-      assert.ok(html.includes(locked ? "Unlock enabling" : "Lock enabling"));
+      assert.ok(html.includes(locked ? "Unlock changes" : "Lock changes"));
       assert.ok(html.includes("/settings/api/global-lock"));
     }
   });
@@ -309,12 +337,15 @@ describe("pages", () => {
         toolStates,
         ...extra,
       } as any);
-    const html = render({ globalLocked: true, keySettings: { acceptGlobalEnables: false } });
-    assert.ok(html.includes('id="globalModeSelect"'));
-    assert.ok(html.includes("Follow workspace (locked)"));
-    assert.match(html, /<option value="block" selected>/);
+    const html = render({ globalLocked: true, keySettings: {} });
+    assert.ok(html.includes('id="globalModeToggle"'));
+    assert.ok(html.includes("Inherit global tool changes"));
+    assert.ok(html.includes("Locked by workspace"));
+    assert.ok(!html.includes('id="globalModeToggle" checked'));
     assert.ok(html.includes("/settings/api/key-global-mode"));
-    assert.ok(!render({ isWorkspaceKey: true }).includes('id="globalModeSelect"'));
+    const unlockedHtml = render({ globalLocked: false, keySettings: {} });
+    assert.ok(unlockedHtml.includes('id="globalModeToggle" checked'));
+    assert.ok(!render({ isWorkspaceKey: true }).includes('id="globalModeToggle"'));
     const row = html.split('class="key-tool-check" value="get_me"')[1].split("</label>")[0];
     assert.match(row, /checked\s+disabled/);
   });

@@ -156,7 +156,8 @@ describe("global enable lock on a real server", () => {
     const keyPage = await (
       await fetch(`${b.base}/api/settings?key=${encodeURIComponent(afterLock)}`, { headers: { Cookie: b.cookie } })
     ).text();
-    assert.ok(keyPage.includes("Follow workspace (locked)"));
+    assert.ok(keyPage.includes('id="globalModeToggle"'));
+    assert.ok(keyPage.includes("Locked by workspace"));
   });
 
   test("a key can opt in or out on its own, and 'follow' goes back to the workspace", async () => {
@@ -177,7 +178,7 @@ describe("global enable lock on a real server", () => {
     assert.equal(stranger.status, 403);
   });
 
-  test("a global DISABLE still reaches a locked key that kept the tool", async () => {
+  test("a global DISABLE does not turn off a tool on a protected key", async () => {
     const survivor = await createKey("Survivor key");
     // Make it a key that had the tool through inheritance, then stop accepting.
     await post("/settings/api/key-global-mode", { keyId: survivor, mode: "accept" });
@@ -187,7 +188,7 @@ describe("global enable lock on a real server", () => {
 
     const off = await post("/settings/api/tool-toggle", { keyId: "primary-key", toolName: "get_me", enabled: false });
     assert.equal(off.status, 200);
-    assert.equal((await keyRow(survivor, "get_me")).checked, false, "global off propagates");
+    assert.equal((await keyRow(survivor, "get_me")).checked, true, "global off is blocked on protected key");
     await post("/settings/api/tool-toggle", { keyId: "primary-key", toolName: "get_me", enabled: true });
   });
 
