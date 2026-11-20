@@ -1084,6 +1084,11 @@ async function authenticate(
           resolvedOAuthEmail = matches[0].ownerEmail;
         }
       }
+      const oauthAccountEmail = resolvedOAuthEmail || getKeySettings(keyId)?.email;
+      if (oauthAccountEmail && isAccountScheduledForDeletion(oauthAccountEmail)) {
+        rejectScheduledDeletion(res);
+        return;
+      }
       (req as any).clientAuth = {
         keyId,
         label,
