@@ -405,7 +405,7 @@ export function renderTermsPage(params: {
   return renderPageShell({
     title: "Terms of Service - Krix",
     activeTab: "home",
-    width: "wide",
+    wide: true,
     content,
     owner: params.owner,
     nonce: params.nonce,
