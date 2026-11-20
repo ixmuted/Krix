@@ -491,9 +491,9 @@ function buildToolStates(
 }
 
 /**
- * Tools that are on for this key right now only because of global inheritance (a workspace
- * "on" override, or a default that a provider credential unlocks). Recorded when a key stops
- * accepting global enables, so it keeps what it has and ignores what is switched on later.
+ * Tools that are on for this key right now through global inheritance or defaults. Recorded
+ * when a key stops inheriting global changes, so it keeps what it has (even if turned off
+ * globally later) and ignores anything switched on globally afterwards.
  */
 function computeInheritedBaseline(keyId: string): string[] {
   const settings = getKeySettings(keyId);
@@ -522,10 +522,7 @@ function computeInheritedBaseline(keyId: string): string[] {
       globalDisabled: primary?.disabledTools,
       acceptGlobalEnables: true,
     });
-    if (
-      enabled &&
-      (reason === "global-on" || (reason === "default-on" && requires !== null))
-    )
+    if (enabled && (reason === "global-on" || reason === "default-on"))
       baseline.push(toolName);
   }
   return baseline;

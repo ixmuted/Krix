@@ -59,11 +59,11 @@ export interface KeySettings {
    * globally still applies everywhere.
    */
   lockGlobalEnables?: boolean;
-  /** Per key: true = accept global enables, false = ignore them, unset = follow the workspace. */
+  /** Per key: true = inherit global tool changes, false = ignore them, unset = follow the workspace. */
   acceptGlobalEnables?: boolean;
   /**
-   * Tools that were already on through global inheritance at the moment this key stopped
-   * accepting global enables. They keep following the workspace; new global enables do not.
+   * Tools that were already on through global inheritance or defaults when this key stopped
+   * inheriting global changes. They stay on even if turned off globally; new global enables are ignored.
    */
   globalEnableBaseline?: string[];
   createdAt: number;

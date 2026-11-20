@@ -48,7 +48,8 @@ export type ToolStateReason =
   | "key-off" // switched off for this key
   | "global-on" // switched on in workspace settings
   | "global-off" // switched off in workspace settings
-  | "global-skipped" // on in workspace settings / by default, but this key does not accept global enables
+  | "global-skipped" // on in workspace settings / by default, but this key does not inherit global changes
+  | "global-protected" // off in workspace settings, but kept on for this key because global changes are locked
   | "default-on"
   | "default-off"
   | "needs-github" // no GitHub token for this key or workspace
@@ -70,15 +71,15 @@ export interface ToolStateInput {
   globalEnabled?: readonly string[];
   globalDisabled?: readonly string[];
   /**
-   * Whether this key picks up tools that get switched ON globally (a workspace override, or a
-   * credential-gated default that a newly added GitHub / Render credential unlocks). Defaults to
-   * true. Switching a tool OFF globally always applies, whatever this says.
+   * Whether this key inherits global tool changes (workspace enables/disables, or
+   * credential-gated defaults unlocked by adding a GitHub / Render credential). Defaults to
+   * true. When false, neither global enables nor global disables affect this key.
    */
   acceptGlobalEnables?: boolean;
   /**
    * Only used when acceptGlobalEnables is false: the tools that were already on through global
-   * inheritance when the key stopped accepting. They keep following the workspace, so a global
-   * disable still reaches them; anything switched on globally afterwards does not.
+   * inheritance or defaults when the key stopped inheriting global changes. They stay on even
+   * if turned off globally afterwards; anything switched on globally afterwards is ignored.
    */
   globalBaseline?: readonly string[];
 }
@@ -88,8 +89,10 @@ export interface ToolStateInput {
  * scopes) and the Settings pages both use it so they can never disagree.
  * Order: hard blocks -> this key's own override -> workspace override -> default.
  *
- * A key that does not accept global enables ignores workspace "on" overrides and credential-gated
- * defaults for tools outside its baseline. Workspace "off" overrides are never ignored.
+ * A key that does not inherit global changes (`acceptGlobalEnables === false`) ignores both
+ * workspace "on" overrides (and newly unlocked credential-gated defaults) for tools outside
+ * its baseline AND workspace "off" overrides for tools inside its baseline (or credential-free
+ * defaults when no baseline snapshot exists). Missing credentials still hard-block the tool.
  */
 export function resolveToolState(i: ToolStateInput): {
   enabled: boolean;
@@ -102,24 +105,42 @@ export function resolveToolState(i: ToolStateInput): {
     return { enabled: false, reason: "needs-render" };
   if (i.keyDisabled?.includes(i.toolName)) return { enabled: false, reason: "key-off" };
   if (i.keyEnabled?.includes(i.toolName)) return { enabled: true, reason: "key-on" };
-  if (i.globalDisabled?.includes(i.toolName))
-    return { enabled: false, reason: "global-off" };
 
-  const mayInherit =
-    i.acceptGlobalEnables !== false || Boolean(i.globalBaseline?.includes(i.toolName));
-  let skipped = false;
+  if (i.acceptGlobalEnables !== false) {
+    if (i.globalDisabled?.includes(i.toolName))
+      return { enabled: false, reason: "global-off" };
+    if (i.globalEnabled?.includes(i.toolName))
+      return { enabled: true, reason: "global-on" };
+    if (isDefaultOnTool(i.toolName, i.category))
+      return { enabled: true, reason: "default-on" };
+    return { enabled: false, reason: "default-off" };
+  }
 
-  if (i.globalEnabled?.includes(i.toolName)) {
-    if (mayInherit) return { enabled: true, reason: "global-on" };
-    skipped = true;
+  // Protected from global enables AND global disables.
+  const hasBaseline = Array.isArray(i.globalBaseline);
+  const inBaseline = Boolean(i.globalBaseline?.includes(i.toolName));
+  const globallyDisabled = Boolean(i.globalDisabled?.includes(i.toolName));
+  const globallyEnabled = Boolean(i.globalEnabled?.includes(i.toolName));
+  const defaultOn = isDefaultOnTool(i.toolName, i.category);
+
+  if (inBaseline) {
+    if (globallyDisabled) return { enabled: true, reason: "global-protected" };
+    if (globallyEnabled) return { enabled: true, reason: "global-on" };
+    return { enabled: true, reason: "default-on" };
   }
-  if (isDefaultOnTool(i.toolName, i.category)) {
-    // Sandbox / file tools that need no credential are the baseline everyone gets. Only a
-    // default that a provider credential unlocks counts as a "global enable".
-    if (i.requires === null || mayInherit) return { enabled: true, reason: "default-on" };
-    skipped = true;
+
+  // Brand-new key created while locked (no baseline snapshot): credential-free defaults stay on
+  // and are protected from global disables too.
+  if (!hasBaseline && defaultOn && i.requires === null) {
+    return {
+      enabled: true,
+      reason: globallyDisabled ? "global-protected" : "default-on",
+    };
   }
-  return { enabled: false, reason: skipped ? "global-skipped" : "default-off" };
+
+  if (globallyDisabled) return { enabled: false, reason: "global-off" };
+  if (globallyEnabled || defaultOn) return { enabled: false, reason: "global-skipped" };
+  return { enabled: false, reason: "default-off" };
 }
 
 export type CredentialProvider = "github" | "render";
@@ -170,11 +191,11 @@ export function blockedToolReasonLabel(reason: string | undefined): string {
   }
 }
 
-/** Hint shown under a tool that is on globally but not applied to this key. Not a lock. */
+/** Hint shown under a tool whose global state was not applied to this key. Not a lock. */
 export function globalSkippedLabel(reason: string | undefined): string {
-  return reason === "global-skipped"
-    ? "On globally, not applied to this key"
-    : "";
+  if (reason === "global-skipped") return "On globally, not applied to this key";
+  if (reason === "global-protected") return "Off globally, kept on for this key";
+  return "";
 }
 
 /**
