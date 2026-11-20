@@ -2728,9 +2728,9 @@ app.get("/tools", async (req, res) => {
   const isOwner = isOwnerEmail(owner.email);
   let selectedKeyId =
     typeof req.query.key === "string" ? req.query.key.trim() : undefined;
-  // An explicitly empty `?key=` is the "All Keys" choice from the dropdown.
-  // A missing `key` param still falls back to the user's first key.
-  const allKeysRequested = req.query.key === "" || req.query.key === "all";
+  // Missing `?key=`, empty `?key=`, or `?key=all` all default to "All keys".
+  const allKeysRequested =
+    req.query.key === undefined || req.query.key === "" || req.query.key === "all";
   if (
     selectedKeyId &&
     !allKeysRequested &&
@@ -2803,7 +2803,7 @@ app.get("/tools", async (req, res) => {
       owner,
       tools: summary.toolsCatalog,
       summary,
-      selectedKeyId,
+      selectedKeyId: allKeysRequested ? "" : selectedKeyId,
     }),
   );
 });
