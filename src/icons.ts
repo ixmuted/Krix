@@ -30,6 +30,7 @@ export const GITHUB_ICON_128_URL = `${GITHUB_RAW_BASE_URL}/icon-128.png`;
 export const GITHUB_ICON_192_URL = `${GITHUB_RAW_BASE_URL}/icon-192.png`;
 export const GITHUB_ICON_512_URL = `${GITHUB_RAW_BASE_URL}/icon-512.png`;
 export const GITHUB_LOGO_URL = `${GITHUB_RAW_BASE_URL}/logo.png`;
+export const GITHUB_LOGO_SVG_URL = `${GITHUB_RAW_BASE_URL}/logo.svg`;
 export const GITHUB_ICON_24_URL = `${GITHUB_RAW_BASE_URL}/icon-24.png`;
 
 export const RENDER_PUBLIC_URL = "https://krix.onrender.com";
@@ -38,6 +39,7 @@ export const RENDER_ICON_128_URL = `${RENDER_PUBLIC_URL}/icon-128.png`;
 export const RENDER_ICON_192_URL = `${RENDER_PUBLIC_URL}/icon-192.png`;
 export const RENDER_ICON_512_URL = `${RENDER_PUBLIC_URL}/icon-512.png`;
 export const RENDER_LOGO_URL = `${RENDER_PUBLIC_URL}/logo.png`;
+export const RENDER_LOGO_SVG_URL = `${RENDER_PUBLIC_URL}/logo.svg`;
 export const RENDER_ICON_24_URL = `${RENDER_PUBLIC_URL}/icon-24.png`;
 
 export const DEFAULT_PUBLIC_URL = GITHUB_RAW_BASE_URL;
@@ -93,6 +95,20 @@ export function getServerIcons(
       type: "image/png",
       sizes: ["512x512"],
     },
+    {
+      src: GITHUB_LOGO_SVG_URL,
+      url: GITHUB_LOGO_SVG_URL,
+      mimeType: "image/svg+xml",
+      type: "image/svg+xml",
+      sizes: ["any"],
+    },
+    {
+      src: RENDER_LOGO_SVG_URL,
+      url: RENDER_LOGO_SVG_URL,
+      mimeType: "image/svg+xml",
+      type: "image/svg+xml",
+      sizes: ["any"],
+    },
   ];
 
   // Clients (e.g. Gemini) only trust icons hosted on the server's own origin, so when the server is
@@ -137,6 +153,13 @@ export function getServerIcons(
         mimeType: "image/png",
         type: "image/png",
         sizes: ["512x512"],
+      },
+      {
+        src: `${base}/logo.svg`,
+        url: `${base}/logo.svg`,
+        mimeType: "image/svg+xml",
+        type: "image/svg+xml",
+        sizes: ["any"],
       },
     ];
     const seen = new Set<string>();

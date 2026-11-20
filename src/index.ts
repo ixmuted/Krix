@@ -1703,6 +1703,7 @@ app.all(
 
 // Static assets and discovery manifests (for Gemini, browser tabs, and MCP discovery)
 const staticAssetPaths = [
+  "/logo.svg",
   "/logo.png",
   "/icon-512.png",
   "/icon-192.png",
@@ -1731,6 +1732,28 @@ app.options(staticAssetPaths, (_req, res) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
   res.status(204).end();
+});
+
+app.get("/logo.svg", (_req, res) => {
+  const buf = loadAsset("logo.svg");
+  if (buf) {
+    res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
+    res.setHeader("Content-Length", String(buf.length));
+    res.setHeader("Content-Disposition", 'inline; filename="logo.svg"');
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=3600, stale-while-revalidate=86400",
+    );
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+    res.setHeader("Timing-Allow-Origin", "*");
+    res.send(buf);
+  } else {
+    res.status(404).send("Logo SVG not found");
+  }
 });
 
 app.get(
