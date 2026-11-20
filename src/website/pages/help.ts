@@ -973,7 +973,7 @@ export function renderHelpPage(params: {
   return renderPageShell({
     title: "Help Center - Krix",
     activeTab: "home",
-    width: "wide",
+    wide: true,
     content,
     owner: params.owner,
     nonce: params.nonce,
