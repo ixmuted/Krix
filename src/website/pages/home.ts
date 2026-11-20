@@ -214,7 +214,7 @@ export function renderHomePage(params: {
     <section id="faq">
       ${sectionHead("FAQ", "Questions, answered")}
       <div class="hm-faq">
-        ${FAQ.map((q) => `<details class="hm-faq-item"><summary>${escapeHtml(q[0])}</summary><p>${escapeHtml(q[1])}</p></details>`).join("")}
+        ${FAQ.map((q) => `<details class="hm-faq-item hlp-smooth-details"><summary>${escapeHtml(q[0])}</summary><div class="hlp-details-body"><p>${escapeHtml(q[1])}</p></div></details>`).join("")}
       </div>
     </section>
 
@@ -244,6 +244,57 @@ export function renderHomePage(params: {
         if (c) c.textContent = demos[i].cmd;
         if (o) o.textContent = demos[i].out;
       }, 3800);
+
+      var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!prefersReduced && typeof Element.prototype.animate === 'function') {
+        var detailsList = Array.prototype.slice.call(document.querySelectorAll('details.hlp-smooth-details'));
+        detailsList.forEach(function(el) {
+          var summary = el.querySelector('summary');
+          var body = el.querySelector('.hlp-details-body');
+          if (!summary || !body) return;
+          var anim = null;
+          var isClosing = false;
+          var isExpanding = false;
+
+          summary.addEventListener('click', function(e) {
+            e.preventDefault();
+            el.style.overflow = 'hidden';
+            if (isClosing || !el.open) {
+              el.style.height = el.offsetHeight + 'px';
+              el.open = true;
+              window.requestAnimationFrame(function() {
+                isExpanding = true;
+                var startH = el.offsetHeight + 'px';
+                var endH = (summary.offsetHeight + body.offsetHeight) + 'px';
+                if (anim) anim.cancel();
+                anim = el.animate({ height: [startH, endH] }, { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+                anim.onfinish = function() {
+                  el.open = true;
+                  anim = null;
+                  isClosing = false;
+                  isExpanding = false;
+                  el.style.height = '';
+                  el.style.overflow = '';
+                };
+              });
+            } else if (isExpanding || el.open) {
+              isClosing = true;
+              var startH = el.offsetHeight + 'px';
+              var endH = summary.offsetHeight + 'px';
+              if (anim) anim.cancel();
+              anim = el.animate({ height: [startH, endH] }, { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+              anim.onfinish = function() {
+                el.open = false;
+                anim = null;
+                isClosing = false;
+                isExpanding = false;
+                el.style.height = '';
+                el.style.overflow = '';
+              };
+            }
+          });
+        });
+      }
     })();
   </script>
   `;
