@@ -888,12 +888,12 @@ body[data-tab="home"] .hero { padding: 14px 0 20px; }
 /* ---------- Anthropic-style Home Footer ---------- */
 .hm-footer {
   margin-top: 72px;
-  background: #141413;
+  background: #0f0f0e;
   color: #e8e6dc;
   border-top: 1px solid rgba(250, 249, 245, 0.08);
 }
 html.dark .hm-footer {
-  background: #181817;
+  background: #0e0e0d;
   border-top-color: rgba(250, 249, 245, 0.09);
 }
 .hm-footer-inner {
