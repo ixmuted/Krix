@@ -1092,7 +1092,7 @@ export function renderHelpCategoryPage(params: {
   return renderPageShell({
     title: `${category.shortTitle} - Help - Krix`,
     activeTab: "home",
-    width: "wide",
+    wide: true,
     content,
     owner: params.owner,
     nonce: params.nonce,
