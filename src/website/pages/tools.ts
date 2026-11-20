@@ -120,7 +120,7 @@ export function renderToolsPage(params: {
           <button type="button" id="densityVerboseBtn" class="nav-pill" onclick="setToolDensity('verbose')">Detailed</button>
         </div>
       </div>
-      <div class="category-filter-grid" style="margin:0;">
+      <div class="category-filter-grid">
         <button type="button" class="category-filter-pill active" data-cat="All" onclick="filterCategory('All', this)">All (${totalCount})</button>
         <button type="button" class="category-filter-pill" data-cat="Sandbox" onclick="filterCategory('Sandbox', this)">Sandbox (${categories["Sandbox"] || 0})</button>
         <button type="button" class="category-filter-pill" data-cat="Render" onclick="filterCategory('Render', this)">Render (${categories["Render"] || 0})</button>
