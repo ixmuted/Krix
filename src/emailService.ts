@@ -955,7 +955,7 @@ export async function sendOAuthClientSetupEmail(params: {
     ctaText: "Manage OAuth Clients",
     ctaUrl:
       process.env.PUBLIC_BASE_URL ||
-      "https://krix.onrender.com/settings/api-keys",
+      "https://krix.onrender.com/api",
   });
 
   return sendEmail({
