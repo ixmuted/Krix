@@ -482,19 +482,19 @@ function renderInfoTable(
   const renderedRows = rows
     .map(
       (r, idx) => `
-    <tr style="border-bottom:${idx === rows.length - 1 ? "none" : "1px solid #f0f0f2"};">
+    <tr style="border-bottom:${idx === rows.length - 1 ? "none" : "1px solid #eceae2"};">
       <td width="42" align="center" style="width:42px; min-width:42px; max-width:42px; padding:11px 0 11px 14px; vertical-align:middle; text-align:center;">
-        <span style="display:inline-block; width:26px; height:26px; border-radius:6px; background-color:#ffffff; border:1px solid #e4e4e7; text-align:center; line-height:24px; vertical-align:middle;">
+        <span style="display:inline-block; width:26px; height:26px; border-radius:6px; background-color:#ffffff; border:1px solid #e5e3db; text-align:center; line-height:24px; vertical-align:middle;">
           ${ICONS[r.icon] || ICONS.profile}
         </span>
       </td>
-      <td width="145" align="left" style="width:145px; min-width:145px; max-width:145px; padding:11px 10px 11px 8px; vertical-align:middle; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; font-weight:600; color:#71717a; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap;">
+      <td width="145" align="left" style="width:145px; min-width:145px; max-width:145px; padding:11px 10px 11px 8px; vertical-align:middle; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:11.5px; font-weight:600; color:#73726c; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;">
         ${escapeHtml(r.label)}
       </td>
-      <td align="left" style="padding:11px 16px 11px 4px; vertical-align:middle; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13.5px; color:#09090b; word-break:break-word; line-height:1.4;">
+      <td align="left" style="padding:11px 16px 11px 4px; vertical-align:middle; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13.5px; color:#141413; word-break:break-word; line-height:1.4;">
         ${
           r.isPill
-            ? `<span style="display:inline-block; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background-color:#f4f4f5; color:#09090b; border:1px solid #e4e4e7; padding:2px 8px; border-radius:9999px; line-height:1.4;">${escapeHtml(r.value)}</span>`
+            ? `<span style="display:inline-block; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background-color:#f0eee6; color:#141413; border:1px solid #e0ddd3; padding:2px 8px; border-radius:6px; line-height:1.4;">${escapeHtml(r.value)}</span>`
             : escapeHtml(r.value)
         }
       </td>
@@ -503,7 +503,7 @@ function renderInfoTable(
     .join("");
 
   return `
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; table-layout:fixed; background-color:#fafafa; border:1px solid #e4e4e7; border-radius:12px; margin:20px 0; overflow:hidden;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; table-layout:fixed; background-color:#faf9f5; border:1px solid #e5e3db; border-radius:12px; margin:20px 0; overflow:hidden;">
     ${renderedRows}
   </table>`;
 }
