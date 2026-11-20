@@ -511,6 +511,7 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
   .meta-sm { display: block; }
   .category-filter-grid { flex-wrap: nowrap; overflow-x: auto; margin-inline: -16px; padding-inline: 16px; scrollbar-width: none; }
   .panel .category-filter-grid { margin-inline: -20px; padding-inline: 20px; }
+  .panel.tools-toolbar-box .category-filter-grid { margin-inline: -16px; padding-inline: 16px; }
   .category-filter-grid::-webkit-scrollbar { display: none; }
   .category-filter-pill { flex-shrink: 0; height: 34px; }
   .panel.flush > .panel-head, .list-item { padding-left: 16px; padding-right: 16px; }
