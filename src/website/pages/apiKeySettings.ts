@@ -324,7 +324,7 @@ export function renderApiKeySettingsPage(params: {
           showGlobalMode
             ? `<div class="row">
           <div class="grow"><div class="row-title">Inherit global tool changes${globalLocked && globalMode === "follow" ? ` <span id="globalModeWorkspaceBadge" class="badge" style="margin-left:6px;">Locked by workspace</span>` : ""}</div><div class="row-desc">When off, global tool enables and disables won't affect this key.</div></div>
-          <label class="switch krix-switch" title="Toggle global tool inheritance"><input type="checkbox" id="globalModeToggle" ${inheritsGlobal ? "checked" : ""} aria-label="Inherit global tool changes"><span class="krix-slider"></span></label>
+          <button type="button" id="globalModeBtn" class="btn friendly-zone-btn" data-inherits="${inheritsGlobal ? "true" : "false"}" aria-label="Inherit global tool changes">${renderSvg(inheritsGlobal ? "lock" : "unlock", 15)}<span>${inheritsGlobal ? "Disable" : "Enable"}</span></button>
         </div>`
             : ""
         }
@@ -476,14 +476,14 @@ export function renderApiKeySettingsPage(params: {
         }
       }
       const workspaceGlobalLocked = ${globalLocked ? "true" : "false"};
-      const globalModeToggle = document.getElementById('globalModeToggle');
-      if (globalModeToggle) {
-        globalModeToggle.addEventListener('change', async () => {
-          const nextChecked = globalModeToggle.checked;
-          const mode = nextChecked === !workspaceGlobalLocked
+      const globalModeBtn = document.getElementById('globalModeBtn');
+      if (globalModeBtn) {
+        globalModeBtn.addEventListener('click', async () => {
+          const nextInherits = globalModeBtn.dataset.inherits !== 'true';
+          const mode = nextInherits === !workspaceGlobalLocked
             ? 'follow'
-            : (nextChecked ? 'accept' : 'block');
-          globalModeToggle.disabled = true;
+            : (nextInherits ? 'accept' : 'block');
+          globalModeBtn.disabled = true;
           try {
             const res = await fetch('/settings/api/key-global-mode', {
               method: 'POST',
@@ -492,13 +492,14 @@ export function renderApiKeySettingsPage(params: {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) throw new Error(data.error || 'Could not update this key.');
+            globalModeBtn.dataset.inherits = data.accepts ? 'true' : 'false';
+            globalModeBtn.innerHTML = (data.accepts ? LOCK_SVG : UNLOCK_SVG) + '<span>' + (data.accepts ? 'Disable' : 'Enable') + '</span>';
             showToast(data.accepts ? 'This key now inherits global tool changes' : 'This key now ignores global tool changes', 'success');
             setTimeout(() => location.reload(), 500);
           } catch (err) {
-            globalModeToggle.checked = !nextChecked;
             showToast(err.message || 'Could not update this key.', 'error');
           } finally {
-            globalModeToggle.disabled = false;
+            globalModeBtn.disabled = false;
           }
         });
       }
