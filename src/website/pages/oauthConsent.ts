@@ -151,6 +151,7 @@ export function renderOAuthConsentPage(params: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Authorize Connection - Krix</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg?v=4">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
   <script nonce="${escapeHtml(params.nonce || "")}">
     function toggleOAuthScopes() {
@@ -226,7 +227,7 @@ export function renderOAuthConsentPage(params: {
         <span class="beam-segment"></span>${renderSvg("link", 16)}<span class="beam-segment"></span>
       </div>
       <div class="oauth-avatar-card">
-        <img src="/icon-512.png?v=3" srcset="/icon-128.png?v=3 1x, /icon-512.png?v=3 2x" width="60" height="60" alt="Krix">
+        <img src="/logo.svg?v=4" width="60" height="60" alt="Krix">
       </div>
     </div>
 

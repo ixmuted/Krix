@@ -19,6 +19,7 @@ export function renderNotFoundPage(params: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>404 Not Found</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg?v=4">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
   <script>
     (function () {
