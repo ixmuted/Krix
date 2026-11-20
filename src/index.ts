@@ -1124,13 +1124,18 @@ async function authenticate(
     // 3. Check Primary master key from environment
     if (MCP_API_KEY && safeEqual(clientKey, MCP_API_KEY)) {
       failedAuthLimiter.reset(ip);
+      const primaryEmail =
+        process.env.OWNER_EMAIL ||
+        process.env.GOOGLE_ALLOWED_EMAIL ||
+        "owner@localhost";
+      if (isAccountScheduledForDeletion(primaryEmail)) {
+        rejectScheduledDeletion(res);
+        return;
+      }
       (req as any).clientAuth = {
         keyId: "primary-key",
         label: "Primary Key",
-        email:
-          process.env.OWNER_EMAIL ||
-          process.env.GOOGLE_ALLOWED_EMAIL ||
-          "owner@localhost",
+        email: primaryEmail,
         type: "master_key",
       };
       next();
