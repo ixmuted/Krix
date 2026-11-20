@@ -212,7 +212,7 @@ describe("Clean-Room Modular UI (src/website/) Quality Gates", () => {
     assert.match(html, /Authorize Connection/);
     assert.match(html, /Google Gemini Desktop/);
     assert.match(html, /gemini\.google\.com/);
-    assert.match(html, /\/icon-512\.png\?v=3/);
+    assert.match(html, /\/logo\.svg\?v=4/);
     assert.match(html, /handshake-beam/);
     // Zero operation words
     assert.doesNotMatch(html, /operational/i);

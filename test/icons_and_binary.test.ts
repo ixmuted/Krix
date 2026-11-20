@@ -217,7 +217,7 @@ describe('Icons and Asset Metadata', () => {
 
   test('Local asset files exist and have valid non-zero content with proper dimensions', () => {
     const assetsDir = path.resolve(process.cwd(), 'assets');
-    const files = ['icon-48.png', 'icon-128.png', 'logo.png', 'favicon.ico'];
+    const files = ['icon-48.png', 'icon-128.png', 'logo.png', 'logo.svg', 'favicon.ico'];
 
     for (const file of files) {
       const fullPath = path.join(assetsDir, file);
@@ -229,6 +229,8 @@ describe('Icons and Asset Metadata', () => {
       if (file.endsWith('.png')) {
         const pngMagic = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
         assert.deepEqual(buf.subarray(0, 8), pngMagic, `${file} must have valid PNG magic bytes`);
+      } else if (file.endsWith('.svg')) {
+        assert.ok(buf.toString('utf8').includes('<svg'), `${file} must contain valid SVG markup`);
       } else if (file.endsWith('.ico')) {
         // ICO magic: 0x00 0x00 0x01 0x00
         const icoMagic = Buffer.from([0x00, 0x00, 0x01, 0x00]);

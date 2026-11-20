@@ -181,7 +181,7 @@ describe("New Features & UI Polish Verification", () => {
       "Must display client name",
     );
     assert.ok(html.includes("handshake-beam"), "Must feature handshake beam");
-    assert.ok(html.includes("/icon-512.png?v=3"), "Must feature high-res Krix logo");
+    assert.ok(html.includes("/logo.svg?v=4"), "Must feature vector Krix logo");
     assert.ok(
       html.includes("/privacy"),
       "Must include Privacy Policy button/link",
