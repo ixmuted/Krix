@@ -2663,6 +2663,11 @@ app.post("/api/account/delete", async (req, res) => {
   const gracePeriodDays = 30;
   const schedule = scheduleAccountDeletion(email, gracePeriodDays);
 
+  // Immediately terminate active MCP sessions for all keys owned by this account
+  for (const keyId of ownedStatsKeyIds(email)) {
+    refreshSessionsForKey(keyId);
+  }
+
   // Send security email notifying of scheduled deletion with 30-day countdown
   sendAccountDeletedEmail({
     email,
