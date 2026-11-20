@@ -141,7 +141,7 @@ export function renderGoogleLogoSvg(size: number = 18): string {
 }
 
 export function getCanonicalLogoUrl(): string {
-  return "/icon-192.png?v=3";
+  return "/logo.svg?v=4";
 }
 
 const APP_FAVICON_HOSTS: Array<[string[], string]> = [

@@ -258,6 +258,7 @@ export function renderPageShell(options: PageShellOptions): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>${pageTitle}</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg?v=4">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png?v=3">
