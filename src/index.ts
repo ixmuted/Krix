@@ -1107,6 +1107,10 @@ async function authenticate(
         rejectDisabledKey(res);
         return;
       }
+      if (dynEntry.email && isAccountScheduledForDeletion(dynEntry.email)) {
+        rejectScheduledDeletion(res);
+        return;
+      }
       (req as any).clientAuth = {
         keyId: dynEntry.id,
         label: dynEntry.label,
