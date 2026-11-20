@@ -1,13 +1,16 @@
 // Help Center & Category Documentation Pages for Krix MCP Gateway
-// Modeled on the homepage visual system (.hm) with detailed tool references,
-// user-facing account limits, and zero internal security implementation leakage.
+// Homepage-matched (.hm) visual system, 17 custom editorial SVG graphics,
+// smooth accordion & scroll-reveal animations, clean bulleted TOCs, and detailed tool references.
 
 import { escapeHtml, renderPageShell } from "../components.js";
 import { renderSvg } from "../icons.js";
+import { renderHelpGraphic } from "./helpGraphics.js";
 
 export interface HelpSection {
   id: string;
   title: string;
+  badge?: string;
+  graphic?: string;
   render: (ctx: { base: string; mcpUrl: string }) => string;
 }
 
@@ -56,25 +59,6 @@ function editorialNote(
     </div>`;
 }
 
-function renderHelpSpotIllustration(): string {
-  return `<svg class="hlp-spot-svg" viewBox="0 0 260 210" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <circle cx="132" cy="106" r="84" fill="var(--bg-surface-2)" />
-    <path d="M48 142 C66 108, 94 82, 130 76 C164 70, 188 92, 206 68" stroke="#d97757" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="4 5"/>
-    <rect x="42" y="56" width="84" height="58" rx="12" fill="var(--bg-surface-0)" stroke="var(--border-medium)" stroke-width="1.5"/>
-    <line x1="58" y1="76" x2="108" y2="76" stroke="var(--fg)" stroke-width="2" stroke-linecap="round"/>
-    <line x1="58" y1="88" x2="98" y2="88" stroke="var(--fg-3)" stroke-width="1.6" stroke-linecap="round"/>
-    <line x1="58" y1="98" x2="86" y2="98" stroke="var(--fg-3)" stroke-width="1.6" stroke-linecap="round"/>
-    <rect x="124" y="98" width="92" height="64" rx="14" fill="#141413" stroke="rgba(250,249,245,0.16)" stroke-width="1.5"/>
-    <circle cx="140" cy="114" r="3" fill="#d97757"/>
-    <circle cx="150" cy="114" r="3" fill="#b0aea5"/>
-    <circle cx="160" cy="114" r="3" fill="#788c5d"/>
-    <path d="M139 132 L149 139 L139 146" stroke="#d97757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <line x1="156" y1="146" x2="188" y2="146" stroke="#faf9f5" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="196" cy="50" r="15" fill="var(--accent-soft)" stroke="#d97757" stroke-width="1.5"/>
-    <path d="M191 50 H201 M196 45 V55" stroke="#d97757" stroke-width="1.8" stroke-linecap="round"/>
-  </svg>`;
-}
-
 export const HELP_CATEGORIES: HelpCategory[] = [
   {
     slug: "getting-started",
@@ -87,7 +71,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
       "Connect any Streamable HTTP MCP client, desktop editor, or CLI agent to Krix and verify your first tool call.",
     readTime: "4 min read",
     topics: [
-      "Streamable HTTP endpoint (/mcp)",
+      "Streamable HTTP endpoint",
       "Desktop, IDE, and CLI configurations",
       "OAuth 2.1 automatic discovery",
       "Testing your first tool call",
@@ -97,7 +81,8 @@ export const HELP_CATEGORIES: HelpCategory[] = [
     sections: [
       {
         id: "endpoint",
-        title: "1. Streamable HTTP endpoint",
+        title: "Streamable HTTP endpoint",
+        graphic: "transport-flow",
         render: ({ mcpUrl }) => `
           <p>Krix serves the Model Context Protocol over <strong>Streamable HTTP</strong> at <code class="inline-code">POST/GET /mcp</code>. Any MCP-compatible desktop editor, web assistant, or terminal agent connects using this single HTTPS endpoint.</p>
           ${darkCodeBlock(
@@ -115,7 +100,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "client-configs",
-        title: "2. Client configuration templates",
+        title: "Client configuration templates",
+        graphic: "oauth-handshake",
         render: ({ mcpUrl }) => `
           <p>If your client supports <strong>OAuth 2.1 discovery</strong>, paste only the <code class="inline-code">/mcp</code> URL and approve access in the browser consent dialog—no manual key header is needed. For static API key connections, use one of the standard templates below.</p>
           <div class="ant-two-col">
@@ -155,7 +141,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "first-call",
-        title: "3. Verify your connection",
+        title: "Verify your connection",
+        graphic: "verify-call",
         render: () => `
           <p>Once connected, run a quick health check through your assistant or test any enabled tool directly in the browser from the <a class="ant-link" href="/tools">Tools catalog</a>:</p>
           <ul>
@@ -188,20 +175,21 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     sections: [
       {
         id: "create-krix-key",
-        title: "1. Creating a Krix API key",
+        title: "Creating a Krix API key",
+        graphic: "keys-separation",
         render: () => `
           <p>Krix separates <strong>gateway API keys</strong> (used by your MCP client to authenticate with Krix) from <strong>provider tokens</strong> (your GitHub or Render credentials used when Krix calls external APIs on your behalf).</p>
           <ol>
             <li><strong>Sign in:</strong> Open <a class="ant-link" href="/auth/google">Sign in</a> to initialize your isolated workspace and storage quota.</li>
             <li><strong>Open API keys:</strong> Navigate to <a class="ant-link" href="/api">API keys</a> and click <strong>Create API Key</strong>.</li>
-            <li><strong>Label the key:</strong> Name each key by device or purpose (for example, <em>Laptop Editor</em> or <em>Docs Automation</em>) so you can track usage in <a class="ant-link" href="/stats">Usage</a> and revoke individually.</li>
+            <li><strong>Label the key:</strong> Name each key by device or purpose so you can track usage in <a class="ant-link" href="/stats">Usage</a> and revoke individually.</li>
             <li><strong>Store securely:</strong> Copy the key once and add it to your client's <code class="inline-code">Authorization: Bearer</code> or <code class="inline-code">x-api-key</code> header.</li>
           </ol>
         `,
       },
       {
         id: "add-provider-tokens",
-        title: "2. Adding GitHub and Render tokens",
+        title: "Adding GitHub and Render tokens",
         render: () => `
           <p>GitHub and Render tools remain hidden until a valid token is saved, so your assistant never encounters broken authentication errors. You can configure credentials in two ways:</p>
           <div class="ant-two-col">
@@ -223,20 +211,21 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "precedence",
-        title: "3. How tool permissions work",
+        title: "How tool permissions work",
+        graphic: "permission-cascade",
         render: () => `
           <p>Tool availability is evaluated consistently across client discovery, tool execution, OAuth consent, and the Settings dashboard:</p>
           <ol>
             <li><strong>Credential requirements:</strong> GitHub and Render tools only activate when their respective token is present.</li>
             <li><strong>Per-key toggles:</strong> Custom enable/disable rules on an individual API key override your workspace defaults for that key alone.</li>
             <li><strong>Workspace settings:</strong> Your account-level toggles in <a class="ant-link" href="/settings">Settings</a> apply to all keys that inherit workspace configuration.</li>
-            <li><strong>Starting defaults:</strong> Sandbox (15) and Core GitHub (17) tools start enabled. Extended GitHub (34), Render (21), and Code Graph (30) start off until you switch them on.</li>
+            <li><strong>Starting defaults:</strong> Sandbox and Core GitHub tools start enabled. Extended GitHub, Render, and Code Graph start off until you switch them on.</li>
           </ol>
         `,
       },
       {
         id: "oauth-and-revocation",
-        title: "4. OAuth 2.1 connections and revocation",
+        title: "OAuth 2.1 connections and revocation",
         render: () => `
           <p>Clients that support OAuth 2.1 connect through a standard browser consent screen showing the requesting application and scopes (<code class="inline-code">mcp:tools</code>, <code class="inline-code">mcp:sandbox</code>, <code class="inline-code">mcp:admin</code>).</p>
           <p style="margin-top:10px;">You can revoke any API key or connected OAuth client at any time from <a class="ant-link" href="/api">API keys</a>. Revocation takes effect immediately and clears cached telemetry for that key.</p>
@@ -256,8 +245,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     readTime: "7 min read",
     topics: [
       "Token setup & recommended scopes",
-      "17 core tools (default enabled)",
-      "34 extended tools (issues, PRs, releases, teams)",
+      "Core browsing & editing tools",
+      "Extended issues, PRs, releases & teams",
       "Surgical editing workflow",
     ],
     keywords:
@@ -265,7 +254,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     sections: [
       {
         id: "github-setup",
-        title: "1. Token setup",
+        title: "Token setup",
+        graphic: "github-explore",
         render: () => `
           <p>Create a <strong>Fine-Grained Personal Access Token</strong> in GitHub scoped only to the repositories you want to work on (with <em>Contents: Read &amp; Write</em> and <em>Pull Requests: Read &amp; Write</em>, plus <em>Issues</em> if using extended tools), or a Classic PAT with <code class="inline-code">repo</code> scope.</p>
           <p style="margin-top:10px;">Save the token in <a class="ant-link" href="/settings">Settings</a> or on a dedicated key in <a class="ant-link" href="/api">API keys</a>. All GitHub tools automatically fall back to the default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> set via <code class="inline-code">set_active_context</code>.</p>
@@ -273,7 +263,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "github-core-read",
-        title: "2. Core tools: Context, browsing & search (8 tools — enabled by default)",
+        title: "Context, browsing & search",
+        badge: "8 tools · Enabled",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -296,7 +287,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "github-core-write",
-        title: "3. Core tools: Editing, branches & pull requests (9 tools — enabled by default)",
+        title: "Editing, branches & pull requests",
+        badge: "9 tools · Enabled",
+        graphic: "github-pr-flow",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -325,7 +318,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "github-extended",
-        title: "4. Extended GitHub tools (34 tools — opt-in in Settings)",
+        title: "Extended GitHub tools",
+        badge: "34 tools · Opt-in",
+        graphic: "github-extended",
         render: () => `
           <p>Switch on Extended GitHub in <a class="ant-link" href="/settings">Settings</a> (or per API key) to enable full issue tracking, PR review threads, releases, and repository administration:</p>
           <div class="ant-table-wrap" style="margin-top:14px;">
@@ -335,23 +330,23 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>Issues &amp; sub-issues (6)</strong></td>
+                  <td><strong>Issues &amp; sub-issues</strong></td>
                   <td><code class="inline-code">list_issues</code>, <code class="inline-code">issue_read</code>, <code class="inline-code">issue_write</code>, <code class="inline-code">sub_issue_write</code>, <code class="inline-code">add_issue_comment</code>, <code class="inline-code">search_issues</code></td>
                 </tr>
                 <tr>
-                  <td><strong>Pull requests &amp; reviews (9)</strong></td>
+                  <td><strong>Pull requests &amp; reviews</strong></td>
                   <td><code class="inline-code">list_pull_requests</code>, <code class="inline-code">pull_request_read</code>, <code class="inline-code">update_pull_request</code>, <code class="inline-code">update_pull_request_branch</code>, <code class="inline-code">merge_pull_request</code>, <code class="inline-code">pull_request_review_write</code>, <code class="inline-code">add_comment_to_pending_review</code>, <code class="inline-code">add_reply_to_pull_request_comment</code>, <code class="inline-code">search_pull_requests</code></td>
                 </tr>
                 <tr>
-                  <td><strong>Commits, releases, tags &amp; labels (10)</strong></td>
+                  <td><strong>Commits, releases, tags &amp; labels</strong></td>
                   <td><code class="inline-code">get_commit</code>, <code class="inline-code">search_commits</code>, <code class="inline-code">list_commits</code>, <code class="inline-code">get_label</code>, <code class="inline-code">list_issue_fields</code>, <code class="inline-code">list_issue_types</code>, <code class="inline-code">get_release</code>, <code class="inline-code">list_releases</code>, <code class="inline-code">get_tag</code>, <code class="inline-code">list_tags</code></td>
                 </tr>
                 <tr>
-                  <td><strong>Teams &amp; collaborators (4)</strong></td>
+                  <td><strong>Teams &amp; collaborators</strong></td>
                   <td><code class="inline-code">get_teams</code>, <code class="inline-code">get_team_members</code>, <code class="inline-code">list_repository_collaborators</code>, <code class="inline-code">search_users</code></td>
                 </tr>
                 <tr>
-                  <td><strong>Repository &amp; automation (5)</strong></td>
+                  <td><strong>Repository &amp; automation</strong></td>
                   <td><code class="inline-code">create_repository</code>, <code class="inline-code">fork_repository</code>, <code class="inline-code">run_secret_scanning</code>, plus automated PR review and issue assignment tools.</td>
                 </tr>
               </tbody>
@@ -372,9 +367,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       "Full reference for all 15 sandbox tools: multi-language execution, persistent shell, file editing, package installs, background jobs, and local git.",
     readTime: "6 min read",
     topics: [
-      "11+ pre-installed language runtimes",
-      "Execution, files & package tools (8)",
-      "Local git workflow tools (6)",
+      "Pre-installed language runtimes",
+      "Execution, files & package tools",
+      "Local git workflow tools",
       "Cloud file sharing & workspace lifecycle",
     ],
     keywords:
@@ -382,7 +377,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     sections: [
       {
         id: "sandbox-runtimes",
-        title: "1. Pre-installed language runtimes",
+        title: "Pre-installed language runtimes",
+        graphic: "sandbox-runtime",
         render: () => `
           <p>Every account runs inside a dedicated, isolated Linux workspace with a persistent working directory and pre-installed developer toolchains:</p>
           <div class="ant-chips">
@@ -402,7 +398,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "sandbox-exec-tools",
-        title: "2. Execution, files & process management (8 tools)",
+        title: "Execution, files & process management",
+        badge: "8 tools · Enabled",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -425,7 +422,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "sandbox-git-tools",
-        title: "3. Local git synchronization (6 tools) & file store (1 tool)",
+        title: "Local git & cloud file store",
+        badge: "7 tools · Enabled",
+        graphic: "sandbox-git",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -464,16 +463,16 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     readTime: "5 min read",
     topics: [
       "Connecting your Render API key",
-      "Workspaces & service lifecycle (10)",
-      "Deploys, logs & metrics (7)",
-      "Environment variables & Postgres (4)",
+      "Workspaces & service lifecycle",
+      "Deploys, logs & metrics",
+      "Environment variables & Postgres",
     ],
     keywords:
       "render workspace list_services create_web_service create_static_site create_cron_job trigger_deploy cancel_deploy list_logs get_metrics update_env_vars delete_env_var query_render_postgres",
     sections: [
       {
         id: "render-setup",
-        title: "1. Enabling Render tools",
+        title: "Enabling Render tools",
         render: () => `
           <p>Render tools start <strong>disabled by default</strong> until you connect a Render API key and switch them on:</p>
           <ol>
@@ -485,7 +484,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "render-services",
-        title: "2. Workspaces, services & deployments (14 tools)",
+        title: "Workspaces, services & deployments",
+        badge: "14 tools · Opt-in",
+        graphic: "render-cloud",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -494,15 +495,15 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>Workspaces (3)</strong></td>
+                  <td><strong>Workspaces</strong></td>
                   <td><code class="inline-code">list_workspaces</code>, <code class="inline-code">select_workspace</code>, and <code class="inline-code">get_selected_workspace</code> to scope operations to the right Render team.</td>
                 </tr>
                 <tr>
-                  <td><strong>Services (7)</strong></td>
+                  <td><strong>Services</strong></td>
                   <td><code class="inline-code">list_services</code>, <code class="inline-code">get_service</code>, <code class="inline-code">create_web_service</code>, <code class="inline-code">create_static_site</code>, <code class="inline-code">create_cron_job</code>, <code class="inline-code">restart_service</code>, and <code class="inline-code">delete_service</code>.</td>
                 </tr>
                 <tr>
-                  <td><strong>Deployments (4)</strong></td>
+                  <td><strong>Deployments</strong></td>
                   <td><code class="inline-code">list_deploys</code>, <code class="inline-code">get_deploy</code>, <code class="inline-code">trigger_deploy</code>, and <code class="inline-code">cancel_deploy</code>.</td>
                 </tr>
               </tbody>
@@ -512,7 +513,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "render-obs-data",
-        title: "3. Logs, metrics, env vars & Postgres (7 tools)",
+        title: "Logs, metrics, env vars & Postgres",
+        badge: "7 tools · Opt-in",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -560,7 +562,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     sections: [
       {
         id: "cg-indexing",
-        title: "1. Indexing & watching repositories",
+        title: "Indexing & watching repositories",
+        badge: "Opt-in",
+        graphic: "code-graph-net",
         render: () => `
           <p>The Code Graph tool group starts <strong>off by default</strong>. Enable it in <a class="ant-link" href="/settings">Settings</a> whenever you need structural impact analysis across multi-file codebases.</p>
           <div class="ant-table-wrap" style="margin-top:14px;">
@@ -581,7 +585,7 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "cg-analysis",
-        title: "2. Relationships, quality audits & web search",
+        title: "Relationships, quality audits & web search",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -614,9 +618,9 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       "Upload local datasets into your sandbox via /upload, share outputs from the sandbox via sandbox_store, and manage retention in /store.",
     readTime: "4 min read",
     topics: [
-      "Web upload sessions (/upload -> upload/)",
+      "Web upload sessions",
       "sandbox_file vs. sandbox_store",
-      "Expiring vs. permanent files in /store",
+      "Expiring vs. permanent files",
       "Private and public download links",
     ],
     keywords:
@@ -624,7 +628,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     sections: [
       {
         id: "upload-vs-store",
-        title: "1. Web uploads vs. saved files",
+        title: "Web uploads vs. saved files",
+        graphic: "files-lifecycle",
         render: () => `
           <div class="ant-two-col">
             <div class="ant-col-block">
@@ -640,7 +645,7 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "store-actions",
-        title: "2. sandbox_store actions",
+        title: "sandbox_store actions",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -685,7 +690,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
     sections: [
       {
         id: "security",
-        title: "1. How your account is protected",
+        title: "How your account is protected",
+        graphic: "security-shield",
         render: () => `
           <div class="ant-two-col">
             <div class="ant-col-block">
@@ -709,7 +715,8 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "quotas",
-        title: "2. Account limits & data lifecycle",
+        title: "Account limits & data lifecycle",
+        graphic: "limits-gauge",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -740,7 +747,7 @@ Header:  Authorization: Bearer YOUR_KRIX_API_KEY
       },
       {
         id: "troubleshooting",
-        title: "3. Troubleshooting common errors",
+        title: "Troubleshooting common errors",
         render: () => `
           <div class="ant-table-wrap">
             <table class="ant-table">
@@ -770,6 +777,9 @@ function renderHelpScripts(nonce?: string): string {
   const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : "";
   return `<script${nonceAttr}>
 (function () {
+  var prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* 1. CSP-safe copy buttons */
   document.addEventListener("click", function (ev) {
     var btn = ev.target && ev.target.closest ? ev.target.closest(".doc-copy-btn") : null;
     if (!btn) return;
@@ -789,6 +799,7 @@ function renderHelpScripts(nonce?: string): string {
     }
   });
 
+  /* 2. Live guide search */
   var searchInput = document.getElementById("helpSearchInput");
   if (searchInput) {
     var cards = Array.prototype.slice.call(document.querySelectorAll("[data-help-card]"));
@@ -807,6 +818,73 @@ function renderHelpScripts(nonce?: string): string {
       if (countEl) countEl.textContent = visible + " of " + cards.length + " guides";
     };
     searchInput.addEventListener("input", filter);
+  }
+
+  /* 3. Smooth animated <details> accordions (FAQ & mobile TOC) */
+  if (!prefersReduced && typeof Element.prototype.animate === "function") {
+    var detailsList = Array.prototype.slice.call(document.querySelectorAll("details.hlp-smooth-details"));
+    detailsList.forEach(function (el) {
+      var summary = el.querySelector("summary");
+      var body = el.querySelector(".hlp-details-body");
+      if (!summary || !body) return;
+      var anim = null;
+      var isClosing = false;
+      var isExpanding = false;
+
+      summary.addEventListener("click", function (e) {
+        e.preventDefault();
+        el.style.overflow = "hidden";
+        if (isClosing || !el.open) {
+          el.style.height = el.offsetHeight + "px";
+          el.open = true;
+          window.requestAnimationFrame(function () {
+            isExpanding = true;
+            var startH = el.offsetHeight + "px";
+            var endH = (summary.offsetHeight + body.offsetHeight) + "px";
+            if (anim) anim.cancel();
+            anim = el.animate({ height: [startH, endH] }, { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+            anim.onfinish = function () {
+              el.open = true;
+              anim = null;
+              isClosing = false;
+              isExpanding = false;
+              el.style.height = "";
+              el.style.overflow = "";
+            };
+          });
+        } else if (isExpanding || el.open) {
+          isClosing = true;
+          var startH = el.offsetHeight + "px";
+          var endH = summary.offsetHeight + "px";
+          if (anim) anim.cancel();
+          anim = el.animate({ height: [startH, endH] }, { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+          anim.onfinish = function () {
+            el.open = false;
+            anim = null;
+            isClosing = false;
+            isExpanding = false;
+            el.style.height = "";
+            el.style.overflow = "";
+          };
+        }
+      });
+    });
+  }
+
+  /* 4. Smooth scroll reveal for sections, cards, and diagrams */
+  var revealNodes = Array.prototype.slice.call(document.querySelectorAll("[data-reveal]"));
+  if (prefersReduced || typeof IntersectionObserver === "undefined") {
+    revealNodes.forEach(function (n) { n.classList.add("is-visible"); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: "0px 0px -24px 0px" });
+    revealNodes.forEach(function (n) { io.observe(n); });
   }
 })();
 </script>`;
@@ -833,7 +911,7 @@ export function renderHelpPage(params: {
       .map((t) => `<li>${escapeHtml(t)}</li>`)
       .join("");
     return `
-      <a href="/help/${escapeHtml(cat.slug)}" class="hlp-card" data-help-card data-search="${escapeHtml(searchIndex)}">
+      <a href="/help/${escapeHtml(cat.slug)}" class="hlp-card hlp-reveal" data-reveal data-help-card data-search="${escapeHtml(searchIndex)}">
         <div class="hlp-card-top">
           <span class="feature-icon">${renderSvg(cat.icon, 18)}</span>
           <span class="badge">${escapeHtml(cat.badge)}</span>
@@ -866,15 +944,15 @@ export function renderHelpPage(params: {
         </div>
       </div>
       <div class="hm-art hlp-hero-art">
-        ${renderHelpSpotIllustration()}
+        ${renderHelpGraphic("hero")}
       </div>
     </section>
 
-    <section class="hm-stats" aria-label="Documentation overview">
+    <section class="hm-stats hlp-reveal" data-reveal aria-label="Documentation overview">
       ${stats.map((s) => `<div class="hm-stat"><div class="hm-stat-n">${s[0]}</div><div class="hm-stat-l">${escapeHtml(s[1])}</div></div>`).join("")}
     </section>
 
-    <section class="hlp-transport" aria-label="Streamable HTTP Transport">
+    <section class="hlp-transport hlp-reveal" data-reveal aria-label="Streamable HTTP Transport">
       <div class="hlp-transport-copy">
         <div class="hm-eyebrow">Streamable HTTP Transport</div>
         <h2 class="hlp-transport-title">Connect over one authenticated endpoint</h2>
@@ -901,13 +979,14 @@ export function renderHelpPage(params: {
       </div>
     </section>
 
-    <section>
+    <section class="hlp-reveal" data-reveal>
       <div class="hm-sec-head">
         <div class="hm-eyebrow">Keys &amp; credentials</div>
         <h2 class="hm-h2">Add your keys in three steps</h2>
         <p class="hm-sub">Create a Krix key for your client, then attach optional GitHub or Render tokens.</p>
       </div>
-      <div class="hm-steps">
+      <div class="hlp-graphic-frame">${renderHelpGraphic("hub-keys-banner")}</div>
+      <div class="hm-steps" style="margin-top:16px;">
         <div class="hm-step">
           <div class="hm-step-n">01</div>
           <h3>Create a Krix API key</h3>
@@ -921,7 +1000,7 @@ export function renderHelpPage(params: {
         <div class="hm-step">
           <div class="hm-step-n">03</div>
           <h3>Enable tool groups</h3>
-          <p>Sandbox (15) and core GitHub (17) tools start enabled. Switch extended GitHub, Render, or Code Graph on in Settings.</p>
+          <p>Sandbox and core GitHub tools start enabled. Switch extended GitHub, Render, or Code Graph on in Settings.</p>
         </div>
       </div>
     </section>
@@ -944,7 +1023,7 @@ export function renderHelpPage(params: {
       </div>
     </section>
 
-    <section aria-labelledby="help-defaults-heading">
+    <section class="hlp-reveal" data-reveal aria-labelledby="help-defaults-heading">
       <div class="hm-sec-head">
         <div class="hm-eyebrow">Defaults</div>
         <h2 id="help-defaults-heading" class="hm-h2">Tool availability by group</h2>
@@ -970,14 +1049,14 @@ export function renderHelpPage(params: {
                 <td><a class="ant-link" href="/help/sandbox">Sandbox</a></td>
               </tr>
               <tr>
-                <td><strong>GitHub (Core)</strong></td>
+                <td><strong>GitHub Core</strong></td>
                 <td>17</td>
                 <td><span class="badge success">Enabled</span></td>
                 <td>GitHub PAT in Settings</td>
                 <td><a class="ant-link" href="/help/github">GitHub</a></td>
               </tr>
               <tr>
-                <td><strong>GitHub (Extended)</strong></td>
+                <td><strong>GitHub Extended</strong></td>
                 <td>34</td>
                 <td><span class="badge">Opt-in</span></td>
                 <td>GitHub PAT + Settings toggle</td>
@@ -1003,32 +1082,32 @@ export function renderHelpPage(params: {
       </div>
     </section>
 
-    <section aria-labelledby="help-faq-heading">
+    <section class="hlp-reveal" data-reveal aria-labelledby="help-faq-heading">
       <div class="hm-sec-head">
         <div class="hm-eyebrow">FAQ</div>
         <h2 id="help-faq-heading" class="hm-h2">Common questions</h2>
       </div>
       <div class="hm-faq">
-        <details class="hm-faq-item">
+        <details class="hm-faq-item hlp-smooth-details">
           <summary>Why do some tools not appear in my client?</summary>
-          <p>Krix lists only tools that are enabled and have valid credentials. Extended GitHub, Render, and Code Graph start disabled—turn them on in Settings (or per key) and confirm your GitHub or Render token is saved.</p>
+          <div class="hlp-details-body"><p>Krix lists only tools that are enabled and have valid credentials. Extended GitHub, Render, and Code Graph start disabled—turn them on in Settings (or per key) and confirm your GitHub or Render token is saved.</p></div>
         </details>
-        <details class="hm-faq-item">
+        <details class="hm-faq-item hlp-smooth-details">
           <summary>Can different API keys use different GitHub or Render tokens?</summary>
-          <p>Yes. Open any key on API keys to set per-key credentials and tool overrides. Keys without overrides inherit your workspace settings.</p>
+          <div class="hlp-details-body"><p>Yes. Open any key on API keys to set per-key credentials and tool overrides. Keys without overrides inherit your workspace settings.</p></div>
         </details>
-        <details class="hm-faq-item">
+        <details class="hm-faq-item hlp-smooth-details">
           <summary>How are my credentials and workspace protected?</summary>
-          <p>Provider tokens are strongly encrypted at rest, automatically filtered from tool outputs, and never exposed inside sandbox environments. Every account runs in an isolated workspace separate from other users.</p>
+          <div class="hlp-details-body"><p>Provider tokens are strongly encrypted at rest, automatically filtered from tool outputs, and never exposed inside sandbox environments. Every account runs in an isolated workspace separate from other users.</p></div>
         </details>
-        <details class="hm-faq-item">
+        <details class="hm-faq-item hlp-smooth-details">
           <summary>How long are uploaded and shared files retained?</summary>
-          <p>Web uploads clear automatically after 24 hours, and shared links expire unless you mark a file Permanent in Files. Idle cloned repositories clear after 30 minutes.</p>
+          <div class="hlp-details-body"><p>Web uploads clear automatically after 24 hours, and shared links expire unless you mark a file Permanent in Files. Idle cloned repositories clear after 30 minutes.</p></div>
         </details>
       </div>
     </section>
 
-    <section class="hm-final">
+    <section class="hm-final hlp-reveal" data-reveal>
       <h2 class="hm-h2">Ready to configure your workspace?</h2>
       <p class="hm-sub">Generate an API key, review available tools, or read our security and legal policies.</p>
       <div class="hm-cta" style="justify-content:center;">
@@ -1079,25 +1158,22 @@ export function renderHelpCategoryPage(params: {
       </a>`,
   ).join("");
 
-  const tocLinks = category.sections
+  const tocBullets = category.sections
     .map(
       (s) =>
-        `<a href="#${escapeHtml(s.id)}" class="ant-rail-link">${escapeHtml(s.title)}</a>`,
-    )
-    .join("");
-
-  const jumpPills = category.sections
-    .map(
-      (s) =>
-        `<a href="#${escapeHtml(s.id)}" class="hlp-jump-pill">${escapeHtml(s.title)}</a>`,
+        `<li><a href="#${escapeHtml(s.id)}" class="hlp-toc-link">${escapeHtml(s.title)}</a></li>`,
     )
     .join("");
 
   const sectionsHtml = category.sections
     .map(
       (s) => `
-      <section id="${escapeHtml(s.id)}" class="ant-chapter prose">
-        <h2>${escapeHtml(s.title)}</h2>
+      <section id="${escapeHtml(s.id)}" class="ant-chapter prose hlp-reveal" data-reveal>
+        <div class="hlp-chapter-head">
+          <h2>${escapeHtml(s.title)}</h2>
+          ${s.badge ? `<span class="badge">${escapeHtml(s.badge)}</span>` : ""}
+        </div>
+        ${s.graphic ? `<div class="hlp-graphic-frame">${renderHelpGraphic(s.graphic)}</div>` : ""}
         ${s.render({ base, mcpUrl })}
       </section>`,
     )
@@ -1120,15 +1196,21 @@ export function renderHelpCategoryPage(params: {
         </div>
         <h1 class="ant-article-title">${escapeHtml(category.title)}</h1>
         <p class="ant-article-sub">${escapeHtml(category.summary)}</p>
-        <nav class="hlp-jump-bar" aria-label="Jump to section">${jumpPills}</nav>
       </div>
     </header>
 
+    <details class="hlp-mobile-toc hlp-smooth-details">
+      <summary>In this guide</summary>
+      <div class="hlp-details-body">
+        <ul class="hlp-toc-bullets">${tocBullets}</ul>
+      </div>
+    </details>
+
     <div class="ant-article-grid">
       <aside class="ant-rail" aria-label="Guide navigation">
-        <div class="ant-rail-group">
+        <div class="ant-rail-group hlp-desktop-toc">
           <div class="ant-rail-label">On this page</div>
-          <nav class="ant-rail-list">${tocLinks}</nav>
+          <ul class="hlp-toc-bullets">${tocBullets}</ul>
         </div>
         <div class="ant-rail-group">
           <div class="ant-rail-label">All guides</div>
