@@ -23,18 +23,24 @@ const FORBIDDEN_CLIENT_BRANDS = [
 ];
 
 describe("Help Center & Subpages", () => {
-  test("renderHelpPage renders Anthropic-styled hub with key setup guide, all category links, and zero client brand names", () => {
+  test("renderHelpPage matches homepage visual style, uses files icon, clean search placeholder, and zero client brand names", () => {
     const html = renderHelpPage({
       base: "https://krix.example.com",
       nonce: "test_nonce_123",
     });
 
-    assert.ok(html.includes("Krix Documentation &amp; Help Center"));
+    assert.ok(html.includes('class="hm"'));
+    assert.ok(html.includes("Krix documentation."));
+    assert.ok(html.includes('placeholder="Search guides"'));
+    assert.ok(!html.includes("Krix Documentation &amp; Help Center"));
+    assert.ok(html.includes("Streamable HTTP Transport"));
     assert.ok(html.includes("https://krix.example.com/mcp"));
-    assert.ok(html.includes("Adding Krix keys &amp; provider tokens"));
-    assert.ok(html.includes('id="helpSearchInput"'));
+    assert.ok(html.includes("Add your keys in three steps"));
     assert.ok(html.includes('nonce="test_nonce_123"'));
     assert.ok(html.includes('data-copy="https://krix.example.com/mcp"'));
+
+    const filesCat = getHelpCategory("files-and-store");
+    assert.equal(filesCat?.icon, "files");
 
     const lower = html.toLowerCase();
     for (const brand of FORBIDDEN_CLIENT_BRANDS) {
