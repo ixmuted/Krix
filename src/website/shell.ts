@@ -175,7 +175,6 @@ export function renderHomeFooter(owner?: any): string {
             <ul>
               <li><a href="/help">Setup guide</a></li>
               <li><a href="/#faq">FAQ</a></li>
-              <li><a href="/server.json">Server manifest</a></li>
               <li><a href="https://github.com/ixmuted/Krix" target="_blank" rel="noopener noreferrer">Source repository</a></li>
               <li><a href="https://quickwitty.onrender.com" target="_blank" rel="noopener noreferrer">QuickWitty</a></li>
             </ul>
