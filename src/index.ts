@@ -98,6 +98,7 @@ import {
   renderPrivacyPage,
   renderTermsPage,
   renderHelpPage,
+  renderHelpCategoryPage,
   type StoredFileInfo,
 } from "./views.js";
 import {
@@ -2733,21 +2734,37 @@ app.post("/api/account/cancel-deletion", async (req, res) => {
 
 app.get("/privacy", (req, res) => {
   const owner = parseOwnerCookie(req);
+  const nonce = (res.locals as any)?.cspNonce;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(renderPrivacyPage({ owner }));
+  res.send(renderPrivacyPage({ owner, nonce }));
 });
 
 app.get("/terms", (req, res) => {
   const owner = parseOwnerCookie(req);
+  const nonce = (res.locals as any)?.cspNonce;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(renderTermsPage({ owner }));
+  res.send(renderTermsPage({ owner, nonce }));
 });
 
 app.get("/help", (req, res) => {
   const owner = parseOwnerCookie(req);
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const nonce = (res.locals as any)?.cspNonce;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(renderHelpPage({ owner, base }));
+  res.send(renderHelpPage({ owner, base, nonce }));
+});
+
+app.get("/help/:slug", (req, res) => {
+  const owner = parseOwnerCookie(req);
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const nonce = (res.locals as any)?.cspNonce;
+  const html = renderHelpCategoryPage({ slug: String(req.params.slug || ""), owner, base, nonce });
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  if (!html) {
+    res.status(404).send(renderNotFoundPage({ owner, pathname: req.path }));
+    return;
+  }
+  res.send(html);
 });
 
 app.get("/tools", async (req, res) => {
