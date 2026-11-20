@@ -2761,7 +2761,7 @@ app.get("/help/:slug", (req, res) => {
   const html = renderHelpCategoryPage({ slug: String(req.params.slug || ""), owner, base, nonce });
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   if (!html) {
-    res.status(404).send(renderNotFoundPage({ owner, pathname: req.path }));
+    res.status(404).send(renderNotFoundPage({ owner, pathname: req.path, base }));
     return;
   }
   res.send(html);
