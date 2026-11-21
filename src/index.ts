@@ -1967,6 +1967,7 @@ app.get(["/", "/home"], async (req, res) => {
   const dynamicKeys = owner ? listDynamicKeys(owner.email) : [];
   const isOwner = Boolean(owner && isOwnerEmail(owner.email));
 
+  const nonce = (res.locals as any)?.cspNonce;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(
     renderHomePage({
@@ -1975,6 +1976,7 @@ app.get(["/", "/home"], async (req, res) => {
       owner,
       uploads,
       dynamicKeys,
+      nonce,
     }),
   );
 });
