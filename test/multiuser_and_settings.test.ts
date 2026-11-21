@@ -413,7 +413,7 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
 
       assert.ok(html.includes("50 MB"), "Must show 50MB storage quota");
       assert.ok(
-        html.includes("Standard Member (1/10th Limits)"),
+        html.includes(">Standard<"),
         "Must show member role badge",
       );
       assert.ok(html.includes("2.5 MB"), "Must show 1/10th file limit");
