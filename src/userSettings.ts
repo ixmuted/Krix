@@ -22,6 +22,7 @@ export interface UserAccount {
   lastLoginAt?: number;
   lastLoginIp?: string;
   knownIps?: string[];
+  lastInactiveEmailAt?: number;
   scheduledDeletionAt?: number;
   deletionDeadline?: number;
 }
@@ -195,13 +196,14 @@ export function generateSandboxId(keyId: string, isOwner: boolean): string {
 export function getOrCreateUser(
   email: string,
   ip?: string,
-): UserAccount & { isNewUser: boolean; isNewIp: boolean } {
+): UserAccount & { isNewUser: boolean; isNewIp: boolean; daysAway: number } {
   const normEmail = email.trim().toLowerCase();
   let user = userAccountsMap.get(normEmail);
   const role = getUserRole(normEmail);
   const now = Date.now();
   let isNewUser = false;
   let isNewIp = false;
+  let daysAway = 0;
 
   const cleanIp = ip
     ? String(ip)
@@ -241,6 +243,9 @@ export function getOrCreateUser(
       }
     }
 
+    if (!isNewUser && user.lastLoginAt && now > user.lastLoginAt) {
+      daysAway = Math.floor((now - user.lastLoginAt) / (24 * 60 * 60 * 1000));
+    }
     user.role = role;
     user.lastLoginAt = now;
     user.updatedAt = now;
@@ -265,7 +270,39 @@ export function getOrCreateUser(
     syncUserToMongo(user).catch(() => {});
   }
 
-  return Object.assign(user, { isNewUser, isNewIp });
+  return Object.assign(user, { isNewUser, isNewIp, daysAway });
+}
+
+export function getInactiveUsersForReminder(
+  minInactiveDays: number = 14,
+  cooldownDays: number = 30,
+): Array<{ email: string; daysInactive: number }> {
+  const now = Date.now();
+  const minMs = minInactiveDays * 24 * 60 * 60 * 1000;
+  const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
+  const due: Array<{ email: string; daysInactive: number }> = [];
+  for (const user of userAccountsMap.values()) {
+    if (!user.email || !user.email.includes("@")) continue;
+    if (user.deletionDeadline) continue;
+    const lastActive = user.lastLoginAt || user.createdAt || 0;
+    if (!lastActive || now - lastActive < minMs) continue;
+    if (user.lastInactiveEmailAt && now - user.lastInactiveEmailAt < cooldownMs) {
+      continue;
+    }
+    due.push({
+      email: user.email,
+      daysInactive: Math.floor((now - lastActive) / (24 * 60 * 60 * 1000)),
+    });
+  }
+  return due;
+}
+
+export function markInactiveEmailSent(email: string): void {
+  const user = userAccountsMap.get(email.trim().toLowerCase());
+  if (!user) return;
+  user.lastInactiveEmailAt = Date.now();
+  saveSettingsToDisk();
+  syncUserToMongo(user).catch(() => {});
 }
 
 export function getKeySettings(keyId: string): KeySettings {
@@ -1037,6 +1074,7 @@ export async function loadSettingsFromMongo(): Promise<void> {
           updatedAt: d.updatedAt || Date.now(),
           lastLoginAt: d.lastLoginAt,
           lastLoginIp: d.lastLoginIp,
+          lastInactiveEmailAt: d.lastInactiveEmailAt,
           knownIps: Array.isArray(d.knownIps)
             ? d.knownIps
             : d.lastLoginIp

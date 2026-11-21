@@ -156,6 +156,8 @@ import {
   deleteUserAccount,
   scheduleAccountDeletion,
   cancelAccountDeletion,
+  getInactiveUsersForReminder,
+  markInactiveEmailSent,
   isAccountScheduledForDeletion,
   resolveAcceptGlobalEnables,
   setKeyGlobalEnableMode,
@@ -167,6 +169,7 @@ import {
   getClientIp,
   getUserAgent,
   sendAccountDeletedEmail,
+  sendInactiveUserEmail,
 } from "./emailService.js";
 import {
   listUserNotifications,
@@ -4880,6 +4883,26 @@ async function startServer(): Promise<void> {
       console.warn(
         "MongoDB is not configured: durable file sharing is unavailable.",
       );
+    const runInactivitySweep = () => {
+      for (const u of getInactiveUsersForReminder(14, 30)) {
+        markInactiveEmailSent(u.email);
+        pushUserNotification(u.email, {
+          type: "inactive_checkin",
+          title: "Your Krix workspace is ready",
+          body: `It's been ${u.daysInactive} days — drop back in anytime to use your sandbox and tools.`,
+          url: "/",
+          tag: "inactive_checkin",
+        });
+        sendInactiveUserEmail({
+          email: u.email,
+          daysInactive: u.daysInactive,
+        }).catch((err) =>
+          console.error("[email] sendInactiveUserEmail error:", err?.message),
+        );
+      }
+    };
+    const inactivityTimer = setInterval(runInactivitySweep, 6 * 60 * 60 * 1000);
+    inactivityTimer.unref();
   });
   server.requestTimeout = 120_000;
   server.headersTimeout = 30_000;

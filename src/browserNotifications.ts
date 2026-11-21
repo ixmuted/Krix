@@ -10,7 +10,10 @@ export type BrowserNotificationType =
   | "oauth_created"
   | "oauth_revoked"
   | "credentials_updated"
-  | "file_visibility_changed";
+  | "file_visibility_changed"
+  | "inactive_checkin"
+  | "welcome_back"
+  | "first_key_milestone";
 
 export interface BrowserNotification {
   id: string;

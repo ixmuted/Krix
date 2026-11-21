@@ -813,3 +813,118 @@ export async function sendOAuthClientSetupEmail(params: {
     html,
   });
 }
+
+/**
+ * 5. Inactivity Check-In Email
+ * Sent when a user has not signed in for 14+ days (at most once every 30 days).
+ */
+export async function sendInactiveUserEmail(params: {
+  email: string;
+  name?: string;
+  daysInactive: number;
+}): Promise<SendResult> {
+  const timeStr = formatTimestamp();
+  const userName = params.name || params.email.split("@")[0] || "there";
+  const days = Math.max(1, Math.round(params.daysInactive));
+
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Time away", value: `${days} days` },
+    { label: "Workspace status", value: "Ready & waiting" },
+    { label: "Available tools", value: "GitHub, Render, Sandbox & Code Graph" },
+  ];
+
+  const html = renderEmailShell({
+    title: "Your Krix workspace is still warm",
+    greeting: `Hi ${userName},`,
+    intro: `It's been ${days} days since we last saw you on Krix. Your isolated sandbox, API keys, and MCP tools are ready whenever you want to build something new.`,
+    bodyHtml: renderDetailList(details),
+    closing:
+      "Drop back in anytime to run code in your sandbox, inspect a repo, or check your connected AI clients.",
+    ctaText: "Open Krix",
+    ctaUrl: `${getPublicBaseUrl()}/`,
+    footerAccount: params.email,
+    timestamp: timeStr,
+  });
+
+  return sendEmail({
+    to: params.email,
+    subject: "Your Krix workspace is waiting for you",
+    html,
+  });
+}
+
+/**
+ * 6. Welcome Back Email
+ * Sent when an existing user returns after 7+ days away.
+ */
+export async function sendWelcomeBackEmail(params: {
+  email: string;
+  name?: string;
+  daysAway: number;
+}): Promise<SendResult> {
+  const timeStr = formatTimestamp();
+  const userName = params.name || params.email.split("@")[0] || "there";
+  const days = Math.max(1, Math.round(params.daysAway));
+
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Away for", value: `${days} days` },
+    { label: "Signed back in", value: timeStr },
+  ];
+
+  const html = renderEmailShell({
+    title: "Welcome back to Krix",
+    greeting: `Hey ${userName},`,
+    intro: `Great to see you again after ${days} days away! Your sandbox, keys, and settings are all set right where you left them.`,
+    bodyHtml: renderDetailList(details),
+    closing:
+      "Need to reconnect an AI client or check your active tokens? Everything is one click away in your dashboard.",
+    ctaText: "Go to dashboard",
+    ctaUrl: `${getPublicBaseUrl()}/`,
+    footerAccount: params.email,
+    timestamp: timeStr,
+  });
+
+  return sendEmail({
+    to: params.email,
+    subject: "Welcome back to Krix!",
+    html,
+  });
+}
+
+/**
+ * 7. First API Key Milestone Email
+ * Sent once when a user creates their very first Krix API key.
+ */
+export async function sendFirstKeyMilestoneEmail(params: {
+  email: string;
+  name?: string;
+  keyLabel: string;
+}): Promise<SendResult> {
+  const timeStr = formatTimestamp();
+  const userName = params.name || params.email.split("@")[0] || "there";
+
+  const details: Array<{ label: string; value: string }> = [
+    { label: "First key", value: params.keyLabel },
+    { label: "MCP endpoint", value: `${getPublicBaseUrl()}/mcp` },
+    { label: "Created", value: timeStr },
+  ];
+
+  const html = renderEmailShell({
+    title: "Your first Krix API key is live",
+    greeting: `Nice work, ${userName}!`,
+    intro: `You just created your first Krix API key ("${params.keyLabel}"). You can now connect Krix directly to your favorite MCP-compatible AI client.`,
+    bodyHtml: renderDetailList(details),
+    closing:
+      "Tip: Add a GitHub or Render token in Settings anytime to unlock repository and deployment tools for your keys.",
+    ctaText: "View API keys",
+    ctaUrl: `${getPublicBaseUrl()}/api`,
+    footerAccount: params.email,
+    timestamp: timeStr,
+  });
+
+  return sendEmail({
+    to: params.email,
+    subject: "You're all set — your first Krix API key is live",
+    html,
+  });
+}

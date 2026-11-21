@@ -24,6 +24,8 @@ import {
   getUserAgent,
   sendAccountCreatedEmail,
   sendNewLoginIpEmail,
+  sendWelcomeBackEmail,
+  sendFirstKeyMilestoneEmail,
 } from "./emailService.js";
 import { pushUserNotification } from "./browserNotifications.js";
 import { dataPath } from "./dataDir.js";
@@ -625,13 +627,29 @@ export function createDynamicKey(
   dynamicApiKeys.set(id, entry);
   saveKeysToDisk();
   syncKeyToMongo(entry).catch(() => {});
-  pushUserNotification(effectiveEmail, {
-    type: "api_key_created",
-    title: "API key created",
-    body: `New API key "${cleanLabel}" was created for your account.`,
-    url: "/api",
-    tag: `api_key_created_${id}`,
-  });
+  if (userKeyCount === 0) {
+    pushUserNotification(effectiveEmail, {
+      type: "first_key_milestone",
+      title: "First API key created!",
+      body: `"${cleanLabel}" is live — paste it into your AI client to start using Krix.`,
+      url: "/api",
+      tag: `first_key_milestone_${id}`,
+    });
+    sendFirstKeyMilestoneEmail({
+      email: effectiveEmail,
+      keyLabel: cleanLabel,
+    }).catch((err) =>
+      console.error("[email] sendFirstKeyMilestoneEmail error:", err?.message),
+    );
+  } else {
+    pushUserNotification(effectiveEmail, {
+      type: "api_key_created",
+      title: "API key created",
+      body: `New API key "${cleanLabel}" was created for your account.`,
+      url: "/api",
+      tag: `api_key_created_${id}`,
+    });
+  }
   // Persist the account association, inherited global tool permissions, and sandbox ID for this key.
   const primarySettings = getKeySettings("primary-key");
   const settings = getKeySettings(id);
@@ -979,22 +997,40 @@ export function createGoogleAuthRouter(): Router {
               err?.message,
             ),
           );
-        } else if (userResult.isNewIp) {
-          pushUserNotification(email, {
-            type: "new_login_ip",
-            title: "New sign-in IP detected",
-            body: `Your Krix account was accessed from a new IP address (${clientIp || "unknown IP"}).`,
-            url: "/settings",
-            tag: `new_login_ip_${clientIp || "unknown"}`,
-          });
-          sendNewLoginIpEmail({
-            email,
-            name: userData.name || email.split("@")[0],
-            ip: clientIp,
-            userAgent,
-          }).catch((err) =>
-            console.error("[email] sendNewLoginIpEmail error:", err?.message),
-          );
+        } else {
+          if (userResult.isNewIp) {
+            pushUserNotification(email, {
+              type: "new_login_ip",
+              title: "New sign-in IP detected",
+              body: `Your Krix account was accessed from a new IP address (${clientIp || "unknown IP"}).`,
+              url: "/settings",
+              tag: `new_login_ip_${clientIp || "unknown"}`,
+            });
+            sendNewLoginIpEmail({
+              email,
+              name: userData.name || email.split("@")[0],
+              ip: clientIp,
+              userAgent,
+            }).catch((err) =>
+              console.error("[email] sendNewLoginIpEmail error:", err?.message),
+            );
+          }
+          if (userResult.daysAway >= 7) {
+            pushUserNotification(email, {
+              type: "welcome_back",
+              title: "Welcome back to Krix!",
+              body: `Good to see you again after ${userResult.daysAway} days — your sandbox and keys are ready.`,
+              url: "/",
+              tag: "welcome_back",
+            });
+            sendWelcomeBackEmail({
+              email,
+              name: userData.name || email.split("@")[0],
+              daysAway: userResult.daysAway,
+            }).catch((err) =>
+              console.error("[email] sendWelcomeBackEmail error:", err?.message),
+            );
+          }
         }
 
         const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
