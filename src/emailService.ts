@@ -322,7 +322,7 @@ export function escapeHtml(str = ""): string {
 }
 
 // ---------------------------------------------------------------------------
-// Editorial Email Shell & Mobile-First Info Rows (Gmail & Dark-Mode Safe)
+// Monochrome Google-Style Email Shell & Mobile-First Info Rows
 // ---------------------------------------------------------------------------
 
 type InfoIconKey =
@@ -360,28 +360,8 @@ function renderEmailShell(params: {
   ctaUrl?: string;
 }): string {
   const baseUrl = getPublicBaseUrl();
-
-  const badgeBg =
-    params.badgeTone === "amber"
-      ? "#fbf5e8"
-      : params.badgeTone === "red"
-        ? "#fbeeee"
-        : params.badgeTone === "emerald"
-          ? "#ecf7ef"
-          : "#f9ebe6";
-  const badgeColor =
-    params.badgeTone === "amber"
-      ? "#9a6a12"
-      : params.badgeTone === "red"
-        ? "#991b1b"
-        : params.badgeTone === "emerald"
-          ? "#166534"
-          : "#c6613f";
-
   const fontSans =
-    "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-  const fontSerif =
-    "ui-serif, 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', serif";
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -390,30 +370,30 @@ function renderEmailShell(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(params.title)} - Krix</title>
 </head>
-<body style="margin:0; padding:0; background-color:#faf9f5; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#141413;">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#faf9f5; padding:16px 8px 28px;">
+<body style="margin:0; padding:0; background-color:#f8f9fa; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#202124;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#f8f9fa; padding:16px 8px 28px;">
     <tr>
       <td align="center" style="vertical-align:top;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; width:100%; margin:0 auto; background-color:#ffffff; border:1px solid #e5e3db; border-radius:12px;">
-          <!-- Compact Brand Header -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:540px; width:100%; margin:0 auto; background-color:#ffffff; border:1px solid #dadce0; border-radius:8px;">
+          <!-- Clean White Brand Header -->
           <tr>
-            <td style="padding:18px 20px 14px; border-bottom:1px solid #eceae2;">
+            <td style="padding:18px 20px 14px; border-bottom:1px solid #e8eaed; background-color:#ffffff;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                   <td align="left" style="vertical-align:middle;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td style="vertical-align:middle; padding-right:9px;">
-                          <img src="${KRIX_LOGO_URL}" width="26" height="26" alt="Krix" style="display:block; width:26px; height:26px; border-radius:6px; border:0;" />
+                        <td style="vertical-align:middle; padding-right:10px;">
+                          <img src="${KRIX_LOGO_URL}" width="54" height="54" alt="Krix" style="display:block; width:54px; height:54px; border-radius:50%; border:0;" />
                         </td>
                         <td style="vertical-align:middle;">
-                          <span style="font-family:${fontSerif}; font-size:18px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1;">Krix</span>
+                          <span style="font-family:${fontSans}; font-size:18px; font-weight:600; color:#202124; letter-spacing:-0.01em; line-height:1;">Krix</span>
                         </td>
                       </tr>
                     </table>
                   </td>
                   <td align="right" style="vertical-align:middle;">
-                    <span style="display:inline-block; padding:3px 10px; background-color:${badgeBg}; color:${badgeColor}; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; font-family:${fontSans};">
+                    <span style="display:inline-block; padding:4px 10px; background-color:#f1f3f4; color:#202124; border:1px solid #dadce0; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; font-family:${fontSans};">
                       ${escapeHtml(params.badge)}
                     </span>
                   </td>
@@ -424,11 +404,11 @@ function renderEmailShell(params: {
 
           <!-- Main Content -->
           <tr>
-            <td style="padding:22px 20px 20px; text-align:left;">
-              <h1 style="margin:0 0 8px; font-size:21px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1.25; font-family:${fontSerif};">
+            <td style="padding:22px 20px 20px; text-align:left; background-color:#ffffff;">
+              <h1 style="margin:0 0 8px; font-size:20px; font-weight:600; color:#202124; letter-spacing:-0.01em; line-height:1.3; font-family:${fontSans};">
                 ${escapeHtml(params.title)}
               </h1>
-              <p style="margin:0 0 16px; font-size:15px; color:#3d3d3a; line-height:1.55; font-family:${fontSans};">
+              <p style="margin:0 0 16px; font-size:14.5px; color:#3c4043; line-height:1.55; font-family:${fontSans};">
                 ${escapeHtml(params.description)}
               </p>
 
@@ -440,7 +420,7 @@ function renderEmailShell(params: {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0 4px;">
                 <tr>
                   <td align="left">
-                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#c6613f; color:#ffffff !important; text-decoration:none !important; padding:12px 22px; border-radius:8px; font-size:14px; font-weight:600; line-height:1.2; font-family:${fontSans};">
+                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#111111; color:#ffffff !important; text-decoration:none !important; padding:12px 22px; border-radius:6px; font-size:14px; font-weight:600; line-height:1.2; font-family:${fontSans};">
                       ${escapeHtml(params.ctaText)}
                     </a>
                   </td>
@@ -451,18 +431,18 @@ function renderEmailShell(params: {
             </td>
           </tr>
 
-          <!-- Compact Footer -->
+          <!-- Minimal Footer -->
           <tr>
-            <td style="padding:14px 20px 18px; border-top:1px solid #eceae2; font-size:12px; color:#73726c; line-height:1.55; font-family:${fontSans};">
+            <td style="padding:14px 20px 18px; border-top:1px solid #e8eaed; background-color:#ffffff; font-size:12px; color:#5f6368; line-height:1.55; font-family:${fontSans};">
               <p style="margin:0 0 6px;">
-                <a href="${escapeHtml(baseUrl)}/help" style="color:#c6613f; text-decoration:none; font-weight:500;">Help Center</a>
+                <a href="${escapeHtml(baseUrl)}/help" style="color:#202124; text-decoration:underline; font-weight:500;">Help Center</a>
                 &nbsp;&middot;&nbsp;
-                <a href="${escapeHtml(baseUrl)}/privacy" style="color:#c6613f; text-decoration:none; font-weight:500;">Privacy</a>
+                <a href="${escapeHtml(baseUrl)}/privacy" style="color:#202124; text-decoration:underline; font-weight:500;">Privacy</a>
                 &nbsp;&middot;&nbsp;
-                <a href="${escapeHtml(baseUrl)}/terms" style="color:#c6613f; text-decoration:none; font-weight:500;">Terms</a>
+                <a href="${escapeHtml(baseUrl)}/terms" style="color:#202124; text-decoration:underline; font-weight:500;">Terms</a>
               </p>
-              <p style="margin:0; font-size:11.5px; color:#73726c;">
-                Sent to <strong style="color:#3d3d3a; font-weight:600;">${escapeHtml(params.footerAccount)}</strong> &middot; ${escapeHtml(params.timestamp)}
+              <p style="margin:0; font-size:11.5px; color:#5f6368;">
+                Automated security notice for <strong style="color:#202124; font-weight:600;">${escapeHtml(params.footerAccount)}</strong> &middot; ${escapeHtml(params.timestamp)}
               </p>
             </td>
           </tr>
@@ -475,8 +455,7 @@ function renderEmailShell(params: {
 }
 
 /**
- * Renders a mobile-safe stacked key-value detail list (never squishes on narrow screens,
- * and uses no inline SVGs which Gmail strips).
+ * Renders a mobile-safe stacked key-value detail list in crisp black & white.
  */
 function renderInfoTable(
   rows: Array<{
@@ -487,7 +466,7 @@ function renderInfoTable(
   }>,
 ): string {
   const fontSans =
-    "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
   const fontMono =
     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
@@ -495,14 +474,14 @@ function renderInfoTable(
     .map(
       (r, idx) => `
     <tr>
-      <td style="padding:9px 14px; ${idx === rows.length - 1 ? "" : "border-bottom:1px solid #eceae2;"} text-align:left; vertical-align:top;">
-        <div style="font-family:${fontSans}; font-size:11px; font-weight:600; color:#73726c; text-transform:uppercase; letter-spacing:0.04em; line-height:1.3; margin-bottom:3px;">
+      <td style="padding:9px 14px; ${idx === rows.length - 1 ? "" : "border-bottom:1px solid #e8eaed;"} text-align:left; vertical-align:top;">
+        <div style="font-family:${fontSans}; font-size:11px; font-weight:600; color:#5f6368; text-transform:uppercase; letter-spacing:0.04em; line-height:1.3; margin-bottom:3px;">
           ${escapeHtml(r.label)}
         </div>
-        <div style="font-family:${r.isPill ? fontMono : fontSans}; font-size:${r.isPill ? "13px" : "14px"}; color:#141413; line-height:1.45; word-break:break-word; overflow-wrap:anywhere;">
+        <div style="font-family:${r.isPill ? fontMono : fontSans}; font-size:${r.isPill ? "13px" : "14px"}; color:#202124; line-height:1.45; word-break:break-word; overflow-wrap:anywhere;">
           ${
             r.isPill
-              ? `<span style="display:inline-block; background-color:#f0eee6; color:#141413; padding:2px 8px; border-radius:6px; font-size:12.5px;">${escapeHtml(r.value)}</span>`
+              ? `<span style="display:inline-block; background-color:#f1f3f4; color:#202124; border:1px solid #dadce0; padding:2px 8px; border-radius:4px; font-size:12.5px;">${escapeHtml(r.value)}</span>`
               : escapeHtml(r.value)
           }
         </div>
@@ -512,7 +491,7 @@ function renderInfoTable(
     .join("");
 
   return `
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background-color:#faf9f5; border:1px solid #e5e3db; border-radius:10px; margin:14px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background-color:#f8f9fa; border:1px solid #dadce0; border-radius:8px; margin:14px 0;">
     ${renderedRows}
   </table>`;
 }
@@ -683,7 +662,7 @@ export async function sendAccountCreatedEmail(params: {
   const userRole = (params.role || "user").toUpperCase();
 
   const bodyContent = `
-    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>Account Active:</strong> Your isolated sandbox environment has been provisioned and is ready for MCP tool execution.
     </div>
     ${renderInfoTable([
@@ -705,7 +684,7 @@ export async function sendAccountCreatedEmail(params: {
       { icon: "pin", label: "Sign-In Location", value: geo.location },
       { icon: "clock", label: "Registered At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       You can now create dynamic MCP API keys, connect assistants (Gemini, Claude, Cursor), and execute tools within your isolated workspace.
     </p>`;
 
@@ -746,7 +725,7 @@ export async function sendAccountDeletedEmail(
   const deadlineStr = formatTimestamp(deadlineMs);
 
   const bodyContent = `
-    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>${graceDays}-Day Deletion Grace Period Active:</strong> We received a request to delete your Krix account. Your API keys and OAuth connections are now disabled, and your account will be permanently deleted on <strong>${deadlineStr}</strong>.
     </div>
     ${renderInfoTable([
@@ -767,7 +746,7 @@ export async function sendAccountDeletedEmail(
       { icon: "pin", label: "Origin Location", value: geo.location },
       { icon: "clock", label: "Scheduled At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>Changed your mind?</strong> You have ${graceDays} days to restore your account. Simply sign back in to the Krix dashboard before <strong>${deadlineStr}</strong> and your account will be immediately restored.
     </p>`;
 
@@ -801,7 +780,7 @@ export async function sendAccountFinallyDeletedEmail(
   const userName = params.name || params.email.split("@")[0] || "User";
 
   const bodyContent = `
-    <div style="background-color:#fef2f2; border:1px solid #fee2e2; border-left:4px solid #ef4444; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#991b1b; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>Account Permanently Deleted:</strong> The 30-day grace period for your account has ended. All account records, tokens, credentials, and persistent workspaces have been permanently purged.
     </div>
     ${renderInfoTable([
@@ -819,7 +798,7 @@ export async function sendAccountFinallyDeletedEmail(
       },
       { icon: "clock", label: "Purged At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       All personal data, active OAuth authorizations, dynamic API keys, and isolated sandbox environments associated with your account have been irrevocably deleted in accordance with our security policies.
     </p>`;
 
@@ -856,7 +835,7 @@ export async function sendNewLoginIpEmail(params: {
   const timeStr = formatTimestamp();
 
   const bodyContent = `
-    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>New sign-in detected.</strong> Your account was just accessed from an IP address that has not been seen on your account previously.
     </div>
     ${renderInfoTable([
@@ -877,7 +856,7 @@ export async function sendNewLoginIpEmail(params: {
         : []),
       { icon: "clock", label: "Login Timestamp", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       If this was you logging in from a new network or VPN, no action is needed. If you did not recognize this login, sign in to revoke your API keys and secure your Google account.
     </p>`;
 
@@ -922,7 +901,7 @@ export async function sendOAuthClientSetupEmail(params: {
     params.clientName || params.clientId || "External Application";
 
   const bodyContent = `
-    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>OAuth Client Authorized:</strong> An external tool or assistant has been granted access to your Krix MCP endpoint.
     </div>
     ${renderInfoTable([
@@ -948,7 +927,7 @@ export async function sendOAuthClientSetupEmail(params: {
       { icon: "globe", label: "Authorize IP", value: geo.ip, isPill: true },
       { icon: "clock", label: "Authorized At", value: timeStr },
     ])}
-    <p style="font-size:13.5px; color:#52525b; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       You can manage, rename, or revoke this authorization at any time in the <strong>API Keys &amp; OAuth</strong> settings page.
     </p>`;
 
