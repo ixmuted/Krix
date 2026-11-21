@@ -1728,6 +1728,9 @@ const staticAssetPaths = [
   "/favicon.ico",
   "/manifest.json",
   "/manifest.webmanifest",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/.well-known/security.txt",
   "/server.json",
   "/.well-known/mcp.json",
   "/gemini-extension.json",
@@ -1865,6 +1868,71 @@ app.get(["/manifest.json", "/manifest.webmanifest"], (req, res) => {
       type: icon.mimeType,
     })),
   });
+});
+
+app.get("/robots.txt", (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const body = [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /mcp",
+    "Disallow: /sse",
+    "Disallow: /oauth/",
+    "Disallow: /auth/",
+    "Disallow: /api/",
+    "Disallow: /keys",
+    "Disallow: /settings",
+    "Disallow: /stats",
+    "Disallow: /upload",
+    "Disallow: /store",
+    "Disallow: /files/",
+    "Disallow: /d/",
+    "",
+    `Sitemap: ${base}/sitemap.xml`,
+    "",
+  ].join("\n");
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(body);
+});
+
+app.get("/sitemap.xml", (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const publicRoutes = [
+    { path: "/", priority: "1.0", changefreq: "weekly" },
+    { path: "/tools", priority: "0.8", changefreq: "weekly" },
+    { path: "/help", priority: "0.7", changefreq: "monthly" },
+    { path: "/privacy", priority: "0.4", changefreq: "yearly" },
+    { path: "/terms", priority: "0.4", changefreq: "yearly" },
+  ];
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...publicRoutes.map(
+      (r) =>
+        `  <url><loc>${base}${r.path}</loc><changefreq>${r.changefreq}</changefreq><priority>${r.priority}</priority></url>`,
+    ),
+    "</urlset>",
+    "",
+  ].join("\n");
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(xml);
+});
+
+app.get("/.well-known/security.txt", (req, res) => {
+  const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
+  const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const body = [
+    "Contact: https://github.com/ixmuted/Krix/security/advisories/new",
+    `Expires: ${expires}`,
+    "Preferred-Languages: en",
+    `Canonical: ${base}/.well-known/security.txt`,
+    "",
+  ].join("\n");
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(body);
 });
 
 app.get(["/server.json", "/.well-known/mcp.json"], (req, res) => {
