@@ -382,6 +382,7 @@ self.addEventListener("push", function (event) {
     icon: data.icon || "/icon-192.png",
     badge: data.badge || "/icon-64.png",
     tag: data.tag || data.id || undefined,
+    renotify: false,
     data: { url: data.url || "/" }
   };
   event.waitUntil(self.registration.showNotification(title, options));
