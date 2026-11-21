@@ -345,14 +345,6 @@ export function getClientScripts(): string {
   });
 
   // ----- Cookie consent banner -----
-  (function() {
-    var banner = document.getElementById('krixCookieBanner');
-    if (!banner) return;
-    var accepted = false;
-    try { accepted = Boolean(localStorage.getItem('krix-cookie-consent')); } catch (e) {}
-    if (!accepted && document.cookie.indexOf('krix_consent=') !== -1) accepted = true;
-    if (!accepted) banner.hidden = false;
-  })();
   window.acceptCookieConsent = function(choice) {
     var val = choice === 'essential' ? 'essential' : 'accepted';
     try { localStorage.setItem('krix-cookie-consent', val); } catch (e) {}
@@ -360,6 +352,19 @@ export function getClientScripts(): string {
     var banner = document.getElementById('krixCookieBanner');
     if (banner) banner.hidden = true;
   };
+  (function() {
+    var banner = document.getElementById('krixCookieBanner');
+    if (!banner) return;
+    var accepted = false;
+    try { accepted = Boolean(localStorage.getItem('krix-cookie-consent')); } catch (e) {}
+    if (!accepted && document.cookie.indexOf('krix_consent=') !== -1) accepted = true;
+    if (!accepted) banner.hidden = false;
+    banner.addEventListener('click', function(e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-cookie-choice]') : null;
+      if (!btn) return;
+      window.acceptCookieConsent(btn.getAttribute('data-cookie-choice'));
+    });
+  })();
 })();
 `;
 }
