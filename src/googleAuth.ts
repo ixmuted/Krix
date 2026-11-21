@@ -18,6 +18,7 @@ import {
   getOrCreateUser,
   generateSandboxId,
   updateKeyCredentials,
+  isAccountScheduledForDeletion,
 } from "./userSettings.js";
 import {
   getClientIp,
@@ -409,6 +410,10 @@ export function parseOwnerCookie(req: Request): OwnerProfile | null {
       typeof data.expiresAt !== "number" ||
       Date.now() > data.expiresAt
     ) {
+      return null;
+    }
+
+    if (isAccountScheduledForDeletion(data.email)) {
       return null;
     }
 
