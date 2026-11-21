@@ -845,11 +845,20 @@ export async function syncUserToMongo(user: UserAccount): Promise<void> {
   if (!db) return;
   try {
     const col = db.collection("users");
-    await col.updateOne(
-      { email: user.email },
-      { $set: { ...user, updatedAt: Date.now() } },
-      { upsert: true },
-    );
+    const updateDoc: Record<string, any> = {
+      $set: { ...user, updatedAt: user.updatedAt || Date.now() },
+    };
+    const unsetFields: Record<string, string> = {};
+    if (user.scheduledDeletionAt === undefined) {
+      unsetFields.scheduledDeletionAt = "";
+    }
+    if (user.deletionDeadline === undefined) {
+      unsetFields.deletionDeadline = "";
+    }
+    if (Object.keys(unsetFields).length > 0) {
+      updateDoc.$unset = unsetFields;
+    }
+    await col.updateOne({ email: user.email }, updateDoc, { upsert: true });
   } catch (err: any) {
     console.error("[settings] syncUserToMongo error:", err?.message);
   }
@@ -1067,11 +1076,17 @@ export async function loadSettingsFromMongo(): Promise<void> {
     const userDocs = await usersCol.find({}).toArray();
     for (const d of userDocs) {
       if (d.email) {
-        userAccountsMap.set(d.email, {
-          email: d.email,
-          role: d.role || getUserRole(d.email),
+        const normEmail = String(d.email).trim().toLowerCase();
+        const existing = userAccountsMap.get(normEmail);
+        const docUpdatedAt = Number(d.updatedAt) || 0;
+        if (existing && (existing.updatedAt || 0) > docUpdatedAt) {
+          continue;
+        }
+        userAccountsMap.set(normEmail, {
+          email: normEmail,
+          role: d.role || getUserRole(normEmail),
           createdAt: d.createdAt || Date.now(),
-          updatedAt: d.updatedAt || Date.now(),
+          updatedAt: docUpdatedAt || Date.now(),
           lastLoginAt: d.lastLoginAt,
           lastLoginIp: d.lastLoginIp,
           lastInactiveEmailAt: d.lastInactiveEmailAt,
