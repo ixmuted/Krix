@@ -12,6 +12,7 @@ import {
   parseOwnerCookie,
   getPublicBaseUrl,
   isAuthorizedApiKey,
+  findAuthorizedApiKey,
   getMongoDb,
   ensureMongoAuth,
 } from "./googleAuth.js";
@@ -1275,8 +1276,21 @@ export function createMcpOAuthRouter(): Router {
           return;
         }
 
+        // The token carries the identity of whoever owns the credential that was presented:
+        //  - the master key  -> the server owner (and the client_id the caller supplied),
+        //  - a user API key  -> that key's own owner, bound to that key's id (the supplied
+        //                       client_id is ignored so it can never point at someone else's key),
+        //  - anything else   -> no owner identity at all.
+        // It must never hand a non-owner the owner's identity.
+        const dynEntry = isMaster ? null : findAuthorizedApiKey(clientSecret);
+        if (dynEntry) clientId = dynEntry.id;
+        const ownerEmail = isMaster
+          ? process.env.OWNER_EMAIL || "owner"
+          : dynEntry
+            ? String(dynEntry.email || "").trim().toLowerCase() ||
+              `key:${dynEntry.id}`
+            : `oauth:${clientId || "client"}`;
         const base = getPublicBaseUrl(req);
-        const ownerEmail = process.env.OWNER_EMAIL || "owner";
         const accessToken = signAccessToken({
           sub: ownerEmail,
           client_id: clientId || "mcp_client",
