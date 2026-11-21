@@ -228,7 +228,7 @@ export function renderHomePage(params: {
     </section>
   </div>
 
-  <script>
+  <script${nonceAttr}>
     (function() {
       var demos = [
         { cmd: 'sandbox_exec "npm run typecheck && npm test"', out: '✓ 0 type errors · 24/24 suites passed in 1.4s' },
@@ -253,6 +253,7 @@ export function renderHomePage(params: {
           var body = el.querySelector('.hlp-details-body');
           if (!summary || !body) return;
           var anim = null;
+          var bodyAnim = null;
           var isClosing = false;
           var isExpanding = false;
 
@@ -267,10 +268,13 @@ export function renderHomePage(params: {
                 var startH = el.offsetHeight + 'px';
                 var endH = (summary.offsetHeight + body.offsetHeight) + 'px';
                 if (anim) anim.cancel();
-                anim = el.animate({ height: [startH, endH] }, { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+                if (bodyAnim) bodyAnim.cancel();
+                anim = el.animate({ height: [startH, endH] }, { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+                bodyAnim = body.animate({ opacity: [0, 1], transform: ['translateY(-4px)', 'translateY(0)'] }, { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
                 anim.onfinish = function() {
                   el.open = true;
                   anim = null;
+                  bodyAnim = null;
                   isClosing = false;
                   isExpanding = false;
                   el.style.height = '';
@@ -282,10 +286,13 @@ export function renderHomePage(params: {
               var startH = el.offsetHeight + 'px';
               var endH = summary.offsetHeight + 'px';
               if (anim) anim.cancel();
+              if (bodyAnim) bodyAnim.cancel();
               anim = el.animate({ height: [startH, endH] }, { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+              bodyAnim = body.animate({ opacity: [1, 0] }, { duration: 160, easing: 'ease-out' });
               anim.onfinish = function() {
                 el.open = false;
                 anim = null;
+                bodyAnim = null;
                 isClosing = false;
                 isExpanding = false;
                 el.style.height = '';
@@ -305,5 +312,6 @@ export function renderHomePage(params: {
     wide: true,
     content,
     owner: params.owner,
+    nonce: params.nonce,
   });
 }
