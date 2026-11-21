@@ -376,6 +376,7 @@ export function getClientScripts(): string {
     var SEEN_KEY = 'krix-seen-notifs';
     var SINCE_KEY = 'krix-notifs-since';
     var pollTimer = null;
+    var webPushActive = false;
 
     function isSupported() {
       return typeof window !== 'undefined' && 'Notification' in window;
@@ -421,18 +422,22 @@ export function getClientScripts(): string {
             });
         })
         .then(function(sub) {
-          if (!sub) return false;
+          if (!sub) { webPushActive = false; return false; }
           var json = sub.toJSON ? sub.toJSON() : sub;
           return fetch('/api/push/subscribe', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ subscription: json })
-          }).then(function(r) { return r.ok; });
+          }).then(function(r) {
+            webPushActive = !!r.ok;
+            return webPushActive;
+          });
         })
-        .catch(function() { return false; });
+        .catch(function() { webPushActive = false; return false; });
     }
     function unsubscribeWebPush() {
+      webPushActive = false;
       if (!('serviceWorker' in navigator)) return Promise.resolve(false);
       return navigator.serviceWorker.getRegistration('/')
         .then(function(reg) {
@@ -455,7 +460,7 @@ export function getClientScripts(): string {
     }
     function getSeenSet() {
       try {
-        var raw = sessionStorage.getItem(SEEN_KEY);
+        var raw = localStorage.getItem(SEEN_KEY);
         var arr = raw ? JSON.parse(raw) : [];
         return Array.isArray(arr) ? arr : [];
       } catch (e) { return []; }
@@ -465,7 +470,7 @@ export function getClientScripts(): string {
       if (list.indexOf(id) === -1) {
         list.push(id);
         if (list.length > 100) list = list.slice(list.length - 100);
-        try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(list)); } catch (e) {}
+        try { localStorage.setItem(SEEN_KEY, JSON.stringify(list)); } catch (e) {}
       }
     }
     function fireNative(title, body, url, tag) {
@@ -475,7 +480,8 @@ export function getClientScripts(): string {
           body: body || '',
           icon: '/icon-192.png',
           badge: '/icon-64.png',
-          tag: tag || undefined
+          tag: tag || undefined,
+          renotify: false
         });
         n.onclick = function() {
           try { window.focus(); } catch (e) {}
@@ -548,7 +554,7 @@ export function getClientScripts(): string {
       if (!document.getElementById('headerProfileTrigger')) return;
       var since = 0;
       try {
-        var stored = Number(sessionStorage.getItem(SINCE_KEY) || 0);
+        var stored = Number(localStorage.getItem(SINCE_KEY) || 0);
         since = stored > 0 ? stored : (Date.now() - 60000);
       } catch (e) { since = Date.now() - 60000; }
       fetch('/api/notifications?since=' + encodeURIComponent(String(since)), {
@@ -565,9 +571,13 @@ export function getClientScripts(): string {
             if (item.createdAt && item.createdAt > maxTs) maxTs = item.createdAt;
             if (!item.id || seen.indexOf(item.id) !== -1) continue;
             markSeen(item.id);
-            fireNative(item.title, item.body, item.url, item.tag || item.id);
+            // When Web Push is active, /sw.js already delivers every alert once.
+            // Only fire in-tab Notification as a fallback when Web Push is unavailable.
+            if (!webPushActive) {
+              fireNative(item.title, item.body, item.url, item.tag || item.id);
+            }
           }
-          try { sessionStorage.setItem(SINCE_KEY, String(maxTs || data.serverTime || Date.now())); } catch (e) {}
+          try { localStorage.setItem(SINCE_KEY, String(maxTs || data.serverTime || Date.now())); } catch (e) {}
         })
         .catch(function() {});
     }
@@ -616,9 +626,11 @@ export function getClientScripts(): string {
 
     syncUI();
     if (document.getElementById('headerProfileTrigger')) {
-      if (isEnabled()) { subscribeWebPush(); }
       setTimeout(maybeShowPrompt, 1500);
-      setTimeout(pollNow, 800);
+      var initPush = isEnabled() ? subscribeWebPush() : Promise.resolve(false);
+      initPush.then(function() {
+        setTimeout(pollNow, 500);
+      });
       pollTimer = setInterval(function() {
         if (document.visibilityState === 'visible') pollNow();
       }, 15000);
