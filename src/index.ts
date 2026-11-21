@@ -176,6 +176,13 @@ import {
   pushUserNotification,
 } from "./browserNotifications.js";
 import {
+  getServiceWorkerScript,
+  getVapidPublicKey,
+  loadPushSubscriptionsFromMongo,
+  removePushSubscription,
+  savePushSubscription,
+} from "./webPush.js";
+import {
   credentialRequiredMessage,
   resolveToolState,
   categoryUnavailableMessage,
@@ -1737,6 +1744,7 @@ const staticAssetPaths = [
   "/manifest.webmanifest",
   "/robots.txt",
   "/sitemap.xml",
+  "/sw.js",
   "/.well-known/security.txt",
   "/server.json",
   "/.well-known/mcp.json",
@@ -1925,6 +1933,13 @@ app.get("/sitemap.xml", (req, res) => {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");
   res.send(xml);
+});
+
+app.get("/sw.js", (_req, res) => {
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.send(getServiceWorkerScript());
 });
 
 app.get("/.well-known/security.txt", (req, res) => {
@@ -2849,6 +2864,58 @@ app.get("/api/notifications", (req, res) => {
     notifications: listUserNotifications(owner.email, since),
     serverTime: Date.now(),
   });
+});
+
+app.get("/api/push/vapid-public-key", (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized." });
+    return;
+  }
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, publicKey: getVapidPublicKey() });
+  } catch (err: any) {
+    res.status(503).json({
+      ok: false,
+      error: err?.message || "Web Push is unavailable.",
+    });
+  }
+});
+
+app.post("/api/push/subscribe", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized." });
+    return;
+  }
+  try {
+    const sub = await savePushSubscription(
+      owner.email,
+      req.body?.subscription || req.body || {},
+      getUserAgent(req),
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, endpoint: sub.endpoint });
+  } catch (err: any) {
+    res.status(400).json({
+      ok: false,
+      error: err?.message || "Invalid push subscription.",
+    });
+  }
+});
+
+app.post("/api/push/unsubscribe", express.json(), async (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized." });
+    return;
+  }
+  const endpoint =
+    typeof req.body?.endpoint === "string" ? req.body.endpoint.trim() : undefined;
+  const removed = await removePushSubscription(owner.email, endpoint);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, removed });
 });
 
 app.get("/privacy", (req, res) => {
@@ -4878,6 +4945,7 @@ async function startServer(): Promise<void> {
       );
     }
     logIsolationStatus();
+    void loadPushSubscriptionsFromMongo().catch(() => {});
     if (getMongoDb()) startFileSweeper();
     else
       console.warn(

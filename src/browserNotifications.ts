@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { sendWebPushToUser } from "./webPush.js";
 
 export type BrowserNotificationType =
   | "account_created"
@@ -76,6 +77,7 @@ export function pushUserNotification(
     list.splice(0, list.length - MAX_PER_USER);
   }
   userQueues.set(key, list);
+  void sendWebPushToUser(key, item).catch(() => {});
   return item;
 }
 
