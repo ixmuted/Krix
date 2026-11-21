@@ -112,8 +112,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 :focus:not(:focus-visible) { outline: none; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; }
+[hidden] { display: none !important; }
+.text-muted { color: var(--fg-3); }
 .mono { font-family: var(--font-mono); }
-.grecaptcha-badge { visibility: hidden !important; }
 * { scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
 
 /* ---------- App frame (compact dropdown across Mobile, Tablet & PC) ---------- */
