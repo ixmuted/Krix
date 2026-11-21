@@ -145,7 +145,6 @@ export function renderPrivacyPage(params: { owner?: any; nonce?: string }): stri
       lede: "What Krix collects, how your credentials and workspace are protected, how long data is kept, and how you can delete it.",
       icon: "shield",
       tint: "clay",
-      graphic: "privacy-flow",
       facts: PRIVACY_FACTS,
       sections: PRIVACY_SECTIONS,
       other: { href: "/terms", title: "Terms of Service", dir: "Next" },
