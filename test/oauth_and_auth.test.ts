@@ -532,4 +532,41 @@ describe("OAuth 2.1 & Single-User Authentication", () => {
     assert.equal(data.token_type, "Bearer");
     assert.equal(typeof data.expires_in, "number");
   });
+
+  test("Client credentials grant: a user's API key never yields the owner's identity", async () => {
+    const entry: any = createDynamicKey("cc isolation key", "mallory@example.com");
+    const secret = entry.key;
+    const res = await fetch(`${base}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: "someone_elses_client_id",
+        client_secret: secret,
+      }).toString(),
+    });
+    assert.equal(res.status, 200);
+    const data = (await res.json()) as any;
+    const verified = await verifyAccessToken(data.access_token);
+    assert.equal(verified.valid, true);
+    assert.equal(verified.payload?.sub, "mallory@example.com", "token belongs to the key's own owner");
+    assert.notEqual(verified.payload?.sub, process.env.OWNER_EMAIL, "never the server owner");
+    assert.equal(verified.payload?.client_id, entry.id, "client_id is bound to the key, not caller-supplied");
+    revokeDynamicKey(entry.id);
+  });
+
+  test("Client credentials grant: the master key still maps to the owner", async () => {
+    const res = await fetch(`${base}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: "gemini_client",
+        client_secret: process.env.MCP_API_KEY!,
+      }).toString(),
+    });
+    const data = (await res.json()) as any;
+    const verified = await verifyAccessToken(data.access_token);
+    assert.equal(verified.payload?.sub, process.env.OWNER_EMAIL);
+  });
 });
