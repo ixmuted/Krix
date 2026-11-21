@@ -1,4 +1,5 @@
 import path from 'node:path';
+import vm from 'node:vm';
 import { McpServer } from '@modelcontextprotocol/server';
 import { Octokit } from '@octokit/rest';
 import { z } from 'zod';
@@ -47,6 +48,199 @@ async function resolveFullSha(octokit: Octokit, owner: string, repo: string, ref
 
   const commit = await octokit.repos.getCommit({ owner, repo, ref });
   return commit.data.sha;
+}
+
+const defaultBranchCache = new Map<string, { name: string; at: number }>();
+
+async function getDefaultBranch(octokit: Octokit, target: { owner: string; repo: string }, sessionId: string): Promise<string> {
+  const key = `${sessionId}:${target.owner}/${target.repo}`.toLowerCase();
+  const hit = defaultBranchCache.get(key);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.name;
+  const info = await octokit.repos.get({ owner: target.owner, repo: target.repo });
+  if (defaultBranchCache.size > 500) defaultBranchCache.clear();
+  defaultBranchCache.set(key, { name: info.data.default_branch, at: Date.now() });
+  return info.data.default_branch;
+}
+
+async function resolveBranch(octokit: Octokit, target: { owner: string; repo: string }, explicit: string | undefined, sessionId: string): Promise<string> {
+  const chosen = explicit || getSessionContext(sessionId).branch;
+  if (chosen) return chosen;
+  return getDefaultBranch(octokit, target, sessionId);
+}
+
+type FetchedFile =
+  | { kind: 'file'; buffer: Buffer; sha: string }
+  | { kind: 'dir'; entries: any[] }
+  | { kind: 'other'; type: string };
+
+async function fetchFile(octokit: Octokit, owner: string, repo: string, filePath: string, ref: string): Promise<FetchedFile> {
+  const res = await octokit.repos.getContent({ owner, repo, path: filePath, ref });
+  const data: any = res.data;
+  if (Array.isArray(data)) return { kind: 'dir', entries: data };
+  if (data.type !== 'file') return { kind: 'other', type: String(data.type) };
+  if (typeof data.content === 'string' && data.encoding === 'base64' && (data.content.length > 0 || data.size === 0)) {
+    return { kind: 'file', buffer: Buffer.from(data.content.replace(/\r?\n/g, ''), 'base64'), sha: data.sha };
+  }
+  // Files over 1 MB come back from the contents API with empty content: read the blob instead.
+  const blob = await octokit.git.getBlob({ owner, repo, file_sha: data.sha });
+  return { kind: 'file', buffer: Buffer.from(blob.data.content.replace(/\r?\n/g, ''), 'base64'), sha: data.sha };
+}
+
+const GREP_MAX_FILES = 250;
+const GREP_MAX_BLOB_BYTES = 1024 * 1024;
+const GREP_CONCURRENCY = 8;
+const GREP_REGEX_TIMEOUT_MS = 1500;
+const GREP_SKIP_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|avif|tiff?|heic|psd|pdf|zip|gz|tgz|bz2|xz|7z|rar|zst|jar|class|woff2?|ttf|otf|eot|mp[34]|m4a|wav|ogg|flac|mov|avi|mkv|webm|wasm|so|dll|exe|dylib|bin|pt|pth|onnx|safetensors|gguf|parquet|sqlite3?|db)$/i;
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globToRegExp(glob: string): RegExp {
+  if (!/[*?]/.test(glob)) return new RegExp(escapeRegExp(glob), 'i');
+  let re = '';
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === '*') {
+      if (glob[i + 1] === '*') {
+        re += '.*';
+        i++;
+        if (glob[i + 1] === '/') i++;
+      } else re += '[^/]*';
+    } else if (c === '?') re += '[^/]';
+    else re += escapeRegExp(c);
+  }
+  return new RegExp(`(^|/)${re}$`, 'i');
+}
+
+interface GrepOptions {
+  pattern: string;
+  ref: string;
+  path?: string;
+  glob?: string;
+  type?: string;
+  mode: 'content' | 'files_with_matches' | 'count';
+  caseInsensitive: boolean;
+  showLineNums: boolean;
+  before: number;
+  after: number;
+  offset: number;
+  limit: number;
+}
+
+async function grepRepository(octokit: Octokit, target: { owner: string; repo: string }, o: GrepOptions): Promise<string> {
+  const flags = o.caseInsensitive ? 'i' : '';
+  let source = o.pattern;
+  let note = '';
+  try {
+    new RegExp(source, flags);
+  } catch {
+    source = escapeRegExp(o.pattern);
+    note = 'Pattern is not a valid regular expression, so it was searched as plain text.';
+  }
+  if (source.length > 500) throw new Error('Pattern too long (max 500 characters).');
+
+  const treeRes = await octokit.git.getTree({ owner: target.owner, repo: target.repo, tree_sha: o.ref, recursive: 'true' });
+  let entries = treeRes.data.tree.filter((t: any) => t.type === 'blob' && t.path && t.sha) as Array<{ path: string; sha: string; size?: number }>;
+  const scope = (o.path || '').replace(/^\/+|\/+$/g, '');
+  const exactFile = scope ? entries.find((t) => t.path === scope) : undefined;
+
+  if (exactFile) {
+    entries = [exactFile];
+  } else {
+    if (scope) entries = entries.filter((t) => t.path.startsWith(scope + '/'));
+    if (scope && entries.length === 0) return `No files found at path '${scope}' on ref '${o.ref}'.`;
+    if (o.type) {
+      const ext = '.' + o.type.replace(/^\./, '').toLowerCase();
+      entries = entries.filter((t) => t.path.toLowerCase().endsWith(ext));
+    }
+    if (o.glob) {
+      const gx = globToRegExp(o.glob);
+      entries = entries.filter((t) => gx.test(t.path));
+    }
+    entries = entries.filter((t) => !GREP_SKIP_EXT.test(t.path) && !/(^|\/)node_modules\//.test(t.path) && (t.size ?? 0) <= GREP_MAX_BLOB_BYTES);
+  }
+  if (entries.length === 0) return 'No searchable files matched the path/glob/type filters.';
+
+  const capped = entries.length > GREP_MAX_FILES;
+  const totalCandidates = entries.length;
+  entries = entries.slice(0, GREP_MAX_FILES);
+
+  const sandbox: { lines: string[]; pattern: string; flags: string } = { lines: [], pattern: source, flags };
+  const ctx = vm.createContext(sandbox);
+  const script = new vm.Script(`(function(){ const rx = new RegExp(pattern, flags); const hits = []; for (let i = 0; i < lines.length; i++) { const l = lines[i]; if (rx.test(l.length > 2000 ? l.slice(0, 2000) : l)) hits.push(i); } return hits; })()`);
+
+  const found: Array<{ path: string; lines: string[]; hits: number[] }> = [];
+  let scanned = 0, skippedBinary = 0, failed = 0, timedOut = 0, next = 0;
+  const worker = async () => {
+    while (next < entries.length) {
+      const e = entries[next++];
+      try {
+        const blob = await octokit.git.getBlob({ owner: target.owner, repo: target.repo, file_sha: e.sha });
+        const buf = Buffer.from(blob.data.content.replace(/\r?\n/g, ''), 'base64');
+        if (isBinaryBuffer(buf)) { skippedBinary++; continue; }
+        const lines = buf.toString('utf-8').split(/\r?\n/);
+        scanned++;
+        sandbox.lines = lines;
+        let hits: number[];
+        try {
+          hits = Array.from(script.runInContext(ctx, { timeout: GREP_REGEX_TIMEOUT_MS }) as number[]);
+        } catch (err: any) {
+          if (err?.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT') { timedOut++; continue; }
+          throw err;
+        }
+        if (hits.length) found.push({ path: e.path, lines, hits });
+      } catch (err: any) {
+        if (err?.status === 403 || err?.status === 429) throw err;
+        failed++;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(GREP_CONCURRENCY, entries.length) }, worker));
+  found.sort((a, b) => a.path.localeCompare(b.path));
+
+  const footerParts = [`Searched ${scanned} file(s) @ ${o.ref}`];
+  if (capped) footerParts.push(`capped at ${GREP_MAX_FILES} of ${totalCandidates} candidate files, narrow with path/glob/type`);
+  if (skippedBinary) footerParts.push(`${skippedBinary} binary skipped`);
+  if (failed) footerParts.push(`${failed} unreadable`);
+  if (timedOut) footerParts.push(`${timedOut} file(s) skipped: regex too slow`);
+  if (note) footerParts.push(note);
+  const footer = `\n\n[${footerParts.join('; ')}]`;
+
+  const totalMatches = found.reduce((n, f) => n + f.hits.length, 0);
+  if (totalMatches === 0) return `No matches found.${footer}`;
+  if (o.mode === 'files_with_matches') return `${found.length} file(s) match:\n${found.map((f) => `- ${f.path}`).join('\n')}${footer}`;
+  if (o.mode === 'count') return `${totalMatches} match(es) in ${found.length} file(s):\n${found.map((f) => `- ${f.path}: ${f.hits.length}`).join('\n')}${footer}`;
+
+  const flat: Array<{ f: number; line: number }> = [];
+  found.forEach((f, fi) => f.hits.forEach((line) => flat.push({ f: fi, line })));
+  const page = flat.slice(o.offset, o.offset + o.limit);
+  const byFile = new Map<number, number[]>();
+  page.forEach((m) => { if (!byFile.has(m.f)) byFile.set(m.f, []); byFile.get(m.f)!.push(m.line); });
+
+  const out: string[] = [];
+  for (const [fi, matchLines] of byFile) {
+    const f = found[fi];
+    out.push(`File: ${f.path} (${f.hits.length} total matches)`);
+    const shown = new Set<number>();
+    let lastShown = -2;
+    for (const m of matchLines) {
+      const from = Math.max(0, m - o.before);
+      const to = Math.min(f.lines.length - 1, m + o.after);
+      for (let i = from; i <= to; i++) {
+        if (shown.has(i)) continue;
+        if (lastShown !== -2 && i > lastShown + 1) out.push('   ...');
+        shown.add(i);
+        lastShown = i;
+        const text = f.lines[i].length > 400 ? f.lines[i].slice(0, 400) + '...' : f.lines[i];
+        out.push(`${i === m ? '>> ' : '   '}${o.showLineNums ? `L${i + 1} | ` : ''}${text}`);
+      }
+    }
+    out.push('');
+  }
+  const end = Math.min(flat.length, o.offset + o.limit);
+  const more = end < flat.length ? ` Showing matches ${o.offset + 1}-${end} of ${flat.length}; use offset=${end} for more.` : '';
+  return `${out.join('\n').trimEnd()}${more ? `\n\n${more.trim()}` : ''}${footer}`;
 }
 
 function editDistance(s1: string, s2: string): number {
@@ -194,10 +388,16 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, path: filePath, ref, startLine, endLine, limit, encoding, sandboxPath, view } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeRef = ref || getSessionContext(sessionId).branch || 'main';
-      const res = await octokit.repos.getContent({ owner: target.owner, repo: target.repo, path: filePath, ref: activeRef });
-      if ('content' in res.data && typeof res.data.content === 'string') {
-        const rawBuffer = Buffer.from(res.data.content.replace(/\r?\n/g, ''), 'base64');
+      const activeRef = await resolveBranch(octokit, target, ref, sessionId);
+      const fetched = await fetchFile(octokit, target.owner, target.repo, filePath, activeRef);
+      if (fetched.kind === 'dir') {
+        const listing = fetched.entries
+          .sort((a: any, b: any) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1))
+          .map((e: any) => `${e.type === 'dir' ? '[D]' : '[F]'} ${e.path}${e.type === 'file' ? ` (${e.size} bytes)` : ''}`);
+        return formatOptimizedResponse(`Directory '${filePath || '/'}' @ ${activeRef} (${listing.length} entries):\n${listing.join('\n')}`, 20000);
+      }
+      if (fetched.kind === 'file') {
+        const rawBuffer = fetched.buffer;
         const mime = contentTypeFor(filePath);
         const isBin = isBinaryBuffer(rawBuffer) || (isImageMime(mime) && mime !== 'image/svg+xml');
 
@@ -242,7 +442,7 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
         const slice = lines.slice(start - 1, end).map((l, i) => `${(start + i).toString().padStart(5, ' ')} | ${l}`).join('\n');
         return formatOptimizedResponse(`[L${start}-L${end} / ${lines.length}]\n\n${slice}`, 100000);
       }
-      return formatOptimizedResponse('Not a standard text file.');
+      return formatOptimizedResponse(`Not a regular file (${fetched.type}).`);
     } catch (err) { return handleGitHubError(err); }
   });
 
@@ -264,15 +464,15 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, path, branch, old_str, old_str_b64, new_str, new_str_b64, message } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeBranch = branch || getSessionContext(sessionId).branch || 'main';
+      const activeBranch = await resolveBranch(octokit, target, branch, sessionId);
       const resolvedOld = resolveInputString(old_str, old_str_b64);
       const resolvedNew = resolveInputString(new_str, new_str_b64);
 
       if (!resolvedOld) throw new Error('Either old_str or old_str_b64 must be provided.');
 
-      const fileData = await octokit.repos.getContent({ owner: target.owner, repo: target.repo, path, ref: activeBranch });
-      if (Array.isArray(fileData.data) || !('content' in fileData.data)) throw new Error('Target is not a file.');
-      const raw = Buffer.from(fileData.data.content, 'base64').toString('utf-8');
+      const fileData = await fetchFile(octokit, target.owner, target.repo, path, activeBranch);
+      if (fileData.kind !== 'file') throw new Error('Target is not a file.');
+      const raw = fileData.buffer.toString('utf-8');
 
       // Match on LF-normalised text, but write back with the file's original line endings.
       const usesCrlf = raw.includes('\r\n');
@@ -294,7 +494,7 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
       let updated = normalizedContent.slice(0, at) + normalizedNew + normalizedContent.slice(at + normalizedOld.length);
       if (usesCrlf) updated = updated.replace(/\n/g, '\r\n');
       const res = await octokit.repos.createOrUpdateFileContents({
-        owner: target.owner, repo: target.repo, path, message, content: Buffer.from(updated, 'utf-8').toString('base64'), branch: activeBranch, sha: fileData.data.sha
+        owner: target.owner, repo: target.repo, path, message, content: Buffer.from(updated, 'utf-8').toString('base64'), branch: activeBranch, sha: fileData.sha
       });
       return formatOptimizedResponse(`Replacement committed: ${res.data.commit.sha}`);
     } catch (err) { return handleGitHubError(err); }
@@ -323,71 +523,22 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, pattern, path, ref, glob, type, output_mode, case_insensitive, show_line_numbers, context_before, context_after, offset, limit } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeRef = ref || getSessionContext(sessionId).branch || 'main';
-      const mode = output_mode || 'content';
-      const isCaseInsensitive = case_insensitive !== false;
-      const before = Math.min(Math.max(0, context_before || 0), 10);
-      const after = Math.min(Math.max(0, context_after || 0), 10);
-      const showLineNums = show_line_numbers !== false;
-      const maxLimit = Math.min(limit || 10, 50);
-      const startOffset = Math.max(0, offset || 0);
-
-      if (path) {
-        const res = await octokit.repos.getContent({ owner: target.owner, repo: target.repo, path, ref: activeRef });
-        if ('content' in res.data && typeof res.data.content === 'string') {
-          const raw = Buffer.from(res.data.content, 'base64').toString('utf-8');
-          const lines = raw.split('\n');
-          const matchedIndices: number[] = [];
-          lines.forEach((line, idx) => {
-            const matched = isCaseInsensitive
-              ? line.toLowerCase().includes(pattern.toLowerCase())
-              : line.includes(pattern);
-            if (matched) matchedIndices.push(idx);
-          });
-
-          if (matchedIndices.length === 0) {
-            return formatOptimizedResponse('No matches found in target path.');
-          }
-
-          if (mode === 'files_with_matches') return formatOptimizedResponse(`Matching target path:\n- ${path}`);
-          if (mode === 'count') return formatOptimizedResponse(`File: ${path} - ${matchedIndices.length} matches`);
-
-          const sliced = matchedIndices.slice(startOffset, startOffset + maxLimit);
-          const processed = new Set<number>();
-          const outputLines: string[] = [];
-
-          sliced.forEach(matchIdx => {
-            const s = Math.max(0, matchIdx - before);
-            const e = Math.min(lines.length - 1, matchIdx + after);
-            for (let i = s; i <= e; i++) {
-              if (processed.has(i)) continue;
-              processed.add(i);
-              const prefix = i === matchIdx ? '>> ' : '   ';
-              const numStr = showLineNums ? `L${i + 1} | ` : '';
-              outputLines.push(`${prefix}${numStr}${lines[i]}`);
-            }
-          });
-          return formatOptimizedResponse(`File: ${path} (${matchedIndices.length} total matches)\n\n${outputLines.join('\n')}`);
-        }
-      }
-
-      let query = pattern;
-      query += ` repo:${target.owner}/${target.repo}`;
-      if (type) query += ` extension:${type}`;
-
-      const searchRes = await octokit.search.code({ q: query, per_page: maxLimit });
-      let items = searchRes.data.items || [];
-      if (glob) {
-        const lowerGlob = glob.toLowerCase().replace(/\*/g, '');
-        items = items.filter(i => i.path.toLowerCase().includes(lowerGlob));
-      }
-
-      if (items.length === 0) return formatOptimizedResponse('No code matches found.');
-      if (mode === 'files_with_matches') {
-        return formatOptimizedResponse(items.map(i => `- ${i.path}`).join('\n'));
-      }
-
-      return formatOptimizedResponse(items.map(i => `- ${i.path}`).join('\n'));
+      const activeRef = await resolveBranch(octokit, target, ref, sessionId);
+      const result = await grepRepository(octokit, target, {
+        pattern,
+        ref: activeRef,
+        path,
+        glob,
+        type,
+        mode: output_mode || 'content',
+        caseInsensitive: case_insensitive !== false,
+        showLineNums: show_line_numbers !== false,
+        before: Math.min(Math.max(0, context_before || 0), 10),
+        after: Math.min(Math.max(0, context_after || 0), 10),
+        offset: Math.max(0, offset || 0),
+        limit: Math.min(Math.max(1, limit || 10), 50)
+      });
+      return formatOptimizedResponse(result, 100000);
     } catch (err) { return handleGitHubError(err); }
   });
 
@@ -399,10 +550,10 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, path, ref } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeRef = ref || getSessionContext(sessionId).branch || 'main';
-      const res = await octokit.repos.getContent({ owner: target.owner, repo: target.repo, path, ref: activeRef });
-      if ('content' in res.data && typeof res.data.content === 'string') {
-        const raw = Buffer.from(res.data.content, 'base64').toString('utf-8');
+      const activeRef = await resolveBranch(octokit, target, ref, sessionId);
+      const fetched = await fetchFile(octokit, target.owner, target.repo, path, activeRef);
+      if (fetched.kind === 'file') {
+        const raw = fetched.buffer.toString('utf-8');
         const lines = raw.split('\n');
         const outline: string[] = [];
         lines.forEach((line, idx) => {
@@ -432,7 +583,7 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, tree_sha, offset, limit, q } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeSha = tree_sha || getSessionContext(sessionId).branch || 'main';
+      const activeSha = tree_sha || (await resolveBranch(octokit, target, undefined, sessionId));
       const res = await octokit.git.getTree({ owner: target.owner, repo: target.repo, tree_sha: activeSha, recursive: 'true' });
       let tree = res.data.tree;
       if (q) {
@@ -469,12 +620,12 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, path, branch, startLine, endLine, newContent, newContent_b64, message } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeBranch = branch || getSessionContext(sessionId).branch || 'main';
+      const activeBranch = await resolveBranch(octokit, target, branch, sessionId);
       const resolvedNew = resolveInputString(newContent, newContent_b64);
-      const fileData = await octokit.repos.getContent({ owner: target.owner, repo: target.repo, path, ref: activeBranch });
-      if (Array.isArray(fileData.data) || !('content' in fileData.data)) throw new Error('Target is not a file.');
+      const fileData = await fetchFile(octokit, target.owner, target.repo, path, activeBranch);
+      if (fileData.kind !== 'file') throw new Error('Target is not a file.');
 
-      const raw = Buffer.from(fileData.data.content, 'base64').toString('utf-8');
+      const raw = fileData.buffer.toString('utf-8');
       const lines = raw.split('\n');
       if (startLine < 1 || endLine < startLine || endLine > lines.length) {
         throw new Error(`Invalid line coordinates. Target file has ${lines.length} lines.`);
@@ -487,7 +638,7 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
       lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
       const updated = lines.join('\n');
       const res = await octokit.repos.createOrUpdateFileContents({
-        owner: target.owner, repo: target.repo, path, message, content: Buffer.from(updated, 'utf-8').toString('base64'), branch: activeBranch, sha: fileData.data.sha
+        owner: target.owner, repo: target.repo, path, message, content: Buffer.from(updated, 'utf-8').toString('base64'), branch: activeBranch, sha: fileData.sha
       });
       return formatOptimizedResponse(`Line range patch committed: ${res.data.commit.sha}`);
     } catch (err) { return handleGitHubError(err); }
@@ -579,8 +730,10 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, limit } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const res = await octokit.repos.listBranches({ owner: target.owner, repo: target.repo, per_page: limit });
-      return formatOptimizedResponse(res.data.map(b => `${b.name} (${b.commit.sha.substring(0, 7)})`).join('\n'));
+      const perPage = Math.min(Math.max(1, limit || 10), 100);
+      const res = await octokit.repos.listBranches({ owner: target.owner, repo: target.repo, per_page: perPage });
+      const lines = res.data.map(b => `${b.name} (${b.commit.sha.substring(0, 7)})`).join('\n');
+      return formatOptimizedResponse(res.data.length === perPage ? `${lines}\n\n[Showing the first ${perPage}; raise limit (max 100) for more.]` : lines);
     } catch (err) { return handleGitHubError(err); }
   });
 
@@ -600,7 +753,7 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, sha, path, author, since, until, limit } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const res = await octokit.repos.listCommits({ owner: target.owner, repo: target.repo, sha, path, author, since, until, per_page: limit });
+      const res = await octokit.repos.listCommits({ owner: target.owner, repo: target.repo, sha, path, author, since, until, per_page: Math.min(Math.max(1, limit || 5), 100) });
       return formatOptimizedResponse(res.data.map(c => `- ${c.sha.substring(0, 7)}: ${c.commit.message.split('\n')[0]}`).join('\n'));
     } catch (err) { return handleGitHubError(err); }
   });
@@ -761,7 +914,8 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
         const ctx = getSessionContext(sessionId);
         if (ctx.owner && ctx.repo) query += ` repo:${ctx.owner}/${ctx.repo}`;
       }
-      const res = await octokit.search.code({ q: query, per_page: limit });
+      const res = await octokit.search.code({ q: query, per_page: Math.min(Math.max(1, limit || 5), 100) });
+      if (res.data.items.length === 0) return formatOptimizedResponse('No results. GitHub code search only covers the default branch and can miss private or recently pushed repos; use grep for exact branch/regex search.');
       return formatOptimizedResponse(res.data.items.map(i => `${i.repository.full_name}:${i.path}`).join('\n'));
     } catch (err) { return handleGitHubError(err); }
   });
@@ -1015,7 +1169,7 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
     const { owner, repo, path: filePath, content, content_b64, encoding, message, branch, sha } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const activeBranch = branch || getSessionContext(sessionId).branch || 'main';
+      const activeBranch = await resolveBranch(octokit, target, branch, sessionId);
       let b64Payload: string;
       if (content_b64 !== undefined) {
         b64Payload = content_b64.replace(/\s+/g, '');
@@ -1045,13 +1199,14 @@ export function registerGitHubTools(server: McpServer, octokit: Octokit, session
 
   reg('create_pull_request', {
     description: 'Create pull request.',
-    inputSchema: { owner: z.string().optional(), repo: z.string().optional(), title: z.string(), body: z.string().optional(), head: z.string(), base: z.string().default('main') },
+    inputSchema: { owner: z.string().optional(), repo: z.string().optional(), title: z.string(), body: z.string().optional(), head: z.string(), base: z.string().optional() },
     annotations: getToolAnnotations('create_pull_request')
   }, async (args: any) => {
     const { owner, repo, title, body, head, base } = args;
     try {
       const target = resolveRepo(owner, repo, sessionId);
-      const res = await octokit.pulls.create({ owner: target.owner, repo: target.repo, title, body, head, base });
+      const baseBranch = base || (await getDefaultBranch(octokit, target, sessionId));
+      const res = await octokit.pulls.create({ owner: target.owner, repo: target.repo, title, body, head, base: baseBranch });
       return formatOptimizedResponse(`PR #${res.data.number} created.`);
     } catch (err) { return handleGitHubError(err); }
   });
