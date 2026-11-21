@@ -322,23 +322,8 @@ export function escapeHtml(str = ""): string {
 }
 
 // ---------------------------------------------------------------------------
-// Monochrome Google-Style Email Shell & Mobile-First Info Rows
+// Minimal Google-Style Transactional Email Shell
 // ---------------------------------------------------------------------------
-
-type InfoIconKey =
-  | "profile"
-  | "laptop"
-  | "mobile"
-  | "tablet"
-  | "browser"
-  | "globe"
-  | "pin"
-  | "clock"
-  | "key"
-  | "shield"
-  | "trash"
-  | "link"
-  | "check";
 
 function getPublicBaseUrl(): string {
   const raw = process.env.PUBLIC_BASE_URL;
@@ -348,103 +333,106 @@ function getPublicBaseUrl(): string {
   return "https://krix.onrender.com";
 }
 
+function renderDetailList(
+  items: Array<{ label: string; value: string }>,
+): string {
+  const li = items
+    .map(
+      (item) =>
+        `<li style="margin:0 0 8px; padding:0; line-height:1.6;"><strong style="font-weight:600;">${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</li>`,
+    )
+    .join("
+              ");
+
+  return `<ul style="margin:0 0 20px; padding:0 0 0 20px; font-size:14px; color:#3c4043; line-height:1.6;">
+              ${li}
+            </ul>`;
+}
+
 function renderEmailShell(params: {
-  badge: string;
-  badgeTone?: "default" | "amber" | "red" | "emerald";
   title: string;
-  description: string;
-  bodyContent: string;
-  footerAccount: string;
-  timestamp: string;
+  greeting: string;
+  intro: string;
+  bodyHtml: string;
+  closing?: string;
   ctaText?: string;
   ctaUrl?: string;
+  footerAccount: string;
+  timestamp: string;
 }): string {
   const baseUrl = getPublicBaseUrl();
   const fontSans =
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    "Roboto, 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light only" />
-  <meta name="supported-color-schemes" content="light only" />
   <title>${escapeHtml(params.title)} - Krix</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f8f9fa; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#202124;">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#f8f9fa; padding:16px 8px 28px;">
+<body style="margin:0; padding:0; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#202124;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; padding:24px 12px 32px;">
     <tr>
       <td align="center" style="vertical-align:top;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:540px; width:100%; margin:0 auto; background-color:#ffffff; border:1px solid #dadce0; border-radius:8px;">
-          <!-- Clean White Brand Header -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:516px; width:100%; margin:0 auto; border:1px solid #dadce0; border-radius:8px;">
           <tr>
-            <td style="padding:18px 20px 14px; border-bottom:1px solid #e8eaed; background-color:#ffffff;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr>
-                  <td align="left" style="vertical-align:middle;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td style="vertical-align:middle; padding-right:10px;">
-                          <img src="${KRIX_LOGO_URL}" width="36" height="36" alt="Krix" style="display:block; width:36px; height:36px; border-radius:50%; border:0;" />
-                        </td>
-                        <td style="vertical-align:middle;">
-                          <span style="font-family:${fontSans}; font-size:18px; font-weight:600; color:#202124; letter-spacing:-0.01em; line-height:1;">Krix</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                  <td align="right" style="vertical-align:middle;">
-                    <span style="display:inline-block; padding:4px 10px; background-color:#f1f3f4; color:#202124; border:1px solid #dadce0; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; font-family:${fontSans};">
-                      ${escapeHtml(params.badge)}
-                    </span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+            <td style="padding:36px 28px 32px; text-align:left; font-family:${fontSans}; font-size:14px; line-height:1.6; color:#3c4043;">
+              <!-- Centered Brand Wordmark (dark-mode safe, never inverts) -->
+              <div style="text-align:center; margin:0 0 28px;">
+                <span style="font-family:${fontSans}; font-size:22px; font-weight:600; color:#202124; letter-spacing:-0.02em; line-height:1;">Krix</span>
+              </div>
 
-          <!-- Main Content -->
-          <tr>
-            <td style="padding:22px 20px 20px; text-align:left; background-color:#ffffff;">
-              <h1 style="margin:0 0 8px; font-size:20px; font-weight:600; color:#202124; letter-spacing:-0.01em; line-height:1.3; font-family:${fontSans};">
-                ${escapeHtml(params.title)}
-              </h1>
-              <p style="margin:0 0 16px; font-size:14.5px; color:#3c4043; line-height:1.55; font-family:${fontSans};">
-                ${escapeHtml(params.description)}
+              <p style="margin:0 0 16px; font-size:14px; line-height:1.6; color:#3c4043;">
+                ${escapeHtml(params.greeting)}
               </p>
 
-              ${params.bodyContent}
+              <p style="margin:0 0 18px; font-size:14px; line-height:1.6; color:#3c4043;">
+                ${escapeHtml(params.intro)}
+              </p>
+
+              ${params.bodyHtml}
 
               ${
                 params.ctaText && params.ctaUrl
-                  ? `
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0 4px;">
-                <tr>
-                  <td align="left">
-                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#111111; color:#ffffff !important; text-decoration:none !important; padding:12px 22px; border-radius:6px; font-size:14px; font-weight:600; line-height:1.2; font-family:${fontSans};">
-                      ${escapeHtml(params.ctaText)}
-                    </a>
-                  </td>
-                </tr>
-              </table>`
+                  ? `<div style="margin:24px 0 22px; text-align:left;">
+                <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#1a73e8; color:#ffffff !important; text-decoration:none !important; padding:10px 24px; border-radius:4px; font-size:14px; font-weight:500; line-height:1.25; font-family:${fontSans};">${escapeHtml(params.ctaText)}</a>
+              </div>`
                   : ""
               }
+
+              ${
+                params.closing
+                  ? `<p style="margin:0 0 18px; font-size:14px; line-height:1.6; color:#3c4043;">
+                ${escapeHtml(params.closing)}
+              </p>`
+                  : ""
+              }
+
+              <p style="margin:20px 0 0; font-size:14px; line-height:1.6; color:#3c4043;">
+                Thanks,<br />
+                The Krix team
+              </p>
             </td>
           </tr>
+        </table>
 
-          <!-- Minimal Footer -->
+        <!-- Quiet Footer Below Card -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:516px; width:100%; margin:16px auto 0;">
           <tr>
-            <td style="padding:14px 20px 18px; border-top:1px solid #e8eaed; background-color:#ffffff; font-size:12px; color:#5f6368; line-height:1.55; font-family:${fontSans};">
+            <td style="padding:0 12px; text-align:center; font-family:${fontSans}; font-size:11.5px; line-height:1.6; color:#5f6368;">
               <p style="margin:0 0 6px;">
-                <a href="${escapeHtml(baseUrl)}/help" style="color:#202124; text-decoration:underline; font-weight:500;">Help Center</a>
-                &nbsp;&middot;&nbsp;
-                <a href="${escapeHtml(baseUrl)}/privacy" style="color:#202124; text-decoration:underline; font-weight:500;">Privacy</a>
-                &nbsp;&middot;&nbsp;
-                <a href="${escapeHtml(baseUrl)}/terms" style="color:#202124; text-decoration:underline; font-weight:500;">Terms</a>
+                You received this email to let you know about important activity on your Krix account (${escapeHtml(params.footerAccount)}).
               </p>
-              <p style="margin:0; font-size:11.5px; color:#5f6368;">
-                Automated security notice for <strong style="color:#202124; font-weight:600;">${escapeHtml(params.footerAccount)}</strong> &middot; ${escapeHtml(params.timestamp)}
+              <p style="margin:0 0 6px;">
+                <a href="${escapeHtml(baseUrl)}/help" style="color:#1a73e8; text-decoration:none;">Help Center</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${escapeHtml(baseUrl)}/privacy" style="color:#1a73e8; text-decoration:none;">Privacy</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${escapeHtml(baseUrl)}/terms" style="color:#1a73e8; text-decoration:none;">Terms</a>
+              </p>
+              <p style="margin:0; font-size:11px; color:#70757a;">
+                ${escapeHtml(params.timestamp)}
               </p>
             </td>
           </tr>
@@ -454,48 +442,6 @@ function renderEmailShell(params: {
   </table>
 </body>
 </html>`;
-}
-
-/**
- * Renders a mobile-safe stacked key-value detail list in crisp black & white.
- */
-function renderInfoTable(
-  rows: Array<{
-    icon?: InfoIconKey;
-    label: string;
-    value: string;
-    isPill?: boolean;
-  }>,
-): string {
-  const fontSans =
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-  const fontMono =
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-
-  const renderedRows = rows
-    .map(
-      (r, idx) => `
-    <tr>
-      <td style="padding:9px 14px; ${idx === rows.length - 1 ? "" : "border-bottom:1px solid #e8eaed;"} text-align:left; vertical-align:top;">
-        <div style="font-family:${fontSans}; font-size:11px; font-weight:600; color:#5f6368; text-transform:uppercase; letter-spacing:0.04em; line-height:1.3; margin-bottom:3px;">
-          ${escapeHtml(r.label)}
-        </div>
-        <div style="font-family:${r.isPill ? fontMono : fontSans}; font-size:${r.isPill ? "13px" : "14px"}; color:#202124; line-height:1.45; word-break:break-word; overflow-wrap:anywhere;">
-          ${
-            r.isPill
-              ? `<span style="display:inline-block; background-color:#f1f3f4; color:#202124; border:1px solid #dadce0; padding:2px 8px; border-radius:4px; font-size:12.5px;">${escapeHtml(r.value)}</span>`
-              : escapeHtml(r.value)
-          }
-        </div>
-      </td>
-    </tr>`,
-    )
-    .join("");
-
-  return `
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background-color:#f8f9fa; border:1px solid #dadce0; border-radius:8px; margin:14px 0;">
-    ${renderedRows}
-  </table>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -660,52 +606,35 @@ export async function sendAccountCreatedEmail(params: {
   const device = parseDeviceInfo(params.userAgent);
   const geo = await getIpGeoLocation(params.ip);
   const timeStr = formatTimestamp();
-  const userName = params.name || params.email.split("@")[0] || "Developer";
+  const userName = params.name || params.email.split("@")[0] || "there";
   const userRole = (params.role || "user").toUpperCase();
 
-  const bodyContent = `
-    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>Account Active:</strong> Your isolated sandbox environment has been provisioned and is ready for MCP tool execution.
-    </div>
-    ${renderInfoTable([
-      { icon: "profile", label: "Account Email", value: params.email },
-      { icon: "shield", label: "Assigned Role", value: userRole, isPill: true },
-      ...(params.sandboxId
-        ? [
-            {
-              icon: "key" as const,
-              label: "Sandbox ID",
-              value: params.sandboxId,
-              isPill: true,
-            },
-          ]
-        : []),
-      { icon: device.icon, label: "Client Device", value: device.deviceName },
-      { icon: "browser", label: "Browser Engine", value: device.browser },
-      { icon: "globe", label: "IP Address", value: geo.ip, isPill: true },
-      { icon: "pin", label: "Sign-In Location", value: geo.location },
-      { icon: "clock", label: "Registered At", value: timeStr },
-    ])}
-    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      You can now create dynamic MCP API keys, connect assistants (Gemini, Claude, Cursor), and execute tools within your isolated workspace.
-    </p>`;
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Account", value: params.email },
+    { label: "Role", value: userRole },
+    ...(params.sandboxId ? [{ label: "Sandbox ID", value: params.sandboxId }] : []),
+    { label: "Device", value: `${device.deviceName} · ${device.browser}` },
+    { label: "Location", value: `${geo.location} (${geo.ip})` },
+    { label: "Time", value: timeStr },
+  ];
 
   const html = renderEmailShell({
-    badge: "Welcome",
-    badgeTone: "emerald",
-    title: `Welcome to Krix, ${userName}`,
-    description:
-      "Your developer account has been registered and provisioned successfully.",
-    bodyContent,
-    footerAccount: params.email,
-    timestamp: timeStr,
+    title: "Welcome to Krix",
+    greeting: `Hi ${userName},`,
+    intro:
+      "Welcome to Krix. Your account is now active and your isolated workspace is ready for MCP tools and API keys.",
+    bodyHtml: renderDetailList(details),
+    closing:
+      "If you didn't create this account, you can review your sessions and revoke access from your dashboard.",
     ctaText: "Open Krix Dashboard",
     ctaUrl: getPublicBaseUrl(),
+    footerAccount: params.email,
+    timestamp: timeStr,
   });
 
   return sendEmail({
     to: params.email,
-    subject: "Welcome to Krix — Account Created Successfully",
+    subject: "Welcome to Krix",
     html,
   });
 }
@@ -720,53 +649,35 @@ export async function sendAccountDeletedEmail(
   const device = parseDeviceInfo(params.userAgent);
   const geo = await getIpGeoLocation(params.ip);
   const timeStr = formatTimestamp();
-  const userName = params.name || params.email.split("@")[0] || "User";
+  const userName = params.name || params.email.split("@")[0] || "there";
   const graceDays = params.gracePeriodDays || 30;
   const deadlineMs =
     params.deletionDeadline || Date.now() + graceDays * 24 * 60 * 60 * 1000;
   const deadlineStr = formatTimestamp(deadlineMs);
 
-  const bodyContent = `
-    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>${graceDays}-Day Deletion Grace Period Active:</strong> We received a request to delete your Krix account. Your API keys and OAuth connections are now disabled, and your account will be permanently deleted on <strong>${deadlineStr}</strong>.
-    </div>
-    ${renderInfoTable([
-      { icon: "profile", label: "Account Email", value: params.email },
-      {
-        icon: "trash",
-        label: "Deletion Status",
-        value: `Scheduled (${graceDays} Days)`,
-        isPill: true,
-      },
-      {
-        icon: "clock",
-        label: "Permanent Deletion",
-        value: deadlineStr,
-      },
-      { icon: device.icon, label: "Action Device", value: device.deviceName },
-      { icon: "globe", label: "Origin IP", value: geo.ip, isPill: true },
-      { icon: "pin", label: "Origin Location", value: geo.location },
-      { icon: "clock", label: "Scheduled At", value: timeStr },
-    ])}
-    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>Changed your mind?</strong> You have ${graceDays} days to restore your account. Simply sign back in to the Krix dashboard before <strong>${deadlineStr}</strong> and your account will be immediately restored.
-    </p>`;
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Account", value: params.email },
+    { label: "Status", value: `Scheduled for deletion (${graceDays}-day grace period)` },
+    { label: "Permanent deletion date", value: deadlineStr },
+    { label: "Requested from", value: `${device.deviceName} · ${geo.location} (${geo.ip})` },
+    { label: "Time", value: timeStr },
+  ];
 
   const html = renderEmailShell({
-    badge: "Scheduled Deletion",
-    badgeTone: "amber",
-    title: "Krix Account Scheduled for Deletion",
-    description: `A deletion request was recorded for ${userName} (${params.email}) with an asynchronous ${graceDays}-day recovery window.`,
-    bodyContent,
+    title: "Account scheduled for deletion",
+    greeting: `Hi ${userName},`,
+    intro: `We received a request to delete your Krix account. Your API keys and OAuth connections have been disabled, and all account data will be permanently deleted on ${deadlineStr}.`,
+    bodyHtml: renderDetailList(details),
+    closing: `Changed your mind? Simply sign back in to Krix before ${deadlineStr} to cancel deletion and restore your account immediately.`,
+    ctaText: "Sign in to restore account",
+    ctaUrl: getPublicBaseUrl(),
     footerAccount: params.email,
     timestamp: timeStr,
-    ctaText: "Sign In to Cancel Deletion & Restore Account",
-    ctaUrl: getPublicBaseUrl(),
   });
 
   return sendEmail({
     to: params.email,
-    subject: `Krix Security Notice: Account Scheduled for Deletion (${graceDays}-Day Grace Period)`,
+    subject: `Your Krix account is scheduled for deletion (${graceDays}-day grace period)`,
     html,
   });
 }
@@ -779,44 +690,29 @@ export async function sendAccountFinallyDeletedEmail(
   params: SendAccountFinallyDeletedParams,
 ): Promise<SendResult> {
   const timeStr = formatTimestamp(params.purgedAt || Date.now());
-  const userName = params.name || params.email.split("@")[0] || "User";
+  const userName = params.name || params.email.split("@")[0] || "there";
 
-  const bodyContent = `
-    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>Account Permanently Deleted:</strong> The 30-day grace period for your account has ended. All account records, tokens, credentials, and persistent workspaces have been permanently purged.
-    </div>
-    ${renderInfoTable([
-      { icon: "profile", label: "Account Email", value: params.email },
-      {
-        icon: "trash",
-        label: "Deletion Status",
-        value: "Permanently Purged",
-        isPill: true,
-      },
-      {
-        icon: "shield",
-        label: "Data Purged",
-        value: "Tokens, Workspaces, Files",
-      },
-      { icon: "clock", label: "Purged At", value: timeStr },
-    ])}
-    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      All personal data, active OAuth authorizations, dynamic API keys, and isolated sandbox environments associated with your account have been irrevocably deleted in accordance with our security policies.
-    </p>`;
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Account", value: params.email },
+    { label: "Status", value: "Permanently deleted" },
+    { label: "Removed data", value: "Account records, API keys, OAuth tokens, and workspace files" },
+    { label: "Time", value: timeStr },
+  ];
 
   const html = renderEmailShell({
-    badge: "Account Deleted",
-    badgeTone: "red",
-    title: "Krix Account Permanently Deleted",
-    description: `The 30-day grace period has ended and all records for ${userName} (${params.email}) have been permanently purged.`,
-    bodyContent,
+    title: "Account permanently deleted",
+    greeting: `Hi ${userName},`,
+    intro:
+      "The 30-day grace period for your Krix account has ended, and your account and associated data have been permanently deleted.",
+    bodyHtml: renderDetailList(details),
+    closing: "No further action is required. You can sign up again at any time if you decide to return.",
     footerAccount: params.email,
     timestamp: timeStr,
   });
 
   return sendEmail({
     to: params.email,
-    subject: "Krix Security Notice: Account Permanently Deleted",
+    subject: "Your Krix account has been permanently deleted",
     html,
   });
 }
@@ -835,49 +731,33 @@ export async function sendNewLoginIpEmail(params: {
   const device = parseDeviceInfo(params.userAgent);
   const geo = await getIpGeoLocation(params.ip);
   const timeStr = formatTimestamp();
+  const userName = params.name || params.email.split("@")[0] || "there";
 
-  const bodyContent = `
-    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>New sign-in detected.</strong> Your account was just accessed from an IP address that has not been seen on your account previously.
-    </div>
-    ${renderInfoTable([
-      { icon: "profile", label: "Account Email", value: params.email },
-      { icon: "globe", label: "New IP Address", value: geo.ip, isPill: true },
-      { icon: "pin", label: "Approx. Location", value: geo.location },
-      { icon: device.icon, label: "Client Device", value: device.deviceName },
-      { icon: "browser", label: "Browser Engine", value: device.browser },
-      ...(params.previousIp
-        ? [
-            {
-              icon: "shield" as const,
-              label: "Previous Known IP",
-              value: params.previousIp,
-              isPill: true,
-            },
-          ]
-        : []),
-      { icon: "clock", label: "Login Timestamp", value: timeStr },
-    ])}
-    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      If this was you logging in from a new network or VPN, no action is needed. If you did not recognize this login, sign in to revoke your API keys and secure your Google account.
-    </p>`;
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Device", value: `${device.deviceName} · ${device.browser}` },
+    { label: "Approximate location", value: geo.location },
+    { label: "IP address", value: geo.ip },
+    ...(params.previousIp ? [{ label: "Previous IP", value: params.previousIp }] : []),
+    { label: "Time", value: timeStr },
+  ];
 
   const html = renderEmailShell({
-    badge: "Security Alert",
-    badgeTone: "amber",
-    title: "Security Notice: New Login IP Detected",
-    description:
-      "We noticed a sign-in to your Krix account from a new network address.",
-    bodyContent,
+    title: "New sign-in to your Krix account",
+    greeting: `Hi ${userName},`,
+    intro:
+      "We noticed a new sign-in to your Krix account from an IP address we haven't seen before. If this was you, you don't need to do anything.",
+    bodyHtml: renderDetailList(details),
+    closing:
+      "If you don't recognize this activity, review your settings and revoke any active API keys or OAuth clients right away.",
+    ctaText: "Check activity",
+    ctaUrl: `${getPublicBaseUrl()}/settings`,
     footerAccount: params.email,
     timestamp: timeStr,
-    ctaText: "Review Account Security",
-    ctaUrl: `${getPublicBaseUrl()}/settings`,
   });
 
   return sendEmail({
     to: params.email,
-    subject: `Security Alert: New Sign-in to Krix from ${geo.ip}`,
+    subject: `Security alert: New sign-in to Krix from ${geo.ip}`,
     html,
   });
 }
@@ -899,57 +779,35 @@ export async function sendOAuthClientSetupEmail(params: {
   const device = parseDeviceInfo(params.userAgent);
   const geo = await getIpGeoLocation(params.ip);
   const timeStr = formatTimestamp();
+  const userName = params.name || params.email.split("@")[0] || "there";
   const displayName =
     params.clientName || params.clientId || "External Application";
 
-  const bodyContent = `
-    <div style="background-color:#f8f9fa; border:1px solid #dadce0; border-left:3px solid #111111; border-radius:6px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#202124; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <strong>OAuth Client Authorized:</strong> An external tool or assistant has been granted access to your Krix MCP endpoint.
-    </div>
-    ${renderInfoTable([
-      { icon: "profile", label: "Authorized By", value: params.email },
-      { icon: "link", label: "Application Name", value: displayName },
-      { icon: "key", label: "Client ID", value: params.clientId, isPill: true },
-      {
-        icon: "shield",
-        label: "Granted Scope",
-        value: params.scope || "mcp:tools",
-        isPill: true,
-      },
-      ...(params.redirectUri
-        ? [
-            {
-              icon: "globe" as const,
-              label: "Redirect URI",
-              value: params.redirectUri,
-            },
-          ]
-        : []),
-      { icon: device.icon, label: "Client Device", value: device.deviceName },
-      { icon: "globe", label: "Authorize IP", value: geo.ip, isPill: true },
-      { icon: "clock", label: "Authorized At", value: timeStr },
-    ])}
-    <p style="font-size:13.5px; color:#3c4043; line-height:1.6; margin:16px 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      You can manage, rename, or revoke this authorization at any time in the <strong>API Keys &amp; OAuth</strong> settings page.
-    </p>`;
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Application", value: displayName },
+    { label: "Client ID", value: params.clientId },
+    { label: "Scope", value: params.scope || "mcp:tools" },
+    ...(params.redirectUri ? [{ label: "Redirect URI", value: params.redirectUri }] : []),
+    { label: "Device", value: `${device.deviceName} · ${geo.location} (${geo.ip})` },
+    { label: "Time", value: timeStr },
+  ];
 
   const html = renderEmailShell({
-    badge: "OAuth Authorized",
-    badgeTone: "emerald",
-    title: `OAuth Client Authorized: ${displayName}`,
-    description:
-      "An external tool or model client was successfully authorized on your Krix instance.",
-    bodyContent,
+    title: `${displayName} was connected to your Krix account`,
+    greeting: `Hi ${userName},`,
+    intro: `You granted ${displayName} access to your Krix MCP account. You can review or revoke this connection at any time.`,
+    bodyHtml: renderDetailList(details),
+    closing:
+      "If you didn't authorize this connection, open your API Keys & OAuth settings immediately to revoke it.",
+    ctaText: "Manage connections",
+    ctaUrl: `${getPublicBaseUrl()}/api`,
     footerAccount: params.email,
     timestamp: timeStr,
-    ctaText: "Manage OAuth Clients",
-    ctaUrl:
-      `${getPublicBaseUrl()}/api`,
   });
 
   return sendEmail({
     to: params.email,
-    subject: `Krix Authorization: Connected to ${displayName}`,
+    subject: `Security alert: ${displayName} was connected to your Krix account`,
     html,
   });
 }
