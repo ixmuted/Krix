@@ -425,27 +425,22 @@ export function getClientScripts(): string {
     function syncUI() {
       var badge = document.getElementById('browserNotifBadge');
       var toggleBtn = document.getElementById('browserNotifToggleBtn');
-      var testBtn = document.getElementById('browserNotifTestBtn');
       if (!badge && !toggleBtn) return;
       if (!isSupported()) {
         if (badge) badge.textContent = 'Unsupported';
         if (toggleBtn) { toggleBtn.disabled = true; toggleBtn.textContent = 'Not supported'; }
-        if (testBtn) testBtn.hidden = true;
         return;
       }
       var perm = Notification.permission;
       if (perm === 'denied') {
         if (badge) badge.textContent = 'Blocked in browser';
         if (toggleBtn) { toggleBtn.disabled = true; toggleBtn.textContent = 'Blocked'; }
-        if (testBtn) testBtn.hidden = true;
       } else if (isEnabled()) {
         if (badge) badge.textContent = 'Enabled';
         if (toggleBtn) { toggleBtn.disabled = false; toggleBtn.textContent = 'Disable'; }
-        if (testBtn) testBtn.hidden = false;
       } else {
         if (badge) badge.textContent = 'Off';
         if (toggleBtn) { toggleBtn.disabled = false; toggleBtn.textContent = 'Enable notifications'; }
-        if (testBtn) testBtn.hidden = true;
       }
     }
     function enable() {
@@ -482,14 +477,6 @@ export function getClientScripts(): string {
     function toggle() {
       if (isEnabled()) { disable(); } else { enable(); }
     }
-    function sendTest() {
-      if (!isEnabled()) {
-        enable();
-        return;
-      }
-      fireNative('Krix test alert', 'Browser notifications are active for your account.', '/settings', 'krix_notif_test_' + Date.now());
-      window.showToast('Test notification sent', 'success');
-    }
     function pollNow() {
       if (!document.getElementById('headerProfileTrigger')) return;
       var since = 0;
@@ -524,7 +511,6 @@ export function getClientScripts(): string {
       enable: enable,
       disable: disable,
       toggle: toggle,
-      sendTest: sendTest,
       syncUI: syncUI,
       pollNow: pollNow
     };
