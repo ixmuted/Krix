@@ -368,6 +368,8 @@ function renderEmailShell(params: {
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light only" />
   <title>${escapeHtml(params.title)} - Krix</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f8f9fa; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#202124;">
@@ -384,7 +386,7 @@ function renderEmailShell(params: {
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="vertical-align:middle; padding-right:10px;">
-                          <div role="img" aria-label="Krix" style="width:40px; height:40px; border-radius:50%; background-color:#ffffff; background-image:url('${KRIX_LOGO_URL}'); background-size:cover; background-position:center; background-repeat:no-repeat;"></div>
+                          <img src="${KRIX_LOGO_URL}" width="36" height="36" alt="Krix" style="display:block; width:36px; height:36px; border-radius:50%; border:0;" />
                         </td>
                         <td style="vertical-align:middle;">
                           <span style="font-family:${fontSans}; font-size:18px; font-weight:600; color:#202124; letter-spacing:-0.01em; line-height:1;">Krix</span>
