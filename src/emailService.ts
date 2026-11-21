@@ -368,18 +368,21 @@ function renderEmailShell(params: {
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light only" />
   <title>${escapeHtml(params.title)} - Krix</title>
 </head>
-<body style="margin:0; padding:0; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#202124;">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; padding:24px 12px 32px;">
+<body style="margin:0; padding:0; background-color:#ffffff; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#202124;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#ffffff; padding:24px 12px 32px;">
     <tr>
       <td align="center" style="vertical-align:top;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:516px; width:100%; margin:0 auto; border:1px solid #dadce0; border-radius:8px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:516px; width:100%; margin:0 auto; background-color:#ffffff; border:1px solid #dadce0; border-radius:8px;">
           <tr>
-            <td style="padding:36px 28px 32px; text-align:left; font-family:${fontSans}; font-size:14px; line-height:1.6; color:#3c4043;">
-              <!-- Centered Brand Wordmark (dark-mode safe, never inverts) -->
-              <div style="text-align:center; margin:0 0 28px;">
-                <span style="font-family:${fontSans}; font-size:22px; font-weight:600; color:#202124; letter-spacing:-0.02em; line-height:1;">Krix</span>
+            <td style="padding:36px 28px 32px; text-align:left; background-color:#ffffff; font-family:${fontSans}; font-size:14px; line-height:1.6; color:#3c4043;">
+              <!-- Centered Krix Logo + Wordmark (light-only meta + 64px size prevents Gmail Dark Mode inversion) -->
+              <div style="text-align:center; margin:0 0 24px;">
+                <img src="${KRIX_LOGO_URL}" width="64" height="64" alt="Krix" style="display:block; width:64px; height:64px; margin:0 auto 10px; border-radius:50%; border:0;" />
+                <span style="font-family:${fontSans}; font-size:20px; font-weight:600; color:#202124; letter-spacing:-0.02em; line-height:1;">Krix</span>
               </div>
 
               <p style="margin:0 0 16px; font-size:14px; line-height:1.6; color:#3c4043;">
