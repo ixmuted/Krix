@@ -322,28 +322,31 @@ export function escapeHtml(str = ""): string {
 }
 
 // ---------------------------------------------------------------------------
-// SVG Glyphs for Email Clients
+// Editorial Email Shell & Mobile-First Info Rows (Gmail & Dark-Mode Safe)
 // ---------------------------------------------------------------------------
 
-const ICONS = {
-  profile: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-  laptop: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/></svg>`,
-  mobile: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`,
-  tablet: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="18" r="0.5"/></svg>`,
-  browser: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="6.5" x2="8.01" y2="6.5"/></svg>`,
-  globe: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
-  pin: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
-  clock: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  key: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-2-2l-2 2m2-2l-7 7m0 0a5 5 0 1 0 7 7l7-7-7-7z"/><circle cx="7" cy="17" r="2"/></svg>`,
-  shield: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-  trash: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>`,
-  link: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
-  check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-};
+type InfoIconKey =
+  | "profile"
+  | "laptop"
+  | "mobile"
+  | "tablet"
+  | "browser"
+  | "globe"
+  | "pin"
+  | "clock"
+  | "key"
+  | "shield"
+  | "trash"
+  | "link"
+  | "check";
 
-// ---------------------------------------------------------------------------
-// Bulletproof Email Shell & Symmetrical Info Table
-// ---------------------------------------------------------------------------
+function getPublicBaseUrl(): string {
+  const raw = process.env.PUBLIC_BASE_URL;
+  if (raw && !raw.includes("example.com")) {
+    return raw.replace(/\/+$/, "");
+  }
+  return "https://krix.onrender.com";
+}
 
 function renderEmailShell(params: {
   badge: string;
@@ -356,6 +359,8 @@ function renderEmailShell(params: {
   ctaText?: string;
   ctaUrl?: string;
 }): string {
+  const baseUrl = getPublicBaseUrl();
+
   const badgeBg =
     params.badgeTone === "amber"
       ? "#fbf5e8"
@@ -364,14 +369,6 @@ function renderEmailShell(params: {
         : params.badgeTone === "emerald"
           ? "#ecf7ef"
           : "#f9ebe6";
-  const badgeBorder =
-    params.badgeTone === "amber"
-      ? "#ebd4a2"
-      : params.badgeTone === "red"
-        ? "#efc6c6"
-        : params.badgeTone === "emerald"
-          ? "#bce3c8"
-          : "#eec9bc";
   const badgeColor =
     params.badgeTone === "amber"
       ? "#9a6a12"
@@ -379,7 +376,12 @@ function renderEmailShell(params: {
         ? "#991b1b"
         : params.badgeTone === "emerald"
           ? "#166534"
-          : "#b4553a";
+          : "#c6613f";
+
+  const fontSans =
+    "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  const fontSerif =
+    "ui-serif, 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', serif";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -388,30 +390,30 @@ function renderEmailShell(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(params.title)} - Krix</title>
 </head>
-<body style="margin:0; padding:0; background-color:#faf9f5; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing:antialiased; color:#141413;">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#faf9f5; padding:32px 12px 48px;">
+<body style="margin:0; padding:0; background-color:#faf9f5; font-family:${fontSans}; -webkit-font-smoothing:antialiased; color:#141413;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#faf9f5; padding:16px 8px 28px;">
     <tr>
       <td align="center" style="vertical-align:top;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:580px; margin:0 auto; background-color:#ffffff; border:1px solid #e5e3db; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(20,20,19,0.05);">
-          <!-- Header matching Krix warm editorial navbar -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; width:100%; margin:0 auto; background-color:#ffffff; border:1px solid #e5e3db; border-radius:12px;">
+          <!-- Compact Brand Header -->
           <tr>
-            <td style="background-color:#f5f4ed; padding:18px 28px; border-bottom:1px solid #e5e3db;">
+            <td style="padding:18px 20px 14px; border-bottom:1px solid #eceae2;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                   <td align="left" style="vertical-align:middle;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td style="vertical-align:middle; padding-right:10px; width:30px; min-width:30px; max-width:30px;">
-                          <img src="${KRIX_LOGO_URL}" width="30" height="30" alt="Krix" style="display:block; width:30px; height:30px; border-radius:8px; border:1px solid #e0ddd3; object-fit:cover;" />
+                        <td style="vertical-align:middle; padding-right:9px;">
+                          <img src="${KRIX_LOGO_URL}" width="26" height="26" alt="Krix" style="display:block; width:26px; height:26px; border-radius:6px; border:0;" />
                         </td>
                         <td style="vertical-align:middle;">
-                          <span style="font-family:ui-serif, 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', serif; font-size:19px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1; display:inline-block;">Krix</span>
+                          <span style="font-family:${fontSerif}; font-size:18px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1;">Krix</span>
                         </td>
                       </tr>
                     </table>
                   </td>
                   <td align="right" style="vertical-align:middle;">
-                    <span style="display:inline-block; padding:4px 11px; background-color:${badgeBg}; border:1px solid ${badgeBorder}; color:${badgeColor}; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <span style="display:inline-block; padding:3px 10px; background-color:${badgeBg}; color:${badgeColor}; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; font-family:${fontSans};">
                       ${escapeHtml(params.badge)}
                     </span>
                   </td>
@@ -420,13 +422,13 @@ function renderEmailShell(params: {
             </td>
           </tr>
 
-          <!-- Main Body -->
+          <!-- Main Content -->
           <tr>
-            <td style="padding:32px 28px 26px; background-color:#ffffff; text-align:left;">
-              <h1 style="margin:0 0 8px; font-size:22px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1.25; font-family:ui-serif, 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', serif;">
+            <td style="padding:22px 20px 20px; text-align:left;">
+              <h1 style="margin:0 0 8px; font-size:21px; font-weight:600; color:#141413; letter-spacing:-0.02em; line-height:1.25; font-family:${fontSerif};">
                 ${escapeHtml(params.title)}
               </h1>
-              <p style="margin:0 0 20px; font-size:14px; color:#3d3d3a; line-height:1.6; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <p style="margin:0 0 16px; font-size:15px; color:#3d3d3a; line-height:1.55; font-family:${fontSans};">
                 ${escapeHtml(params.description)}
               </p>
 
@@ -435,10 +437,10 @@ function renderEmailShell(params: {
               ${
                 params.ctaText && params.ctaUrl
                   ? `
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:28px 0 6px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0 4px;">
                 <tr>
-                  <td align="center">
-                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#c6613f; color:#ffffff !important; text-decoration:none !important; padding:12px 28px; border-radius:8px; font-size:13.5px; font-weight:600; letter-spacing:0.01em; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align:center;">
+                  <td align="left">
+                    <a href="${escapeHtml(params.ctaUrl)}" style="display:inline-block; background-color:#c6613f; color:#ffffff !important; text-decoration:none !important; padding:12px 22px; border-radius:8px; font-size:14px; font-weight:600; line-height:1.2; font-family:${fontSans};">
                       ${escapeHtml(params.ctaText)}
                     </a>
                   </td>
@@ -449,11 +451,19 @@ function renderEmailShell(params: {
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Compact Footer -->
           <tr>
-            <td style="padding:18px 28px; background-color:#f5f4ed; border-top:1px solid #e5e3db; font-size:12px; color:#73726c; line-height:1.6; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              <p style="margin:0;">Account: <strong style="color:#3d3d3a;">${escapeHtml(params.footerAccount)}</strong> &nbsp;&middot;&nbsp; Recorded: <strong style="color:#3d3d3a;">${escapeHtml(params.timestamp)}</strong></p>
-              <p style="margin:4px 0 0; font-size:11.5px; color:#73726c;">Automated security &amp; account notification from Krix.</p>
+            <td style="padding:14px 20px 18px; border-top:1px solid #eceae2; font-size:12px; color:#73726c; line-height:1.55; font-family:${fontSans};">
+              <p style="margin:0 0 6px;">
+                <a href="${escapeHtml(baseUrl)}/help" style="color:#c6613f; text-decoration:none; font-weight:500;">Help Center</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${escapeHtml(baseUrl)}/privacy" style="color:#c6613f; text-decoration:none; font-weight:500;">Privacy</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${escapeHtml(baseUrl)}/terms" style="color:#c6613f; text-decoration:none; font-weight:500;">Terms</a>
+              </p>
+              <p style="margin:0; font-size:11.5px; color:#73726c;">
+                Sent to <strong style="color:#3d3d3a; font-weight:600;">${escapeHtml(params.footerAccount)}</strong> &middot; ${escapeHtml(params.timestamp)}
+              </p>
             </td>
           </tr>
         </table>
@@ -465,45 +475,44 @@ function renderEmailShell(params: {
 }
 
 /**
- * Renders an evenly aligned, pixel-perfect 3-column info table using fixed table layout.
- * Columns:
- * - Col 1 (42px): Centered icon chip
- * - Col 2 (145px): Fixed-width uppercase label
- * - Col 3 (fluid): Value (with optional monospace pill)
+ * Renders a mobile-safe stacked key-value detail list (never squishes on narrow screens,
+ * and uses no inline SVGs which Gmail strips).
  */
 function renderInfoTable(
   rows: Array<{
-    icon: keyof typeof ICONS;
+    icon?: InfoIconKey;
     label: string;
     value: string;
     isPill?: boolean;
   }>,
 ): string {
+  const fontSans =
+    "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  const fontMono =
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
   const renderedRows = rows
     .map(
       (r, idx) => `
-    <tr style="border-bottom:${idx === rows.length - 1 ? "none" : "1px solid #eceae2"};">
-      <td width="42" align="center" style="width:42px; min-width:42px; max-width:42px; padding:11px 0 11px 14px; vertical-align:middle; text-align:center;">
-        <span style="display:inline-block; width:26px; height:26px; border-radius:6px; background-color:#ffffff; border:1px solid #e5e3db; text-align:center; line-height:24px; vertical-align:middle;">
-          ${ICONS[r.icon] || ICONS.profile}
-        </span>
-      </td>
-      <td width="145" align="left" style="width:145px; min-width:145px; max-width:145px; padding:11px 10px 11px 8px; vertical-align:middle; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:11.5px; font-weight:600; color:#73726c; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;">
-        ${escapeHtml(r.label)}
-      </td>
-      <td align="left" style="padding:11px 16px 11px 4px; vertical-align:middle; font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13.5px; color:#141413; word-break:break-word; line-height:1.4;">
-        ${
-          r.isPill
-            ? `<span style="display:inline-block; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background-color:#f0eee6; color:#141413; border:1px solid #e0ddd3; padding:2px 8px; border-radius:6px; line-height:1.4;">${escapeHtml(r.value)}</span>`
-            : escapeHtml(r.value)
-        }
+    <tr>
+      <td style="padding:9px 14px; ${idx === rows.length - 1 ? "" : "border-bottom:1px solid #eceae2;"} text-align:left; vertical-align:top;">
+        <div style="font-family:${fontSans}; font-size:11px; font-weight:600; color:#73726c; text-transform:uppercase; letter-spacing:0.04em; line-height:1.3; margin-bottom:3px;">
+          ${escapeHtml(r.label)}
+        </div>
+        <div style="font-family:${r.isPill ? fontMono : fontSans}; font-size:${r.isPill ? "13px" : "14px"}; color:#141413; line-height:1.45; word-break:break-word; overflow-wrap:anywhere;">
+          ${
+            r.isPill
+              ? `<span style="display:inline-block; background-color:#f0eee6; color:#141413; padding:2px 8px; border-radius:6px; font-size:12.5px;">${escapeHtml(r.value)}</span>`
+              : escapeHtml(r.value)
+          }
+        </div>
       </td>
     </tr>`,
     )
     .join("");
 
   return `
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; table-layout:fixed; background-color:#faf9f5; border:1px solid #e5e3db; border-radius:12px; margin:20px 0; overflow:hidden;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background-color:#faf9f5; border:1px solid #e5e3db; border-radius:10px; margin:14px 0;">
     ${renderedRows}
   </table>`;
 }
@@ -674,7 +683,7 @@ export async function sendAccountCreatedEmail(params: {
   const userRole = (params.role || "user").toUpperCase();
 
   const bodyContent = `
-    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>Account Active:</strong> Your isolated sandbox environment has been provisioned and is ready for MCP tool execution.
     </div>
     ${renderInfoTable([
@@ -710,7 +719,7 @@ export async function sendAccountCreatedEmail(params: {
     footerAccount: params.email,
     timestamp: timeStr,
     ctaText: "Open Krix Dashboard",
-    ctaUrl: process.env.PUBLIC_BASE_URL || "https://krix.onrender.com",
+    ctaUrl: getPublicBaseUrl(),
   });
 
   return sendEmail({
@@ -737,7 +746,7 @@ export async function sendAccountDeletedEmail(
   const deadlineStr = formatTimestamp(deadlineMs);
 
   const bodyContent = `
-    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>${graceDays}-Day Deletion Grace Period Active:</strong> We received a request to delete your Krix account. Your API keys and OAuth connections are now disabled, and your account will be permanently deleted on <strong>${deadlineStr}</strong>.
     </div>
     ${renderInfoTable([
@@ -771,7 +780,7 @@ export async function sendAccountDeletedEmail(
     footerAccount: params.email,
     timestamp: timeStr,
     ctaText: "Sign In to Cancel Deletion & Restore Account",
-    ctaUrl: process.env.PUBLIC_BASE_URL || "https://krix.onrender.com",
+    ctaUrl: getPublicBaseUrl(),
   });
 
   return sendEmail({
@@ -792,7 +801,7 @@ export async function sendAccountFinallyDeletedEmail(
   const userName = params.name || params.email.split("@")[0] || "User";
 
   const bodyContent = `
-    <div style="background-color:#fef2f2; border:1px solid #fee2e2; border-left:4px solid #ef4444; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#991b1b; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#fef2f2; border:1px solid #fee2e2; border-left:4px solid #ef4444; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#991b1b; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>Account Permanently Deleted:</strong> The 30-day grace period for your account has ended. All account records, tokens, credentials, and persistent workspaces have been permanently purged.
     </div>
     ${renderInfoTable([
@@ -847,7 +856,7 @@ export async function sendNewLoginIpEmail(params: {
   const timeStr = formatTimestamp();
 
   const bodyContent = `
-    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#92400e; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>New sign-in detected.</strong> Your account was just accessed from an IP address that has not been seen on your account previously.
     </div>
     ${renderInfoTable([
@@ -882,7 +891,7 @@ export async function sendNewLoginIpEmail(params: {
     footerAccount: params.email,
     timestamp: timeStr,
     ctaText: "Review Account Security",
-    ctaUrl: process.env.PUBLIC_BASE_URL || "https://krix.onrender.com/settings",
+    ctaUrl: `${getPublicBaseUrl()}/settings`,
   });
 
   return sendEmail({
@@ -913,7 +922,7 @@ export async function sendOAuthClientSetupEmail(params: {
     params.clientName || params.clientId || "External Application";
 
   const bodyContent = `
-    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:14px 16px; margin:18px 0; font-size:13.5px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color:#f0fdf4; border:1px solid #dcfce7; border-left:4px solid #10b981; border-radius:8px; padding:12px 14px; margin:12px 0 14px; font-size:14px; line-height:1.55; color:#166534; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <strong>OAuth Client Authorized:</strong> An external tool or assistant has been granted access to your Krix MCP endpoint.
     </div>
     ${renderInfoTable([
@@ -954,8 +963,7 @@ export async function sendOAuthClientSetupEmail(params: {
     timestamp: timeStr,
     ctaText: "Manage OAuth Clients",
     ctaUrl:
-      process.env.PUBLIC_BASE_URL ||
-      "https://krix.onrender.com/api",
+      `${getPublicBaseUrl()}/api`,
   });
 
   return sendEmail({
