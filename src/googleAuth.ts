@@ -345,7 +345,7 @@ function hashApiKey(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function getSessionSecret(): string {
+export function getSessionSecret(): string {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
   if (process.env.MCP_API_KEY) return process.env.MCP_API_KEY;

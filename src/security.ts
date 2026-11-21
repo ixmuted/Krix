@@ -703,12 +703,20 @@ export function formatError(error: any) {
 // Names of environment variables whose *values* must never appear in any tool output or log line.
 const SECRET_ENV_NAMES = [
   "MCP_API_KEY",
+  "SESSION_SECRET",
+  "AUTH_SECRET",
+  "KEY_ENCRYPTION_SECRET",
+  "AUDIT_HASH_SECRET",
+  "RSA_PRIVATE_KEY",
+  "GOOGLE_CLIENT_SECRET",
+  "RESEND_API_KEY",
   "GITHUB_PERSONAL_ACCESS_TOKEN",
   "GITHUB_PAT",
   "RENDER_API_KEY",
   "RENDER_PAT",
   "MONGODB_URI",
   "MONGO_URL",
+  "DATABASE_URL",
   "MONGODB_PASSWORD",
 ];
 const dynamicSecrets = new Set<string>();
@@ -897,10 +905,14 @@ function isEnvOwnerEmail(email?: string | null): boolean {
 export function canonicalUserIdentity(
   identity?: { email?: string | null; keyId?: string | null } | string | null,
 ): string {
-  if (!identity) return "anonymous";
+  if (!identity) {
+    throw new Error("Authenticated user identity is required.");
+  }
   if (typeof identity === "string") {
     const trimmed = identity.trim();
-    if (!trimmed) return "anonymous";
+    if (!trimmed || trimmed.toLowerCase() === "anonymous") {
+      throw new Error("Authenticated user identity is required.");
+    }
     if (trimmed === "primary-key" || trimmed === "owner") return "owner";
     if (trimmed.includes("@")) {
       const email = trimmed.toLowerCase();
@@ -910,15 +922,17 @@ export function canonicalUserIdentity(
     return trimmed;
   }
   if (identity.keyId === "primary-key") return "owner";
-  if (identity.email && identity.email.trim()) {
-    const email = identity.email.trim().toLowerCase();
+  const rawEmail = identity.email ? identity.email.trim() : "";
+  if (rawEmail && rawEmail.toLowerCase() !== "anonymous") {
+    const email = rawEmail.toLowerCase();
     if (isEnvOwnerEmail(email)) return "owner";
     return `user_${email}`;
   }
-  if (identity.keyId && identity.keyId.trim()) {
-    return `key_${identity.keyId.trim()}`;
+  const rawKeyId = identity.keyId ? identity.keyId.trim() : "";
+  if (rawKeyId && rawKeyId.toLowerCase() !== "anonymous") {
+    return `key_${rawKeyId}`;
   }
-  return "anonymous";
+  throw new Error("Authenticated user identity is required.");
 }
 
 /**

@@ -1516,10 +1516,21 @@ app.all(
         (keyId === "primary-key"
           ? getOwnerEmail() || "owner@localhost"
           : undefined);
-      const sessionIdentity = canonicalUserIdentity({
-        email: sessionEmail,
-        keyId,
-      });
+      let sessionIdentity: string;
+      try {
+        sessionIdentity = canonicalUserIdentity({
+          email: sessionEmail,
+          keyId,
+        });
+      } catch {
+        jsonRpcError(
+          res,
+          401,
+          -32000,
+          "Unauthorized. Authenticated identity is required.",
+        );
+        return;
+      }
       const expectedAuthKey = computeAuthKey(sessionIdentity);
       const ownsSession = (id: string, e?: SessionEntry): e is SessionEntry =>
         Boolean(e) &&
@@ -1958,11 +1969,11 @@ app.get(
 app.get(["/", "/home"], async (req, res) => {
   const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || baseUrl(req);
   const owner = parseOwnerCookie(req);
-  const authKey = owner
-    ? computeUserAuthKey({ email: owner.email })
-    : computeAuthKey("anonymous");
-  const root = sandboxRootForAuthKey(authKey);
-  const uploads = await listUploadedFiles(root);
+  const uploads = owner
+    ? await listUploadedFiles(
+        sandboxRootForAuthKey(computeUserAuthKey({ email: owner.email })),
+      )
+    : [];
   const dynamicKeys = owner ? listDynamicKeys(owner.email) : [];
   const isOwner = Boolean(owner && isOwnerEmail(owner.email));
 
@@ -3017,36 +3028,40 @@ app.get("/stats/api", async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
+  const isMasterKey = Boolean(
+    MCP_API_KEY && clientKey && safeEqual(clientKey, MCP_API_KEY),
+  );
   const ownerKeys = owner
     ? resolveUserOwnerKeys(owner.email)
     : Array.from(extractCallerAuthKeys(req));
   const effectiveIsOwner = owner
     ? isOwnerEmail(owner.email)
-    : clientKey === MCP_API_KEY;
-  const sharedSandbox = await statsTracker.computeSharedSandboxStats(
-    ownerKeys,
-    effectiveIsOwner,
-  );
-  const authKey = owner
-    ? computeUserAuthKey({ email: owner.email })
-    : ownerKeys[0] || computeAuthKey(`key_${apiEntry?.id || "anonymous"}`);
-  const root = sandboxRootForAuthKey(authKey);
+    : isMasterKey;
   const scopedKeyId = owner
     ? selectedKeyId !== undefined
       ? selectedKeyId
       : ""
     : selectedKeyId ||
       apiEntry?.id ||
-      (clientKey === MCP_API_KEY ? "primary-key" : undefined);
+      (isMasterKey ? "primary-key" : undefined);
   if (scopedKeyId === undefined) {
     res
       .status(403)
       .json({ error: "Unable to resolve the API key's usage scope." });
     return;
   }
+  const authKey = owner
+    ? computeUserAuthKey({ email: owner.email })
+    : ownerKeys[0] ||
+      computeUserAuthKey({ keyId: apiEntry?.id || (isMasterKey ? "primary-key" : undefined) });
+  const sharedSandbox = await statsTracker.computeSharedSandboxStats(
+    ownerKeys,
+    effectiveIsOwner,
+  );
+  const root = sandboxRootForAuthKey(authKey);
   const allowedStatsKeys = ownedStatsKeyIds(
     owner?.email,
-    apiEntry?.id || (clientKey === MCP_API_KEY ? "primary-key" : undefined),
+    apiEntry?.id || (isMasterKey ? "primary-key" : undefined),
   );
   const summary = statsTracker.getSummary(
     root,
@@ -3100,9 +3115,12 @@ app.get("/stats/api/timeline", async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
+  const isMasterKey = Boolean(
+    MCP_API_KEY && clientKey && safeEqual(clientKey, MCP_API_KEY),
+  );
   const allowedTimelineKeys = ownedStatsKeyIds(
     owner?.email,
-    apiEntry?.id || (clientKey === MCP_API_KEY ? "primary-key" : undefined),
+    apiEntry?.id || (isMasterKey ? "primary-key" : undefined),
   );
   const chunk = await statsTracker.loadHistoricalChunk(
     month,
@@ -4719,6 +4737,11 @@ async function startServer(): Promise<void> {
   }
   server = app.listen(PORT, () => {
     console.log(`Krix active on port ${PORT}`);
+    if (!getOwnerEmail()) {
+      console.warn(
+        "[startup] Neither OWNER_EMAIL nor GOOGLE_ALLOWED_EMAIL is set: Google logins will be treated as standard users (50 MB quota, no env GitHub/Render tokens).",
+      );
+    }
     logIsolationStatus();
     if (getMongoDb()) startFileSweeper();
     else

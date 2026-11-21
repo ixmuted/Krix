@@ -15,6 +15,7 @@ import {
   findAuthorizedApiKey,
   getMongoDb,
   ensureMongoAuth,
+  getSessionSecret,
 } from "./googleAuth.js";
 import { safeEqual, registerSecret } from "./security.js";
 import { getKeySettings } from "./userSettings.js";
@@ -177,16 +178,15 @@ export async function loadOAuthFromMongo(): Promise<void> {
         const revokedRefresh = td.refreshToken || td.refresh_token;
         if (revokedRefresh) refreshTokens.delete(revokedRefresh);
       } else if (token && clientId) {
+        const resolvedOwner = String(
+          td.ownerEmail || td.email || td.owner_email || "",
+        ).trim();
+        if (!resolvedOwner) continue;
         const entry: IssuedTokenEntry = {
           token,
           refreshToken: td.refreshToken || td.refresh_token || "",
           clientId,
-          ownerEmail:
-            td.ownerEmail ||
-            td.email ||
-            td.owner_email ||
-            process.env.OWNER_EMAIL ||
-            "owner",
+          ownerEmail: resolvedOwner,
           scope: td.scope || "mcp:tools mcp:sandbox",
           expiresAt: td.expiresAt || Date.now() + 86400 * 1000,
           refreshExpiresAt:
@@ -370,11 +370,7 @@ export async function revokeOAuthTokenInMongo(
 }
 
 function getSigningSecret(): string {
-  return (
-    process.env.SESSION_SECRET ||
-    process.env.MCP_API_KEY ||
-    "krix-default-oauth-signing-secret"
-  );
+  return getSessionSecret();
 }
 
 function base64url(buf: Buffer): string {
@@ -1149,9 +1145,18 @@ export function createMcpOAuthRouter(): Router {
           }
         }
 
+        const resolvedOwner = String(entry.ownerEmail || "").trim();
+        if (!resolvedOwner) {
+          res.status(401).json({
+            error: "invalid_grant",
+            error_description: "Authorization code is missing subject identity.",
+          });
+          return;
+        }
+
         const base = getPublicBaseUrl(req);
         const accessToken = signAccessToken({
-          sub: entry.ownerEmail,
+          sub: resolvedOwner,
           client_id: clientId || entry.clientId,
           scope: entry.scope,
           iss: base,
@@ -1161,7 +1166,7 @@ export function createMcpOAuthRouter(): Router {
         registerSecret(accessToken);
 
         const refreshToken = signRefreshToken({
-          sub: entry.ownerEmail,
+          sub: resolvedOwner,
           client_id: clientId || entry.clientId,
           scope: entry.scope,
           iss: base,
@@ -1173,7 +1178,7 @@ export function createMcpOAuthRouter(): Router {
           token: accessToken,
           refreshToken,
           clientId: clientId || entry.clientId,
-          ownerEmail: entry.ownerEmail,
+          ownerEmail: resolvedOwner,
           scope: entry.scope,
           expiresAt: Date.now() + 86400 * 1000,
           refreshExpiresAt: Date.now() + 30 * 86400 * 1000,
@@ -1372,6 +1377,15 @@ export function createMcpOAuthRouter(): Router {
                 const payload = JSON.parse(
                   Buffer.from(b, "base64url").toString("utf-8"),
                 );
+                const sub =
+                  typeof payload.sub === "string" ? payload.sub.trim() : "";
+                if (!sub) {
+                  res.status(401).json({
+                    error: "invalid_grant",
+                    error_description: "Refresh token is missing subject identity.",
+                  });
+                  return;
+                }
                 if (
                   typeof payload.exp === "number" &&
                   Date.now() / 1000 < payload.exp &&
@@ -1383,8 +1397,7 @@ export function createMcpOAuthRouter(): Router {
                     token: "",
                     refreshToken: rawRefresh,
                     clientId: payload.client_id || "mcp_client",
-                    ownerEmail:
-                      payload.sub || process.env.OWNER_EMAIL || "owner",
+                    ownerEmail: sub,
                     scope: payload.scope || "mcp:tools",
                     expiresAt: Date.now() + 86400 * 1000,
                     refreshExpiresAt: payload.exp * 1000,
@@ -1399,6 +1412,13 @@ export function createMcpOAuthRouter(): Router {
           res.status(400).json({
             error: "invalid_grant",
             error_description: "Refresh token invalid or expired.",
+          });
+          return;
+        }
+        if (!String(record.ownerEmail || "").trim()) {
+          res.status(401).json({
+            error: "invalid_grant",
+            error_description: "Refresh token is missing subject identity.",
           });
           return;
         }
@@ -1432,6 +1452,12 @@ export function createMcpOAuthRouter(): Router {
               });
             if (
               !storedGrant ||
+              !String(
+                storedGrant.ownerEmail ||
+                  storedGrant.email ||
+                  storedGrant.owner_email ||
+                  "",
+              ).trim() ||
               !activeClient ||
               revokedClientIds.has(record.clientId)
             ) {
@@ -1705,6 +1731,8 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
     const refreshLive = entry.refreshExpiresAt > now;
     if (!accessLive && !refreshLive) continue;
 
+    const resolvedOwner = String(entry.ownerEmail || "").trim();
+    if (!resolvedOwner) continue;
     const client = registeredClients.get(entry.clientId);
     const existing = result.get(entry.clientId);
     const info: ActiveOAuthInfo = {
@@ -1715,7 +1743,7 @@ export function listActiveOAuthAuthorizations(): ActiveOAuthInfo[] {
           ? "Google Gemini"
           : `Client (${entry.clientId.slice(0, 16)})`),
       scope: entry.scope || "mcp:tools",
-      ownerEmail: entry.ownerEmail || process.env.OWNER_EMAIL || "owner",
+      ownerEmail: resolvedOwner,
       createdAt: client?.createdAt || entry.expiresAt - 86400 * 1000,
       lastUsedAt: entry.expiresAt - 86400 * 1000,
       redirectUris: client?.redirectUris,
