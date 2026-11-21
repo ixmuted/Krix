@@ -372,6 +372,7 @@ export function getClientScripts(): string {
   // ----- Browser Notifications (Native Notification API + per-user polling) -----
   (function() {
     var PREF_KEY = 'krix-browser-notifications';
+    var PROMPT_DISMISSED_KEY = 'krix-notif-prompt-dismissed';
     var SEEN_KEY = 'krix-seen-notifs';
     var SINCE_KEY = 'krix-notifs-since';
     var pollTimer = null;
@@ -515,8 +516,41 @@ export function getClientScripts(): string {
       pollNow: pollNow
     };
 
+    function hidePrompt() {
+      var el = document.getElementById('krixNotifPrompt');
+      if (el) {
+        el.hidden = true;
+        el.style.display = 'none';
+      }
+    }
+    function maybeShowPrompt() {
+      var el = document.getElementById('krixNotifPrompt');
+      if (!el || !isSupported() || Notification.permission !== 'default') return;
+      var dismissed = false;
+      try { dismissed = localStorage.getItem(PROMPT_DISMISSED_KEY) === '1'; } catch (e) {}
+      if (dismissed) return;
+      var cookieBanner = document.getElementById('krixCookieBanner');
+      if (cookieBanner && !cookieBanner.hidden) return;
+      el.hidden = false;
+    }
+    var promptEl = document.getElementById('krixNotifPrompt');
+    if (promptEl) {
+      promptEl.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('[data-notif-prompt]') : null;
+        if (!btn) return;
+        var action = btn.getAttribute('data-notif-prompt');
+        hidePrompt();
+        if (action === 'enable') {
+          enable();
+        } else {
+          try { localStorage.setItem(PROMPT_DISMISSED_KEY, '1'); } catch (err) {}
+        }
+      });
+    }
+
     syncUI();
     if (document.getElementById('headerProfileTrigger')) {
+      setTimeout(maybeShowPrompt, 1500);
       setTimeout(pollNow, 800);
       pollTimer = setInterval(function() {
         if (document.visibilityState === 'visible') pollNow();

@@ -226,6 +226,22 @@ export function renderCookieBanner(): string {
   `;
 }
 
+export function renderNotificationPrompt(): string {
+  return `
+    <aside id="krixNotifPrompt" class="krix-cookie-banner" role="dialog" aria-label="Browser notifications prompt" hidden>
+      <div class="krix-cookie-head">
+        <span class="krix-cookie-icon" aria-hidden="true">${renderSvg("shield-check", 16)}</span>
+        <strong class="krix-cookie-title">Stay alerted on security events</strong>
+      </div>
+      <p class="krix-cookie-text">Enable browser notifications for new sign-in IPs, API key and OAuth changes, and workspace updates.</p>
+      <div class="krix-cookie-actions">
+        <button type="button" class="btn sm" data-notif-prompt="dismiss">Not now</button>
+        <button type="button" class="btn primary sm" data-notif-prompt="enable">Enable</button>
+      </div>
+    </aside>
+  `;
+}
+
 export function renderScrollProgressFab(): string {
   return "";
 }
@@ -306,6 +322,7 @@ export function renderPageShell(options: PageShellOptions): string {
 
   <div id="krixToastContainer" aria-live="polite"></div>
   ${renderCookieBanner()}
+  ${options.owner ? renderNotificationPrompt() : ""}
   ${renderCommandPaletteModal()}
   ${renderRecaptchaScript(options.nonce)}
 
