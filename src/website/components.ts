@@ -219,11 +219,9 @@ export function renderCookieBanner(): string {
       </div>
       <p class="krix-cookie-text">Krix uses strictly necessary cookies for authentication and security. Review our <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a>.</p>
       <div class="krix-cookie-actions">
-        <button type="button" class="btn sm" onclick="window.acceptCookieConsent('essential')">Essential only</button>
-        <button type="button" class="btn primary sm" onclick="window.acceptCookieConsent('accepted')">Accept</button>
+        <button type="button" class="btn sm" data-cookie-choice="essential">Essential only</button>
+        <button type="button" class="btn primary sm" data-cookie-choice="accepted">Accept</button>
       </div>
-    </aside>
-  `;
 }
 
 export function renderScrollProgressFab(): string {
