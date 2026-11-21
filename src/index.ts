@@ -976,7 +976,6 @@ app.use("/auth", createGoogleAuthRouter());
 // Temporary web upload page: MCP key -> short-lived session -> files land in the caller's sandbox.
 registerUploadRoutes(app, {
   apiKey: MCP_API_KEY,
-  defaultGithubToken: getWorkspaceCredential("github") || undefined,
   publicBaseUrl: process.env.PUBLIC_BASE_URL,
 });
 
