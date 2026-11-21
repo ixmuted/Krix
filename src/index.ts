@@ -169,6 +169,10 @@ import {
   sendAccountDeletedEmail,
 } from "./emailService.js";
 import {
+  listUserNotifications,
+  pushUserNotification,
+} from "./browserNotifications.js";
+import {
   credentialRequiredMessage,
   resolveToolState,
   categoryUnavailableMessage,
@@ -2772,6 +2776,13 @@ app.post("/api/account/delete", async (req, res) => {
     refreshSessionsForKey(keyId);
   }
 
+  pushUserNotification(email, {
+    type: "account_deleted",
+    title: "Account deletion scheduled",
+    body: `Your Krix account is scheduled for deletion in ${gracePeriodDays} days. Sign back in before then to cancel.`,
+    url: "/settings",
+    tag: "account_deleted",
+  });
   // Send security email notifying of scheduled deletion with 30-day countdown
   sendAccountDeletedEmail({
     email,
@@ -2803,12 +2814,37 @@ app.post("/api/account/cancel-deletion", async (req, res) => {
   }
   const email = owner.email.toLowerCase();
   const cancelled = cancelAccountDeletion(email);
+  if (cancelled) {
+    pushUserNotification(email, {
+      type: "account_deletion_cancelled",
+      title: "Account deletion cancelled",
+      body: "Scheduled deletion was cancelled. Your Krix account remains active.",
+      url: "/settings",
+      tag: "account_deletion_cancelled",
+    });
+  }
   res.json({
     success: true,
     cancelled,
     message: cancelled
       ? "Scheduled account deletion was cancelled. Your account remains active."
       : "No scheduled account deletion found.",
+  });
+});
+
+app.get("/api/notifications", (req, res) => {
+  const owner = parseOwnerCookie(req);
+  if (!owner) {
+    res.status(401).json({ ok: false, error: "Unauthorized." });
+    return;
+  }
+  const sinceRaw = Number(req.query.since || 0);
+  const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    notifications: listUserNotifications(owner.email, since),
+    serverTime: Date.now(),
   });
 });
 
@@ -3542,6 +3578,18 @@ app.post("/settings/api/credentials", express.json(), async (req, res) => {
       await syncKeySettingsToMongo(updated);
       closedSessions = closeSessionsForKey(keyId);
     }
+    const touchedProviders: string[] = [];
+    if (typeof githubToken === "string") touchedProviders.push("GitHub");
+    if (typeof renderToken === "string") touchedProviders.push("Render");
+    if (touchedProviders.length > 0) {
+      pushUserNotification(owner.email, {
+        type: "credentials_updated",
+        title: "Provider credentials updated",
+        body: `${touchedProviders.join(" & ")} credentials were ${clearedAny ? "cleared" : "updated"}.`,
+        url: "/settings",
+        tag: `credentials_${keyId}`,
+      });
+    }
     res.setHeader("Cache-Control", "no-store");
 
     res.json({
@@ -3589,6 +3637,13 @@ app.post(
         owner.email,
         keyId,
       );
+      pushUserNotification(owner.email, {
+        type: "credentials_updated",
+        title: "Provider credential removed",
+        body: `${provider === "github" ? "GitHub" : "Render"} token was removed from your settings.`,
+        url: "/settings",
+        tag: `credentials_del_${keyId}_${provider}`,
+      });
       res.setHeader("Cache-Control", "no-store");
       res.json({ ok: true, provider, deleted: true, closedSessions });
     } catch {
@@ -4247,6 +4302,15 @@ app.post("/store/files/:id/privacy", express.json(), async (req, res) => {
     matchedOwnerKey,
   );
   await fileShareRegistry.flushToMongo();
+  pushUserNotification(owner.email, {
+    type: "file_visibility_changed",
+    title: isPublic ? "File shared publicly" : "File set to private",
+    body: isPublic
+      ? "A file in your Krix Store is now accessible via its public share link."
+      : "Public share access was disabled for a file in your Krix Store.",
+    url: "/store",
+    tag: `file_vis_${id}`,
+  });
   res.json({ success: true, id, isPublic });
 });
 

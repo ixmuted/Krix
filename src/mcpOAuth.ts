@@ -27,6 +27,7 @@ import {
   sendOAuthClientSetupEmail,
 } from "./emailService.js";
 import { dataPath } from "./dataDir.js";
+import { pushUserNotification } from "./browserNotifications.js";
 
 export interface OAuthClient {
   clientId: string;
@@ -1044,6 +1045,13 @@ export function createMcpOAuthRouter(): Router {
       const clientIp = getClientIp(req);
       const userAgent = getUserAgent(req);
 
+      pushUserNotification(owner.email, {
+        type: "oauth_created",
+        title: "OAuth app connected",
+        body: `"${clientName}" was authorized to access your Krix account.`,
+        url: "/api",
+        tag: `oauth_created_${clientId}`,
+      });
       sendOAuthClientSetupEmail({
         email: owner.email,
         name: owner.name,
@@ -1812,6 +1820,9 @@ function pruneUnusedClients(maxAgeMs: number = 10 * 60 * 1000): void {
 export async function revokeOAuthAuthorization(
   clientId: string,
 ): Promise<boolean> {
+  const ownerBeforeRevoke = getClientOwnerEmail(clientId);
+  const clientNameBeforeRevoke =
+    registeredClients.get(clientId)?.clientName || clientId;
   let found = false;
   if (registeredClients.has(clientId)) {
     registeredClients.delete(clientId);
@@ -1835,7 +1846,17 @@ export async function revokeOAuthAuthorization(
   // Always write a tombstone, even if the in-memory cache was cold after a restart.
   const clientPersisted = await revokeOAuthClientInMongo(clientId);
   const tokensPersisted = await revokeOAuthTokenInMongo(clientId);
-  return found || clientPersisted || tokensPersisted;
+  const revokedAny = found || clientPersisted || tokensPersisted;
+  if (revokedAny && ownerBeforeRevoke) {
+    pushUserNotification(ownerBeforeRevoke, {
+      type: "oauth_revoked",
+      title: "OAuth app disconnected",
+      body: `Access for "${clientNameBeforeRevoke}" was revoked.`,
+      url: "/api",
+      tag: `oauth_revoked_${clientId}`,
+    });
+  }
+  return revokedAny;
 }
 
 export function renameOAuthClient(

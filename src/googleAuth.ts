@@ -25,6 +25,7 @@ import {
   sendAccountCreatedEmail,
   sendNewLoginIpEmail,
 } from "./emailService.js";
+import { pushUserNotification } from "./browserNotifications.js";
 import { dataPath } from "./dataDir.js";
 
 export interface OwnerProfile {
@@ -624,6 +625,13 @@ export function createDynamicKey(
   dynamicApiKeys.set(id, entry);
   saveKeysToDisk();
   syncKeyToMongo(entry).catch(() => {});
+  pushUserNotification(effectiveEmail, {
+    type: "api_key_created",
+    title: "API key created",
+    body: `New API key "${cleanLabel}" was created for your account.`,
+    url: "/api",
+    tag: `api_key_created_${id}`,
+  });
   // Persist the account association, inherited global tool permissions, and sandbox ID for this key.
   const primarySettings = getKeySettings("primary-key");
   const settings = getKeySettings(id);
@@ -671,11 +679,21 @@ export function listDynamicKeys(userEmail?: string): GeneratedKeyEntry[] {
 }
 
 export function revokeDynamicKey(id: string): boolean {
+  const existing = dynamicApiKeys.get(id);
   revokedKeyIds.add(id);
   const deleted = dynamicApiKeys.delete(id);
   saveKeysToDisk();
   revokeKeyInMongo(id).catch(() => {});
   removeKeySettings(id);
+  if (deleted && existing?.email) {
+    pushUserNotification(existing.email, {
+      type: "api_key_revoked",
+      title: "API key deleted",
+      body: `API key "${existing.label || id}" was revoked and can no longer be used.`,
+      url: "/api",
+      tag: `api_key_revoked_${id}`,
+    });
+  }
   return deleted;
 }
 
@@ -942,6 +960,13 @@ export function createGoogleAuthRouter(): Router {
         const userResult = getOrCreateUser(email, clientIp);
 
         if (userResult.isNewUser) {
+          pushUserNotification(email, {
+            type: "account_created",
+            title: "Welcome to Krix",
+            body: `Your Krix account was created (${role === "owner" ? "Owner" : "Standard"} tier).`,
+            url: "/",
+            tag: "account_created",
+          });
           sendAccountCreatedEmail({
             email,
             name: userData.name || email.split("@")[0],
@@ -955,6 +980,13 @@ export function createGoogleAuthRouter(): Router {
             ),
           );
         } else if (userResult.isNewIp) {
+          pushUserNotification(email, {
+            type: "new_login_ip",
+            title: "New sign-in IP detected",
+            body: `Your Krix account was accessed from a new IP address (${clientIp || "unknown IP"}).`,
+            url: "/settings",
+            tag: `new_login_ip_${clientIp || "unknown"}`,
+          });
           sendNewLoginIpEmail({
             email,
             name: userData.name || email.split("@")[0],
