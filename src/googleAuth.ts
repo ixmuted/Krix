@@ -26,6 +26,7 @@ import {
   sendNewLoginIpEmail,
   sendWelcomeBackEmail,
   sendFirstKeyMilestoneEmail,
+  sendApiKeyDeletedEmail,
 } from "./emailService.js";
 import { pushUserNotification } from "./browserNotifications.js";
 import { dataPath } from "./dataDir.js";
@@ -704,13 +705,21 @@ export function revokeDynamicKey(id: string): boolean {
   revokeKeyInMongo(id).catch(() => {});
   removeKeySettings(id);
   if (deleted && existing?.email) {
+    const keyLabel = existing.label || id;
     pushUserNotification(existing.email, {
       type: "api_key_revoked",
       title: "API key deleted",
-      body: `API key "${existing.label || id}" was revoked and can no longer be used.`,
+      body: `API key "${keyLabel}" was revoked and can no longer be used.`,
       url: "/api",
       tag: `api_key_revoked_${id}`,
     });
+    sendApiKeyDeletedEmail({
+      email: existing.email,
+      keyLabel,
+      keyId: id,
+    }).catch((err) =>
+      console.error("[email] sendApiKeyDeletedEmail error:", err?.message),
+    );
   }
   return deleted;
 }

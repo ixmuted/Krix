@@ -928,3 +928,42 @@ export async function sendFirstKeyMilestoneEmail(params: {
     html,
   });
 }
+
+/**
+ * 8. API Key Deleted / Revoked Security Email
+ * Sent when an API key is permanently deleted from a user's account.
+ */
+export async function sendApiKeyDeletedEmail(params: {
+  email: string;
+  name?: string;
+  keyLabel: string;
+  keyId: string;
+}): Promise<SendResult> {
+  const timeStr = formatTimestamp();
+  const userName = params.name || params.email.split("@")[0] || "there";
+
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Key name", value: params.keyLabel },
+    { label: "Key ID", value: params.keyId },
+    { label: "Time", value: timeStr },
+  ];
+
+  const html = renderEmailShell({
+    title: "API key deleted from your Krix account",
+    greeting: `Hi ${userName},`,
+    intro: `Your API key "${params.keyLabel}" was permanently deleted and can no longer authenticate requests to Krix.`,
+    bodyHtml: renderDetailList(details),
+    closing:
+      "If you didn't delete this key, check your account activity and review your remaining API keys and OAuth connections.",
+    ctaText: "Manage API keys",
+    ctaUrl: `${getPublicBaseUrl()}/api`,
+    footerAccount: params.email,
+    timestamp: timeStr,
+  });
+
+  return sendEmail({
+    to: params.email,
+    subject: `Security notice: API key "${params.keyLabel}" was deleted`,
+    html,
+  });
+}
