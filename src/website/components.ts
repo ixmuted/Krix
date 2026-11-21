@@ -262,8 +262,10 @@ export function renderPageShell(options: PageShellOptions): string {
   <link rel="icon" type="image/svg+xml" href="/logo.svg?v=4">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3">
   <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png?v=3">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png?v=3">
   <meta name="description" content="Krix connects your AI tools to GitHub, Render and an isolated sandbox over MCP.">
-  <meta name="google-site-verification" content="j4y4eacWZlhy_F6fZE19I3wbB6n81WOTX8e0A6rnJvw">
+  <script ${nonceAttr}>
+    (function () {
       try {
         var m = localStorage.getItem('qw-theme');
         if (m !== 'dark' && m !== 'light') m = 'system';
