@@ -3,33 +3,35 @@ import { renderSvg } from "../icons.js";
 import { callout, codeBlock } from "./docsKit.js";
 import type { HelpCategory } from "./helpTypes.js";
 
-export const HELP_CORE: HelpCategory[] = [  {
+export const HELP_CORE: HelpCategory[] = [
+  {
     slug: "getting-started",
-    title: "Getting started and client setup",
-    shortTitle: "Getting Started",
+    title: "Connecting an MCP client",
+    shortTitle: "Getting started",
     icon: "zap",
     badge: "Start here",
     summary:
-      "Connect Claude, Cursor, Windsurf, Gemini, or any MCP Streamable HTTP client to Krix in under two minutes.",
+      "Connect any Streamable HTTP MCP client, desktop editor, or CLI agent to Krix and verify your first tool call.",
     readTime: "4 min read",
     topics: [
-      "Streamable HTTP endpoint (/mcp)",
-      "API key vs OAuth 2.1 setup",
-      "Claude Desktop, Cursor, Windsurf & Gemini configs",
-      "Verifying your connection & first tool call",
+      "Streamable HTTP endpoint",
+      "Desktop, IDE, and CLI configurations",
+      "OAuth 2.1 automatic discovery",
+      "Testing your first tool call",
     ],
     keywords:
-      "setup connect mcp streamable http claude cursor windsurf gemini chatgpt bearer x-api-key endpoint healthz",
+      "setup connect mcp streamable http client editor cli agent bearer x-api-key endpoint oauth discovery",
     sections: [
       {
         id: "endpoint",
-        title: "1. Your MCP endpoint",
+        title: "1. Streamable HTTP endpoint",
+        graphic: "transport-flow",
         render: ({ mcpUrl }) => `
-          <p>Krix exposes a single authenticated <strong>Model Context Protocol (MCP) Streamable HTTP</strong> endpoint at <code class="inline-code">POST/GET /mcp</code>. Every supported assistant connects to this URL using either an API key header or OAuth 2.1 discovery.</p>
+          <p>Krix serves the Model Context Protocol over <strong>Streamable HTTP</strong> at <code class="inline-code">POST/GET /mcp</code>. Any MCP-compatible desktop editor, web assistant, or terminal agent connects using this single HTTPS endpoint.</p>
           <div class="doc-endpoint-card">
             <div class="doc-endpoint-meta">
-              <span class="doc-pill">Streamable HTTP</span>
-              <span class="doc-endpoint-note">Recommended transport for all current MCP clients</span>
+              <span class="docs-pill">Streamable HTTP</span>
+              <span class="doc-endpoint-note">Single authenticated HTTPS endpoint for all MCP clients</span>
             </div>
             <div class="endpoint-row">
               <code>${escapeHtml(mcpUrl)}</code>
@@ -38,51 +40,23 @@ export const HELP_CORE: HelpCategory[] = [  {
           </div>
           ${callout(
             "info",
-            "Header authentication vs query string",
-            `Send your key in the <code class="inline-code">Authorization: Bearer &lt;key&gt;</code> or <code class="inline-code">x-api-key: &lt;key&gt;</code> header. Passing <code class="inline-code">?api_key=</code> in the URL is disabled by default for security unless the server sets <code class="inline-code">ALLOW_QUERY_API_KEY=true</code>.`,
+            "Use header authentication",
+            `Always send your API key in the <code class="inline-code">Authorization: Bearer &lt;key&gt;</code> or <code class="inline-code">x-api-key: &lt;key&gt;</code> HTTP header rather than placing secrets in query strings.`,
           )}
         `,
       },
       {
-        id: "quick-steps",
-        title: "2. Set up in three steps",
-        render: () => `
-          <div class="doc-steps">
-            <div class="doc-step">
-              <div class="doc-step-num">1</div>
-              <div class="doc-step-body">
-                <h4>Sign in with Google</h4>
-                <p>Open <a href="/auth/google">Sign in</a> to initialize your isolated workspace, personal storage quota, and encrypted settings store.</p>
-              </div>
-            </div>
-            <div class="doc-step">
-              <div class="doc-step-num">2</div>
-              <div class="doc-step-body">
-                <h4>Create an API key or authorize via OAuth 2.1</h4>
-                <p>Generate a scoped key on <a href="/api/keys">API Keys</a>, or point an OAuth-capable client (Claude, Gemini, ChatGPT) directly at <code class="inline-code">/mcp</code> to complete one-click PKCE consent.</p>
-              </div>
-            </div>
-            <div class="doc-step">
-              <div class="doc-step-num">3</div>
-              <div class="doc-step-body">
-                <h4>Add provider tokens &amp; toggle tool groups</h4>
-                <p>Open <a href="/settings">Settings</a> to add your GitHub PAT or Render API key (encrypted with AES-256-GCM) and switch opt-in tool groups on or off.</p>
-              </div>
-            </div>
-          </div>
-        `,
-      },
-      {
         id: "client-configs",
-        title: "3. Configure your client",
-        render: ({ mcpUrl, base }) => `
-          <p>Use the snippet matching your AI editor or assistant. Replace <code class="inline-code">YOUR_KRIX_API_KEY</code> with a key from <a href="/api/keys">API Keys</a>, or omit headers when connecting via OAuth 2.1 discovery.</p>
+        title: "2. Client configuration templates",
+        graphic: "oauth-handshake",
+        render: ({ mcpUrl }) => `
+          <p>If your client supports <strong>OAuth 2.1 discovery</strong>, paste only the <code class="inline-code">/mcp</code> URL and approve access in the browser consent dialog—no manual key header is needed. For static API key connections, use one of the standard templates below.</p>
           <div class="doc-grid-2">
             <div class="doc-subcard">
-              <div class="doc-subcard-head">${renderSvg("cursor", 18)}<h4>Cursor</h4></div>
-              <p>Open <strong>Settings → MCP → Add new global MCP server</strong> (or <code class="inline-code">.cursor/mcp.json</code>).</p>
+              <div class="doc-subcard-head">${renderSvg("command", 18)}<h4>Desktop &amp; IDE JSON config</h4></div>
+              <p>Add Krix under <code class="inline-code">mcpServers</code> in your editor or desktop client configuration:</p>
               ${codeBlock(
-                ".cursor/mcp.json",
+                "mcp_config.json",
                 `{
   "mcpServers": {
     "krix": {
@@ -96,40 +70,17 @@ export const HELP_CORE: HelpCategory[] = [  {
               )}
             </div>
             <div class="doc-subcard">
-              <div class="doc-subcard-head">${renderSvg("claude", 18)}<h4>Claude Desktop / Claude Code</h4></div>
-              <p>Connect via native OAuth 2.1 in Custom Connectors using <code class="inline-code">${escapeHtml(mcpUrl)}</code>, or configure via CLI:</p>
+              <div class="doc-subcard-head">${renderSvg("terminal", 18)}<h4>CLI &amp; HTTP clients</h4></div>
+              <p>For terminal agents or custom HTTP integrations using the <code class="inline-code">x-api-key</code> header:</p>
               ${codeBlock(
-                "Claude Code CLI",
-                `claude mcp add --transport http krix ${mcpUrl} \\
-  --header "Authorization: Bearer YOUR_KRIX_API_KEY"`,
-              )}
-            </div>
-            <div class="doc-subcard">
-              <div class="doc-subcard-head">${renderSvg("windsurf", 18)}<h4>Windsurf / VS Code / Generic MCP</h4></div>
-              <p>Add Krix under <code class="inline-code">mcpServers</code> with Streamable HTTP transport and <code class="inline-code">x-api-key</code>.</p>
-              ${codeBlock(
-                "mcp_config.json",
+                "Streamable HTTP",
                 `{
-  "mcpServers": {
-    "krix": {
-      "serverUrl": "${mcpUrl}",
-      "headers": {
-        "x-api-key": "YOUR_KRIX_API_KEY"
-      }
-    }
+  "transport": "streamable-http",
+  "serverUrl": "${mcpUrl}",
+  "headers": {
+    "x-api-key": "YOUR_KRIX_API_KEY"
   }
 }`,
-              )}
-            </div>
-            <div class="doc-subcard">
-              <div class="doc-subcard-head">${renderSvg("gemini", 18)}<h4>Gemini CLI &amp; Discovery Manifests</h4></div>
-              <p>Krix publishes native discovery manifests so Gemini and registry clients auto-configure:</p>
-              ${codeBlock(
-                "Discovery Endpoints",
-                `Server card:  ${base}/.well-known/mcp/server-card.json
-MCP manifest: ${base}/.well-known/mcp.json
-Gemini ext:   ${base}/gemini-extension.json
-Health check: ${base}/healthz`,
               )}
             </div>
           </div>
@@ -137,283 +88,340 @@ Health check: ${base}/healthz`,
       },
       {
         id: "first-call",
-        title: "4. Verify the connection",
+        title: "3. Verify your connection",
+        graphic: "verify-call",
         render: () => `
-          <p>Once connected, ask your assistant to run <code class="inline-code">sandbox_status</code> (checks available runtimes, memory, isolation, and storage quota) or <code class="inline-code">get_me</code> (verifies your GitHub token). You can also test any enabled tool directly from the browser in the <a href="/tools">Tools catalog</a>.</p>
-          ${callout(
-            "tip",
-            "Set active context once per session",
-            `Ask your assistant to call <code class="inline-code">set_active_context</code> with your default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> so every subsequent GitHub call stays concise and accurate.`,
-          )}
-        `,
-      },
-    ],
-  },
-  {
-    slug: "authentication",
-    title: "API keys, OAuth 2.1 and permissions",
-    shortTitle: "Auth & Keys",
-    icon: "key",
-    badge: "Access control",
-    summary:
-      "Understand bearer keys, OAuth 2.1 PKCE consent flows, scopes, per-key credential overrides, and tool toggle precedence.",
-    readTime: "4 min read",
-    topics: [
-      "Dynamic API keys vs owner MCP_API_KEY",
-      "OAuth 2.1 (RFC 7591, PKCE S256, RS256)",
-      "OAuth scopes: mcp:tools, mcp:sandbox, mcp:admin",
-      "4-level tool policy precedence",
-    ],
-    keywords:
-      "api keys oauth 2.1 pkce s256 rs256 scopes permissions toggles precedence revoke client registration",
-    sections: [
-      {
-        id: "auth-methods",
-        title: "Two ways to authenticate",
-        render: ({ base }) => `
-          <div class="doc-table-wrap">
-            <table class="doc-table">
-              <thead>
-                <tr>
-                  <th>Method</th>
-                  <th>Best for</th>
-                  <th>How it works</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Dynamic API Keys</strong></td>
-                  <td>Cursor, Windsurf, scripts, CI, per-project isolation</td>
-                  <td>Created in <a href="/api/keys">API Keys</a>. Sent via <code class="inline-code">Authorization: Bearer</code> or <code class="inline-code">x-api-key</code>. Supports per-key GitHub/Render overrides and custom tool toggles.</td>
-                </tr>
-                <tr>
-                  <td><strong>OAuth 2.1 (PKCE S256)</strong></td>
-                  <td>Claude, Gemini, ChatGPT, browser-driven connectors</td>
-                  <td>Clients auto-discover <code class="inline-code">${escapeHtml(base)}/.well-known/oauth-authorization-server</code>, register via <code class="inline-code">/oauth/register</code>, and prompt you on <code class="inline-code">/oauth/authorize</code>. Tokens are RS256-signed and individually revocable.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        `,
-      },
-      {
-        id: "oauth-scopes",
-        title: "OAuth 2.1 scopes and endpoints",
-        render: () => `
-          <p>Every OAuth authorization explicitly displays the client domain, favicon, and requested scopes before you approve:</p>
-          <div class="doc-grid-3">
-            <div class="doc-mini-card">
-              <div class="doc-mono-title">mcp:tools</div>
-              <p>Access to enabled GitHub, Render, and Code Graph tools within your account's tool policy.</p>
-            </div>
-            <div class="doc-mini-card">
-              <div class="doc-mono-title">mcp:sandbox</div>
-              <p>Access to isolated code execution, persistent shell, local git, and Sandbox Store file sharing.</p>
-            </div>
-            <div class="doc-mini-card">
-              <div class="doc-mono-title">mcp:admin</div>
-              <p>Elevated repository/service management operations when explicitly enabled in Settings.</p>
-            </div>
-          </div>
-          <p>You can revoke any API key or OAuth client instantly from <a href="/api/keys">API Keys</a>; revocation immediately invalidates active sessions and clears cached telemetry.</p>
-        `,
-      },
-      {
-        id: "precedence",
-        title: "How tool availability is decided (precedence)",
-        render: () => `
-          <p>A single policy resolver (<code class="inline-code">resolveToolState</code>) governs <code class="inline-code">tools/list</code>, <code class="inline-code">tools/call</code>, OAuth scopes, and the Settings UI so they never disagree. Rules evaluate in strict order:</p>
-          <div class="doc-steps">
-            <div class="doc-step">
-              <div class="doc-step-num">1</div>
-              <div class="doc-step-body">
-                <h4>Hard server &amp; credential blocks</h4>
-                <p>If the server disables a category (e.g., <code class="inline-code">ENABLE_SANDBOX=false</code>) or the required GitHub/Render credential is missing, those tools are hidden and blocked.</p>
-              </div>
-            </div>
-            <div class="doc-step">
-              <div class="doc-step-num">2</div>
-              <div class="doc-step-body">
-                <h4>Per-key override</h4>
-                <p>Custom toggles or provider tokens configured on a specific key's settings page override workspace defaults for that key alone.</p>
-              </div>
-            </div>
-            <div class="doc-step">
-              <div class="doc-step-num">3</div>
-              <div class="doc-step-body">
-                <h4>Workspace-wide setting</h4>
-                <p>Your account toggles in <a href="/settings">Settings</a> apply to all keys that inherit workspace configuration.</p>
-              </div>
-            </div>
-            <div class="doc-step">
-              <div class="doc-step-num">4</div>
-              <div class="doc-step-body">
-                <h4>Built-in defaults</h4>
-                <p>By default, <strong>all 15 Sandbox tools</strong> and <strong>17 core GitHub tools</strong> are ON. Extended GitHub (34), Render (21), and Code Graph (30) start OFF until enabled.</p>
-              </div>
-            </div>
-          </div>
-        `,
-      },
-    ],
-  },
-  {
-    slug: "github",
-    title: "GitHub tools",
-    shortTitle: "GitHub Tools",
-    icon: "github",
-    badge: "51 tools",
-    summary:
-      "Browse repos, search code, perform surgical line edits, push atomic multi-file commits, and manage PRs, issues, and releases.",
-    readTime: "5 min read",
-    topics: [
-      "Personal Access Token setup & scopes",
-      "17 core tools (default on)",
-      "34 extended tools (opt-in)",
-      "Surgical editing workflow",
-    ],
-    keywords:
-      "github pat token octokit git_tree grep str_replace_editor patch_contents push_files pull request issues releases",
-    sections: [
-      {
-        id: "github-setup",
-        title: "Setting up your GitHub token",
-        render: () => `
-          <p>To unlock GitHub tools, generate either a <strong>Fine-Grained Personal Access Token</strong> (recommended, scoped to selected repositories) or a <strong>Classic PAT</strong> (<code class="inline-code">repo</code> scope for private repos, <code class="inline-code">public_repo</code> for public only).</p>
-          <ol class="doc-list">
-            <li>Open <a href="/settings">Settings → Provider Credentials</a> (or open a specific API key to bind a separate token per project).</li>
-            <li>Paste your GitHub token and click <strong>Save</strong>. Krix encrypts it at rest with <strong>AES-256-GCM</strong> and automatically redacts it from all tool outputs.</li>
-            <li>Verify by asking your assistant to call <code class="inline-code">get_me</code> or <code class="inline-code">search_repositories</code>.</li>
-          </ol>
-          ${callout(
-            "warn",
-            "Least-privilege recommendation",
-            `Use a Fine-Grained PAT limited to <strong>Contents (Read &amp; Write)</strong> and <strong>Pull Requests (Read &amp; Write)</strong> on only the repositories you actively want AI assistants to modify.`,
-          )}
-        `,
-      },
-      {
-        id: "github-core-vs-extended",
-        title: "What works by default vs opt-in",
-        render: () => `
-          <div class="doc-table-wrap">
-            <table class="doc-table">
-              <thead>
-                <tr>
-                  <th>Tier</th>
-                  <th>Default</th>
-                  <th>Capabilities &amp; Key Tools</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Core GitHub (17 tools)</strong></td>
-                  <td><span class="badge success">On by default</span></td>
-                  <td><code class="inline-code">set_active_context</code>, <code class="inline-code">get_me</code>, <code class="inline-code">search_repositories</code>, <code class="inline-code">git_tree</code>, <code class="inline-code">view_file_outline</code>, <code class="inline-code">grep</code>, <code class="inline-code">search_code</code>, <code class="inline-code">get_file_contents</code>, <code class="inline-code">str_replace_editor</code>, <code class="inline-code">patch_contents</code>, <code class="inline-code">create_or_update_file</code>, <code class="inline-code">push_files</code>, <code class="inline-code">delete_file</code>, <code class="inline-code">list_branches</code>, <code class="inline-code">create_branch</code>, <code class="inline-code">delete_branch</code>, <code class="inline-code">create_pull_request</code>.</td>
-                </tr>
-                <tr>
-                  <td><strong>Extended GitHub (34 tools)</strong></td>
-                  <td><span class="badge">Opt-in in Settings</span></td>
-                  <td>Issues &amp; sub-issues, PR reads/updates/merges, line-level code reviews, commit history, tags, releases, team membership, repository admin, secret-scanning alerts, and Copilot assignment.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        `,
-      },
-      {
-        id: "github-workflow",
-        title: "Recommended surgical editing workflow",
-        render: () => `
-          <p>Krix is engineered to save tokens and prevent accidental file truncation:</p>
+          <p>Once connected, run a quick check through your assistant or test any enabled tool directly in the browser from the <a href="/tools">Tools catalog</a>:</p>
           <ul class="doc-list">
-            <li><strong>Explore cheaply:</strong> Start with <code class="inline-code">git_tree</code>, <code class="inline-code">view_file_outline</code> (AST symbols), and <code class="inline-code">grep</code> with line windows instead of downloading full files.</li>
-            <li><strong>Edit surgically:</strong> Use <code class="inline-code">str_replace_editor</code> or <code class="inline-code">patch_contents</code> for targeted changes rather than rewriting entire files.</li>
-            <li><strong>Commit atomically:</strong> Use <code class="inline-code">push_files</code> to commit multiple coordinated file edits in a single commit, then open a PR with <code class="inline-code">create_pull_request</code>.</li>
+            <li>Call <code class="inline-code">sandbox_status</code> to verify available language runtimes, active repository state, and remaining storage quota.</li>
+            <li>Call <code class="inline-code">get_me</code> after adding a GitHub token to confirm your authenticated GitHub account.</li>
+            <li>Call <code class="inline-code">set_active_context</code> once per session with your default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> so follow-up calls stay concise.</li>
           </ul>
         `,
       },
     ],
   },
   {
-    slug: "sandbox",
-    title: "Isolated sandbox and local Git",
-    shortTitle: "Sandbox Runtime",
-    icon: "terminal",
-    badge: "15 tools",
+    slug: "adding-keys",
+    title: "Adding API keys & credentials",
+    shortTitle: "Adding keys",
+    icon: "key",
+    badge: "Keys & auth",
     summary:
-      "Execute code across 11+ language runtimes, run tests, install packages, manage background processes, and use local git safely.",
+      "Create Krix API keys, attach GitHub and Render credentials, configure per-key overrides, and manage OAuth authorizations.",
     readTime: "5 min read",
     topics: [
-      "11+ supported language runtimes",
-      "Unix UID isolation & scrubbed env",
-      "Persistent shell, background jobs & local git",
-      "Command & network restriction guardrails",
+      "Creating a Krix API key",
+      "Adding GitHub and Render tokens",
+      "Workspace defaults vs. per-key overrides",
+      "OAuth 2.1 scopes and instant revocation",
     ],
     keywords:
-      "sandbox run exec install python node typescript go rust java cpp ruby php bash git_clone git_diff isolation uid",
+      "add key create api key bearer x-api-key github pat render token credentials settings override oauth revoke authentication",
     sections: [
       {
-        id: "sandbox-runtimes",
-        title: "Supported runtimes and tools",
+        id: "create-krix-key",
+        title: "1. Creating a Krix API key",
+        graphic: "keys-separation",
         render: () => `
-          <p>Every sandbox command runs in an isolated child process—never inside the Krix server process. The production Docker image ships with:</p>
-          <div class="doc-chip-row">
-            <span class="doc-pill">Node.js</span>
-            <span class="doc-pill">TypeScript (tsx / bun)</span>
-            <span class="doc-pill">Python 3</span>
-            <span class="doc-pill">Go</span>
-            <span class="doc-pill">Rust</span>
-            <span class="doc-pill">Java</span>
-            <span class="doc-pill">C / C++</span>
-            <span class="doc-pill">Ruby</span>
-            <span class="doc-pill">PHP</span>
-            <span class="doc-pill">Bash / POSIX sh</span>
-            <span class="doc-pill">Git CLI</span>
+          <p>Krix separates <strong>gateway API keys</strong> (used by your MCP client to authenticate with Krix) from <strong>provider tokens</strong> (your GitHub or Render credentials used when Krix calls external APIs on your behalf).</p>
+          <div class="doc-steps">
+            <div class="doc-step">
+              <div class="doc-step-num">1</div>
+              <div class="doc-step-body">
+                <h4>Sign in with Google</h4>
+                <p>Open <a href="/auth/google">Sign in</a> to initialize your isolated workspace and storage quota.</p>
+              </div>
+            </div>
+            <div class="doc-step">
+              <div class="doc-step-num">2</div>
+              <div class="doc-step-body">
+                <h4>Create and label a key</h4>
+                <p>Navigate to <a href="/api">API keys</a>, click <strong>Create API Key</strong>, and label it by device or project so you can track activity in <a href="/stats">Usage</a>.</p>
+              </div>
+            </div>
+            <div class="doc-step">
+              <div class="doc-step-num">3</div>
+              <div class="doc-step-body">
+                <h4>Paste into your client</h4>
+                <p>Copy the key once and add it to your client's <code class="inline-code">Authorization: Bearer</code> or <code class="inline-code">x-api-key</code> header.</p>
+              </div>
+            </div>
           </div>
+        `,
+      },
+      {
+        id: "add-provider-tokens",
+        title: "2. Adding GitHub and Render tokens",
+        render: () => `
+          <p>GitHub and Render tools stay hidden until a valid token is saved, so your assistant never encounters broken authentication errors. Configure credentials at either level:</p>
+          <div class="doc-grid-2">
+            <div class="doc-subcard">
+              <div class="doc-subcard-head">${renderSvg("settings", 18)}<h4>Workspace defaults</h4></div>
+              <p>Open <a href="/settings">Settings</a> to save your default <strong>GitHub Personal Access Token</strong> and <strong>Render API Key</strong>. All API keys and OAuth sessions inherit these credentials automatically unless overridden.</p>
+            </div>
+            <div class="doc-subcard">
+              <div class="doc-subcard-head">${renderSvg("sliders", 18)}<h4>Per-key overrides</h4></div>
+              <p>Open any individual key on <a href="/api">API keys</a> to bind a dedicated GitHub or Render token exclusively to that key—ideal for separating personal repositories, client projects, or read-only access.</p>
+            </div>
+          </div>
+          ${callout(
+            "tip",
+            "Strong credential protection",
+            `All provider tokens are strongly encrypted at rest, never logged in analytics, and automatically filtered out of tool responses and sandbox environments.`,
+          )}
+        `,
+      },
+      {
+        id: "precedence",
+        title: "3. How tool permissions work",
+        graphic: "permission-cascade",
+        render: () => `
+          <p>Tool availability is evaluated consistently across client discovery, tool execution, OAuth consent, and the Settings dashboard:</p>
+          <ol class="doc-list">
+            <li><strong>Credential requirements:</strong> GitHub and Render tools only activate when their respective token is present.</li>
+            <li><strong>Per-key toggles:</strong> Custom enable/disable rules on an individual API key override your workspace defaults for that key alone.</li>
+            <li><strong>Workspace settings:</strong> Your account-level toggles in <a href="/settings">Settings</a> apply to all keys that inherit workspace configuration.</li>
+            <li><strong>Starting defaults:</strong> Sandbox and Core GitHub tools start enabled. Extended GitHub, Render, and Code Graph start off until you switch them on.</li>
+          </ol>
+        `,
+      },
+      {
+        id: "oauth-and-revocation",
+        title: "4. OAuth 2.1 scopes and revocation",
+        render: () => `
+          <p>Clients that support OAuth 2.1 connect through a standard browser consent screen showing the requesting application and scopes:</p>
+          <div class="doc-grid-3">
+            <div class="doc-mini-card">
+              <div class="doc-mono-title">mcp:tools</div>
+              <p>Access to enabled GitHub, Render, and Code Graph tools within your account policy.</p>
+            </div>
+            <div class="doc-mini-card">
+              <div class="doc-mono-title">mcp:sandbox</div>
+              <p>Access to isolated code execution, persistent shell, local git, and file sharing.</p>
+            </div>
+            <div class="doc-mini-card">
+              <div class="doc-mono-title">mcp:admin</div>
+              <p>Elevated repository or service operations when explicitly enabled in Settings.</p>
+            </div>
+          </div>
+          <p>You can revoke any API key or connected OAuth client at any time from <a href="/api">API keys</a>. Revocation takes effect immediately and clears cached telemetry for that key.</p>
+        `,
+      },
+    ],
+  },
+  {
+    slug: "github",
+    title: "GitHub repositories & workflows",
+    shortTitle: "GitHub",
+    icon: "github",
+    badge: "51 tools",
+    summary:
+      "Complete reference for all 17 core and 34 extended GitHub tools—repository search, surgical edits, branches, PRs, reviews, issues, and releases.",
+    readTime: "7 min read",
+    topics: [
+      "Token setup & recommended scopes",
+      "Core browsing & editing tools",
+      "Extended issues, PRs, releases & teams",
+      "Surgical editing workflow",
+    ],
+    keywords:
+      "github pat token git_tree grep view_file_outline str_replace_editor patch_contents push_files pull request issues reviews releases tags commits",
+    sections: [
+      {
+        id: "github-setup",
+        title: "1. Token setup",
+        graphic: "github-explore",
+        render: () => `
+          <p>Create a <strong>Fine-Grained Personal Access Token</strong> in GitHub scoped only to the repositories you want to work on (with <em>Contents: Read &amp; Write</em> and <em>Pull Requests: Read &amp; Write</em>, plus <em>Issues</em> if using extended tools), or a Classic PAT with <code class="inline-code">repo</code> scope.</p>
+          <p>Save the token in <a href="/settings">Settings</a> or on a dedicated key in <a href="/api">API keys</a>. All GitHub tools automatically fall back to the default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, and <code class="inline-code">branch</code> set via <code class="inline-code">set_active_context</code>.</p>
+        `,
+      },
+      {
+        id: "github-core-read",
+        title: "2. Context, browsing & search",
+        badge: "8 tools · Enabled",
+        render: () => `
           <div class="doc-table-wrap">
             <table class="doc-table">
               <thead>
-                <tr>
-                  <th>Tool</th>
-                  <th>What it does</th>
-                </tr>
+                <tr><th>Tool</th><th>What it does</th></tr>
               </thead>
               <tbody>
-                <tr><td><code class="inline-code">sandbox_run</code></td><td>Run inline code (default Python, or specify <code class="inline-code">lang</code>) or execute an existing sandbox file.</td></tr>
-                <tr><td><code class="inline-code">sandbox_exec</code></td><td>Run shell commands in your persistent sandbox working directory (supports <code class="inline-code">background: true</code>).</td></tr>
-                <tr><td><code class="inline-code">sandbox_file</code></td><td>Read, write, append, find-and-replace (<code class="inline-code">old_str</code>/<code class="inline-code">new_str</code>), or delete files safely without shell escaping.</td></tr>
-                <tr><td><code class="inline-code">sandbox_install</code></td><td>Install validated <code class="inline-code">npm</code> or <code class="inline-code">pip</code> packages into your isolated environment.</td></tr>
-                <tr><td><code class="inline-code">sandbox_ps</code> &amp; <code class="inline-code">sandbox_output</code></td><td>List/kill background processes and page through truncated command output via <code class="inline-code">outputId</code>.</td></tr>
-                <tr><td><code class="inline-code">git_clone</code> / <code class="inline-code">git_checkout</code> / <code class="inline-code">git_diff</code> / <code class="inline-code">git_commit_push</code></td><td>Full local git workflow for cloning, running test suites, inspecting diffs, and pushing commits.</td></tr>
-                <tr><td><code class="inline-code">sandbox_status</code> &amp; <code class="inline-code">sandbox_reset</code></td><td>Inspect runtimes, memory, MongoDB storage quota, and uploaded files—or wipe the sandbox clean.</td></tr>
+                <tr><td><code class="inline-code">set_active_context</code></td><td>Sets default <code class="inline-code">owner</code>, <code class="inline-code">repo</code>, <code class="inline-code">branch</code>, and optional sandbox directory for the session.</td></tr>
+                <tr><td><code class="inline-code">get_me</code></td><td>Returns the authenticated GitHub user profile to verify token identity.</td></tr>
+                <tr><td><code class="inline-code">search_repositories</code></td><td>Searches repositories or lists repositories accessible to your account.</td></tr>
+                <tr><td><code class="inline-code">git_tree</code></td><td>Retrieves the recursive file path tree for a repository and branch.</td></tr>
+                <tr><td><code class="inline-code">view_file_outline</code></td><td>Extracts top-level AST symbols (classes, functions, exports) from a source file without downloading its full body.</td></tr>
+                <tr><td><code class="inline-code">grep</code></td><td>Pattern search across repository files with configurable line windows and path filters.</td></tr>
+                <tr><td><code class="inline-code">search_code</code></td><td>GitHub code search across repositories by query, language, or path.</td></tr>
+                <tr><td><code class="inline-code">get_file_contents</code></td><td>Reads a file or specific line range (<code class="inline-code">startLine</code> / <code class="inline-code">endLine</code>) from a branch or ref.</td></tr>
               </tbody>
             </table>
           </div>
         `,
       },
       {
-        id: "sandbox-isolation",
-        title: "What works and what is restricted",
+        id: "github-core-write",
+        title: "3. Editing, branches & pull requests",
+        badge: "9 tools · Enabled",
+        graphic: "github-pr-flow",
         render: () => `
-          <div class="doc-grid-2">
-            <div class="doc-subcard">
-              <div class="doc-subcard-head">${renderSvg("check-circle", 18)}<h4>What works</h4></div>
-              <ul class="doc-list">
-                <li>Private per-user <code class="inline-code">HOME</code>, <code class="inline-code">TMPDIR</code>, and working directory under an unprivileged Unix UID.</li>
-                <li>Persistent shell state, local git clones, test runners, build pipelines, and <code class="inline-code">upload/</code> user files.</li>
-                <li>Idle cloned repositories are automatically cleaned up after <code class="inline-code">REPO_IDLE_MINUTES</code> (default 30 min) to preserve disk space.</li>
-              </ul>
-            </div>
-            <div class="doc-subcard">
-              <div class="doc-subcard-head">${renderSvg("shield", 18)}<h4>Security guardrails</h4></div>
-              <ul class="doc-list">
-                <li><strong>Scrubbed environment:</strong> Child processes cannot read <code class="inline-code">MCP_API_KEY</code>, GitHub/Render tokens, or <code class="inline-code">MONGODB_URI</code>.</li>
-                <li><strong>Command &amp; network guards:</strong> <code class="inline-code">COMMAND_RESTRICTION_LEVEL</code> and <code class="inline-code">NETWORK_RESTRICTION_LEVEL</code> (<code class="inline-code">low</code> / <code class="inline-code">medium</code> / <code class="inline-code">high</code>) block destructive commands and private/loopback network probing.</li>
-                <li><strong>Host requirement:</strong> Sandbox tools only activate when <code class="inline-code">ENABLE_SANDBOX=true</code> and OS isolation is available (Docker recommended).</li>
-              </ul>
-            </div>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">str_replace_editor</code></td><td>Replaces an exact block of text in a file and commits the change directly to the target branch.</td></tr>
+                <tr><td><code class="inline-code">patch_contents</code></td><td>Replaces a specified 1-indexed line range in a file and commits the update.</td></tr>
+                <tr><td><code class="inline-code">create_or_update_file</code></td><td>Creates a new file or overwrites an existing file with a commit message.</td></tr>
+                <tr><td><code class="inline-code">delete_file</code></td><td>Removes a file from a branch with a commit message.</td></tr>
+                <tr><td><code class="inline-code">push_files</code></td><td>Commits and pushes multiple file changes together in a single atomic commit.</td></tr>
+                <tr><td><code class="inline-code">list_branches</code></td><td>Lists branches in a repository.</td></tr>
+                <tr><td><code class="inline-code">create_branch</code></td><td>Creates a new branch from a base branch or commit SHA.</td></tr>
+                <tr><td><code class="inline-code">delete_branch</code></td><td>Deletes a branch from the repository.</td></tr>
+                <tr><td><code class="inline-code">create_pull_request</code></td><td>Opens a pull request with title, body, head branch, and base branch.</td></tr>
+              </tbody>
+            </table>
           </div>
+          ${callout(
+            "tip",
+            "Recommended editing workflow",
+            `Use <code class="inline-code">git_tree</code>, <code class="inline-code">view_file_outline</code>, and <code class="inline-code">grep</code> to locate target lines first, then apply focused changes with <code class="inline-code">str_replace_editor</code> or <code class="inline-code">patch_contents</code>—or batch multi-file updates atomically with <code class="inline-code">push_files</code>.`,
+          )}
+        `,
+      },
+      {
+        id: "github-extended",
+        title: "4. Extended GitHub tools",
+        badge: "34 tools · Opt-in",
+        graphic: "github-extended",
+        render: () => `
+          <p>Switch on Extended GitHub in <a href="/settings">Settings</a> (or per API key) to enable full issue tracking, PR review threads, releases, and repository administration:</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr><th>Area</th><th>Tools</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Issues &amp; sub-issues</strong></td>
+                  <td><code class="inline-code">list_issues</code>, <code class="inline-code">issue_read</code>, <code class="inline-code">issue_write</code>, <code class="inline-code">sub_issue_write</code>, <code class="inline-code">add_issue_comment</code>, <code class="inline-code">search_issues</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Pull requests &amp; reviews</strong></td>
+                  <td><code class="inline-code">list_pull_requests</code>, <code class="inline-code">pull_request_read</code>, <code class="inline-code">update_pull_request</code>, <code class="inline-code">update_pull_request_branch</code>, <code class="inline-code">merge_pull_request</code>, <code class="inline-code">pull_request_review_write</code>, <code class="inline-code">add_comment_to_pending_review</code>, <code class="inline-code">add_reply_to_pull_request_comment</code>, <code class="inline-code">search_pull_requests</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Commits, releases, tags &amp; labels</strong></td>
+                  <td><code class="inline-code">get_commit</code>, <code class="inline-code">search_commits</code>, <code class="inline-code">list_commits</code>, <code class="inline-code">get_label</code>, <code class="inline-code">list_issue_fields</code>, <code class="inline-code">list_issue_types</code>, <code class="inline-code">get_release</code>, <code class="inline-code">list_releases</code>, <code class="inline-code">get_tag</code>, <code class="inline-code">list_tags</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Teams &amp; collaborators</strong></td>
+                  <td><code class="inline-code">get_teams</code>, <code class="inline-code">get_team_members</code>, <code class="inline-code">list_repository_collaborators</code>, <code class="inline-code">search_users</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Repository &amp; automation</strong></td>
+                  <td><code class="inline-code">create_repository</code>, <code class="inline-code">fork_repository</code>, <code class="inline-code">run_secret_scanning</code>, plus automated PR review and issue assignment tools.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+      },
+    ],
+  },
+  {
+    slug: "sandbox",
+    title: "Isolated sandbox & local git",
+    shortTitle: "Sandbox",
+    icon: "terminal",
+    badge: "15 tools",
+    summary:
+      "Full reference for all 15 sandbox tools: multi-language execution, persistent shell, file editing, package installs, background jobs, and local git.",
+    readTime: "6 min read",
+    topics: [
+      "Pre-installed language runtimes",
+      "Execution, files & package tools",
+      "Local git workflow tools",
+      "Cloud file sharing & workspace lifecycle",
+    ],
+    keywords:
+      "sandbox run exec install file ps output reset store python node typescript go rust java cpp ruby php bash git_clone git_checkout git_pull git_status git_diff git_commit_push",
+    sections: [
+      {
+        id: "sandbox-runtimes",
+        title: "1. Pre-installed language runtimes",
+        graphic: "sandbox-runtime",
+        render: () => `
+          <p>Every account runs inside a dedicated, isolated Linux workspace with a persistent working directory and pre-installed developer toolchains:</p>
+          <div class="doc-chip-row">
+            <span class="docs-pill">Node.js</span>
+            <span class="docs-pill">TypeScript (tsx / bun)</span>
+            <span class="docs-pill">Python 3</span>
+            <span class="docs-pill">Go</span>
+            <span class="docs-pill">Rust</span>
+            <span class="docs-pill">Java</span>
+            <span class="docs-pill">C / C++</span>
+            <span class="docs-pill">Ruby</span>
+            <span class="docs-pill">PHP</span>
+            <span class="docs-pill">Bash</span>
+            <span class="docs-pill">Git CLI</span>
+          </div>
+        `,
+      },
+      {
+        id: "sandbox-exec-tools",
+        title: "2. Execution, files & process management",
+        badge: "8 tools · Enabled",
+        render: () => `
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does &amp; key usage</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">sandbox_status</code></td><td>Checks available runtimes, memory, storage quota usage, active cloned repo/branch, and files in <code class="inline-code">upload/</code>.</td></tr>
+                <tr><td><code class="inline-code">sandbox_run</code></td><td>Runs inline code (Python by default, or pass <code class="inline-code">lang</code> for Node, TS, Go, Rust, C++, Java, Ruby, PHP, Bash) or executes an existing <code class="inline-code">filePath</code>.</td></tr>
+                <tr><td><code class="inline-code">sandbox_exec</code></td><td>Runs shell commands in a persistent terminal session that preserves <code class="inline-code">cd</code>, exports, and virtualenvs. Pass <code class="inline-code">background: true</code> for dev servers or long builds.</td></tr>
+                <tr><td><code class="inline-code">sandbox_file</code></td><td>Reads, writes, appends, edits via exact <code class="inline-code">old_str</code>/<code class="inline-code">new_str</code> replacement, or deletes sandbox files without shell-escaping pitfalls.</td></tr>
+                <tr><td><code class="inline-code">sandbox_install</code></td><td>Installs registry <code class="inline-code">npm</code> or <code class="inline-code">pip</code> packages (with optional version pins) inside your workspace.</td></tr>
+                <tr><td><code class="inline-code">sandbox_ps</code></td><td>Lists running background jobs, fetches their output, or terminates a job by PID (or <code class="inline-code">"all"</code>).</td></tr>
+                <tr><td><code class="inline-code">sandbox_output</code></td><td>Pages through long command output that was truncated by <code class="inline-code">sandbox_exec</code>, <code class="inline-code">sandbox_run</code>, or <code class="inline-code">sandbox_install</code> using the returned <code class="inline-code">outputId</code>.</td></tr>
+                <tr><td><code class="inline-code">sandbox_reset</code></td><td>Wipes scratch files, cloned repositories, persistent shell state, and background processes for a clean slate.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+      },
+      {
+        id: "sandbox-git-tools",
+        title: "3. Local git & cloud file store",
+        badge: "7 tools · Enabled",
+        graphic: "sandbox-git",
+        render: () => `
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr><th>Tool</th><th>What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="inline-code">git_clone</code></td><td>Clones a GitHub repository into your sandbox so you can build, lint, and run full test suites locally.</td></tr>
+                <tr><td><code class="inline-code">git_checkout</code></td><td>Switches to an existing branch or creates a new branch in the cloned repository.</td></tr>
+                <tr><td><code class="inline-code">git_pull</code></td><td>Fast-forward pulls the latest commits on the active branch.</td></tr>
+                <tr><td><code class="inline-code">git_status</code></td><td>Returns a compact summary of the active branch and modified files.</td></tr>
+                <tr><td><code class="inline-code">git_diff</code></td><td>Shows unstaged or staged diffs, optionally scoped to a specific file path.</td></tr>
+                <tr><td><code class="inline-code">git_commit_push</code></td><td>Stages, commits, and pushes verified local changes back to GitHub.</td></tr>
+                <tr><td><code class="inline-code">sandbox_store</code></td><td>Moves files between your sandbox, cloud storage (<a href="/store">/store</a>), and the web (<code class="inline-code">share</code>, <code class="inline-code">download</code>, <code class="inline-code">list</code>, <code class="inline-code">delete</code>).</td></tr>
+              </tbody>
+            </table>
+          </div>
+          ${callout(
+            "info",
+            "Automatic workspace cleanup",
+            `Idle cloned repositories clear automatically after 30 minutes of inactivity to preserve workspace storage. Push important changes to GitHub or save outputs to <a href="/store">Files</a>.`,
+          )}
         `,
       },
     ],

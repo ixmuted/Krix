@@ -37,16 +37,16 @@ const FORBIDDEN_INTERNAL_SECURITY = [
 ];
 
 describe("Help Center & Subpages", () => {
-  test("renderHelpPage matches homepage UI, uses files icon, clean search placeholder, and omits internal security details", () => {
+  test("renderHelpPage combines tinted editorial layout, Krix logo, files icon, clean search placeholder, and omits internal security details", () => {
     const html = renderHelpPage({
       base: "https://krix.example.com",
       nonce: "test_nonce_123",
     });
 
-    assert.ok(html.includes('class="hm"'));
     assert.ok(html.includes("Krix documentation."));
     assert.ok(html.includes('placeholder="Search guides"'));
     assert.ok(html.includes("Streamable HTTP Transport"));
+    assert.ok(html.includes("/logo.svg?v=4"));
     assert.ok(html.includes("https://krix.example.com/mcp"));
     assert.ok(html.includes("Add your keys in three steps"));
     assert.ok(html.includes('nonce="test_nonce_123"'));
@@ -54,6 +54,7 @@ describe("Help Center & Subpages", () => {
 
     const filesCat = getHelpCategory("files-and-store");
     assert.equal(filesCat?.icon, "files");
+    assert.equal(getHelpCategory("authentication")?.slug, "adding-keys");
 
     const lower = html.toLowerCase();
     for (const brand of FORBIDDEN_CLIENT_BRANDS) {
@@ -77,11 +78,18 @@ describe("Help Center & Subpages", () => {
     }
   });
 
-  test("renderHelpCategoryPage renders detailed tool references, omits internal security details, and returns null for unknown slug", () => {
+  test("renderHelpCategoryPage renders detailed tool references, bracket-free headings, clean SVGs, and returns null for unknown slug", () => {
     assert.ok(HELP_CATEGORIES.length >= 8);
     assert.ok(getHelpCategory("adding-keys"), "Must include adding-keys guide");
 
     for (const cat of HELP_CATEGORIES) {
+      for (const sec of cat.sections) {
+        assert.ok(
+          !sec.title.includes("(") && !sec.title.includes(")"),
+          `Section title '${sec.title}' in /help/${cat.slug} must not contain brackets`,
+        );
+      }
+
       const html = renderHelpCategoryPage({
         slug: cat.slug,
         base: "https://krix.example.com",
@@ -131,19 +139,29 @@ describe("Help Center & Subpages", () => {
 });
 
 describe("Privacy Policy & Terms of Service", () => {
-  test("renderPrivacyPage renders original Privacy Policy with Effective Date", () => {
+  test("renderPrivacyPage renders editorial Privacy Policy with Effective Date and no internal secrets", () => {
     const html = renderPrivacyPage({ nonce: "priv_nonce" });
     assert.ok(html.includes("Effective Date: November 2026"));
     assert.ok(html.includes("Privacy Policy"));
-    assert.ok(html.includes("1. Overview"));
+    assert.ok(html.includes("In plain English"));
+    assert.ok(html.includes("/logo.svg?v=4"));
     assert.ok(!html.includes("Server manifest"));
+    const lower = html.toLowerCase();
+    for (const secret of FORBIDDEN_INTERNAL_SECURITY) {
+      assert.ok(!lower.includes(secret), `Privacy page must not expose '${secret}'`);
+    }
   });
 
-  test("renderTermsPage renders original Terms of Service with Effective Date", () => {
+  test("renderTermsPage renders editorial Terms of Service with Effective Date and no internal secrets", () => {
     const html = renderTermsPage({ nonce: "tos_nonce" });
     assert.ok(html.includes("Effective Date: November 2026"));
     assert.ok(html.includes("Terms of Service"));
-    assert.ok(html.includes("1. Acceptance of Terms"));
+    assert.ok(html.includes("In plain English"));
+    assert.ok(html.includes("/logo.svg?v=4"));
     assert.ok(!html.includes("Server manifest"));
+    const lower = html.toLowerCase();
+    for (const secret of FORBIDDEN_INTERNAL_SECURITY) {
+      assert.ok(!lower.includes(secret), `Terms page must not expose '${secret}'`);
+    }
   });
 });

@@ -862,9 +862,10 @@ body[data-tab="home"] .hero { padding: 14px 0 20px; }
 .hm-faq-item { border-bottom: 1px solid var(--border-subtle); }
 .hm-faq-item summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; font-size: 17px; cursor: pointer; list-style: none; }
 .hm-faq-item summary::-webkit-details-marker { display: none; }
-.hm-faq-item summary::after { content: "+"; font-size: 22px; color: var(--fg-3); transition: transform .18s; }
-.hm-faq-item[open] summary::after { transform: rotate(45deg); }
-.hm-faq-item p { padding: 0 40px 22px 0; max-width: 70ch; font-size: 15px; line-height: 1.65; color: var(--fg-3); }
+html { scroll-behavior: smooth; }
+.hm-faq-item summary::after { content: "+"; font-size: 22px; color: var(--fg-3); transition: transform .24s cubic-bezier(0.22, 1, 0.36, 1), color .15s ease; }
+.hm-faq-item[open] summary::after { transform: rotate(45deg); color: var(--accent); }
+.hm-faq-item p, .hm-faq-item .hlp-details-body p { margin: 0; padding: 0 40px 22px 0; max-width: 70ch; font-size: 15px; line-height: 1.65; color: var(--fg-3); }
 .hm-final { text-align: center; padding: 64px 24px; background: var(--bg-surface-2); border-radius: 28px; }
 .hm-final .hm-sub { margin-left: auto; margin-right: auto; }
 .hm-hero-text, .hm-art { animation: hm-rise .6s ease-out both; }
@@ -888,13 +889,13 @@ body[data-tab="home"] .hero { padding: 14px 0 20px; }
 /* ---------- Anthropic-style Home Footer ---------- */
 .hm-footer {
   margin-top: 72px;
-  background: #141413;
+  background: #0f0f0e;
   color: #e8e6dc;
   border-top: 1px solid rgba(250, 249, 245, 0.08);
 }
 html.dark .hm-footer {
-  background: #181817;
-  border-top-color: rgba(250, 249, 245, 0.09);
+  background: #0e0e0d;
+  border-top-color: rgba(250, 249, 245, 0.08);
 }
 .hm-footer-inner {
   width: 100%;

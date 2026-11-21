@@ -3,6 +3,7 @@ import { renderSvg } from "../icons.js";
 import { EFFECTIVE_DATE, REPO_URL, renderDocsShell, tintFor } from "./docsKit.js";
 import { HELP_CORE } from "./helpContent.js";
 import { HELP_MORE } from "./helpContentMore.js";
+import { renderHelpGraphic } from "./helpGraphics.js";
 import type { HelpCategory } from "./helpTypes.js";
 
 export type { HelpCategory, HelpSection } from "./helpTypes.js";
@@ -11,90 +12,88 @@ export const HELP_CATEGORIES: HelpCategory[] = [...HELP_CORE, ...HELP_MORE];
 
 export function getHelpCategory(slug: string): HelpCategory | undefined {
   const clean = (slug || "").trim().toLowerCase();
-  return HELP_CATEGORIES.find((c) => c.slug === clean);
+  const resolved = clean === "authentication" ? "adding-keys" : clean;
+  return HELP_CATEGORIES.find((c) => c.slug === resolved);
 }
 
 const GROUPS = [
-  { name: "Sandbox and local Git", count: 15, on: true, tint: "olive", need: "Server setting ENABLE_SANDBOX=true", href: "/help/sandbox", label: "Sandbox guide" },
-  { name: "GitHub core", count: 17, on: true, tint: "slate", need: "GitHub token saved in Settings", href: "/help/github", label: "GitHub guide" },
-  { name: "GitHub extended", count: 34, on: false, tint: "slate", need: "GitHub token, then switch on in Settings", href: "/help/github", label: "GitHub guide" },
-  { name: "Render cloud", count: 21, on: false, tint: "sky", need: "Render API key, then switch on in Settings", href: "/help/render", label: "Render guide" },
-  { name: "Code graph and web search", count: 30, on: false, tint: "cactus", need: "Switch on in Settings", href: "/help/code-graph", label: "Code graph guide" },
+  {
+    name: "Sandbox and local Git",
+    count: 15,
+    on: true,
+    tint: "olive",
+    need: "Included with your isolated workspace",
+    href: "/help/sandbox",
+    label: "Sandbox guide",
+  },
+  {
+    name: "GitHub core",
+    count: 17,
+    on: true,
+    tint: "slate",
+    need: "GitHub PAT saved in Settings",
+    href: "/help/github",
+    label: "GitHub guide",
+  },
+  {
+    name: "GitHub extended",
+    count: 34,
+    on: false,
+    tint: "slate",
+    need: "GitHub PAT + switch on in Settings",
+    href: "/help/github",
+    label: "GitHub guide",
+  },
+  {
+    name: "Render cloud",
+    count: 21,
+    on: false,
+    tint: "sky",
+    need: "Render API key + switch on in Settings",
+    href: "/help/render",
+    label: "Render guide",
+  },
+  {
+    name: "Code graph and web search",
+    count: 30,
+    on: false,
+    tint: "cactus",
+    need: "Switch on in Settings",
+    href: "/help/code-graph",
+    label: "Code graph guide",
+  },
 ];
 
 const FAQ: Array<[string, string]> = [
   [
     "Why do some tools not appear in my assistant?",
-    `Krix hides tools that are switched off or missing a credential, so your assistant never wastes a turn calling them. Extended GitHub, Render and Code Graph start off. Switch them on in <a href="/settings">Settings</a> or on your key's page, and make sure the matching GitHub or Render token is saved.`,
+    `Krix lists only tools that are enabled and have valid credentials, so your assistant never hits broken calls. Extended GitHub, Render, and Code Graph start disabled—switch them on in <a href="/settings">Settings</a> or on your key's page, and confirm the matching GitHub or Render token is saved.`,
   ],
   [
     "Which transport and URL should I use?",
-    `Use the Streamable HTTP endpoint at <code class="inline-code">/mcp</code>. Current MCP clients expect it, and it accepts an API key header or OAuth 2.1 discovery. Start with <a href="/help/getting-started">Getting started</a> for copy-ready configs.`,
+    `Use the Streamable HTTP endpoint at <code class="inline-code">/mcp</code>. Current MCP clients expect it, and it accepts an API key header or OAuth 2.1 discovery. Start with <a href="/help/getting-started">Connecting an MCP client</a> for copy-ready configs.`,
   ],
   [
     "Can I use different GitHub or Render credentials per API key?",
-    `Yes. Open any key on <a href="/api/keys">API keys</a> to set key-specific provider tokens and tool overrides. Keys without overrides inherit your workspace settings.`,
+    `Yes. Open any key on <a href="/api">API keys</a> to set key-specific provider tokens and tool overrides. Keys without overrides inherit your workspace settings.`,
   ],
   [
-    "How are my tokens and sandbox files protected?",
-    `Provider credentials are encrypted at rest with AES-256-GCM, scrubbed from tool output, and never exposed to sandbox processes. Each user's sandbox runs under an unprivileged Unix user in a private directory. Read <a href="/help/security-and-quotas">Security and quotas</a> and the <a href="/privacy">Privacy Policy</a> for the details.`,
+    "How are my credentials and workspace protected?",
+    `Provider tokens are strongly encrypted at rest, automatically filtered from tool outputs, and never exposed inside sandbox environments. Every account runs in an isolated workspace separate from other users. Read <a href="/help/security-and-quotas">Security &amp; limits</a> and the <a href="/privacy">Privacy Policy</a> for details.`,
   ],
   [
-    "How long are shared and uploaded files kept?",
-    `Files shared with <code class="inline-code">sandbox_store</code> expire after <code class="inline-code">FILE_TTL_HOURS</code> (typically 48 hours) unless you pin them as Permanent in <a href="/store">Files</a>. Web uploads from <a href="/upload">Upload</a> are kept for the configured retention window after the session closes.`,
+    "How long are uploaded and shared files kept?",
+    `Web uploads clear automatically after 24 hours, and shared links expire unless you mark a file Permanent in <a href="/store">Files</a>. Idle cloned repositories clear after 30 minutes.`,
   ],
   [
     "What happens if I delete my account?",
-    `Deleting starts a 30-day grace period. Signing back in cancels it. After 30 days a background purge removes your keys, credentials, files and sandbox. See the <a href="/privacy#retention">retention table</a>.`,
+    `Requesting account deletion in <a href="/settings">Settings</a> starts a 30-day grace period. Signing back in cancels it. After 30 days, all keys, stored files, and workspace data are permanently removed. See the <a href="/privacy#retention">retention table</a>.`,
   ],
 ];
 
 function splitTitle(title: string): { num: string; text: string } {
   const m = title.match(/^(\d+)\.\s+(.*)$/);
   return m ? { num: m[1], text: m[2] } : { num: "", text: title };
-}
-
-function renderMap(mcpUrl: string): string {
-  const left = [
-    ["claude", "Claude"],
-    ["cursor", "Cursor"],
-    ["gemini", "Gemini"],
-    ["chatgpt", "ChatGPT"],
-  ]
-    .map(([icon, name]) => `<div class="map-node">${renderSvg(icon, 18)}<span>${name}</span></div>`)
-    .join("");
-  const right = [
-    ["github", "GitHub", "51 tools"],
-    ["render", "Render", "21 tools"],
-    ["terminal", "Sandbox", "15 tools"],
-    ["layers", "Code graph", "30 tools"],
-  ]
-    .map(([icon, name, n]) => `<div class="map-node">${renderSvg(icon, 18)}<span>${name}</span><small>${n}</small></div>`)
-    .join("");
-  return `
-    <div class="map" role="group" aria-label="How Krix connects assistants to tools">
-      <div class="map-col"><div class="map-col-title">Your assistant</div>${left}</div>
-      <div class="map-link" aria-hidden="true"></div>
-      <div class="map-core" data-tint="clay">
-        <div class="map-core-head">
-          <span class="tile lg">${renderSvg("krix-spark", 26)}</span>
-          <div><div class="map-core-name">Krix</div><div class="map-core-sub">MCP gateway, one URL</div></div>
-        </div>
-        <div class="endpoint-row">
-          <code>${escapeHtml(mcpUrl)}</code>
-          <button type="button" class="btn sm doc-copy-btn" data-copy="${escapeHtml(mcpUrl)}" aria-label="Copy MCP endpoint URL">${renderSvg("copy", 14)}<span>Copy</span></button>
-        </div>
-        <p class="map-core-note">Sign in with an <code class="inline-code">Authorization: Bearer</code> key, an <code class="inline-code">x-api-key</code> header, or OAuth 2.1 discovery.</p>
-      </div>
-      <div class="map-link" aria-hidden="true"></div>
-      <div class="map-col"><div class="map-col-title">What it can reach</div>${right}</div>
-    </div>
-    <div class="docs-quick">
-      <a href="/api/keys" class="btn sm">${renderSvg("key", 14)}<span>API keys</span></a>
-      <a href="/settings" class="btn sm">${renderSvg("settings", 14)}<span>Settings</span></a>
-      <a href="/tools" class="btn sm">${renderSvg("terminal", 14)}<span>Tools</span></a>
-      <a href="/store" class="btn sm">${renderSvg("folder", 14)}<span>Files</span></a>
-    </div>`;
 }
 
 function searchIndex(c: HelpCategory): string {
@@ -106,7 +105,7 @@ function renderFeature(c: HelpCategory): string {
     .map((t) => `<li>${renderSvg("check-circle", 16)}<span>${escapeHtml(t)}</span></li>`)
     .join("");
   return `
-    <a href="/help/${escapeHtml(c.slug)}" class="guide-feature" data-tint="${tintFor(c.slug)}" data-guide data-search="${searchIndex(c)}">
+    <a href="/help/${escapeHtml(c.slug)}" class="guide-feature doc-reveal" data-reveal data-tint="${tintFor(c.slug)}" data-guide data-search="${searchIndex(c)}">
       <div>
         <span class="docs-pill">${escapeHtml(c.badge)}</span>
         <h3>${escapeHtml(c.title)}</h3>
@@ -119,7 +118,7 @@ function renderFeature(c: HelpCategory): string {
 
 function renderRow(c: HelpCategory): string {
   return `
-    <li data-guide data-search="${searchIndex(c)}">
+    <li class="doc-reveal" data-reveal data-guide data-search="${searchIndex(c)}">
       <a href="/help/${escapeHtml(c.slug)}" class="guide-row" data-tint="${tintFor(c.slug)}">
         <span class="tile">${renderSvg(c.icon, 20)}</span>
         <div>
@@ -141,7 +140,7 @@ function renderGroups(): string {
           <span class="group-track"><span class="group-fill" style="width:${Math.round((g.count / 34) * 100)}%"></span></span>
           <span class="group-count">${g.count} tools</span>
         </div>
-        <div>${g.on ? '<span class="badge success">On by default</span>' : '<span class="badge">Opt-in</span>'}</div>
+        <div>${g.on ? '<span class="badge success">Enabled</span>' : '<span class="badge">Opt-in</span>'}</div>
         <div class="group-need">${escapeHtml(g.need)}</div>
       </li>`,
   ).join("");
@@ -151,9 +150,9 @@ function renderGroups(): string {
 function renderFaq(): string {
   return `<div class="docs-faq-list">${FAQ.map(
     ([q, a]) => `
-      <details class="docs-faq">
+      <details class="docs-faq docs-smooth-details">
         <summary>${escapeHtml(q)}</summary>
-        <div class="docs-faq-body">${a}</div>
+        <div class="docs-details-body"><div class="docs-faq-body">${a}</div></div>
       </details>`,
   ).join("")}</div>`;
 }
@@ -161,10 +160,10 @@ function renderFaq(): string {
 function renderPolicies(): string {
   const items = [
     ["/privacy", "shield", "clay", "Privacy Policy", "What Krix stores and for how long"],
-    ["/terms", "file-text", "kraft", "Terms of Service", "Rules for keys, sandboxes and quotas"],
-    ["/help/security-and-quotas", "shield-check", "olive", "Security and quotas", "Isolation, limits and troubleshooting"],
+    ["/terms", "files", "kraft", "Terms of Service", "Rules for keys, sandboxes, and quotas"],
+    ["/help/security-and-quotas", "shield-check", "olive", "Security & limits", "Isolation, quotas, and troubleshooting"],
   ];
-  return `<div class="docs-policies">${items
+  return `<div class="docs-policies doc-reveal" data-reveal>${items
     .map(
       ([href, icon, tint, name, d]) => `
       <a href="${href}" class="docs-policy" data-tint="${tint}">
@@ -185,50 +184,91 @@ export function renderHelpPage(params: {
   const [first, ...rest] = HELP_CATEGORIES;
 
   const content = `
-    <header class="docs-hero">
-      <span class="docs-kicker"><i class="docs-dot"></i><span>Krix Documentation &amp; Help Center</span></span>
-      <h1 class="docs-title">Set up Krix, then decide exactly what your assistant can touch.</h1>
-      <p class="docs-lede">Connect Claude, Cursor, Gemini or any MCP client, manage keys and OAuth, and run code in a sandbox that keeps every user's files apart.</p>
-      <div class="docs-search">
-        <span class="docs-search-icon" aria-hidden="true">${renderSvg("search", 18)}</span>
-        <label for="helpSearchInput" class="sr-only">Search guides</label>
-        <input id="helpSearchInput" type="search" placeholder="Search guides" autocomplete="off" enterkeyhint="search">
-        <kbd aria-hidden="true">/</kbd>
+    <header class="docs-hero-split">
+      <div>
+        <h1 class="docs-title"><strong>Krix documentation.</strong> Setup, credentials, and tool reference.</h1>
+        <p class="docs-lede">Connect any Streamable HTTP MCP client, configure API keys and provider tokens, and manage permissions across every tool group.</p>
+        <div class="docs-search">
+          <span class="docs-search-icon" aria-hidden="true">${renderSvg("search", 18)}</span>
+          <label for="helpSearchInput" class="sr-only">Search guides</label>
+          <input id="helpSearchInput" type="search" placeholder="Search guides" autocomplete="off" enterkeyhint="search">
+          <kbd aria-hidden="true">/</kbd>
+        </div>
+        <div class="docs-hero-cta">
+          <a href="/help/adding-keys" class="btn primary">${renderSvg("key", 15)}<span>Adding keys</span></a>
+          <a href="/api" class="btn">${renderSvg("sliders", 15)}<span>API keys</span></a>
+          <a href="/tools" class="btn ghost">${renderSvg("terminal", 15)}<span>Tools catalog</span></a>
+        </div>
       </div>
-      <div class="docs-try"><span>Try</span>
-        <button type="button" data-fill="Cursor">Cursor</button>
-        <button type="button" data-fill="OAuth">OAuth scopes</button>
-        <button type="button" data-fill="GitHub">GitHub token</button>
-        <button type="button" data-fill="quota">Quotas</button>
+      <div class="docs-hero-art">
+        ${renderHelpGraphic("hero")}
       </div>
     </header>
 
-    ${renderMap(mcpUrl)}
+    <section class="docs-transport doc-reveal" data-reveal aria-label="Streamable HTTP Transport">
+      <div>
+        <div class="docs-transport-head">
+          <span class="docs-logo-badge"><img src="/logo.svg?v=4" alt="Krix logo" width="28" height="28"></span>
+          <div class="docs-transport-eyebrow">Streamable HTTP Transport</div>
+        </div>
+        <h2 class="docs-transport-title">Connect over one authenticated endpoint</h2>
+        <p class="docs-transport-sub">Point your MCP client at <code>/mcp</code> using a Bearer key from API keys or OAuth 2.1 automatic discovery.</p>
+        <div class="docs-transport-actions">
+          <a href="/help/adding-keys" class="docs-dark-btn primary">${renderSvg("key", 15)}<span>Adding keys</span></a>
+          <a href="/api" class="docs-dark-btn">${renderSvg("plus", 15)}<span>API keys</span></a>
+          <a href="/settings" class="docs-dark-btn">${renderSvg("settings", 15)}<span>Settings</span></a>
+        </div>
+      </div>
+      <div class="docs-transport-box">
+        <div class="docs-transport-meta">
+          <span>POST / GET · Streamable HTTP</span>
+          <span>TLS</span>
+        </div>
+        <div class="docs-transport-url">
+          <code>${escapeHtml(mcpUrl)}</code>
+          <button type="button" class="docs-copy-dark doc-copy-btn" data-copy="${escapeHtml(mcpUrl)}" aria-label="Copy MCP endpoint URL">${renderSvg("copy", 13)}<span>Copy</span></button>
+        </div>
+        <div class="docs-transport-headers">
+          <div><span>Authorization:</span> Bearer &lt;api-key&gt;</div>
+          <div><span>x-api-key:</span> &lt;api-key&gt;</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section doc-reveal" data-reveal aria-labelledby="keys-steps-h">
+      <div class="docs-section-head">
+        <div>
+          <h2 id="keys-steps-h" class="docs-section-title">Add your keys in three steps</h2>
+          <p class="docs-section-sub">Create a Krix key for your client, attach optional GitHub or Render tokens, and enable the tool groups you need.</p>
+        </div>
+      </div>
+      <div class="doc-graphic-frame">${renderHelpGraphic("hub-keys-banner")}</div>
+    </section>
 
     <section class="docs-section" aria-labelledby="guides-h">
       <div class="docs-section-head">
         <div>
-          <h2 id="guides-h" class="docs-section-title">Guides</h2>
-          <p class="docs-section-sub">Start with the first one. Each guide stands alone, so jump to whatever you need.</p>
+          <h2 id="guides-h" class="docs-section-title">Browse by topic</h2>
+          <p class="docs-section-sub">Start with the connection guide, or jump straight to any tool reference.</p>
         </div>
         <span id="helpCategoryCount" class="docs-count" aria-live="polite">${HELP_CATEGORIES.length} of ${HELP_CATEGORIES.length} guides</span>
       </div>
       ${renderFeature(first)}
       <ul class="guide-list">${rest.map(renderRow).join("")}</ul>
-      <div id="helpSearchEmpty" class="docs-empty" hidden>No guides match that search. Try <strong>OAuth</strong>, <strong>GitHub</strong>, <strong>sandbox</strong>, <strong>Render</strong> or <strong>quotas</strong>.</div>
+      <div id="helpSearchEmpty" class="docs-empty" hidden>No guides match that search. Try <strong>keys</strong>, <strong>OAuth</strong>, <strong>GitHub</strong>, <strong>sandbox</strong>, <strong>Render</strong>, or <strong>limits</strong>.</div>
     </section>
 
-    <section class="docs-section" aria-labelledby="groups-h">
+    <section class="docs-section doc-reveal" data-reveal aria-labelledby="groups-h">
       <div class="docs-section-head">
         <div>
-          <h2 id="groups-h" class="docs-section-title">What works out of the box</h2>
-          <p class="docs-section-sub">Krix ships 117 tools in five groups. Bars show how many tools each group adds.</p>
+          <h2 id="groups-h" class="docs-section-title">Tool availability by group</h2>
+          <p class="docs-section-sub">Krix includes 117 tools across five groups. Bars show how many tools each group provides.</p>
         </div>
       </div>
       ${renderGroups()}
     </section>
 
-    <section class="docs-section" aria-labelledby="faq-h">
+    <section class="docs-section doc-reveal" data-reveal aria-labelledby="faq-h">
       <div class="docs-section-head"><h2 id="faq-h" class="docs-section-title">Common questions</h2></div>
       ${renderFaq()}
     </section>
@@ -237,7 +277,7 @@ export function renderHelpPage(params: {
   `;
 
   return renderDocsShell({
-    title: "Help Center - Krix",
+    title: "Help - Krix",
     content,
     owner: params.owner,
     nonce: params.nonce,
@@ -261,22 +301,31 @@ export function renderHelpCategoryPage(params: {
   const tint = tintFor(category.slug);
 
   const railLinks = HELP_CATEGORIES.map(
-    (c) => `<a href="/help/${escapeHtml(c.slug)}" data-tint="${tintFor(c.slug)}"${c.slug === category.slug ? ' aria-current="page"' : ""}>${renderSvg(c.icon, 16)}<span>${escapeHtml(c.shortTitle)}</span></a>`,
+    (c) =>
+      `<a href="/help/${escapeHtml(c.slug)}" data-tint="${tintFor(c.slug)}"${c.slug === category.slug ? ' aria-current="page"' : ""}>${renderSvg(c.icon, 16)}<span>${escapeHtml(c.shortTitle)}</span></a>`,
   ).join("");
   const chips = HELP_CATEGORIES.map(
-    (c) => `<a href="/help/${escapeHtml(c.slug)}"${c.slug === category.slug ? ' aria-current="page"' : ""}>${escapeHtml(c.shortTitle)}</a>`,
+    (c) =>
+      `<a href="/help/${escapeHtml(c.slug)}"${c.slug === category.slug ? ' aria-current="page"' : ""}>${escapeHtml(c.shortTitle)}</a>`,
   ).join("");
 
   const tocLinks = category.sections
     .map((s) => `<a href="#${escapeHtml(s.id)}">${escapeHtml(splitTitle(s.title).text)}</a>`)
+    .join("");
+  const tocBullets = category.sections
+    .map((s) => `<li><a href="#${escapeHtml(s.id)}">${escapeHtml(splitTitle(s.title).text)}</a></li>`)
     .join("");
 
   const sections = category.sections
     .map((s) => {
       const t = splitTitle(s.title);
       return `
-      <section id="${escapeHtml(s.id)}" class="doc-section doc-body">
-        <h2>${t.num ? `<span class="num">${t.num}</span>` : ""}<span>${escapeHtml(t.text)}</span></h2>
+      <section id="${escapeHtml(s.id)}" class="doc-section doc-body doc-reveal" data-reveal>
+        <div class="doc-section-head">
+          <h2>${t.num ? `<span class="num">${t.num}</span>` : ""}<span>${escapeHtml(t.text)}</span></h2>
+          ${s.badge ? `<span class="docs-pill">${escapeHtml(s.badge)}</span>` : ""}
+        </div>
+        ${s.graphic ? `<div class="doc-graphic-frame">${renderHelpGraphic(s.graphic)}</div>` : ""}
         ${s.render({ base, mcpUrl })}
       </section>`;
     })
@@ -287,18 +336,18 @@ export function renderHelpCategoryPage(params: {
       ${
         prev
           ? `<a href="/help/${escapeHtml(prev.slug)}" class="doc-pager-card"><span class="doc-pager-dir">${renderSvg("chevron-left", 14)} Previous</span><span class="doc-pager-title">${escapeHtml(prev.title)}</span></a>`
-          : `<a href="/help" class="doc-pager-card"><span class="doc-pager-dir">${renderSvg("chevron-left", 14)} Back</span><span class="doc-pager-title">Help Center overview</span></a>`
+          : `<a href="/help" class="doc-pager-card"><span class="doc-pager-dir">${renderSvg("chevron-left", 14)} Back</span><span class="doc-pager-title">Help overview</span></a>`
       }
       ${
         next
           ? `<a href="/help/${escapeHtml(next.slug)}" class="doc-pager-card doc-pager-next"><span class="doc-pager-dir">Next ${renderSvg("chevron-right", 14)}</span><span class="doc-pager-title">${escapeHtml(next.title)}</span></a>`
-          : `<a href="/tools" class="doc-pager-card doc-pager-next"><span class="doc-pager-dir">Explore ${renderSvg("chevron-right", 14)}</span><span class="doc-pager-title">Live tools catalog</span></a>`
+          : `<a href="/tools" class="doc-pager-card doc-pager-next"><span class="doc-pager-dir">Explore ${renderSvg("chevron-right", 14)}</span><span class="doc-pager-title">Tools catalog</span></a>`
       }
     </nav>`;
 
   const content = `
     <nav class="docs-crumbs" aria-label="Breadcrumb">
-      <a href="/help">Help Center</a>
+      <a href="/help">Help</a>
       ${renderSvg("chevron-right", 14)}
       <span aria-current="page">${escapeHtml(category.shortTitle)}</span>
     </nav>
@@ -329,12 +378,14 @@ export function renderHelpCategoryPage(params: {
       </aside>
 
       <article class="doc-main">
-        <details class="docs-toc-m">
-          <summary><span>On this page</span>${renderSvg("chevron-down", 16)}</summary>
-          <nav aria-label="On this page">${tocLinks}</nav>
+        <details class="docs-toc-m docs-smooth-details">
+          <summary><span>In this guide</span>${renderSvg("chevron-down", 16)}</summary>
+          <div class="docs-details-body">
+            <ul class="docs-toc-bullets">${tocBullets}</ul>
+          </div>
         </details>
         ${sections}
-        <div class="docs-help">
+        <div class="docs-help doc-reveal" data-reveal>
           <div><strong>Still stuck?</strong><span class="d">Check troubleshooting, or open an issue with what you tried.</span></div>
           <div class="cluster">
             <a href="/help/security-and-quotas#troubleshooting" class="btn sm">${renderSvg("help-circle", 14)}<span>Troubleshooting</span></a>

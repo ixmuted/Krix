@@ -9,6 +9,7 @@ export type Tint = "clay" | "olive" | "sky" | "kraft" | "fig" | "cactus" | "slat
 
 export const GUIDE_TINTS: Record<string, Tint> = {
   "getting-started": "clay",
+  "adding-keys": "fig",
   authentication: "fig",
   github: "slate",
   sandbox: "olive",
@@ -77,6 +78,8 @@ export function renderDocsScripts(nonce?: string): string {
   const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : "";
   return `<script${nonceAttr}>
 (function () {
+  var prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   function flash(btn) {
     var span = btn.querySelector("span");
     if (!span) return;
@@ -92,16 +95,10 @@ export function renderDocsScripts(nonce?: string): string {
     try { document.execCommand("copy"); } catch (e) {}
     document.body.removeChild(ta);
   }
+
+  /* 1. CSP-safe copy buttons */
   document.addEventListener("click", function (ev) {
     var t = ev.target;
-    var fill = t && t.closest ? t.closest("[data-fill]") : null;
-    var input = document.getElementById("helpSearchInput");
-    if (fill && input) {
-      input.value = fill.getAttribute("data-fill") || "";
-      input.dispatchEvent(new Event("input"));
-      input.focus();
-      return;
-    }
     var btn = t && t.closest ? t.closest(".doc-copy-btn") : null;
     if (!btn) return;
     var text = btn.getAttribute("data-copy") || "";
@@ -111,6 +108,7 @@ export function renderDocsScripts(nonce?: string): string {
     } else { fallbackCopy(text); flash(btn); }
   });
 
+  /* 2. Live guide search */
   var search = document.getElementById("helpSearchInput");
   if (search) {
     var rows = Array.prototype.slice.call(document.querySelectorAll("[data-guide]"));
@@ -135,6 +133,74 @@ export function renderDocsScripts(nonce?: string): string {
     });
   }
 
+  /* 3. Smooth animated <details> accordions (FAQ & mobile TOC) */
+  if (!prefersReduced && typeof Element.prototype.animate === "function") {
+    var detailsList = Array.prototype.slice.call(document.querySelectorAll("details.docs-smooth-details"));
+    detailsList.forEach(function (el) {
+      var summary = el.querySelector("summary");
+      var body = el.querySelector(".docs-details-body");
+      if (!summary || !body) return;
+      var anim = null;
+      var isClosing = false;
+      var isExpanding = false;
+
+      summary.addEventListener("click", function (e) {
+        e.preventDefault();
+        el.style.overflow = "hidden";
+        if (isClosing || !el.open) {
+          el.style.height = el.offsetHeight + "px";
+          el.open = true;
+          window.requestAnimationFrame(function () {
+            isExpanding = true;
+            var startH = el.offsetHeight + "px";
+            var endH = (summary.offsetHeight + body.offsetHeight) + "px";
+            if (anim) anim.cancel();
+            anim = el.animate({ height: [startH, endH] }, { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+            anim.onfinish = function () {
+              el.open = true;
+              anim = null;
+              isClosing = false;
+              isExpanding = false;
+              el.style.height = "";
+              el.style.overflow = "";
+            };
+          });
+        } else if (isExpanding || el.open) {
+          isClosing = true;
+          var startH = el.offsetHeight + "px";
+          var endH = summary.offsetHeight + "px";
+          if (anim) anim.cancel();
+          anim = el.animate({ height: [startH, endH] }, { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+          anim.onfinish = function () {
+            el.open = false;
+            anim = null;
+            isClosing = false;
+            isExpanding = false;
+            el.style.height = "";
+            el.style.overflow = "";
+          };
+        }
+      });
+    });
+  }
+
+  /* 4. Smooth scroll reveal for sections, cards, and graphics */
+  var revealNodes = Array.prototype.slice.call(document.querySelectorAll("[data-reveal]"));
+  if (prefersReduced || typeof IntersectionObserver === "undefined") {
+    revealNodes.forEach(function (n) { n.classList.add("is-visible"); });
+  } else {
+    var revealIo = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          revealIo.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.06, rootMargin: "0px 0px -20px 0px" });
+    revealNodes.forEach(function (n) { revealIo.observe(n); });
+  }
+
+  /* 5. Desktop TOC active scroll-spy & mobile TOC auto-close */
   var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".docs-toc a[href^='#']"));
   if (tocLinks.length && "IntersectionObserver" in window) {
     var map = {};

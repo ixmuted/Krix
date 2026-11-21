@@ -1,6 +1,8 @@
 export interface HelpSection {
   id: string;
   title: string;
+  badge?: string;
+  graphic?: string;
   render: (ctx: { base: string; mcpUrl: string }) => string;
 }
 
