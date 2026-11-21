@@ -368,6 +368,178 @@ export function getClientScripts(): string {
       window.acceptCookieConsent(btn.getAttribute('data-cookie-choice'));
     });
   })();
+
+  // ----- Browser Notifications (Native Notification API + per-user polling) -----
+  (function() {
+    var PREF_KEY = 'krix-browser-notifications';
+    var SEEN_KEY = 'krix-seen-notifs';
+    var SINCE_KEY = 'krix-notifs-since';
+    var pollTimer = null;
+
+    function isSupported() {
+      return typeof window !== 'undefined' && 'Notification' in window;
+    }
+    function getPref() {
+      try { return localStorage.getItem(PREF_KEY) || 'on'; } catch (e) { return 'on'; }
+    }
+    function setPref(val) {
+      try { localStorage.setItem(PREF_KEY, val); } catch (e) {}
+    }
+    function isEnabled() {
+      return isSupported() && Notification.permission === 'granted' && getPref() !== 'off';
+    }
+    function getSeenSet() {
+      try {
+        var raw = sessionStorage.getItem(SEEN_KEY);
+        var arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) { return []; }
+    }
+    function markSeen(id) {
+      var list = getSeenSet();
+      if (list.indexOf(id) === -1) {
+        list.push(id);
+        if (list.length > 100) list = list.slice(list.length - 100);
+        try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(list)); } catch (e) {}
+      }
+    }
+    function fireNative(title, body, url, tag) {
+      if (!isEnabled()) return false;
+      try {
+        var n = new Notification(title || 'Krix', {
+          body: body || '',
+          icon: '/icon-192.png',
+          badge: '/icon-64.png',
+          tag: tag || undefined
+        });
+        n.onclick = function() {
+          try { window.focus(); } catch (e) {}
+          if (url && typeof url === 'string' && url.charAt(0) === '/') {
+            window.location.href = url;
+          }
+          n.close();
+        };
+        return true;
+      } catch (e) { return false; }
+    }
+    function syncUI() {
+      var badge = document.getElementById('browserNotifBadge');
+      var toggleBtn = document.getElementById('browserNotifToggleBtn');
+      var testBtn = document.getElementById('browserNotifTestBtn');
+      if (!badge && !toggleBtn) return;
+      if (!isSupported()) {
+        if (badge) badge.textContent = 'Unsupported';
+        if (toggleBtn) { toggleBtn.disabled = true; toggleBtn.textContent = 'Not supported'; }
+        if (testBtn) testBtn.hidden = true;
+        return;
+      }
+      var perm = Notification.permission;
+      if (perm === 'denied') {
+        if (badge) badge.textContent = 'Blocked in browser';
+        if (toggleBtn) { toggleBtn.disabled = true; toggleBtn.textContent = 'Blocked'; }
+        if (testBtn) testBtn.hidden = true;
+      } else if (isEnabled()) {
+        if (badge) badge.textContent = 'Enabled';
+        if (toggleBtn) { toggleBtn.disabled = false; toggleBtn.textContent = 'Disable'; }
+        if (testBtn) testBtn.hidden = false;
+      } else {
+        if (badge) badge.textContent = 'Off';
+        if (toggleBtn) { toggleBtn.disabled = false; toggleBtn.textContent = 'Enable notifications'; }
+        if (testBtn) testBtn.hidden = true;
+      }
+    }
+    function enable() {
+      if (!isSupported()) {
+        window.showToast('Browser notifications are not supported here.', 'error');
+        return Promise.resolve(false);
+      }
+      if (Notification.permission === 'denied') {
+        window.showToast('Notifications are blocked in your browser site settings.', 'error');
+        syncUI();
+        return Promise.resolve(false);
+      }
+      var req = Notification.permission === 'granted'
+        ? Promise.resolve('granted')
+        : Notification.requestPermission();
+      return req.then(function(result) {
+        if (result === 'granted') {
+          setPref('on');
+          syncUI();
+          fireNative('Krix notifications enabled', 'You will be alerted on logins, key changes, and security events.', '/settings', 'krix_notif_enabled');
+          window.showToast('Browser notifications enabled', 'success');
+          return true;
+        }
+        syncUI();
+        window.showToast('Notification permission was not granted.', 'info');
+        return false;
+      });
+    }
+    function disable() {
+      setPref('off');
+      syncUI();
+      window.showToast('Browser notifications paused', 'info');
+    }
+    function toggle() {
+      if (isEnabled()) { disable(); } else { enable(); }
+    }
+    function sendTest() {
+      if (!isEnabled()) {
+        enable();
+        return;
+      }
+      fireNative('Krix test alert', 'Browser notifications are active for your account.', '/settings', 'krix_notif_test_' + Date.now());
+      window.showToast('Test notification sent', 'success');
+    }
+    function pollNow() {
+      if (!document.getElementById('headerProfileTrigger')) return;
+      var since = 0;
+      try {
+        var stored = Number(sessionStorage.getItem(SINCE_KEY) || 0);
+        since = stored > 0 ? stored : (Date.now() - 60000);
+      } catch (e) { since = Date.now() - 60000; }
+      fetch('/api/notifications?since=' + encodeURIComponent(String(since)), {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          if (!data || !data.ok || !Array.isArray(data.notifications)) return;
+          var seen = getSeenSet();
+          var maxTs = since;
+          for (var i = 0; i < data.notifications.length; i++) {
+            var item = data.notifications[i];
+            if (item.createdAt && item.createdAt > maxTs) maxTs = item.createdAt;
+            if (!item.id || seen.indexOf(item.id) !== -1) continue;
+            markSeen(item.id);
+            fireNative(item.title, item.body, item.url, item.tag || item.id);
+          }
+          try { sessionStorage.setItem(SINCE_KEY, String(maxTs || data.serverTime || Date.now())); } catch (e) {}
+        })
+        .catch(function() {});
+    }
+
+    window.krixNotifications = {
+      isSupported: isSupported,
+      isEnabled: isEnabled,
+      enable: enable,
+      disable: disable,
+      toggle: toggle,
+      sendTest: sendTest,
+      syncUI: syncUI,
+      pollNow: pollNow
+    };
+
+    syncUI();
+    if (document.getElementById('headerProfileTrigger')) {
+      setTimeout(pollNow, 800);
+      pollTimer = setInterval(function() {
+        if (document.visibilityState === 'visible') pollNow();
+      }, 15000);
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') pollNow();
+      });
+    }
+  })();
 })();
 `;
 }
