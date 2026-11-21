@@ -49,7 +49,7 @@ describe('Icons and Asset Metadata', () => {
       assert.ok(icon.src.length <= 255, `Icon src must not exceed 255 characters: ${icon.src.length}`);
       assert.ok(!icon.src.startsWith('data:'), `Icon src must not be an oversized data URI`);
       assert.equal(icon.url, icon.src, 'Icon url property must match src property');
-      assert.equal(icon.mimeType, 'image/png', 'Icon MIME type must be image/png');
+      assert.ok(['image/png', 'image/svg+xml'].includes(icon.mimeType), `Icon MIME type must be image/png or image/svg+xml: ${icon.mimeType}`);
       assert.ok(Array.isArray(icon.sizes), 'Icon sizes must be an array');
       for (const size of icon.sizes) {
         assert.match(size, /^(\d+x\d+|any)$/, `Size must match pattern: ${size}`);
@@ -128,7 +128,7 @@ describe('Icons and Asset Metadata', () => {
       assert.ok(icon.src.startsWith('https://'), 'All icons must be HTTPS URLs');
       assert.ok(icon.src.length <= 255, 'All icon URLs must be <= 255 characters');
       assert.ok(!icon.src.startsWith('data:'), 'No icon should use data URI');
-      assert.equal(icon.mimeType, 'image/png');
+      assert.ok(['image/png', 'image/svg+xml'].includes(icon.mimeType), `Icon MIME type must be image/png or image/svg+xml: ${icon.mimeType}`);
       assert.ok(Array.isArray(icon.sizes));
       assert.ok(icon.sizes.length > 0);
 

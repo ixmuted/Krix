@@ -84,10 +84,11 @@ test("SEP-2127 MCP server card, icon sizes, and metadata standard", () => {
 test("Google logo SVG helper and sign-in button integration", () => {
   const svg = renderGoogleLogoSvg(18);
   assert.ok(svg.includes("<svg"), "Must output valid SVG");
-  assert.ok(svg.includes("#4285F4"), "Must include Google Blue");
-  assert.ok(svg.includes("#34A853"), "Must include Google Green");
-  assert.ok(svg.includes("#FBBC05"), "Must include Google Yellow");
-  assert.ok(svg.includes("#EA4335"), "Must include Google Red");
+  // The logo is the multi-gradient Google "G"; these are its brand-colour gradient stops.
+  assert.ok(svg.includes("#3086ff"), "Must include Google Blue");
+  assert.ok(svg.includes("#0cba65"), "Must include Google Green");
+  assert.ok(svg.includes("#fdcd01"), "Must include Google Yellow");
+  assert.ok(svg.includes("#ff4541"), "Must include Google Red");
 
   // Header when unauthenticated: renders Google logo in sign-in button
   const headerUnauth = renderHeader("home", null);
@@ -96,7 +97,7 @@ test("Google logo SVG helper and sign-in button integration", () => {
     "Header must include Sign in with Google",
   );
   assert.ok(
-    headerUnauth.includes("#4285F4"),
+    headerUnauth.includes("#3086ff"),
     "Header sign in button must include Google logo SVG",
   );
 });
@@ -267,7 +268,7 @@ test("Auth gating across pages: /stats, /tools, /store, /api, /upload show Authe
     "Stats page auth card must return to /stats",
   );
   assert.ok(
-    statsHtml.includes("#4285F4"),
+    statsHtml.includes("#3086ff"),
     "Stats page auth card must include Google logo",
   );
 
@@ -339,7 +340,7 @@ test("Auth gating across pages: /stats, /tools, /store, /api, /upload show Authe
     "Upload page auth card must return to /upload",
   );
   assert.ok(
-    uploadUnauthHtml.includes("#4285F4"),
+    uploadUnauthHtml.includes("#3086ff"),
     "Upload page auth card must include Google colored logo SVG",
   );
 });
@@ -850,11 +851,11 @@ test("OAuth duplicate deduplication, CSP-compliant connector icons, and asset ca
       "Must preserve tool call telemetry",
     );
 
-    // 3. Verify brand icon cache buster ?v=2
+    // 3. Verify brand asset cache busters (header logo is /logo.svg?v=4, head icon links are ?v=3)
     const headerHtml = renderHeader("home", null);
     assert.ok(
-      headerHtml.includes("/icon-48.png?v=2"),
-      "Header avatar must include ?v=2 cache buster",
+      headerHtml.includes("/logo.svg?v=4"),
+      "Header logo must include ?v=4 cache buster",
     );
 
     const homeHtml = renderHomePage({
@@ -867,8 +868,8 @@ test("OAuth duplicate deduplication, CSP-compliant connector icons, and asset ca
       statsSummary: summary,
     });
     assert.ok(
-      homeHtml.includes("/icon-48.png?v=2"),
-      "Home page head link must include ?v=2 cache buster",
+      homeHtml.includes("/icon-48.png?v=3"),
+      "Home page head link must include ?v=3 cache buster",
     );
 
     // 4. Verify CSP-compliant icon priority

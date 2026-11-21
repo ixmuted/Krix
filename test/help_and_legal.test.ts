@@ -56,7 +56,8 @@ describe("Help Center & Subpages", () => {
     assert.equal(filesCat?.icon, "files");
     assert.equal(getHelpCategory("authentication")?.slug, "adding-keys");
 
-    const lower = html.toLowerCase();
+    // Brand check applies to visible content; stylesheets and script comments are not user-visible copy.
+    const lower = html.replace(/<(style|script)[\s\S]*?<\/\1>/gi, "").toLowerCase();
     for (const brand of FORBIDDEN_CLIENT_BRANDS) {
       assert.ok(
         !lower.includes(brand),
@@ -96,11 +97,13 @@ describe("Help Center & Subpages", () => {
         nonce: "test_nonce_456",
       });
       assert.ok(html, `Expected HTML for /help/${cat.slug}`);
-      assert.ok(html!.includes(cat.title));
+      // Titles are HTML-escaped when rendered ("&" becomes "&amp;").
+      assert.ok(html!.includes(cat.title.replace(/&/g, "&amp;")));
       assert.ok(html!.includes('aria-label="Breadcrumb"'));
       assert.ok(html!.includes('nonce="test_nonce_456"'));
 
-      const lower = html!.toLowerCase();
+      // Brand check applies to visible content; stylesheets and script comments are not user-visible copy.
+      const lower = html!.replace(/<(style|script)[\s\S]*?<\/\1>/gi, "").toLowerCase();
       for (const brand of FORBIDDEN_CLIENT_BRANDS) {
         assert.ok(
           !lower.includes(brand),

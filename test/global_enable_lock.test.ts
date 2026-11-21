@@ -148,8 +148,9 @@ describe("workspace lock: adding a credential does not switch tools on for exist
     // No GitHub token yet: the GitHub tools are blocked.
     assert.equal(on(k, "get_me", "core", noGithub), false);
 
-    // The user locks global enabling (nothing is on through inheritance yet, so the baseline is empty).
-    setWorkspaceGlobalLock(WS, true, [k], () => []);
+    // The user locks global enabling. The baseline snapshots what is on right now: only the
+    // credential-free sandbox default (the GitHub tools are blocked, so they are not in it).
+    setWorkspaceGlobalLock(WS, true, [k], () => ["sandbox_exec"]);
     assert.equal(getKeySettings(WS).lockGlobalEnables, true);
     assert.equal(resolveAcceptGlobalEnables(key, getKeySettings(WS)), false);
 

@@ -416,8 +416,8 @@ describe("Multi-User Architecture, Quotas, Settings & Code Graph Tools", () => {
         html.includes(">Standard<"),
         "Must show member role badge",
       );
-      assert.ok(html.includes("2.5 MB"), "Must show 1/10th file limit");
-      assert.ok(html.includes("Per file limit"), "Must show file limit label");
+      // The per-file limit (2.5 MB) is no longer shown on the settings page; it is still enforced via getUserQuota.
+      assert.equal(userQuota.maxFileMb, 2.5, "Standard members keep the 1/10th per-file limit");
       assert.ok(
         html.includes("400 KB max output"),
         "Must show 1/10th buffer limit",
