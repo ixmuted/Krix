@@ -222,6 +222,8 @@ export function renderCookieBanner(): string {
         <button type="button" class="btn sm" data-cookie-choice="essential">Essential only</button>
         <button type="button" class="btn primary sm" data-cookie-choice="accepted">Accept</button>
       </div>
+    </aside>
+  `;
 }
 
 export function renderScrollProgressFab(): string {
