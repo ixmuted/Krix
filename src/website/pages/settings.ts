@@ -31,9 +31,7 @@ export function renderSettingsPage(params: {
   const globalLocked = params.globalLocked === true;
   const sandboxAllowed = params.sandboxAllowed !== false;
   const quotaLimitDisplay = isOwner ? "300 MB" : "50 MB";
-  const roleBadge = isOwner
-    ? "Server Owner"
-    : "Standard Member (1/10th Limits)";
+  const roleBadge = isOwner ? "Server Owner" : "Standard";
   const pidsLimit = isOwner ? "2048 PIDs" : "204 PIDs";
   const bufferLimit = isOwner ? "4 MB max output" : "400 KB max output";
 
