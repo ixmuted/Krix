@@ -237,6 +237,7 @@ export interface PageShellOptions {
   owner?: any;
   nonce?: string;
   headExtra?: string;
+  pageClass?: string;
   wide?: boolean;
   narrow?: boolean;
   footer?: boolean;
@@ -283,7 +284,7 @@ export function renderPageShell(options: PageShellOptions): string {
   <div class="app">
     ${renderHeader(options.activeTab, options.owner)}
     <div class="main">
-      <main class="page${options.wide ? " wide" : ""}${options.narrow ? " narrow" : ""}">
+      <main class="page${options.wide ? " wide" : ""}${options.narrow ? " narrow" : ""}${options.pageClass ? " " + escapeHtml(options.pageClass) : ""}">
         ${options.content}
         ${options.recaptchaNotice ? renderRecaptchaNotice() : ""}
       </main>
