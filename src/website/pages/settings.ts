@@ -231,6 +231,22 @@ export function renderSettingsPage(params: {
     </div>
 
     <div class="panel">
+      <h2 class="panel-title" style="margin-bottom:14px;">Browser notifications</h2>
+      <div class="rows">
+        <div class="row">
+          <div>
+            <div class="row-title">Security &amp; account alerts <span id="browserNotifBadge" class="badge" style="margin-left:6px;">Off</span></div>
+            <div class="row-desc">Get native browser alerts for account creation or deletion, new login IPs, API key and OAuth changes, provider credential updates, and public file shares.</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" id="browserNotifTestBtn" class="btn" hidden onclick="window.krixNotifications && window.krixNotifications.sendTest()">Send test</button>
+            <button type="button" id="browserNotifToggleBtn" class="btn" onclick="window.krixNotifications && window.krixNotifications.toggle()">Enable notifications</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
       <h2 class="panel-title" style="margin-bottom:14px;">Appearance</h2>
       <div class="rows">
         <div class="row">
