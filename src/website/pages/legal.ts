@@ -1,124 +1,161 @@
-// Privacy Policy & Terms of Service Pages for Krix MCP Gateway
-// Professional Geist Minimalist Layout adhering to WCAG AAA Contrast Standards
-
-import { renderPageShell } from "../components.js";
+import { escapeHtml } from "../components.js";
 import { renderSvg } from "../icons.js";
+import { EFFECTIVE_DATE, REPO_URL, readMinutes, renderDocsShell } from "./docsKit.js";
+import type { Tint } from "./docsKit.js";
+import { PRIVACY_FACTS, PRIVACY_SECTIONS } from "./legalPrivacy.js";
+import { TERMS_FACTS, TERMS_SECTIONS } from "./legalTerms.js";
 
-export function renderPrivacyPage(params: { owner?: any; nonce?: string }): string {
+export interface LegalSection {
+  id: string;
+  title: string;
+  html: string;
+}
+
+export interface LegalFact {
+  icon: string;
+  tint: Tint;
+  title: string;
+  text: string;
+}
+
+interface LegalDoc {
+  kind: "privacy" | "terms";
+  title: string;
+  lede: string;
+  icon: string;
+  tint: Tint;
+  facts: LegalFact[];
+  sections: LegalSection[];
+  other: { href: string; title: string; dir: string };
+}
+
+function renderTabs(active: "privacy" | "terms"): string {
+  const tab = (href: string, icon: string, label: string, on: boolean) =>
+    `<a href="${href}"${on ? ' aria-current="page"' : ""}>${renderSvg(icon, 15)}<span>${label}</span></a>`;
+  return `<nav class="legal-tabs" aria-label="Legal documents">
+      ${tab("/privacy", "shield", "Privacy Policy", active === "privacy")}
+      ${tab("/terms", "file-text", "Terms of Service", active === "terms")}
+      ${tab("/help/security-and-quotas", "shield-check", "Security and quotas", false)}
+    </nav>`;
+}
+
+function renderLegal(doc: LegalDoc, params: { owner?: any; nonce?: string }): string {
+  const minutes = readMinutes(doc.sections.map((s) => s.html).join(" "));
+  const tocLinks = doc.sections
+    .map((s, i) => `<a href="#${s.id}">${i + 1}. ${escapeHtml(s.title)}</a>`)
+    .join("");
+
+  const facts = doc.facts
+    .map(
+      (f) => `
+      <div class="legal-fact" data-tint="${f.tint}" role="listitem">
+        <span class="tile">${renderSvg(f.icon, 20)}</span>
+        <h3>${escapeHtml(f.title)}</h3>
+        <p>${escapeHtml(f.text)}</p>
+      </div>`,
+    )
+    .join("");
+
+  const sections = doc.sections
+    .map(
+      (s, i) => `
+      <section id="${s.id}" class="legal-sec">
+        <div class="legal-num" aria-hidden="true">${i + 1}</div>
+        <div class="legal-text">
+          <h2>${escapeHtml(s.title)}</h2>
+          ${s.html}
+        </div>
+      </section>`,
+    )
+    .join("");
+
   const content = `
-    <div>
-      <div class="page-head"><div><h1 class="page-title">Privacy Policy</h1><p class="page-sub">Effective Date: November 2026</p></div></div>
+    <nav class="docs-crumbs" aria-label="Breadcrumb">
+      <a href="/help">Help Center</a>
+      ${renderSvg("chevron-right", 14)}
+      <span aria-current="page">${escapeHtml(doc.title)}</span>
+    </nav>
 
-      <div class="prose">
-        <section>
-          <h2>1. Overview</h2>
-          <p>
-            Krix is a developer-focused Model Context Protocol (MCP) gateway, coding execution sandbox, and dataset workbench. We believe in minimal data retention and strict single-user or role-isolated data boundaries. This Privacy Policy details what information is collected, how it is stored, and your rights regarding your data.
-          </p>
-        </section>
-
-        <section>
-          <h2>2. Information We Process</h2>
-          <ul>
-            <li><strong>Authentication Identifiers:</strong> When signing in with Google OAuth 2.0, we store your email address and profile name solely to enforce single-user owner gating and multi-user quota allocations.</li>
-            <li><strong>MCP Tool Telemetry:</strong> Request counts, execution latencies, and tool call distributions are aggregated to provide dashboard performance analytics. Raw tool inputs and secrets are never logged in persistent analytics.</li>
-            <li><strong>Provider Tokens:</strong> GitHub Personal Access Tokens and Render API Keys configured by you are AES-256-GCM encrypted at rest and used strictly on your behalf to execute MCP tools.</li>
-            <li><strong>Uploaded Files &amp; Datasets:</strong> Workspace artifacts uploaded to the sandbox or Files storage are retained in accordance with retention schedules (24-hour ephemeral or permanent storage).</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2>3. Data Security &amp; Storage</h2>
-          <p>
-            All network communication requires TLS 1.3 encryption. Dynamic keys and tokens are stored encrypted using salted cryptographic HMAC signatures. Uploaded artifacts are stored in isolated workspace root paths segregated per user session.
-          </p>
-        </section>
-
-        <section>
-          <h2>4. User Rights &amp; Deletion</h2>
-          <p>
-            You have the right to inspect, export, and permanently delete your data at any time. Revoking an API key or OAuth authorization immediately terminates access and wipes cached key telemetry. You may purge all account data via the Settings Danger Zone.
-          </p>
-        </section>
-
-        <section>
-          <h2>5. Third-Party Integrations</h2>
-          <p>
-            When utilizing GitHub or Render MCP tools, requests are transmitted directly to the respective third-party APIs using your configured credentials. We do not sell, rent, or monetize developer telemetry.
-          </p>
-        </section>
-
-        <section>
-          <h2>6. Contact &amp; Governance</h2>
-          <p>
-            For questions regarding this policy or data inquiries, reach out through the Krix open-source repository on GitHub.
-          </p>
-        </section>
+    <header class="docs-head" data-tint="${doc.tint}">
+      <span class="tile lg" aria-hidden="true">${renderSvg(doc.icon, 26)}</span>
+      <div class="docs-head-body">
+        <h1>${escapeHtml(doc.title)}</h1>
+        <p class="docs-head-sub">${escapeHtml(doc.lede)}</p>
+        <div class="docs-head-meta">
+          <span class="docs-pill">Legal</span>
+          <span>Effective ${EFFECTIVE_DATE}</span>
+          <span>${minutes} min read</span>
+        </div>
+        ${renderTabs(doc.kind)}
       </div>
+    </header>
+
+    <p class="legal-facts-title">In plain English</p>
+    <div class="legal-facts" role="list">${facts}</div>
+
+    <div class="docs-grid legal">
+      <nav class="docs-toc" aria-label="Contents">
+        <div class="docs-toc-label">Contents</div>
+        ${tocLinks}
+      </nav>
+
+      <article class="legal-body">
+        <details class="docs-toc-m">
+          <summary><span>Contents</span>${renderSvg("chevron-down", 16)}</summary>
+          <nav aria-label="Contents">${tocLinks}</nav>
+        </details>
+        ${sections}
+        <div class="legal-contact">
+          <div>
+            <strong>Questions about this document?</strong>
+            <span class="d">Open an issue on the Krix repository. Security reports are welcome there too.</span>
+          </div>
+          <a href="${REPO_URL}/issues" target="_blank" rel="noopener noreferrer" class="btn sm">${renderSvg("github", 14)}<span>Open an issue</span></a>
+        </div>
+        <nav class="doc-pager" aria-label="Related documents">
+          <a href="/help" class="doc-pager-card"><span class="doc-pager-dir">${renderSvg("chevron-left", 14)} Back</span><span class="doc-pager-title">Help Center</span></a>
+          <a href="${doc.other.href}" class="doc-pager-card doc-pager-next"><span class="doc-pager-dir">${escapeHtml(doc.other.dir)} ${renderSvg("chevron-right", 14)}</span><span class="doc-pager-title">${escapeHtml(doc.other.title)}</span></a>
+        </nav>
+      </article>
     </div>
   `;
 
-  return renderPageShell({
-    title: "Privacy Policy - Krix",
-    activeTab: "home",
+  return renderDocsShell({
+    title: `${doc.title} - Krix`,
     content,
     owner: params.owner,
+    nonce: params.nonce,
   });
 }
 
+export function renderPrivacyPage(params: { owner?: any; nonce?: string }): string {
+  return renderLegal(
+    {
+      kind: "privacy",
+      title: "Privacy Policy",
+      lede: "What Krix collects, how it is encrypted and isolated, how long it is kept, and how you can delete it.",
+      icon: "shield",
+      tint: "clay",
+      facts: PRIVACY_FACTS,
+      sections: PRIVACY_SECTIONS,
+      other: { href: "/terms", title: "Terms of Service", dir: "Next" },
+    },
+    params,
+  );
+}
+
 export function renderTermsPage(params: { owner?: any; nonce?: string }): string {
-  const content = `
-    <div>
-      <div class="page-head"><div><h1 class="page-title">Terms of Service</h1><p class="page-sub">Effective Date: November 2026</p></div></div>
-
-      <div class="prose">
-        <section>
-          <h2>1. Acceptance of Terms</h2>
-          <p>
-            By accessing or connecting to Krix via web interface, MCP SSE endpoint, or OAuth 2.1 protocol, you agree to comply with and be bound by these Terms of Service.
-          </p>
-        </section>
-
-        <section>
-          <h2>2. Authorized Use &amp; Sandboxing</h2>
-          <p>
-            Krix provides containerized sandbox environments for running code, testing packages, and managing cloud deployments. Users agree not to:
-          </p>
-          <ul>
-            <li>Execute denial-of-service, abusive scraping, or network intrusion against external systems.</li>
-            <li>Circumvent multi-user memory, storage, or CPU process constraints.</li>
-            <li>Store or transmit unlawful, malicious, or abusive software payloads.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2>3. API Key &amp; OAuth Security</h2>
-          <p>
-            Users are solely responsible for maintaining the confidentiality of issued API keys and OAuth tokens. Any operations performed with your tokens are attributed to your account scope. If a key is compromised, revoke it immediately via the API Keys dashboard.
-          </p>
-        </section>
-
-        <section>
-          <h2>4. Service Availability &amp; Rate Limits</h2>
-          <p>
-            Krix is provided on an "as is" and "as available" basis. While we strive for 99.9% uptime, we do not warrant that operation will be uninterrupted. Resource quotas are enforced dynamically per user role.
-          </p>
-        </section>
-
-        <section>
-          <h2>5. Limitation of Liability</h2>
-          <p>
-            In no event shall the authors or maintainers of Krix be liable for any direct, indirect, incidental, or consequential damages resulting from the execution of code within the sandbox or interaction with third-party APIs.
-          </p>
-        </section>
-      </div>
-    </div>
-  `;
-
-  return renderPageShell({
-    title: "Terms of Service - Krix",
-    activeTab: "home",
-    content,
-    owner: params.owner,
-  });
+  return renderLegal(
+    {
+      kind: "terms",
+      title: "Terms of Service",
+      lede: "The rules for using the Krix dashboard, MCP gateway, OAuth endpoints, sandbox and file store.",
+      icon: "file-text",
+      tint: "kraft",
+      facts: TERMS_FACTS,
+      sections: TERMS_SECTIONS,
+      other: { href: "/privacy", title: "Privacy Policy", dir: "Also read" },
+    },
+    params,
+  );
 }
