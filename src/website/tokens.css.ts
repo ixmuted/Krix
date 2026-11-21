@@ -674,7 +674,7 @@ a.ws-card:hover { border-color: var(--border-medium); background: var(--hover); 
   position: fixed;
   right: 20px;
   bottom: 20px;
-  z-index: var(--z-sticky);
+  z-index: var(--z-toast);
   width: min(380px, calc(100vw - 32px));
   padding: 20px;
   background: #181715;

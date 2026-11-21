@@ -350,7 +350,10 @@ export function getClientScripts(): string {
     try { localStorage.setItem('krix-cookie-consent', val); } catch (e) {}
     document.cookie = 'krix_consent=' + val + '; Max-Age=31536000; Path=/; SameSite=Lax';
     var banner = document.getElementById('krixCookieBanner');
-    if (banner) banner.hidden = true;
+    if (banner) {
+      banner.hidden = true;
+      banner.style.display = 'none';
+    }
   };
   (function() {
     var banner = document.getElementById('krixCookieBanner');
