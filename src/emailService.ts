@@ -341,8 +341,7 @@ function renderDetailList(
       (item) =>
         `<li style="margin:0 0 8px; padding:0; line-height:1.6;"><strong style="font-weight:600;">${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</li>`,
     )
-    .join("
-              ");
+    .join("\n              ");
 
   return `<ul style="margin:0 0 20px; padding:0 0 0 20px; font-size:14px; color:#3c4043; line-height:1.6;">
               ${li}
