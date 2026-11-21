@@ -115,6 +115,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
 [hidden] { display: none !important; }
 .text-muted { color: var(--fg-3); }
 .mono { font-family: var(--font-mono); }
+.grecaptcha-badge { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 * { scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
 
 /* ---------- App frame (compact dropdown across Mobile, Tablet & PC) ---------- */
