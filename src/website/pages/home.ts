@@ -90,10 +90,10 @@ export function renderHomePage(params: {
   owner?: any;
   uploads?: any;
   dynamicKeys?: any[];
+  nonce?: string;
 }): string {
   const base = params.base ? params.base.replace(/\/+$/, "") : "";
-  const endpoint = `${base}/mcp`;
-  const isAuth = !!(params.owner && (params.owner.email || params.owner.name));
+  const nonceAttr = params.nonce ? ` nonce="${escapeHtml(params.nonce)}"` : "";
   const jsonConfig = JSON.stringify({ mcpServers: { krix: { url: endpoint } } }, null, 2);
   const cliConfig = `claude mcp add --transport http krix ${endpoint}`;
 
