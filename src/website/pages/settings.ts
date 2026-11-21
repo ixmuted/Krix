@@ -132,7 +132,7 @@ export function renderSettingsPage(params: {
         </div>
         <span class="badge">${quotaLimitDisplay}</span>
       </div>
-      <div class="stats">
+      <div class="stats quota-stats">
         <div class="stat"><div class="stat-label">Storage Capacity</div><div class="stat-value">${quotaLimitDisplay}</div></div>
         <div class="stat"><div class="stat-label">Account Role</div><div class="stat-value sm">${roleBadge}</div></div>
         <div class="stat"><div class="stat-label">Buffer Limit</div><div class="stat-value sm mono">${bufferLimit}</div></div>
