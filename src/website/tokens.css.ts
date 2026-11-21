@@ -236,6 +236,8 @@ html.dark .stat { background: var(--bg-surface-1); }
 .stat-value.sm { font-family: var(--font-sans); font-size: 15px; font-weight: 500; margin-top: 4px; }
 .stat-value.ok { color: var(--success); }
 .stat-value.bad { color: var(--error); }
+.stats.quota-stats .stat { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 14px 12px; gap: 4px; }
+.stats.quota-stats .stat-value, .stats.quota-stats .stat-value.sm { margin-top: 0; line-height: 1.3; }
 .empty { text-align: center; padding: 40px 16px; color: var(--fg-3); font-size: 14px; }
 
 /* ---------- Lists ---------- */
