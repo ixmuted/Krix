@@ -384,7 +384,7 @@ function renderEmailShell(params: {
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="vertical-align:middle; padding-right:10px;">
-                          <img src="${KRIX_LOGO_URL}" width="54" height="54" alt="Krix" style="display:block; width:54px; height:54px; border-radius:50%; border:0;" />
+                          <div role="img" aria-label="Krix" style="width:40px; height:40px; border-radius:50%; background-color:#ffffff; background-image:url('${KRIX_LOGO_URL}'); background-size:cover; background-position:center; background-repeat:no-repeat;"></div>
                         </td>
                         <td style="vertical-align:middle;">
                           <span style="font-family:${fontSans}; font-size:18px; font-weight:600; color:#202124; letter-spacing:-0.01em; line-height:1;">Krix</span>
