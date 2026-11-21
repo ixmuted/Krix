@@ -389,6 +389,70 @@ export function getClientScripts(): string {
     function isEnabled() {
       return isSupported() && Notification.permission === 'granted' && getPref() !== 'off';
     }
+    function urlBase64ToUint8Array(base64String) {
+      var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      var raw = atob(base64);
+      var out = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    }
+    function subscribeWebPush() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve(false);
+      return navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(function(reg) {
+          return navigator.serviceWorker.ready.then(function() { return reg; });
+        })
+        .then(function(reg) {
+          return fetch('/api/push/vapid-public-key', {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+          })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(data) {
+              if (!data || !data.ok || !data.publicKey) return null;
+              return reg.pushManager.getSubscription().then(function(existing) {
+                if (existing) return existing;
+                return reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlBase64ToUint8Array(data.publicKey)
+                });
+              });
+            });
+        })
+        .then(function(sub) {
+          if (!sub) return false;
+          var json = sub.toJSON ? sub.toJSON() : sub;
+          return fetch('/api/push/subscribe', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: json })
+          }).then(function(r) { return r.ok; });
+        })
+        .catch(function() { return false; });
+    }
+    function unsubscribeWebPush() {
+      if (!('serviceWorker' in navigator)) return Promise.resolve(false);
+      return navigator.serviceWorker.getRegistration('/')
+        .then(function(reg) {
+          if (!reg || !reg.pushManager) return null;
+          return reg.pushManager.getSubscription();
+        })
+        .then(function(sub) {
+          if (!sub) return false;
+          var endpoint = sub.endpoint;
+          return sub.unsubscribe().catch(function() {}).then(function() {
+            return fetch('/api/push/unsubscribe', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: endpoint })
+            }).then(function(r) { return r.ok; });
+          });
+        })
+        .catch(function() { return false; });
+    }
     function getSeenSet() {
       try {
         var raw = sessionStorage.getItem(SEEN_KEY);
@@ -461,6 +525,7 @@ export function getClientScripts(): string {
         if (result === 'granted') {
           setPref('on');
           syncUI();
+          subscribeWebPush();
           fireNative('Krix notifications enabled', 'You will be alerted on logins, key changes, and security events.', '/settings', 'krix_notif_enabled');
           window.showToast('Browser notifications enabled', 'success');
           return true;
@@ -472,6 +537,7 @@ export function getClientScripts(): string {
     }
     function disable() {
       setPref('off');
+      unsubscribeWebPush();
       syncUI();
       window.showToast('Browser notifications paused', 'info');
     }
@@ -550,6 +616,7 @@ export function getClientScripts(): string {
 
     syncUI();
     if (document.getElementById('headerProfileTrigger')) {
+      if (isEnabled()) { subscribeWebPush(); }
       setTimeout(maybeShowPrompt, 1500);
       setTimeout(pollNow, 800);
       pollTimer = setInterval(function() {
