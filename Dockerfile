@@ -3,6 +3,7 @@ FROM node:22-slim
 # Runtimes + file-tooling used by the sandbox (zip/unzip/7z, ImageMagick, ffmpeg, Pillow, and data/math packages).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    gh \
     python3 \
     python3-pip \
     python3-pil \
