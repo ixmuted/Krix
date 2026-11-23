@@ -161,12 +161,31 @@ const outputCachePruneTimer = setInterval(
 );
 outputCachePruneTimer.unref();
 
+const sessionGithubTokens = new Map<string, string>();
+
+function scrubSandboxSecret(sessionId: string, text: string): string {
+  if (!text) return "";
+  let out = text.replace(
+    /^(\s*(?:export\s+)?(?:GH_TOKEN|GITHUB_TOKEN|GITHUB_PERSONAL_ACCESS_TOKEN|GITHUB_PAT)=).+$/gm,
+    "$1[REDACTED]",
+  );
+  const token = sessionGithubTokens.get(sessionId);
+  if (token && token.length >= 8) {
+    out = out.split(token).join("[REDACTED]");
+    const encoded = encodeURIComponent(token);
+    if (encoded !== token) out = out.split(encoded).join("[REDACTED]");
+    const b64 = Buffer.from(token, "utf8").toString("base64");
+    if (b64.length >= 8) out = out.split(b64).join("[REDACTED]");
+  }
+  return out;
+}
+
 function truncWithCache(
   sessionId: string,
   s: string,
   cap: number = OUT_CAP,
 ): string {
-  const clean = s.trim();
+  const clean = scrubSandboxSecret(sessionId, s).trim();
   if (!clean) return "";
   if (clean.length <= cap) return clean;
   const id = cacheOutput(sessionId, clean);
@@ -237,6 +256,41 @@ export async function resolveSandboxFile(
   return { root, abs };
 }
 
+async function ensureGitExcludeUpload(workDirectory: string): Promise<void> {
+  const gitInfoDir = path.join(workDirectory, ".git", "info");
+  const excludeFile = path.join(gitInfoDir, "exclude");
+  try {
+    const st = await fsp.stat(gitInfoDir);
+    if (!st.isDirectory()) return;
+    let content = "";
+    try {
+      content = await fsp.readFile(excludeFile, "utf8");
+    } catch {}
+    const entry = `/${UPLOAD_DIR}`;
+    const lines = content.split(/\r?\n/).map((l) => l.trim());
+    if (!lines.includes(entry)) {
+      const prefix = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+      await fsp.appendFile(excludeFile, `${prefix}${entry}\n`, "utf8");
+    }
+  } catch {}
+}
+
+async function isSandboxUploadSymlink(
+  root: string,
+  workDirectory: string,
+): Promise<boolean> {
+  const symlinkPath = path.join(workDirectory, UPLOAD_DIR);
+  const targetUploadDir = path.join(root, UPLOAD_DIR);
+  try {
+    const lst = await fsp.lstat(symlinkPath);
+    if (!lst.isSymbolicLink()) return false;
+    const linkTarget = await fsp.readlink(symlinkPath);
+    return path.resolve(workDirectory, linkTarget) === path.resolve(targetUploadDir);
+  } catch {
+    return false;
+  }
+}
+
 async function ensureUploadSymlink(
   root: string,
   workDirectory: string,
@@ -251,10 +305,18 @@ async function ensureUploadSymlink(
       await fsp.symlink(targetUploadDir, symlinkPath);
     }
   } catch {}
+  await ensureGitExcludeUpload(workDirectory);
 }
 
 function envFor(sessionId: string, root: string): NodeJS.ProcessEnv {
-  return buildSandboxEnv(root, getSessionContext(sessionId).env);
+  const base = buildSandboxEnv(root, getSessionContext(sessionId).env);
+  const token = sessionGithubTokens.get(sessionId);
+  if (token) {
+    base.GH_TOKEN = token;
+    base.GH_PROMPT_DISABLED = "1";
+    base.GH_NO_UPDATE_NOTIFIER = "1";
+  }
+  return base;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -467,6 +529,7 @@ export async function destroySandbox(
   const shellToKill = shellKey(sessionId);
   if (options.deleteContext) {
     deleteSessionContext(sessionId);
+    sessionGithubTokens.delete(sessionId);
   }
   killShell(shellToKill);
   outputCache.delete(sessionId);
@@ -657,6 +720,12 @@ export function registerSandboxTools(
   registry: Record<string, any>,
 ) {
   const reg = makeRegistrar(server, registry, sessionId);
+  const trimmedToken = githubToken?.trim();
+  if (trimmedToken) {
+    sessionGithubTokens.set(sessionId, trimmedToken);
+  } else {
+    sessionGithubTokens.delete(sessionId);
+  }
 
   reg(
     "sandbox_exec",
@@ -705,10 +774,16 @@ export function registerSandboxTools(
           };
           table.set(pid, entry);
           proc.stdout?.on("data", (d) => {
-            entry.stdout = appendCapped(entry.stdout, d.toString());
+            entry.stdout = appendCapped(
+              entry.stdout,
+              scrubSandboxSecret(sessionId, d.toString()),
+            );
           });
           proc.stderr?.on("data", (d) => {
-            entry.stderr = appendCapped(entry.stderr, d.toString());
+            entry.stderr = appendCapped(
+              entry.stderr,
+              scrubSandboxSecret(sessionId, d.toString()),
+            );
           });
           proc.on("error", (e) => {
             entry.stderr = appendCapped(
@@ -1313,6 +1388,7 @@ export function registerSandboxTools(
             ["node", "node", ["-v"]],
             ["python", "python3", ["--version"]],
             ["git", "git", ["--version"]],
+            ["gh", "gh", ["--version"]],
             ["go", "go", ["version"]],
             ["zip", "zip", ["-v"]],
             ["unzip", "unzip", ["-v"]],
@@ -1724,7 +1800,12 @@ export function registerSandboxTools(
           updateSessionContext(sessionId, { branch: args.branch });
         }
 
-        const add = await git(root, dir, ["add", "-A"], undefined, 30000);
+        await ensureGitExcludeUpload(dir);
+        const skipUpload = await isSandboxUploadSymlink(root, dir);
+        const addArgs = skipUpload
+          ? ["add", "-A", "--", ".", `:!${UPLOAD_DIR}`]
+          : ["add", "-A"];
+        const add = await git(root, dir, addArgs, undefined, 30000);
         if (add.code !== 0) return execResponse(sessionId, add);
 
         const commit = await git(
